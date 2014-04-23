@@ -1,0 +1,14 @@
+language: python
+python:
+#  - "3.4" # Python 3.4 is not supported by travis yet :(
+  - "3.3"
+  - "3.2"
+  - "2.7"
+
+# command to install dependencies
+install:
+ - pip install -r requirements.txt
+ - pip install -r requirements-test.txt
+ - pip install .
+# use setup.py to invoke testing
+script: py.test -vv tests
