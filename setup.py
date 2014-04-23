@@ -48,5 +48,6 @@ setup(
 
     packages = [
         "pgpy",
+        "pgpy.packet",
     ],
 )
