@@ -7,7 +7,7 @@ import collections
 import re
 import hashlib
 
-from .packet.packets import PGPPacket
+from .packet import PGPPacket
 from .fileloader import FileLoader
 from .util import bytes_to_int, int_to_bytes
 from . import ASCII_ARMOR_BLOCK_REG, ASCII_ARMOR_BLOCK_FORMAT
