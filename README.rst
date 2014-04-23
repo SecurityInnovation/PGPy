@@ -13,17 +13,19 @@ Homepage: None yet.
 
 `PGPy` is a Python (2 and 3) library for implementing Pretty Good Privacy into Python programs.
 
-
-
 Features
 --------
 
-None yet!
+I still need to organize and type this part out!
 
-Get it now
-----------
+Installation
+------------
 
-Can't yet!
+To install PGPy, simply:
+
+.. code-block:: bash
+
+    $ pip install PGPy
 
 Examples
 --------
@@ -41,6 +43,8 @@ Requirements
  - Python >= 2.7
 
    Tested with: 3.4, 3.3, 3.2, 2.7
+
+ - `Requests <https://pypi.python.org/pypi/requests>`
 
 License
 -------
