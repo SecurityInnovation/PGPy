@@ -1,84 +1,36 @@
 """ fields.py
 """
-
-from enum import IntEnum
+import collections
+import math
+import calendar
 from datetime import datetime
+from enum import IntEnum
 
-from ..util import bytes_to_int
+from ..util import bytes_to_int, int_to_bytes, PFIntEnum
 from .. import PGPError
 
+
 class PacketField(object):
-    def __init__(self, packet):
+    def __init__(self, packet=None):
         self.raw = bytes()
-        self.parse(packet)
+
+        if packet is not None:
+            self.parse(packet)
 
     def parse(self, packet):
         """
         :param packet: raw packet bytes
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def build(self):
         """
         construct self.raw from the fields given
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
-
-class Tag(PacketField):
-    class Tag(IntEnum):
-        Invalid = 0
-        Signature = 2
-
-    def __init__(self, packet):
-        self.always_1 = 0
-        self.format = 0
-        self.tag = 0
-        self.length_type = 0
-
-        super(Tag, self).__init__(packet)
-
-    def parse(self, packet):
-        """
-        The packet tag is the first byte
-        comprising of the following fields
-
-        +-------------+----------+---------------+---+---+---+---+----------+----------+
-        | byte        | 1                                                              |
-        +-------------+----------+---------------+---+---+---+---+----------+----------+
-        | bit         | 7        | 6             | 5 | 4 | 3 | 2 | 1        | 0        |
-        +-------------+----------+---------------+---+---+---+---+----------+----------+
-        | old-style   | always 1 | packet format | packet tag    | length type         |
-        | description |          | 0 = old-style |               | 0 = 1 octet         |
-        |             |          | 1 = new-style |               | 1 = 2 octets        |
-        |             |          |               |               | 2 = 5 octets        |
-        |             |          |               |               | 3 = no length field |
-        +-------------+          +               +---------------+---------------------+
-        | new-style   |          |               | packet tag                          |
-        | description |          |               |                                     |
-        +-------------+----------+---------------+-------------------------------------+
-        :param packet: raw packet bytes
-        """
-
-        self.raw = bytes_to_int(packet[0:1])
-
-        self.always_1 = self.raw >> 7
-        if self.always_1 != 1:
-            raise PGPError("Malformed tag!")
-
-        self.format = Header.Format((self.raw >> 6) & 1)
-
-        # old style
-        if self.format == Header.Format.old:
-            self.tag = Tag.Tag((self.raw >> 2) & 0xF)
-            self.length_type = self.raw & 0x3
-
-        # new style
-        else:
-            self.tag = Tag.Tag(self.raw & 0x3F)
-
-        if self.tag == Tag.Tag.Invalid:
-            raise PGPError("Invalid tag!")
+    def __bytes__(self):
+        raise NotImplementedError()
 
 
 class Header(PacketField):
@@ -86,8 +38,16 @@ class Header(PacketField):
         old = 0
         new = 1
 
-    def __init__(self, packet):
-        self.tag = None
+    class Tag(IntEnum):
+        Invalid = 0
+        Signature = 2
+
+
+    def __init__(self, packet=None):
+        self.always_1 = 0
+        self.format = Header.Format.old
+        self.tag = Header.Tag.Invalid
+        self.length_type = 0
         self.length = 0
 
         super(Header, self).__init__(packet)
@@ -107,27 +67,60 @@ class Header(PacketField):
 
         New style headers can be 2, 3, or 6 octets long and are also composed of a Tag and a Length.
 
+
+        Packet Tag
+        ----------
+
+        The packet tag is the first byte, comprising the following fields:
+
+        +-------------+----------+---------------+---+---+---+---+----------+----------+
+        | byte        | 1                                                              |
+        +-------------+----------+---------------+---+---+---+---+----------+----------+
+        | bit         | 7        | 6             | 5 | 4 | 3 | 2 | 1        | 0        |
+        +-------------+----------+---------------+---+---+---+---+----------+----------+
+        | old-style   | always 1 | packet format | packet tag    | length type         |
+        | description |          | 0 = old-style |               | 0 = 1 octet         |
+        |             |          | 1 = new-style |               | 1 = 2 octets        |
+        |             |          |               |               | 2 = 5 octets        |
+        |             |          |               |               | 3 = no length field |
+        +-------------+          +               +---------------+---------------------+
+        | new-style   |          |               | packet tag                          |
+        | description |          |               |                                     |
+        +-------------+----------+---------------+-------------------------------------+
+
         :param packet: raw packet bytes
         """
-        self.tag = Tag(packet)
+        # parse the tag
+        tag = bytes_to_int(packet[:1])
 
-        # determine the header length including the Tag
+        self.always_1 = tag >> 7
+        if self.always_1 != 1:
+            raise PGPError("Malformed tag!")
+
+        self.format = Header.Format((tag >> 6) & 1)
+
+        # determine the tag and packet length
         # old style packet header
-        if self.tag.format == Header.Format.old:
-            if self.tag.length_type == 0:
+        if self.format == Header.Format.old:
+            self.tag = Header.Tag((tag >> 2) & 0xF)
+            self.length_type = tag & 0x3
+
+            if self.length_type == 0:
                 self.raw = packet[:2]
 
-            elif self.tag.length_type == 1:
+            elif self.length_type == 1:
                 self.raw = packet[:3]
 
-            elif self.tag.length_type == 2:
+            elif self.length_type == 2:
                 self.raw = packet[:6]
 
             else:
-                self.raw = packet[0]
+                self.raw = packet[:1]
 
         # new style packet header
         else:
+            self.tag = Header.Tag(tag & 0x3F)
+
             self.raw = packet[:2]
 
             if bytes_to_int(self.raw[1:]) > 191:
@@ -136,13 +129,41 @@ class Header(PacketField):
             if bytes_to_int(self.raw[1:] > 8383):
                 self.raw = packet[:6]
 
+        # make sure the Tag is valid
+        if self.tag == Header.Tag.Invalid:
+            raise PGPError("Invalid tag!")
+
         # if the length is provided, parse it
         if len(self.raw) > 1:
             self.length = bytes_to_int(self.raw[1:])
 
+    def __bytes__(self):
+        _bytes = self.always_1 << 7
+        _bytes += self.format << 6
+
+        if self.format == Header.Format.old:
+            _bytes += self.tag << 2
+
+            # compute length_type if it isn't already provided
+            if self.length_type == 0:
+                while self.length >> (8*(self.length_type+1)) and self.length_type < 3:
+                    self.length_type += 1
+
+            _bytes += self.length_type
+
+        else:
+            _bytes += self.tag
+
+        _bytes = int_to_bytes(_bytes)
+
+        _bytes += int_to_bytes(self.length)
+
+        return _bytes
+
+
 
 class SubPacket(PacketField):
-    class Type(IntEnum):
+    class Type(PFIntEnum):
         ##TODO: parse more of these
         CreationTime = 0x02
         ExpirationTime = 0x03
@@ -151,7 +172,7 @@ class SubPacket(PacketField):
         def __str__(self):
             return str(self.name)
 
-    def __init__(self, packet):
+    def __init__(self, packet=None):
         self.length = 0
         self.type = 0
         self.payload = bytes()
@@ -159,8 +180,9 @@ class SubPacket(PacketField):
         super(SubPacket, self).__init__(packet)
 
     def parse(self, packet):
-        self.length = bytes_to_int(packet[0:1])
-        self.raw = packet[0:self.length + 1]
+        self.length = bytes_to_int(packet[:1]) + 1
+        self.raw = packet[:self.length]
+
         self.type = SubPacket.Type(bytes_to_int(self.raw[1:2]))
 
         if self.type == SubPacket.Type.CreationTime:
@@ -176,3 +198,87 @@ class SubPacket(PacketField):
 
         else:
             self.payload = self.raw[2:]
+
+    def __bytes__(self):
+        _bytes = int_to_bytes(self.length - 1)
+
+        _bytes += self.type.__bytes__()
+
+        if self.type == SubPacket.Type.CreationTime:
+            _bytes += int_to_bytes(calendar.timegm(self.payload.timetuple()), self.length - 2)
+
+        elif self.type == SubPacket.Type.Issuer:
+            _bytes += int_to_bytes(int(self.payload, 16), self.length - 2)
+
+        else:
+            _bytes += self.payload
+
+        return _bytes
+
+
+class SubPackets(PacketField):
+    def __init__(self, packet=None):
+        self.length = 0
+        self.hashed = False
+        self.subpackets = collections.OrderedDict()
+
+        super(SubPackets, self).__init__(packet)
+
+    def parse(self, packet):
+        self.length = bytes_to_int(packet[0:2]) + 2
+        self.raw = packet[:(self.length)]
+
+        pos = 2
+        while pos < self.length:
+            sp = SubPacket(self.raw[pos:])
+            self.subpackets[str(sp.type)] = sp
+            pos += sp.length
+
+    def __getattr__(self, name):
+        if name in self.subpackets.keys():
+            return self.subpackets[name]
+
+        else:
+            raise AttributeError()
+
+    def __bytes__(self):
+        _bytes = int_to_bytes(self.length - 2, 2)
+
+        for _, subpacket in self.subpackets.items():
+            _bytes += subpacket.__bytes__()
+
+        return _bytes
+
+
+class SignatureField(PacketField):
+    def __init__(self, packet=None):
+        self.length = []
+        self.signatures = []
+
+        super(SignatureField, self).__init__(packet)
+
+    def parse(self, packet):
+        pos = 0
+        while pos < len(packet):
+            i = len(self.length)
+
+            self.length.append(bytes_to_int(packet[pos:(pos + 2)]))
+            self.raw += packet[pos:(pos + 2)]
+            pos += 2
+
+            mlen = int(math.ceil(self.length[i] / 8.0))
+            mend = pos + mlen
+
+            self.signatures.append(packet[pos:mend])
+            self.raw += packet[pos:mend]
+
+            pos = mend
+
+    def __bytes__(self):
+        _bytes = b''
+
+        for i in range(0, len(self.length)):
+            _bytes += int_to_bytes(self.length[i], 2)
+            _bytes += self.signatures[i]
+
+        return _bytes

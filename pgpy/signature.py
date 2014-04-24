@@ -21,6 +21,7 @@ class PGPSignature(FileLoader):
         self.ascii_headers = collections.OrderedDict()
         self.signature_packet = None
         self.crc = None
+        self.fields = None
 
         super(PGPSignature, self).__init__(sigf)
         ##TODO: handle creating a new signature
@@ -90,3 +91,6 @@ class PGPSignature(FileLoader):
                 packet=payload,
                 crc=base64.b64encode(int_to_bytes(self.crc)).decode(),
             )
+
+    def __bytes__(self):
+        return self.fields.__bytes__()
