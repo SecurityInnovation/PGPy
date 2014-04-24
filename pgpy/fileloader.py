@@ -2,7 +2,7 @@
 
 File-based metaclass to reduce duplicate code.
 """
-
+import os
 import os.path
 import requests
 
@@ -13,6 +13,34 @@ except NameError:
 
 
 class FileLoader(object):
+    @staticmethod
+    def is_path(ppath):
+        if bytes is not str and type(ppath) is bytes:
+            return False
+
+        # if we get to this point, testing will need to be a little more involved
+        # the POSIX specification (http://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap03.html#tag_03_276)
+        # for what constitutes a valid filename includes the following characters:
+        # A-Z, a-z, 0-9, ., _, -
+        #
+        # path separators are / on POSIX and \ on Windows
+        #
+        # lots of other characters that are not present here can indeed be part of a filename
+
+        # this should be adequate most of the time
+        # we'll detect all unprintable and extended ASCII characters as 'bad' - their presence will denote 'not a path'
+        badchars = [ chr(c) for c in range(0, 32) ]
+        badchars += [ chr(c) for c in range(128, 256) ]
+
+        # Windows also specifies some reserved characters
+        if os.name == "nt":
+            badchars += ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
+
+        if any(c in ppath for c in badchars):
+            return False
+
+        return True
+
     def __init__(self, lfile):
         self.bytes = bytes()
         self.path = None
@@ -31,9 +59,9 @@ class FileLoader(object):
 
         # str without NUL bytes means this is likely a file path or URL
         # because in 2.x, bytes is just an alias of str
-        elif type(lfile) is str and '\x00' not in lfile:
+        elif FileLoader.is_path(lfile):
             # is this a URL?
-            if "://" in lfile:
+            if "://" in lfile and '\n' not in lfile:
                 r = requests.get(lfile, verify=True)
 
                 if not r.ok:
