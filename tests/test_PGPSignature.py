@@ -1,10 +1,12 @@
 import pytest
+import requests
 from pgpy.signature import PGPSignature
 
+
 test_files = [
-    "tests/testdata/Release.gpg",
-    "http://us.archive.ubuntu.com/ubuntu/dists/precise/Release.gpg",
-    "http://http.debian.net/debian/dists/sid/Release.gpg"
+    open("tests/testdata/Release.gpg", 'rb').read(),
+    requests.get("http://us.archive.ubuntu.com/ubuntu/dists/precise/Release.gpg").content,
+    requests.get("http://http.debian.net/debian/dists/sid/Release.gpg").content
 ]
 test_ids = [
     "local", "ubuntu-precise", "debian-sid"
@@ -19,26 +21,18 @@ def pgpsig(request):
 @pytest.fixture()
 def pgpd(request):
     import pgpdump
-    import requests
+    param = test_files[test_ids.index(request.node._genid)]
 
-    path = test_files[test_ids.index(request.node._genid)]
-
-    if "://" in path:
-        raw = requests.get(path).content
-    else:
-        with open(path, 'rb') as r:
-            raw = r.read()
-
-    return list(pgpdump.AsciiData(raw).packets())[0]
+    return list(pgpdump.AsciiData(param).packets())[0]
 
 
 class TestPGPSignature:
     def test_parse(self, pgpsig, pgpd):
         # packet header
         #  packet tag
-        assert pgpsig.fields.header.tag.always_1 == 1
-        assert (pgpsig.fields.header.tag.format == 1) == pgpd.new
-        assert pgpsig.fields.header.tag.tag == 2
+        assert pgpsig.fields.header.always_1 == 1
+        assert (pgpsig.fields.header.format == 1) == pgpd.new
+        assert pgpsig.fields.header.tag == 2
         # packet header
         assert pgpsig.fields.header.length == pgpd.length
         # packet body
@@ -48,10 +42,10 @@ class TestPGPSignature:
         assert pgpsig.fields.hash_algorithm == pgpd.raw_hash_algorithm
         # hashed subpackets
         #  creation time
-        assert pgpsig.fields.hashed_subpackets["packets"]["CreationTime"].payload == pgpd.creation_time
+        assert pgpsig.fields.hashed_subpackets.CreationTime.payload == pgpd.creation_time
         # unhashed subpackets
         #  key id
-        assert pgpsig.fields.unhashed_subpackets["packets"]["Issuer"].payload == pgpd.key_id
+        assert pgpsig.fields.unhashed_subpackets.Issuer.payload == pgpd.key_id
         # left 16 of hash
         assert pgpsig.fields.hash2 == pgpd.hash2
 
@@ -64,3 +58,12 @@ class TestPGPSignature:
         out, _ = capsys.readouterr()
 
         assert out == pgpsig.bytes.decode() + '\n'
+
+    def test_bytes(self, pgpsig):
+        # python 2.7
+        if bytes is str:
+            assert pgpsig.__bytes__() == pgpsig.signature_packet
+
+        # python 3
+        else:
+            assert bytes(pgpsig) == pgpsig.signature_packet
