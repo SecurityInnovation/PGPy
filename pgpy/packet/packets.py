@@ -16,7 +16,7 @@ def PGPPacket(packet):
 class Packet(object):
     def __init__(self, packet):
         self.header = Header(packet)
-        self.parse(packet[len(self.header.raw):])
+        self.parse(packet[len(self.header.__bytes__()):])
 
     def parse(self, packet):
         raise NotImplementedError()
@@ -70,25 +70,24 @@ class Signature(Packet):
         super(Signature, self).__init__(packet)
 
     def parse(self, packet):
-        self.raw = packet
-        self.version = Signature.Version(bytes_to_int(self.raw[:1]))
-        self.type = Signature.Type(bytes_to_int(self.raw[1:2]))
-        self.key_algorithm = Signature.KeyAlgo(bytes_to_int(self.raw[2:3]))
-        self.hash_algorithm = Signature.HashAlgo(bytes_to_int(self.raw[3:4]))
+        self.version = Signature.Version(bytes_to_int(packet[:1]))
+        self.type = Signature.Type(bytes_to_int(packet[1:2]))
+        self.key_algorithm = Signature.KeyAlgo(bytes_to_int(packet[2:3]))
+        self.hash_algorithm = Signature.HashAlgo(bytes_to_int(packet[3:4]))
 
         # subpackets
-        self.hashed_subpackets.parse(self.raw[4:])
+        self.hashed_subpackets.parse(packet[4:])
         pos = 4 + self.hashed_subpackets.length
 
-        self.unhashed_subpackets.parse(self.raw[pos:])
+        self.unhashed_subpackets.parse(packet[pos:])
         pos += self.unhashed_subpackets.length
 
         # hash2
-        self.hash2 = self.raw[pos:pos + 2]
+        self.hash2 = packet[pos:pos + 2]
         pos += 2
 
         # algorithm-specific integer(s)
-        self.signature.parse(self.raw[pos:])
+        self.signature.parse(packet[pos:])
 
     def __bytes__(self):
         _bytes = b''

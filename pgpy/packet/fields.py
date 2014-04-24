@@ -12,20 +12,12 @@ from .. import PGPError
 
 class PacketField(object):
     def __init__(self, packet=None):
-        self.raw = bytes()
-
         if packet is not None:
             self.parse(packet)
 
     def parse(self, packet):
         """
         :param packet: raw packet bytes
-        """
-        raise NotImplementedError()
-
-    def build(self):
-        """
-        construct self.raw from the fields given
         """
         raise NotImplementedError()
 
@@ -106,36 +98,37 @@ class Header(PacketField):
             self.length_type = tag & 0x3
 
             if self.length_type == 0:
-                self.raw = packet[:2]
+                packet = packet[:2]
 
             elif self.length_type == 1:
-                self.raw = packet[:3]
+                packet = packet[:3]
 
             elif self.length_type == 2:
-                self.raw = packet[:6]
+                packet = packet[:6]
 
             else:
-                self.raw = packet[:1]
+                packet = packet[:1]
 
         # new style packet header
         else:
             self.tag = Header.Tag(tag & 0x3F)
 
-            self.raw = packet[:2]
+            if bytes_to_int(packet[1:2]) < 191:
+                packet = packet[:2]
 
-            if bytes_to_int(self.raw[1:]) > 191:
-                self.raw = packet[:3]
+            if bytes_to_int(packet[1:2]) > 191:
+                packet = packet[:3]
 
-            if bytes_to_int(self.raw[1:] > 8383):
-                self.raw = packet[:6]
+            if bytes_to_int(packet[2:3] > 8383):
+                packet = packet[:6]
 
         # make sure the Tag is valid
         if self.tag == Header.Tag.Invalid:
             raise PGPError("Invalid tag!")
 
         # if the length is provided, parse it
-        if len(self.raw) > 1:
-            self.length = bytes_to_int(self.raw[1:])
+        if len(packet) > 1:
+            self.length = bytes_to_int(packet[1:])
 
     def __bytes__(self):
         _bytes = self.always_1 << 7
@@ -181,23 +174,23 @@ class SubPacket(PacketField):
 
     def parse(self, packet):
         self.length = bytes_to_int(packet[:1]) + 1
-        self.raw = packet[:self.length]
+        packet = packet[:self.length]
 
-        self.type = SubPacket.Type(bytes_to_int(self.raw[1:2]))
+        self.type = SubPacket.Type(bytes_to_int(packet[1:2]))
 
         if self.type == SubPacket.Type.CreationTime:
-            self.payload = datetime.utcfromtimestamp(bytes_to_int(self.raw[2:]))
+            self.payload = datetime.utcfromtimestamp(bytes_to_int(packet[2:]))
 
         elif self.type == SubPacket.Type.Issuer:
             # python 2.7
-            if type(self.raw) is str:
-                self.payload = ''.join('{:02x}'.format(ord(c)) for c in self.raw[2:]).upper().encode()
+            if type(packet) is str:
+                self.payload = ''.join('{:02x}'.format(ord(c)) for c in packet[2:]).upper().encode()
             # python 3.x
             else:
-                self.payload = ''.join('{:02x}'.format(c) for c in self.raw[2:]).upper().encode()
+                self.payload = ''.join('{:02x}'.format(c) for c in packet[2:]).upper().encode()
 
         else:
-            self.payload = self.raw[2:]
+            self.payload = packet[2:]
 
     def __bytes__(self):
         _bytes = int_to_bytes(self.length - 1)
@@ -226,11 +219,11 @@ class SubPackets(PacketField):
 
     def parse(self, packet):
         self.length = bytes_to_int(packet[0:2]) + 2
-        self.raw = packet[:(self.length)]
+        packet = packet[:(self.length)]
 
         pos = 2
         while pos < self.length:
-            sp = SubPacket(self.raw[pos:])
+            sp = SubPacket(packet[pos:])
             self.subpackets[str(sp.type)] = sp
             pos += sp.length
 
@@ -263,14 +256,12 @@ class SignatureField(PacketField):
             i = len(self.length)
 
             self.length.append(bytes_to_int(packet[pos:(pos + 2)]))
-            self.raw += packet[pos:(pos + 2)]
             pos += 2
 
             mlen = int(math.ceil(self.length[i] / 8.0))
             mend = pos + mlen
 
             self.signatures.append(packet[pos:mend])
-            self.raw += packet[pos:mend]
 
             pos = mend
 
