@@ -22,9 +22,9 @@ def load_url(request):
 
 
 @pytest.fixture(params=[
-                    "tests/testdata/example_1.0-1_all.deb",
-                    "tests/testdata/sym_example_1.0-1_all.deb",
-                    open("tests/testdata/example_1.0-1_all.deb", 'rb'),
+                    "tests/testdata/unsigned_message",
+                    "tests/testdata/sym_to_unsigned_message",
+                    open("tests/testdata/unsigned_message", 'rb'),
                 ],
                 ids=[
                     "path",
@@ -35,11 +35,13 @@ def load_local(request):
     return FileLoader(request.param)
 
 @pytest.fixture(params=[
-                    "tests/testdata/example_1.0-1_all.deb",
+                    "tests/testdata/unsigned_message",
+                    "tests/testdata/inline_signed_message",
                     "tests/testdata/Release.gpg",
                 ],
                 ids=[
-                    "deb",
+                    "unsigned-text",
+                    "signed-text",
                     "gpg-signature",
                 ])
 def load_bytes(request):
@@ -75,9 +77,10 @@ class TestFileLoader:
         with pytest.raises(e):
             FileLoader("/this/path/does/not/exist")
 
-    def test_load_bytes(self, request, load_bytes):
+    def test_load_bytes(self, load_bytes):
         loaded = FileLoader(load_bytes)
 
         assert loaded.bytes != b''
         assert loaded.path is None
-        # assert len(loaded.bytes) == os.path.getsize()
+        assert len(loaded.bytes) == len(load_bytes)
+        assert loaded.bytes == load_bytes
