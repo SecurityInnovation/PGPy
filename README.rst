@@ -1,12 +1,12 @@
 PGPy: Pretty Good Privacy for Python
 ====================================
 
-.. image:: https://badge.fury.io/py/Debutils.png
-    :target: http://badge.fury.io/py/Debutils
+.. image:: https://badge.fury.io/py/PGPy.png
+    :target: http://badge.fury.io/py/PGPy
     :alt: Latest version
 
-.. image:: https://travis-ci.org/Commod0re/debutils.png?branch=master
-    :target: https://travis-ci.org/Commod0re/debutils
+.. image:: https://travis-ci.org/Commod0re/PGPy.png?branch=master
+    :target: https://travis-ci.org/Commod0re/PGPy
     :alt: Travis-CI
 
 Homepage: None yet.
