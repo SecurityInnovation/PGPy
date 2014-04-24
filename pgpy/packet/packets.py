@@ -34,6 +34,7 @@ class Signature(Packet):
     class Type(PFIntEnum):
         ##TODO: add more items to Type list
         BinaryDocument = 0x00
+        CanonicalDocument = 0x01
 
 
     class KeyAlgo(PFIntEnum):
