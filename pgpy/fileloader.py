@@ -105,3 +105,6 @@ class FileLoader(object):
 
     def parse(self):
         raise NotImplementedError()
+
+    def __bytes__(self):
+        return self.bytes
