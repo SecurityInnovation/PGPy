@@ -5,12 +5,11 @@ PGP Signature parsing
 import base64
 import collections
 import re
-import hashlib
 
 from .packet import PGPPacket
 from .fileloader import FileLoader
 from .util import bytes_to_int, int_to_bytes
-from . import ASCII_ARMOR_BLOCK_REG, ASCII_ARMOR_BLOCK_FORMAT
+from .reg import *
 
 
 class PGPSignature(FileLoader):
@@ -31,18 +30,24 @@ class PGPSignature(FileLoader):
         if self.bytes == b'':
             return
 
+        # extract all ASCII armored PGP blocks, if possible
+        for m in re.finditer(ASCII_ARMOR_BLOCK_REG, self.bytes.decode(), flags=re.MULTILINE | re.DOTALL):
+            block = self.bytes.decode()[m.start():m.end()]
+            if re.match(SIGNATURE_MAGIC, block) is not None:
+                self.bytes = block.encode()
+                break
+
         # parsing/decoding using the RFC 4880 section on "Forming ASCII Armor"
         # https://tools.ietf.org/html/rfc4880#section-6.2
-        k = re.split(ASCII_ARMOR_BLOCK_REG.replace('%BLOCK_TYPE%', 'PGP SIGNATURE'),
-                     self.bytes.decode(), flags=re.MULTILINE | re.DOTALL)[1:-1]
+        k = re.split(ASCII_ARMOR_BLOCK_REG, self.bytes.decode(), flags=re.MULTILINE | re.DOTALL)[1:-1]
 
         # parse header field(s)
-        h = [ h for h in re.split(r'^([^:]*): (.*)$\n?', k[0], flags=re.MULTILINE) if h != '' ]
+        h = [ h for h in re.split(r'^([^:]*): (.*)$\n?', k[1], flags=re.MULTILINE) if h != '' ]
         for key, val in [ (h[i], h[i+1]) for i in range(0, len(h), 2) ]:
             self.ascii_headers[key] = val
 
-        self.signature_packet = base64.b64decode(k[1].replace('\n', '').encode())
-        self.crc = bytes_to_int(base64.b64decode(k[2].encode()))
+        self.signature_packet = base64.b64decode(k[2].replace('\n', '').encode())
+        self.crc = bytes_to_int(base64.b64decode(k[3].encode()))
 
         # verify CRC
         if self.crc != self.crc24():
@@ -86,11 +91,8 @@ class PGPSignature(FileLoader):
         payload = '\n'.join(payload[i:i+64] for i in range(0, len(payload), 64))
 
         return ASCII_ARMOR_BLOCK_FORMAT.format(
-                block_type="PGP SIGNATURE",
+                block_type="SIGNATURE",
                 headers=headers,
                 packet=payload,
-                crc=base64.b64encode(int_to_bytes(self.crc)).decode(),
+                crc=base64.b64encode(int_to_bytes(self.crc, 3)).decode(),
             )
-
-    def __bytes__(self):
-        return self.fields.__bytes__()
