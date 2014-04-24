@@ -6,10 +6,12 @@ from pgpy.signature import PGPSignature
 test_files = [
     open("tests/testdata/Release.gpg", 'rb').read(),
     requests.get("http://us.archive.ubuntu.com/ubuntu/dists/precise/Release.gpg").content,
-    requests.get("http://http.debian.net/debian/dists/sid/Release.gpg").content
+    requests.get("http://http.debian.net/debian/dists/sid/Release.gpg").content,
+    open("tests/testdata/signed_message.asc", 'rb').read(),
+    open("tests/testdata/inline_signed_message", 'rb').read(),
 ]
 test_ids = [
-    "local", "ubuntu-precise", "debian-sid"
+    "local", "ubuntu-precise", "debian-sid", "message-sig", "inline-sig",
 ]
 
 
@@ -60,10 +62,4 @@ class TestPGPSignature:
         assert out == pgpsig.bytes.decode() + '\n'
 
     def test_bytes(self, pgpsig):
-        # python 2.7
-        if bytes is str:
-            assert pgpsig.__bytes__() == pgpsig.signature_packet
-
-        # python 3
-        else:
-            assert bytes(pgpsig) == pgpsig.signature_packet
+        assert pgpsig.fields.__bytes__() == pgpsig.signature_packet
