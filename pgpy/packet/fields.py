@@ -34,7 +34,6 @@ class Header(PacketField):
         Invalid = 0
         Signature = 2
 
-
     def __init__(self, packet=None):
         self.always_1 = 0
         self.format = Header.Format.old
