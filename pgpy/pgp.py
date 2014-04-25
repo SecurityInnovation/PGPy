@@ -24,13 +24,16 @@ class PGPBlock(FileLoader):
 
     @staticmethod
     def extract_pgp_ascii_block(data, btype=None):
-        pgpiter = re.finditer(ASCII_ARMOR_BLOCK_REG, data.decode(), flags=re.MULTILINE | re.DOTALL)
+        if type(data) is bytes:
+            data = data.decode()
+
+        pgpiter = re.finditer(ASCII_ARMOR_BLOCK_REG, data, flags=re.MULTILINE | re.DOTALL)
 
         if btype is None:
             return pgpiter
 
         for m in pgpiter:
-            block = data[m.start():m.end()].decode()
+            block = data[m.start():m.end()]
 
             # specific type
             if re.match(Magic(btype).value, block):
@@ -44,7 +47,7 @@ class PGPBlock(FileLoader):
         self.ascii_headers = collections.OrderedDict()
         self.data = b''
         self.crc = 0
-        self.payload = collections.OrderedDict()
+        self.packets = []
 
         super(PGPBlock, self).__init__(data)
 
@@ -71,9 +74,8 @@ class PGPBlock(FileLoader):
         # dump fields in all contained packets per RFC 4880, without using pgpdump
         pos = 0
         while pos < len(self.data):
-            p = PGPPacket(self.data[pos:])
-            self.payload[str(p.header.tag)] = p
-            pos += len(self.payload[str(p.header.tag)].__bytes__())
+            self.packets.append(PGPPacket(self.data[pos:]))
+            pos += len(self.packets[-1].__bytes__())
 
 
     def crc24(self):
@@ -101,9 +103,6 @@ class PGPBlock(FileLoader):
 
         return crc & 0xFFFFFF
 
-    def get_packet(self, ptype):
-        return self.payload[ptype]
-
     def __str__(self):
         headers = ""
         for key, val in self.ascii_headers.items():
@@ -111,7 +110,7 @@ class PGPBlock(FileLoader):
 
         # base64-encode our bytes, then insert a newline every 64th character
         payload = b''
-        for pkt in self.payload.values():
+        for pkt in self.packets:
             payload += pkt.__bytes__()
         payload = base64.b64encode(payload).decode()
         payload = '\n'.join(payload[i:i+64] for i in range(0, len(payload), 64))
