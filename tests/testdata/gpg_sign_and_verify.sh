@@ -3,7 +3,7 @@
 
 source gpg.sh
 
-GPG_SIGN_OPTS="--default-key ${DEBUTILS_KEY} --armor --detach-sign --sign"
+GPG_SIGN_OPTS="--default-key ${RSA_KEY} --armor --detach-sign --sign"
 GPG_VERIFY_OPTS="-vv --verify"
 
 # oopts becomes the options string without --inline if it exists
