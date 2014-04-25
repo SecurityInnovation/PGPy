@@ -200,9 +200,10 @@ class Header(PacketField):
 class SubPacket(PacketField):
     class Type(PFIntEnum):
         ##TODO: parse more of these
-        CreationTime = 0x02
-        ExpirationTime = 0x03
+        SigCreationTime = 0x02
+        SigExpirationTime = 0x03
         Revocable = 0x07
+        KeyExpirationTime = 0x09
         PreferredSymmetricAlgorithms = 0x0B
         Issuer = 0x10
         PreferredHashAlgorithms = 0x15
@@ -227,7 +228,9 @@ class SubPacket(PacketField):
 
         self.type = SubPacket.Type(bytes_to_int(packet[1:2]))
 
-        if self.type in [SubPacket.Type.CreationTime, SubPacket.Type.ExpirationTime]:
+        if self.type in [SubPacket.Type.SigCreationTime,
+                         SubPacket.Type.SigExpirationTime,
+                         SubPacket.Type.KeyExpirationTime]:
             self.payload = datetime.utcfromtimestamp(bytes_to_int(packet[2:]))
 
         elif self.type == SubPacket.Type.Revocable:
@@ -271,7 +274,9 @@ class SubPacket(PacketField):
 
         _bytes += self.type.__bytes__()
 
-        if self.type in [SubPacket.Type.CreationTime, SubPacket.Type.ExpirationTime]:
+        if self.type in [SubPacket.Type.SigCreationTime,
+                         SubPacket.Type.SigExpirationTime,
+                         SubPacket.Type.KeyExpirationTime]:
             _bytes += int_to_bytes(calendar.timegm(self.payload.timetuple()), self.length - 2)
 
         elif self.type == SubPacket.Type.Revocable:
