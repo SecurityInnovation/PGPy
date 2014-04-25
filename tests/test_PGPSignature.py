@@ -1,7 +1,6 @@
 import pytest
 import requests
 from pgpy.signature import PGPSignature
-from pgpy.packet.fields import Header
 
 
 test_files = [
@@ -31,7 +30,7 @@ def pgpd(request):
 
 class TestPGPSignature:
     def test_parse(self, pgpsig, pgpd):
-        sigpkt = pgpsig.get_packet(str(Header.Tag.Signature))
+        sigpkt = pgpsig.packets[0]
         # packet header
         #  packet tag
         assert sigpkt.header.always_1 == 1
@@ -64,6 +63,6 @@ class TestPGPSignature:
         assert out == pgpsig.bytes.decode() + '\n'
 
     def test_bytes(self, pgpsig):
-        sigpkt = pgpsig.get_packet(str(Header.Tag.Signature))
+        sigpkt = pgpsig.packets[-1]
 
         assert sigpkt.__bytes__() == pgpsig.data
