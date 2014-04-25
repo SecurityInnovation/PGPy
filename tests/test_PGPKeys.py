@@ -2,31 +2,37 @@ import pytest
 from pgpy.key import PGPPublicKey, PGPPrivateKey
 
 pubkeys = [
-    "tests/testdata/debutils.key",
-    # "tests/testdata/debutils.gpg",
+    "tests/testdata/TestRSA.key",
+    "tests/testdata/TestDSAandElGamal.key",
+    "tests/testdata/TestDSA.key",
+    "tests/testdata/TestRSASignOnly.key",
     "tests/testdata/ftpmaster_ubuntu_2004.key",
     "tests/testdata/ftpmaster_ubuntu_2012.key",
     "tests/testdata/cdimage_ubuntu_2004.key",
     "tests/testdata/cdimage_ubuntu_2012.key",
-    # "tests/testdata/ubuntu_apt_trusted.gpg"
 ]
 keyids_pub = [
-    "debutils-ascii",
-    # "debutils-keyring",
+    "test-rsa",
+    "test-dsa-elgamal",
+    "test-dsa",
+    "test-rsa-signonly",
     "ubuntu-2004",
     "ubuntu-2012",
     "cdimage-2004",
     "cdimage-2012",
-    # "apt-keyring",
 ]
 ##TODO: need more private key test material
 privkeys = [
-    "tests/testdata/debutils.key",
-    # "tests/testdata/debutils.sec.gpg",
+    "tests/testdata/TestRSA.key",
+    "tests/testdata/TestDSAandElGamal.key",
+    "tests/testdata/TestDSA.key",
+    "tests/testdata/TestRSASignOnly.key",
 ]
 keyids_priv = [
-    "ascii",
-    # "keyring"
+    "test-rsa",
+    "test-dsa-elgamal",
+    "test-dsa",
+    "test-rsa-signonly",
 ]
 @pytest.fixture(params=pubkeys, ids=keyids_pub)
 def load_pub(request):
