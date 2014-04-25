@@ -1,16 +1,16 @@
 """ packet.py
 """
-import collections
 
 from .fields import Header, SubPackets, SignatureField
 from ..util import bytes_to_int, PFIntEnum
 
-def PGPPacket(packet):
+
+def PGPPacket(packetblob):
     # factory time
-    header = Header(packet)
+    header = Header(packetblob)
 
     if header.tag == Header.Tag.Signature:
-        return Signature(packet)
+        return Signature(packetblob)
 
 
 class Packet(object):
@@ -35,7 +35,6 @@ class Signature(Packet):
         ##TODO: add more items to Type list
         BinaryDocument = 0x00
         CanonicalDocument = 0x01
-
 
     class KeyAlgo(PFIntEnum):
         RSAEncryptOrSign = 0x01
