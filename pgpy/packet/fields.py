@@ -33,6 +33,8 @@ class Header(PacketField):
     class Tag(IntEnum):
         Invalid = 0
         Signature = 2
+        PrivKey = 5
+        PubKey = 6
 
     def __init__(self, packet=None):
         self.always_1 = 0
