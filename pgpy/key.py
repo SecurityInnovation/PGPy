@@ -61,7 +61,6 @@ class PGPPrivateKey(PGPBlock):
 #         # if self.bytes == b'':
 #         #     return
 #
-#         ##TODO: load/parse PGP key(s) from ASCII armored files
 #         ##TODO: load/parse PGP key(s) from binary files
 #         ##TODO: load/parse PGP key(s) from GPG keyrings
 #         ##TODO: load/parse PGP key(s) from GPG agent
