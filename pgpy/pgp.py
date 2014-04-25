@@ -121,3 +121,10 @@ class PGPBlock(FileLoader):
                 packet=payload,
                 crc=base64.b64encode(int_to_bytes(self.crc, 3)).decode(),
             )
+
+    def __bytes__(self):
+        _bytes = b''
+        for pkt in self.packets:
+            _bytes += pkt.__bytes__()
+
+        return _bytes
