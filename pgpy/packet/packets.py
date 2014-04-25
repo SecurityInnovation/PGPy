@@ -12,6 +12,11 @@ def PGPPacket(packetblob):
     if header.tag == Header.Tag.Signature:
         return Signature(packetblob)
 
+    if header.tag == Header.Tag.PubKey:
+        return PubKey(packetblob)
+
+    return Packet(packetblob)
+
 
 class Packet(object):
     def __init__(self, packet):
@@ -101,3 +106,6 @@ class Signature(Packet):
         _bytes += self.signature.__bytes__()
 
         return _bytes
+
+class PubKey(Packet):
+    pass
