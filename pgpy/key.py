@@ -1,9 +1,9 @@
 """ key.py
 
 """
-import collections
 
-from .fileloader import FileLoader
+from .pgp import PGPBlock
+from .reg import Magic
 
 # from the Computing Signatures section of RFC 4880 (http://tools.ietf.org/html/rfc4880#section-5.2.4)
 #
@@ -40,25 +40,32 @@ from .fileloader import FileLoader
 # at the end of the Signature packet.
 
 
-class PGPKey(object):
-    pass
+class PGPPublicKey(PGPBlock):
+    def __init__(self, keyb):
+        super(PGPPublicKey, self).__init__(keyb, Magic.PubKey)
 
 
-class PGPKeyLoader(FileLoader):
-    pubkey_magic = "PUBLIC KEY BLOCK"
-    privkey_magic = "PRIVATE KEY BLOCK"
+class PGPPrivateKey(PGPBlock):
+    def __init__(self, keyb):
+        super(PGPPrivateKey, self).__init__(keyb, Magic.PrivKey)
 
-    def __init__(self, key):
-        self.keys = collections.OrderedDict()
 
-        super(PGPKeyLoader, self).__init__(key)
-
-    def parse(self):
-        ##TODO: load/parse PGP key(s) from ASCII armored files
-        ##TODO: load/parse PGP key(s) from binary files
-        ##TODO: load/parse PGP key(s) from GPG keyrings
-        ##TODO: load/parse PGP key(s) from GPG agent
-        pass
+# class PGPKeyLoader(FileLoader):
+#     def __init__(self, key):
+#         self.keys = collections.OrderedDict()
+#
+#         # super(PGPKeyLoader, self).__init__(key)
+#
+#     def parse(self):
+#         # Nothing to do; no data was passed to be loaded
+#         # if self.bytes == b'':
+#         #     return
+#
+#         ##TODO: load/parse PGP key(s) from ASCII armored files
+#         ##TODO: load/parse PGP key(s) from binary files
+#         ##TODO: load/parse PGP key(s) from GPG keyrings
+#         ##TODO: load/parse PGP key(s) from GPG agent
+#         pass
 
 
 class PGPKeyCollection(object):
