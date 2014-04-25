@@ -45,7 +45,7 @@ class TestPGPSignature:
         assert sigpkt.hash_algorithm == pgpd.raw_hash_algorithm
         # hashed subpackets
         #  creation time
-        assert sigpkt.hashed_subpackets.CreationTime.payload == pgpd.creation_time
+        assert sigpkt.hashed_subpackets.SigCreationTime.payload == pgpd.creation_time
         # unhashed subpackets
         #  key id
         assert sigpkt.unhashed_subpackets.Issuer.payload == pgpd.key_id
