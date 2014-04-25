@@ -1,6 +1,7 @@
 import pytest
 import requests
 from pgpy.signature import PGPSignature
+from pgpy.packet.fields import Header
 
 
 test_files = [
@@ -30,26 +31,27 @@ def pgpd(request):
 
 class TestPGPSignature:
     def test_parse(self, pgpsig, pgpd):
+        sigpkt = pgpsig.get_packet(str(Header.Tag.Signature))
         # packet header
         #  packet tag
-        assert pgpsig.fields.header.always_1 == 1
-        assert (pgpsig.fields.header.format == 1) == pgpd.new
-        assert pgpsig.fields.header.tag == 2
+        assert sigpkt.header.always_1 == 1
+        assert (sigpkt.header.format == 1) == pgpd.new
+        assert sigpkt.header.tag == 2
         # packet header
-        assert pgpsig.fields.header.length == pgpd.length
+        assert sigpkt.header.length == pgpd.length
         # packet body
-        assert pgpsig.fields.version == pgpd.sig_version
-        assert pgpsig.fields.type == pgpd.raw_sig_type
-        assert pgpsig.fields.key_algorithm == pgpd.raw_pub_algorithm
-        assert pgpsig.fields.hash_algorithm == pgpd.raw_hash_algorithm
+        assert sigpkt.version == pgpd.sig_version
+        assert sigpkt.type == pgpd.raw_sig_type
+        assert sigpkt.key_algorithm == pgpd.raw_pub_algorithm
+        assert sigpkt.hash_algorithm == pgpd.raw_hash_algorithm
         # hashed subpackets
         #  creation time
-        assert pgpsig.fields.hashed_subpackets.CreationTime.payload == pgpd.creation_time
+        assert sigpkt.hashed_subpackets.CreationTime.payload == pgpd.creation_time
         # unhashed subpackets
         #  key id
-        assert pgpsig.fields.unhashed_subpackets.Issuer.payload == pgpd.key_id
+        assert sigpkt.unhashed_subpackets.Issuer.payload == pgpd.key_id
         # left 16 of hash
-        assert pgpsig.fields.hash2 == pgpd.hash2
+        assert sigpkt.hash2 == pgpd.hash2
 
 
     def test_crc24(self, pgpsig):
@@ -62,4 +64,6 @@ class TestPGPSignature:
         assert out == pgpsig.bytes.decode() + '\n'
 
     def test_bytes(self, pgpsig):
-        assert pgpsig.fields.__bytes__() == pgpsig.signature_packet
+        sigpkt = pgpsig.get_packet(str(Header.Tag.Signature))
+
+        assert sigpkt.__bytes__() == pgpsig.data
