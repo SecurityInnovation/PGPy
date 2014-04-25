@@ -97,14 +97,10 @@ class FileLoader(object):
         # try to kick off the parser
         # this only works on properly implemented children of this type
         if self.bytes != bytes():
-            try:
-                self.parse()
-
-            except NotImplementedError:
-                pass
+            self.parse()
 
     def parse(self):
-        raise NotImplementedError()
+        pass
 
     def __bytes__(self):
         return self.bytes
