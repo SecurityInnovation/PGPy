@@ -10,6 +10,44 @@ from ..util import bytes_to_int, int_to_bytes, PFIntEnum
 from .. import PGPError
 
 
+class PubKeyAlgo(PFIntEnum):
+    Invalid = 0x00
+    RSAEncryptOrSign = 0x01
+    RSAEncrypt = 0x02
+    RSASign = 0x03
+    ElGamal = 0x10
+    DSA = 0x11
+
+
+class SymmetricKeyAlgo(PFIntEnum):
+    Plaintext = 0x00
+    IDEA = 0x01
+    TripleDES = 0x02
+    CAST5 = 0x03
+    Blowfish = 0x04
+    AES128 = 0x07
+    AES192 = 0x08
+    AES256 = 0x09
+    Twofish256 = 0x0A
+
+
+class CompressionAlgo(PFIntEnum):
+    Uncompressed = 0x00
+    ZIP = 0x01
+    ZLIB = 0x02
+    BZ2 = 0x03
+
+
+class HashAlgo(PFIntEnum):
+        MD5 = 0x01
+        SHA1 = 0x02
+        RIPEMD160 = 0x03
+        SHA256 = 0x08
+        SHA384 = 0x09
+        SHA512 = 0x0A
+        SHA224 = 0x0B
+
+
 class PacketField(object):
     def __init__(self, packet=None):
         if packet is not None:
@@ -34,7 +72,10 @@ class Header(PacketField):
         Invalid = 0
         Signature = 2
         PrivKey = 5
+        PrivSubKey = 7
         PubKey = 6
+        UserID = 13
+        PubSubKey = 14
 
     def __init__(self, packet=None):
         self.always_1 = 0
@@ -161,7 +202,14 @@ class SubPacket(PacketField):
         ##TODO: parse more of these
         CreationTime = 0x02
         ExpirationTime = 0x03
+        Revocable = 0x07
+        PreferredSymmetricAlgorithms = 0x0B
         Issuer = 0x10
+        PreferredHashAlgorithms = 0x15
+        PreferredCompressionAlgorithms = 0x16
+        KeyServerPreferences = 0x17
+        KeyFlags = 0x1B
+        Features = 0x1E
 
         def __str__(self):
             return str(self.name)
@@ -179,16 +227,41 @@ class SubPacket(PacketField):
 
         self.type = SubPacket.Type(bytes_to_int(packet[1:2]))
 
-        if self.type == SubPacket.Type.CreationTime:
+        if self.type in [SubPacket.Type.CreationTime, SubPacket.Type.ExpirationTime]:
             self.payload = datetime.utcfromtimestamp(bytes_to_int(packet[2:]))
+
+        elif self.type == SubPacket.Type.Revocable:
+            self.payload = True if bytes_to_int(packet[2:3]) == 1 else False
+
+        elif self.type == SubPacket.Type.PreferredSymmetricAlgorithms:
+            self.payload = []
+            pos = 2
+            while pos < len(packet):
+                self.payload.append(SymmetricKeyAlgo(bytes_to_int(packet[pos:(pos + 1)])))
+                pos += 1
 
         elif self.type == SubPacket.Type.Issuer:
             # python 2.7
             if type(packet) is str:
                 self.payload = ''.join('{:02x}'.format(ord(c)) for c in packet[2:]).upper().encode()
+
             # python 3.x
             else:
                 self.payload = ''.join('{:02x}'.format(c) for c in packet[2:]).upper().encode()
+
+        elif self.type == SubPacket.Type.PreferredHashAlgorithms:
+            self.payload = []
+            pos = 2
+            while pos < len(packet):
+                self.payload.append(HashAlgo(bytes_to_int(packet[pos:(pos + 1)])))
+                pos += 1
+
+        elif self.type == SubPacket.Type.PreferredCompressionAlgorithms:
+            self.payload = []
+            pos = 2
+            while pos < len(packet):
+                self.payload.append(CompressionAlgo(bytes_to_int(packet[pos:(pos + 1)])))
+                pos += 1
 
         else:
             self.payload = packet[2:]
@@ -198,8 +271,17 @@ class SubPacket(PacketField):
 
         _bytes += self.type.__bytes__()
 
-        if self.type == SubPacket.Type.CreationTime:
+        if self.type in [SubPacket.Type.CreationTime, SubPacket.Type.ExpirationTime]:
             _bytes += int_to_bytes(calendar.timegm(self.payload.timetuple()), self.length - 2)
+
+        elif self.type == SubPacket.Type.Revocable:
+            _bytes += int_to_bytes(1 if self.payload else 0)
+
+        elif self.type in [SubPacket.Type.PreferredSymmetricAlgorithms,
+                           SubPacket.Type.PreferredHashAlgorithms,
+                           SubPacket.Type.PreferredCompressionAlgorithms]:
+            for b in self.payload:
+                _bytes += b.__bytes__()
 
         elif self.type == SubPacket.Type.Issuer:
             _bytes += int_to_bytes(int(self.payload, 16), self.length - 2)
@@ -244,12 +326,12 @@ class SubPackets(PacketField):
         return _bytes
 
 
-class SignatureField(PacketField):
+class MPIFields(PacketField):
     def __init__(self, packet=None):
         self.length = []
         self.signatures = []
 
-        super(SignatureField, self).__init__(packet)
+        super(MPIFields, self).__init__(packet)
 
     def parse(self, packet):
         pos = 0
