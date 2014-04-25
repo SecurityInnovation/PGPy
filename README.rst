@@ -18,45 +18,46 @@ Features
 
 RFC 4880 compliance with the following data:
 
-- [x] Old format packet tags
-- [x] New format packet tags
+- Packet Tags
+   - &#x2612; Old format
+   - &#x2612; New format
 - ASCII-armoring
-   - [x] Decoding
-   - [x] Encoding
-   - [x] CRC24 computation
+   - &#x2612; Decoding
+   - &#x2612; Encoding
+   - &#x2612; CRC24 computation
 - Packets without version distinctions
-   - [ ] Public-Key Encrypted Session Key Packet (Tag 1)
-   - [ ] Symmetric-Key Encrypted Session Key Packet (Tag 3)
-   - [ ] One-Pass Signature Packet (Tag 4)
-   - [ ] Compressed Data Packet (Tag 8)
-   - [ ] Symmetrically Encrypted Data Packet (Tag 9)
-   - [ ] Marker Packet (Tag 10)
-   - [ ] Literal Data Packet (Tag 11)
-   - [ ] Trust Packet (Tag 12)
-   - [x] User ID Packet (Tag 13)
-   - [ ] User Attribute Packet (Tag 17)
-   - [ ] Sym. Encrypted and Integrity Protected Data Packet (Tag 18)
-   - [ ] Modification Detection Code Packet (Tag 19)
+   - &#x2610; Public-Key Encrypted Session Key Packet (Tag 1)
+   - &#x2610; Symmetric-Key Encrypted Session Key Packet (Tag 3)
+   - &#x2610; One-Pass Signature Packet (Tag 4)
+   - &#x2610; Compressed Data Packet (Tag 8)
+   - &#x2610; Symmetrically Encrypted Data Packet (Tag 9)
+   - &#x2610; Marker Packet (Tag 10)
+   - &#x2610; Literal Data Packet (Tag 11)
+   - &#x2610; Trust Packet (Tag 12)
+   - &#x2612; User ID Packet (Tag 13)
+   - &#x2610; User Attribute Packet (Tag 17)
+   - &#x2610; Sym. Encrypted and Integrity Protected Data Packet (Tag 18)
+   - &#x2610; Modification Detection Code Packet (Tag 19)
 - v3 Packets
-   - [ ] Signature Packet (Tag 2)
-   - [ ] Secret-Key Packet (Tag 5)
-   - [ ] Public-Key Packet (Tag 6)
-   - [ ] Secret-Subkey Packet (Tag 7)
-   - [ ] Public-Subkey Packet (Tag 14)
+   - &#x2610; Signature Packet (Tag 2)
+   - &#x2610; Secret-Key Packet (Tag 5)
+   - &#x2610; Public-Key Packet (Tag 6)
+   - &#x2610; Secret-Subkey Packet (Tag 7)
+   - &#x2610; Public-Subkey Packet (Tag 14)
 - v4 Packets
-   - [x] Signature Packet (Tag 2)
-   - [x] Secret-Key Packet (Tag 5)
-   - [x] Public-Key Packet (Tag 6)
-   - [x] Secret-Subkey Packet (Tag 7)
-   - [x] Public-Subkey Packet (Tag 14)
+   - &#x2612; Signature Packet (Tag 2)
+   - &#x2612; Secret-Key Packet (Tag 5)
+   - &#x2612; Public-Key Packet (Tag 6)
+   - &#x2612;Secret-Subkey Packet (Tag 7)
+   - &#x2612; Public-Subkey Packet (Tag 14)
 - Actions
-   - [ ] Generate keys
-   - [ ] Load Public Keys
-   - [ ] Load Secret Keys
-   - [ ] Sign data
-   - [ ] Verify data signature
-   - [ ] Encrypt data
-   - [ ] Decrypt data
+   - &#x2610; Generate keys
+   - &#x2610; Load Public Keys
+   - &#x2610; Load Secret Keys
+   - &#x2610; Sign data
+   - &#x2610; Verify data signature
+   - &#x2610; Encrypt data
+   - &#x2610; Decrypt data
 
 Installation
 ------------
