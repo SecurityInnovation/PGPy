@@ -134,6 +134,7 @@ class String2Key(PacketField):
         self.type = String2Key.Type.Simple
         self.hash = 0
         self.salt = None
+        self.c = None
         self.count = None
         self.iv = b''
 
@@ -149,13 +150,13 @@ class String2Key(PacketField):
             pos = 4
 
             if self.type in [String2Key.Type.Salted, String2Key.Type.Iterated]:
-                self.salt = packet[4:11]
-                pos = 11
+                self.salt = packet[4:12]
+                pos = 12
 
             if self.type == String2Key.Type.Iterated:
-                c = bytes_to_int(packet[11:12])
-                self.count = (16 + (c & 15)) << ((c >> 4) + 6)
-                pos = 12
+                self.c = bytes_to_int(packet[12:13])
+                self.count = (16 + (self.c & 15)) << ((self.c >> 4) + 6)
+                pos = 13
 
         if self.id != 0:
             self.iv = packet[pos:(pos + int(self.alg.block_size()/8))]
@@ -173,11 +174,7 @@ class String2Key(PacketField):
                 _bytes += self.salt
 
             if self.type == String2Key.Type.Iterated:
-                for c in range(0, 255):
-                    cnt = (16 + (c & 15)) << ((c >> 4) + 6)
-                    if cnt == self.count:
-                        _bytes += int_to_bytes(c)
-                        break
+                _bytes += int_to_bytes(self.c)
 
         if self.id != 0:
             _bytes += self.iv
