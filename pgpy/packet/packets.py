@@ -207,6 +207,7 @@ class PrivKey(Packet):
 
     def __init__(self, packet):
         # Tag 5 Secret-Key packets and Tag 7 Secret-Subkey packets share the same format
+        self.name = 'Secret Key Packet'
         self.is_subkey = False
         self.version = PrivKey.Version.Invalid
         self.key_creation = 0
@@ -221,6 +222,7 @@ class PrivKey(Packet):
     def parse(self, packet):
         if self.header.tag == Header.Tag.PrivSubKey:
             self.is_subkey = True
+            self.name = 'Secret Subkey Packet'
 
         self.version = PrivKey.Version(bytes_to_int(packet[:1]))
         self.key_creation = datetime.utcfromtimestamp(bytes_to_int(packet[1:5]))
