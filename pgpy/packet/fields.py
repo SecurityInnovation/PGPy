@@ -1,7 +1,5 @@
 """ fields.py
 """
-import collections
-import math
 import calendar
 from datetime import datetime
 from enum import IntEnum
@@ -18,6 +16,19 @@ class PubKeyAlgo(PFIntEnum):
     ElGamal = 0x10
     DSA = 0x11
 
+    def __str__(self):
+        if self == PubKeyAlgo.RSAEncryptOrSign:
+            return "RSA Encrypt or Sign"
+
+        if self == PubKeyAlgo.ElGamal:
+            return "ElGamal Encrypt-Only"
+
+        if self == PubKeyAlgo.DSA:
+            return "DSA Digital Signature Algorithm"
+
+        ##TODO: do the rest of these
+        raise NotImplementedError(self.name)
+
 
 class SymmetricKeyAlgo(PFIntEnum):
     Plaintext = 0x00
@@ -30,6 +41,30 @@ class SymmetricKeyAlgo(PFIntEnum):
     AES256 = 0x09
     Twofish256 = 0x0A
 
+    def __str__(self):
+        if self == SymmetricKeyAlgo.TripleDES:
+            return "Triple-DES"
+
+        if self == SymmetricKeyAlgo.CAST5:
+            return "CAST5"
+
+        if self == SymmetricKeyAlgo.AES128:
+            return "AES with 128-bit key"
+
+        if self == SymmetricKeyAlgo.AES192:
+            return "AES with 192-bit key"
+
+        if self == SymmetricKeyAlgo.AES256:
+            return "AES with 256-bit key"
+
+        raise NotImplementedError(self.name)
+
+    def block_size(self):
+        if self == SymmetricKeyAlgo.CAST5:
+            return 64
+
+        raise NotImplementedError(self.name)
+
 
 class CompressionAlgo(PFIntEnum):
     Uncompressed = 0x00
@@ -37,15 +72,33 @@ class CompressionAlgo(PFIntEnum):
     ZLIB = 0x02
     BZ2 = 0x03
 
+    def __str__(self):
+        if self == CompressionAlgo.Uncompressed:
+            return "Uncompressed"
+
+        if self == CompressionAlgo.ZIP:
+            return "ZIP <RFC1951>"
+
+        if self == CompressionAlgo.ZLIB:
+            return "ZLIB <RFC1950>"
+
+        if self == CompressionAlgo.BZ2:
+            return "BZip2"
+
+        raise NotImplementedError(self.name)
+
 
 class HashAlgo(PFIntEnum):
-        MD5 = 0x01
-        SHA1 = 0x02
-        RIPEMD160 = 0x03
-        SHA256 = 0x08
-        SHA384 = 0x09
-        SHA512 = 0x0A
-        SHA224 = 0x0B
+    MD5 = 0x01
+    SHA1 = 0x02
+    RIPEMD160 = 0x03
+    SHA256 = 0x08
+    SHA384 = 0x09
+    SHA512 = 0x0A
+    SHA224 = 0x0B
+
+    def __str__(self):
+        return self.name
 
 
 class PacketField(object):
@@ -213,7 +266,86 @@ class SubPacket(PacketField):
         Features = 0x1E
 
         def __str__(self):
-            return str(self.name)
+            if self == SubPacket.Type.SigCreationTime:
+                return "signature creation time"
+
+            if self == SubPacket.Type.Issuer:
+                return "issuer key ID"
+
+            if self == SubPacket.Type.Revocable:
+                return "revocable"
+
+            if self == SubPacket.Type.KeyExpirationTime:
+                return "key expiration time"
+
+            if self == SubPacket.Type.PreferredSymmetricAlgorithms:
+                return "preferred symmetric algorithms"
+
+            if self == SubPacket.Type.PreferredHashAlgorithms:
+                return "preferred hash algorithms"
+
+            if self == SubPacket.Type.PreferredCompressionAlgorithms:
+                return "preferred compression algorithms"
+
+            if self == SubPacket.Type.KeyFlags:
+                return "key flags"
+
+            if self == SubPacket.Type.Features:
+                return "features"
+
+            if self == SubPacket.Type.KeyServerPreferences:
+                return "key server preferences"
+
+            ##TODO: the rest of these
+            raise NotImplementedError(self.name)
+
+    class KeyFlags(PFIntEnum):
+        CertifyKeys = 0x01
+        SignData = 0x02
+        EncryptComms = 0x04
+        EncryptStorage = 0x08
+        PrivateSplit = 0x10
+        Authentication = 0x20
+        PrivateShared = 0x80
+
+        def __str__(self):
+            if self == SubPacket.KeyFlags.CertifyKeys:
+                return "This key may be used to certify other keys"
+
+            if self == SubPacket.KeyFlags.SignData:
+                return "This key may be used to sign data"
+
+            if self == SubPacket.KeyFlags.EncryptComms:
+                return "This key may be used to encrypt communications"
+
+            if self == SubPacket.KeyFlags.EncryptStorage:
+                return "This key may be used to encrypt storage"
+
+            if self == SubPacket.KeyFlags.PrivateSplit:
+                return "The private component of this key may have been split by a secret-sharing mechanism"
+
+            if self == SubPacket.KeyFlags.Authentication:
+                return "This key may be used for authentication"
+
+            if self == SubPacket.KeyFlags.PrivateShared:
+                return "The private component of this key may be in thepossession of more than one person"
+
+            raise NotImplementedError(self.name)
+
+    class Features(PFIntEnum):
+        ModificationDetection = 0x01
+
+        def __str__(self):
+            if self == SubPacket.Features.ModificationDetection:
+                return "Modification detection (packets 18 and 19)"
+
+    class KeyServerPreferences(PFIntEnum):
+        NoModify = 0x80
+
+        def __str__(self):
+            if self == SubPacket.KeyServerPreferences.NoModify:
+                return "No-modify"
+
 
     def __init__(self, packet=None):
         self.length = 0
@@ -228,10 +360,11 @@ class SubPacket(PacketField):
 
         self.type = SubPacket.Type(bytes_to_int(packet[1:2]))
 
-        if self.type in [SubPacket.Type.SigCreationTime,
-                         SubPacket.Type.SigExpirationTime,
-                         SubPacket.Type.KeyExpirationTime]:
+        if self.type == SubPacket.Type.SigCreationTime:
             self.payload = datetime.utcfromtimestamp(bytes_to_int(packet[2:]))
+
+        elif self.type in [SubPacket.Type.SigExpirationTime, SubPacket.Type.KeyExpirationTime]:
+            self.payload = bytes_to_int(packet[2:])
 
         elif self.type == SubPacket.Type.Revocable:
             self.payload = True if bytes_to_int(packet[2:3]) == 1 else False
@@ -266,6 +399,29 @@ class SubPacket(PacketField):
                 self.payload.append(CompressionAlgo(bytes_to_int(packet[pos:(pos + 1)])))
                 pos += 1
 
+        elif self.type == SubPacket.Type.KeyServerPreferences:
+            self.payload = []
+            bits = bytes_to_int(packet[2:])
+            for flag in list(self.KeyServerPreferences.__members__.values()):
+                if bits & flag.value:
+                    self.payload.append(flag)
+
+        elif self.type == SubPacket.Type.KeyFlags:
+            self.payload = []
+            bits = bytes_to_int(packet[2:])
+            fl = 1
+            while fl < max([ f.value for f in self.KeyFlags.__members__.values() ]):
+                if bits & fl:
+                    self.payload.append(self.KeyFlags(fl))
+                fl <<= 1
+
+        elif self.type == SubPacket.Type.Features:
+            self.payload = []
+            bits = bytes_to_int(packet[2:])
+            for flag in list(self.Features.__members__.values()):
+                if bits & flag.value:
+                    self.payload.append(flag)
+
         else:
             self.payload = packet[2:]
 
@@ -274,10 +430,11 @@ class SubPacket(PacketField):
 
         _bytes += self.type.__bytes__()
 
-        if self.type in [SubPacket.Type.SigCreationTime,
-                         SubPacket.Type.SigExpirationTime,
-                         SubPacket.Type.KeyExpirationTime]:
+        if self.type == SubPacket.Type.SigCreationTime:
             _bytes += int_to_bytes(calendar.timegm(self.payload.timetuple()), self.length - 2)
+
+        elif self.type in [SubPacket.Type.SigExpirationTime, SubPacket.Type.KeyExpirationTime]:
+            _bytes += int_to_bytes(self.payload, self.length - 2)
 
         elif self.type == SubPacket.Type.Revocable:
             _bytes += int_to_bytes(1 if self.payload else 0)
@@ -291,6 +448,9 @@ class SubPacket(PacketField):
         elif self.type == SubPacket.Type.Issuer:
             _bytes += int_to_bytes(int(self.payload, 16), self.length - 2)
 
+        elif self.type in [SubPacket.Type.KeyServerPreferences, SubPacket.Type.KeyFlags, SubPacket.Type.Features]:
+            _bytes += int_to_bytes(sum([f.value for f in self.payload]), self.length - 2)
+
         else:
             _bytes += self.payload
 
@@ -301,7 +461,7 @@ class SubPackets(PacketField):
     def __init__(self, packet=None):
         self.length = 0
         self.hashed = False
-        self.subpackets = collections.OrderedDict()
+        self.subpackets = []
 
         super(SubPackets, self).__init__(packet)
 
@@ -312,12 +472,13 @@ class SubPackets(PacketField):
         pos = 2
         while pos < self.length:
             sp = SubPacket(packet[pos:])
-            self.subpackets[str(sp.type)] = sp
+            self.subpackets.append(sp)
             pos += sp.length
 
     def __getattr__(self, name):
-        if name in self.subpackets.keys():
-            return self.subpackets[name]
+        if name in [ str(n.type) for n in self.subpackets ]:
+            i = [ str(n.type) for n in self.subpackets ].index(name)
+            return self.subpackets[i]
 
         else:
             raise AttributeError()
@@ -325,39 +486,7 @@ class SubPackets(PacketField):
     def __bytes__(self):
         _bytes = int_to_bytes(self.length - 2, 2)
 
-        for _, subpacket in self.subpackets.items():
+        for subpacket in self.subpackets:
             _bytes += subpacket.__bytes__()
-
-        return _bytes
-
-
-class MPIFields(PacketField):
-    def __init__(self, packet=None):
-        self.length = []
-        self.signatures = []
-
-        super(MPIFields, self).__init__(packet)
-
-    def parse(self, packet):
-        pos = 0
-        while pos < len(packet):
-            i = len(self.length)
-
-            self.length.append(bytes_to_int(packet[pos:(pos + 2)]))
-            pos += 2
-
-            mlen = int(math.ceil(self.length[i] / 8.0))
-            mend = pos + mlen
-
-            self.signatures.append(packet[pos:mend])
-
-            pos = mend
-
-    def __bytes__(self):
-        _bytes = b''
-
-        for i in range(0, len(self.length)):
-            _bytes += int_to_bytes(self.length[i], 2)
-            _bytes += self.signatures[i]
 
         return _bytes
