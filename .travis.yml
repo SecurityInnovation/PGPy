@@ -4,7 +4,10 @@ python:
   - "3.3"
   - "3.2"
   - "2.7"
-
+# install pgpdump - it's needed for testing
+before_install:
+ - sudo apt-get update -qq
+ - sudo apt-get install pgpdump -qq
 # command to install dependencies
 install:
  - pip install -r requirements.txt
