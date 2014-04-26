@@ -3,7 +3,7 @@
 
 source gpg.sh
 
-for kfile in TestRSA.key TestDSAandElGamal.key TestDSA.key TestRSASignOnly.key; do
+for kfile in *.key; do
     echo "importing public key(s) from ${kfile} ..."
     $GPG --import $kfile
 
