@@ -4,6 +4,7 @@ import calendar
 from datetime import datetime
 
 from .fields import Header, SubPacket, PubKeyAlgo
+from .keyfields import String2Key
 
 
 class PGPDumpFormat(object):
@@ -99,6 +100,12 @@ class PGPDumpFormat(object):
         if pkt.stokey.id == 0:
             o += self.mpi_fields(pkt, True)
 
+        else:
+            o += self.enc_mpi_fields(pkt)
+
+        if pkt.stokey.id == 254:
+            o += "\tEncrypted SHA1 hash\n"
+
         if pkt.stokey.id in [0, 255]:
             if bytes is str:
                 chksum = ''.join('{:02x} '.format(ord(c)) for c in pkt.checksum)
@@ -177,8 +184,42 @@ class PGPDumpFormat(object):
 
     def string2key_fields(self, pkt):
         o = ""
+        if pkt.stokey.id in [254, 255]:
+            o += "\tSym alg - {salg}(sym {salgn})\n".format(
+                salg=str(pkt.stokey.alg),
+                salgn=pkt.stokey.alg.value
+            )
+
+            o += "\t{stokeytype}(s2k {stokeytypenum}):\n".format(
+                stokeytype=str(pkt.stokey.type),
+                stokeytypenum=pkt.stokey.type.value
+            )
+
+            o += "\t\tHash alg - {hash}(hash {hashn})\n".format(
+                hash=str(pkt.stokey.hash),
+                hashn=pkt.stokey.hash.value
+            )
+
+            if pkt.stokey.type in [String2Key.Type.Salted, String2Key.Type.Iterated]:
+                if bytes is str:
+                    saltbytes = ''.join('{:02x} '.format(ord(c)) for c in pkt.stokey.salt)
+                else:
+                    saltbytes = ''.join('{:02x} '.format(c) for c in pkt.stokey.salt)
+                o += "\t\tSalt - {saltbytes}\n".format(saltbytes=saltbytes)
+
+            if pkt.stokey.type == String2Key.Type.Iterated:
+                o += "\t\tCount - {count}(coded count {c})\n".format(
+                    count=pkt.stokey.count,
+                    c=pkt.stokey.c
+                )
+
         if pkt.stokey.id != 0:
-            pass
+            if bytes is str:
+                ivbytes = ''.join('{:02x} '.format(ord(c)) for c in pkt.stokey.iv)
+            else:
+                ivbytes = ''.join('{:02x} '.format(c) for c in pkt.stokey.iv)
+
+            o += "\tIV - {ivbytes}\n".format(ivbytes=ivbytes)
 
         return o
 
@@ -212,5 +253,16 @@ class PGPDumpFormat(object):
         # Only print the encoding if it's a signature packet
         if pkt.header.tag == Header.Tag.Signature:
             o += "\t\t-> {enc}\n".format(enc=mpis.encoding)
+
+        return o
+
+    def enc_mpi_fields(self, pkt):
+        o = ""
+
+        if pkt.key_algorithm == PubKeyAlgo.RSAEncryptOrSign:
+            o += "\tEncrypted RSA d\n"
+            o += "\tEncrypted RSA p\n"
+            o += "\tEncrypted RSA q\n"
+            o += "\tEncrypted RSA u\n"
 
         return o
