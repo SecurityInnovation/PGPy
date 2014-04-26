@@ -29,8 +29,12 @@ class PGPDumpFormat(object):
                     userid=pkt.data.decode()
                 )
 
-            if pkt.header.tag in [Header.Tag.PubKey, Header.Tag.PubSubKey]:
+            if pkt.header.tag in [Header.Tag.PubKey, Header.Tag.PubSubKey,
+                                  Header.Tag.PrivKey, Header.Tag.PrivSubKey]:
                 o += self.pubkey_fields(pkt)
+
+            if pkt.header.tag in [Header.Tag.PrivKey, Header.Tag.PrivSubKey]:
+                o += self.privkey_fields(pkt)
 
             # because python 2.7 is stupid
             if bytes is str:
@@ -86,6 +90,21 @@ class PGPDumpFormat(object):
             algn=pkt.key_algorithm.value
         )
         o += self.mpi_fields(pkt)
+
+        return o
+
+    def privkey_fields(self, pkt):
+        o = ""
+        o += self.string2key_fields(pkt)
+        if pkt.stokey.id == 0:
+            o += self.mpi_fields(pkt, True)
+
+        if pkt.stokey.id in [0, 255]:
+            if bytes is str:
+                chksum = ''.join('{:02x} '.format(ord(c)) for c in pkt.checksum)
+            else:
+                chksum = ''.join('{:02x} '.format(c) for c in pkt.checksum)
+            o += "\tChecksum - {chksum}\n".format(chksum=chksum)
 
         return o
 
@@ -156,15 +175,25 @@ class PGPDumpFormat(object):
                     )
         return o
 
-    def mpi_fields(self, pkt):
+    def string2key_fields(self, pkt):
+        o = ""
+        if pkt.stokey.id != 0:
+            pass
+
+        return o
+
+    def mpi_fields(self, pkt, sec=False):
         o = ""
 
         if pkt.header.tag == Header.Tag.Signature:
             mpis = pkt.signature
 
         if pkt.header.tag in [Header.Tag.PubKey, Header.Tag.PubSubKey,
-                              Header.Tag.PrivKey, Header.Tag.PrivSubKey]:
+                              Header.Tag.PrivKey, Header.Tag.PrivSubKey] and not sec:
             mpis = pkt.key_material
+
+        if pkt.header.tag in [Header.Tag.PrivKey, Header.Tag.PrivSubKey] and sec:
+            mpis = pkt.seckey_material
 
         for mpi in mpis.fields.values():
             # python 2.7
