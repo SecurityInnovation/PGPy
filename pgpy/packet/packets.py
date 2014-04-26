@@ -3,7 +3,8 @@
 import calendar
 from datetime import datetime
 
-from .fields import Header, SubPackets, MPIFields, PubKeyAlgo, HashAlgo
+from .fields import Header, SubPackets, PubKeyAlgo, HashAlgo, SymmetricKeyAlgo
+from .keyfields import MPIFields, String2Key
 from ..util import bytes_to_int, int_to_bytes, PFIntEnum
 
 
@@ -39,6 +40,9 @@ class Packet(object):
     def __bytes__(self):
         raise NotImplementedError()
 
+    def pgpdump_out(self):
+        raise NotImplementedError()
+
 
 class Signature(Packet):
     class Version(PFIntEnum):
@@ -64,9 +68,29 @@ class Signature(Packet):
         ThirdParty_Confirmation = 0x50
 
         def __str__(self):
-            return str(self.name)
+            if self == Signature.Type.BinaryDocument:
+                return "Signature of a binary document"
+
+            if self == Signature.Type.CanonicalDocument:
+                return "Signature of a canonical text document"
+
+            if self == Signature.Type.Generic_UserID_Pubkey:
+                return "Generic certification of a User ID and Public Key packet"
+
+            if self == Signature.Type.Positive_UserID_Pubkey:
+                return "Positive certification of a User ID and Public Key packet"
+
+            if self == Signature.Type.Subkey_Binding:
+                return "Subkey Binding Signature"
+
+            if self == Signature.Type.CertRevocation:
+                return "Certification revocation signature"
+
+            ##TODO: more of these
+            raise NotImplementedError(self.name)
 
     def __init__(self, packet):
+        self.name = "Signature Packet"
         self.version = Signature.Version.Invalid
         self.type = -1
         self.key_algorithm = PubKeyAlgo.Invalid
@@ -74,7 +98,7 @@ class Signature(Packet):
         self.hashed_subpackets = SubPackets()
         self.hashed_subpackets.hashed = True
         self.unhashed_subpackets = SubPackets()
-        self.hash2 = None
+        self.hash2 = b''
         self.signature = MPIFields()
 
         super(Signature, self).__init__(packet)
@@ -97,7 +121,7 @@ class Signature(Packet):
         pos += 2
 
         # algorithm-specific integer(s)
-        self.signature.parse(packet[pos:])
+        self.signature.parse(packet[pos:], self.header.tag, self.key_algorithm)
 
     def __bytes__(self):
         _bytes = b''
@@ -122,6 +146,7 @@ class PubKey(Packet):
 
     def __init__(self, packet):
         # Tag 6 Public-Key signature packets and Tag 14 Public-Subkey packets share the same format
+        self.name = 'Public Key Packet'
         self.is_subkey = False
         self.secret = False
 
@@ -135,6 +160,7 @@ class PubKey(Packet):
     def parse(self, packet):
         if self.header.tag in [Header.Tag.PubSubKey, Header.Tag.PrivSubKey]:
             self.is_subkey = True
+            self.name = 'Public Subkey Packet'
 
         if self.header.tag in [Header.Tag.PrivKey, Header.Tag.PrivSubKey]:
             self.secret = True
@@ -142,7 +168,7 @@ class PubKey(Packet):
         self.version = PubKey.Version(bytes_to_int(packet[:1]))
         self.key_creation = datetime.utcfromtimestamp(bytes_to_int(packet[1:5]))
         self.key_algorithm = PubKeyAlgo(bytes_to_int(packet[5:6]))
-        self.key_material.parse(packet[6:])
+        self.key_material.parse(packet[6:], self.header.tag, self.key_algorithm)
 
     def __bytes__(self):
         _bytes = b''
@@ -157,6 +183,7 @@ class PubKey(Packet):
 
 class UserID(Packet):
     def __init__(self, packet):
+        self.name = 'User ID Packet'
         self.data = b''
 
         super(UserID, self).__init__(packet)
@@ -185,6 +212,9 @@ class PrivKey(Packet):
         self.key_creation = 0
         self.key_algorithm = PubKeyAlgo.Invalid
         self.key_material = MPIFields()
+        self.stokey = String2Key()
+        self.seckey_material = MPIFields()
+        self.checksum = b''
 
         super(PrivKey, self).__init__(packet)
 
@@ -195,7 +225,24 @@ class PrivKey(Packet):
         self.version = PrivKey.Version(bytes_to_int(packet[:1]))
         self.key_creation = datetime.utcfromtimestamp(bytes_to_int(packet[1:5]))
         self.key_algorithm = PubKeyAlgo(bytes_to_int(packet[5:6]))
-        self.key_material.parse(packet[6:])
+        self.key_material.parse(packet[6:], self.header.tag, self.key_algorithm)
+        pos = 6 + len(self.key_material.__bytes__())
+
+        self.stokey.parse(packet[pos:])
+        pos += len(self.stokey.__bytes__())
+
+        if self.stokey.id == 0:
+            self.seckey_material.parse(packet[pos:], self.header.tag, self.key_algorithm, True)
+            pos += len(self.seckey_material.__bytes__())
+
+        else:
+            mend = -2
+            if self.stokey.id == 254:
+                mend = len(packet)
+            self.seckey_material = packet[pos:mend]
+
+        if self.stokey.id in [0, 255]:
+            self.checksum = packet[pos:]
 
     def __bytes__(self):
         _bytes = b''
@@ -204,5 +251,11 @@ class PrivKey(Packet):
         _bytes += int_to_bytes(calendar.timegm(self.key_creation.timetuple()), 4)
         _bytes += self.key_algorithm.__bytes__()
         _bytes += self.key_material.__bytes__()
+        _bytes += self.stokey.__bytes__()
+        if self.stokey.id == 0:
+            _bytes += self.seckey_material.__bytes__()
+        else:
+            _bytes += self.seckey_material
+        _bytes += self.checksum
 
         return _bytes
