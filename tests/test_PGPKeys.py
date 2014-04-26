@@ -59,7 +59,7 @@ class TestPGPPublicKey:
 
 
 class TestPGPPrivateKey:
-    def test_parse(self, load_priv):
+    def test_parse(self, load_priv, pgpdump):
         k = PGPPrivateKey(load_priv)
         assert '\n'.join(PGPDumpFormat(k).out) + '\n' == pgpdump.decode()
 
