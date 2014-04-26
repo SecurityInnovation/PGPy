@@ -13,4 +13,7 @@ def pgpdump(request):
     if 'test_PGPKeys.TestPGPPublicKey' in str(request.cls):
         pgpd_args.append(request._funcargs['load_pub'])
 
+    if 'test_PGPKeys.TestPGPPrivateKey' in str(request.cls):
+        pgpd_args.append(request._funcargs['load_priv'])
+
     return subprocess.check_output(pgpd_args)
