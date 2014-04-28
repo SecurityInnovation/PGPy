@@ -22,28 +22,12 @@ class PGPBlock(FileLoader):
     crc24_init = 0xB704CE
     crc24_poly = 0x1864CFB
 
-    @staticmethod
-    def extract_pgp_ascii_block(data, btype=None):
-        if type(data) is bytes:
-            data = data.decode()
-
-        pgpiter = re.finditer(ASCII_ARMOR_BLOCK_REG, data, flags=re.MULTILINE | re.DOTALL)
-
-        if btype is None:
-            return pgpiter
-
-        for m in pgpiter:
-            block = data[m.start():m.end()]
-
-            # specific type
-            if re.match(Magic(btype).value, block):
-                return block.encode()
-
-        # nothing found :(
-        return b''
-
-    def __init__(self, data, btype):
+    def __init__(self, data, btype=None, all=False):
+        # options
         self.type = btype
+        self.all = all
+
+        # data fields
         self.ascii_headers = collections.OrderedDict()
         self.data = b''
         self.crc = 0
@@ -52,30 +36,34 @@ class PGPBlock(FileLoader):
         super(PGPBlock, self).__init__(data)
 
     def parse(self):
-        # try to extract the signature block
-        self.bytes = self.extract_pgp_ascii_block(self.bytes, self.type)
+        ##TODO: load multiple keys from a single block
 
-        # parsing/decoding using the RFC 4880 section on "Forming ASCII Armor"
-        # https://tools.ietf.org/html/rfc4880#section-6.2
-        k = re.split(ASCII_ARMOR_BLOCK_REG, self.bytes.decode(), flags=re.MULTILINE | re.DOTALL)[1:-1]
+        # try to extract the PGP block(s)
+        self.extract_pgp_ascii_block()
 
-        # parse header field(s)
-        h = [ h for h in re.split(r'^([^:]*): (.*)$\n?', k[1], flags=re.MULTILINE) if h != '' ]
-        for key, val in [ (h[i], h[i+1]) for i in range(0, len(h), 2) ]:
-            self.ascii_headers[key] = val
+        if self.bytes != b'':
+            # parsing/decoding using the RFC 4880 section on "Forming ASCII Armor"
+            # https://tools.ietf.org/html/rfc4880#section-6.2
+            k = re.split(ASCII_ARMOR_BLOCK_REG, self.bytes.decode(), flags=re.MULTILINE | re.DOTALL)[1:-1]
 
-        self.data = base64.b64decode(k[2].replace('\n', '').encode())
-        self.crc = bytes_to_int(base64.b64decode(k[3].encode()))
+            # parse header field(s)
+            h = [ h for h in re.split(r'^([^:]*): (.*)$\n?', k[1], flags=re.MULTILINE) if h != '' ]
+            for key, val in [ (h[i], h[i+1]) for i in range(0, len(h), 2) ]:
+                self.ascii_headers[key] = val
 
-        # verify CRC
-        if self.crc != self.crc24():
-            raise Exception("Bad CRC")
+            self.data = base64.b64decode(k[2].replace('\n', '').encode())
+            self.crc = bytes_to_int(base64.b64decode(k[3].encode()))
+
+            # verify CRC
+            if self.crc != self.crc24():
+                raise Exception("Bad CRC")
 
         # dump fields in all contained packets per RFC 4880, without using pgpdump
-        pos = 0
-        while pos < len(self.data):
-            self.packets.append(PGPPacket(self.data[pos:]))
-            pos += len(self.packets[-1].__bytes__())
+        if self.bytes != b'':
+            pos = 0
+            while pos < len(self.data):
+                self.packets.append(PGPPacket(self.data[pos:]))
+                pos += len(self.packets[-1].__bytes__())
 
 
     def crc24(self):
@@ -102,6 +90,57 @@ class PGPBlock(FileLoader):
                     crc ^= self.crc24_poly
 
         return crc & 0xFFFFFF
+
+    def extract_pgp_ascii_block(self):
+        data = self.bytes
+
+        # if type is bytes, try to decode so re doesn't choke
+        if type(data) is bytes:
+            try:
+                data = data.decode()
+            except UnicodeDecodeError:
+                # this is not ASCII armored data at all
+                self.bytes = b''
+                self.data = data
+                return
+
+        # are there any ASCII armored PGP blocks present?
+        if self.type is None and re.search(Magic.Magic.value, data, flags=re.MULTILINE | re.DOTALL) is None:
+            self.bytes = b''
+            self.data = data.encode()
+            return
+
+        # get all ASCII armored PGP blocks
+        pgpiter = re.finditer(ASCII_ARMOR_BLOCK_REG, data, flags=re.MULTILINE | re.DOTALL)
+
+        # return all blocks
+        if self.type is None and all:
+            _bytes = b''
+
+            for m in pgpiter:
+                _bytes += data[m.start():m.end()].encode()
+
+            self.bytes = _bytes
+            return
+
+        # return the first block only
+        if self.type is None and not all:
+            m = list(pgpiter)[0]
+            self.bytes = data[m.start():m.end()].encode()
+            return
+
+        # return the block type that was requested
+        for m in pgpiter:
+            block = data[m.start():m.end()]
+
+            # specific type
+            if re.match(Magic(self.type).value, block):
+                self.bytes =  block.encode()
+                return
+
+        # no ASCII blocks found :(
+        self.bytes = b''
+        self.data = data.encode()
 
     def __str__(self):
         headers = ""
