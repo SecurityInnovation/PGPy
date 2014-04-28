@@ -5,6 +5,7 @@ regex helpers
 from enum import Enum
 
 class Magic(Enum):
+    Magic = r'-----BEGIN PGP ([A-Z ]*)-----'
     Signature = r'^-----BEGIN PGP SIGNATURE-----'
     PubKey = r'^-----BEGIN PGP PUBLIC KEY BLOCK-----'
     PrivKey = r'^-----BEGIN PGP PRIVATE KEY BLOCK-----'
@@ -18,6 +19,8 @@ class Magic(Enum):
 
         if self == Magic.PrivKey:
             return "PRIVATE KEY BLOCK"
+
+        return ""
 
 ASCII_ARMOR_BLOCK_REG = \
     r'^-----BEGIN PGP ([A-Z ]*)-----$\n'\
