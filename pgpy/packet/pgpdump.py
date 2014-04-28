@@ -265,4 +265,10 @@ class PGPDumpFormat(object):
             o += "\tEncrypted RSA q\n"
             o += "\tEncrypted RSA u\n"
 
+        if pkt.key_algorithm == PubKeyAlgo.DSA:
+            o += "\tEncrypted DSA x\n"
+
+        if pkt.key_algorithm == PubKeyAlgo.ElGamal:
+            o += "\tEncrypted ElGamal x\n"
+
         return o
