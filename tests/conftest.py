@@ -10,10 +10,18 @@ def pgpdump(request):
     if 'test_PGPSignature.TestPGPSignature' in str(request.cls):
         pgpd_args.append(request._funcargs['pgpsig'])
 
-    if 'test_PGPKeys.TestPGPPublicKey' in str(request.cls):
+    if 'load_priv' in request._funcargs.keys():
+        pgpd_args.append(request._funcargs['load_priv'])
+
+    if 'load_pub' in request._funcargs.keys():
         pgpd_args.append(request._funcargs['load_pub'])
 
-    if 'test_PGPKeys.TestPGPPrivateKey' in str(request.cls):
-        pgpd_args.append(request._funcargs['load_priv'])
+    if 'load_key' in request._funcargs.keys():
+        if type(request._funcargs['load_key']) is str:
+            pgpd_args.append(request._funcargs['load_key'])
+
+        else:
+            pgpd_args += request._funcargs['load_key']
+
 
     return subprocess.check_output(pgpd_args)

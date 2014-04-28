@@ -1,5 +1,5 @@
 import pytest
-from pgpy.key import PGPPublicKey, PGPPrivateKey
+from pgpy.key import PGPKey
 from pgpy.packet.pgpdump import PGPDumpFormat
 
 pubkeys = [
@@ -60,21 +60,15 @@ def load_priv(request):
     return request.param
 
 
-class TestPGPPublicKey:
-    def test_parse(self, load_pub, pgpdump):
-        k = PGPPublicKey(load_pub)
+class TestPGPKey:
+    def test_parse_pub(self, load_pub, pgpdump):
+        k = PGPKey(load_pub)
+        assert '\n'.join(PGPDumpFormat(k).out) + '\n' == pgpdump.decode()
+
+    def test_parse_sec(self, load_priv, pgpdump):
+        k = PGPKey(load_priv)
         assert '\n'.join(PGPDumpFormat(k).out) + '\n' == pgpdump.decode()
 
     def test_bytes(self, load_pub):
-        k = PGPPublicKey(load_pub)
-        assert k.__bytes__() == k.data
-
-
-class TestPGPPrivateKey:
-    def test_parse(self, load_priv, pgpdump):
-        k = PGPPrivateKey(load_priv)
-        assert '\n'.join(PGPDumpFormat(k).out) + '\n' == pgpdump.decode()
-
-    def test_bytes(self, load_priv):
-        k = PGPPrivateKey(load_priv)
+        k = PGPKey(load_pub)
         assert k.__bytes__() == k.data
