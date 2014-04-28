@@ -3,10 +3,14 @@
 
 source gpg.sh
 
-for kfile in *.key; do
+for kfile in pubkeys/*.key; do
     echo "importing public key(s) from ${kfile} ..."
-    $GPG --import $kfile
+    $GPG --import "$kfile"
+    echo ""
+done
 
-    echo "importing secret key(s) from ${kfile} ..."
-    $GPG --allow-secret-key-import --import ${kfile}
+for skfile in seckeys/*.sec.key; do
+    echo "importing secret key(s) from ${skfile} ..."
+    $GPG --allow-secret-key-import --import "${skfile}"
+    echo ""
 done
