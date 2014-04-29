@@ -58,7 +58,6 @@ keyids_priv = [
 def load_key(request):
     return request.param
 
-
 class TestPGPKey:
     def test_parse(self, load_key, pgpdump):
         p = PGPLoad(load_key)
@@ -91,10 +90,27 @@ class TestPGPKey:
 
         assert kfp == re.search(r'Key fingerprint = ([0-9A-F ]*)', fp.decode()).group(1)
 
-    def test_str_pub(self, load_key):
+    def test_str(self, load_key):
         k = PGPLoad(load_key)[0]
 
         assert str(k) == k.bytes.decode()
+
+    @pytest.mark.parametrize("key", [
+        "tests/testdata/seckeys/TestKeyDecryption-DSA.sec.key",
+        "tests/testdata/seckeys/TestKeyDecryption-DSASignOnly.sec.key",
+        "tests/testdata/seckeys/TestKeyDecryption-RSA.sec.key",
+        "tests/testdata/seckeys/TestKeyDecryption-RSASignOnly.sec.key",
+    ], ids=[
+        "sec-protected-dsa",
+        "sec-protected-dsa-signonly",
+        "sec-protected-rsa",
+        "sec-protected-rsa-signonly",
+    ])
+    def test_decrypt_keymaterial(self, key):
+        k = PGPLoad(key)[0]
+        k.decrypt_keymaterial("QwertyUiop")
+
+        print(k)
 
     def test_bytes(self, load_key):
         k = PGPLoad(load_key)[0]

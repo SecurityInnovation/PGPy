@@ -244,6 +244,7 @@ class PrivKey(Packet):
         self.key_material = MPIFields()
         self.stokey = String2Key()
         self.seckey_material = MPIFields()
+        self.enc_seckey_mateiral = b''
         self.checksum = b''
 
         super(PrivKey, self).__init__(packet)
@@ -264,7 +265,7 @@ class PrivKey(Packet):
 
         # secret key material is not encrypted
         if self.stokey.id == 0:
-            self.seckey_material.parse(packet[pos:], self.header.tag, self.key_algorithm, True)
+            self.seckey_material.parse(packet[pos:], self.header.tag, self.key_algorithm, sec=True)
             pos += len(self.seckey_material.__bytes__())
 
         # secret key material is encrypted
@@ -272,7 +273,7 @@ class PrivKey(Packet):
             mend = -2
             if self.stokey.id == 254:
                 mend = len(packet)
-            self.seckey_material = packet[pos:mend]
+            self.enc_seckey_material = packet[pos:mend]
 
         if self.stokey.id in [0, 255]:
             self.checksum = packet[pos:]
@@ -288,7 +289,7 @@ class PrivKey(Packet):
         if self.stokey.id == 0:
             _bytes += self.seckey_material.__bytes__()
         else:
-            _bytes += self.seckey_material
+            _bytes += self.enc_seckey_material
         _bytes += self.checksum
 
         return _bytes

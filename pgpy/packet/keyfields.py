@@ -3,6 +3,7 @@
 import math
 import collections
 import copy
+import hashlib
 
 from .fields import Header, PacketField, PubKeyAlgo, HashAlgo, SymmetricKeyAlgo, PFIntEnum
 from ..util import bytes_to_int, int_to_bytes
@@ -132,7 +133,7 @@ class String2Key(PacketField):
         self.id = 0
         self.alg = SymmetricKeyAlgo.Plaintext
         self.type = String2Key.Type.Simple
-        self.hash = 0
+        self.hash = HashAlgo.Invalid
         self.salt = None
         self.c = None
         self.count = None
@@ -160,6 +161,69 @@ class String2Key(PacketField):
 
         if self.id != 0:
             self.iv = packet[pos:(pos + int(self.alg.block_size()/8))]
+
+    def derive_key(self, passphrase):
+        # we use the fields stored here along with the RFC 4880 String-to-Key usage description
+        # to derive a symmetric key from the given passphrase.
+
+        # how long does our key need to be, and how many hash contexts do we need?
+        keylen = self.alg.keylen()
+        hashlen = self.hash.digestlen()
+        ctx = int(math.ceil(keylen/float(hashlen)))
+
+        h = []
+        # instantiate our hash context(s)
+        for i in range(0, ctx):
+            h.append(hashlib.new(self.hash.name, b'\x00'*i))
+
+        # Simple S2K
+        hsalt = ""
+        hpass = passphrase.encode()
+
+        # Salted S2K (or Iterated)
+        if self.type in [String2Key.Type.Salted, String2Key.Type.Iterated]:
+            hsalt = self.salt
+
+        # Set the total to-be-hashed octet count
+        count = len(self.salt + hpass)
+        if self.type == String2Key.Type.Iterated and self.count > len(hsalt + hpass):
+            count = self.count
+
+        while count > len(self.salt + hpass):
+            for hc in h:
+                hc.update(hsalt)
+                hc.update(hpass)
+            count -= len(self.salt + hpass)
+
+        if count > 0:
+            for hc in h:
+                hc.update((hsalt + hpass)[:count])
+
+        return b''.join([hc.digest() for hc in h])[:int(keylen / 8)]
+
+
+        # Simple S2K and Salted S2K hash hdata once
+        # h.update(hdata)
+        # digest = h.digest()
+        #
+        # # count
+        # count = self.count
+        #
+        # if self.type == String2Key.Type.Iterated:
+        #     hashed = len(hdata)
+        #     # Iterated hashes multiple times
+        #     while (hashed + len(digest)) < count:
+        #         h.update(hdata)
+        #         hashed += len(digest)
+        #         # hashed += len(digest)
+        #         # digest = hashlib.new(self.hash.name, digest).digest()
+        #
+        #     h.update(hdata[:(count - hashed)])
+        #     digest = h.digest()
+
+        # and finally, return!
+        return digest
+
 
     def __bytes__(self):
         _bytes = b''
