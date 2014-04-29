@@ -45,7 +45,7 @@ class PGPKeyCollection(object):
             kb = PGPLoad(key)
 
             for k in kb:
-                if k.sec:
+                if k.secret:
                     self.seckeys[k.keyid] = k
 
                 else:

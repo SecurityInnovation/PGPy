@@ -177,6 +177,7 @@ class PubKey(Packet):
         self.name = 'Public Key Packet'
         self.is_subkey = False
         self.secret = False
+        self.fp = None
 
         self.version = PubKey.Version.Invalid
         self.key_creation = 0
@@ -189,9 +190,6 @@ class PubKey(Packet):
         if self.header.tag in [Header.Tag.PubSubKey, Header.Tag.PrivSubKey]:
             self.is_subkey = True
             self.name = 'Public Subkey Packet'
-
-        if self.header.tag in [Header.Tag.PrivKey, Header.Tag.PrivSubKey]:
-            self.secret = True
 
         self.version = PubKey.Version(bytes_to_int(packet[:1]))
         self.key_creation = datetime.utcfromtimestamp(bytes_to_int(packet[1:5]))
@@ -237,6 +235,9 @@ class PrivKey(Packet):
         # Tag 5 Secret-Key packets and Tag 7 Secret-Subkey packets share the same format
         self.name = 'Secret Key Packet'
         self.is_subkey = False
+        self.secret = True
+        self.fp = None
+
         self.version = PrivKey.Version.Invalid
         self.key_creation = 0
         self.key_algorithm = PubKeyAlgo.Invalid
@@ -261,10 +262,12 @@ class PrivKey(Packet):
         self.stokey.parse(packet[pos:])
         pos += len(self.stokey.__bytes__())
 
+        # secret key material is not encrypted
         if self.stokey.id == 0:
             self.seckey_material.parse(packet[pos:], self.header.tag, self.key_algorithm, True)
             pos += len(self.seckey_material.__bytes__())
 
+        # secret key material is encrypted
         else:
             mend = -2
             if self.stokey.id == 254:

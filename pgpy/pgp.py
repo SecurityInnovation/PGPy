@@ -4,12 +4,14 @@
 import re
 import collections
 import base64
+import hashlib
+import calendar
 
 from .fileloader import FileLoader
 from .reg import *
 from .util import bytes_to_int, int_to_bytes
 from .packet import PGPPacket
-from .packet.fields import Header
+from .packet.fields import Header, SymmetricKeyAlgo
 from .errors import PGPError
 
 def PGPLoad(pgpbytes):
@@ -258,10 +260,64 @@ class PGPKey(PGPBlock):
         super(PGPKey, self).__init__(keyb)
 
     def __getattr__(self, item):
-        if item == "sec":
-            return self.packets[0].header.tag == Header.Tag.PrivKey
+        if item == "secret":
+            return self.packets[0].secret
+
+        if item in ["fingerprint", "keyid"] and self.fp is None:
+            # We have not yet computed the fingerprint, so we'll have to do that now.
+            # Here is the RFC 4880 section on computing v4 fingerprints:
+            #
+            # A V4 fingerprint is the 160-bit SHA-1 hash of the octet 0x99,
+            # followed by the two-octet packet length, followed by the entire
+            # Public-Key packet starting with the version field.  The Key ID is the
+            # low-order 64 bits of the fingerprint.
+            sha1 = hashlib.sha1()
+
+            # kmpis = b''
+            # for mpi in self.packets[0].key_material.fields.values():
+            #     kmpis += mpi['bytes']
+            kmpis = self.packets[0].key_material.__bytes__()
+
+            bcde_len = int_to_bytes(6 + len(kmpis), 2)
+
+            # a.1) 0x99 (1 octet)
+            sha1.update(b'\x99')
+            # a.2 high-order length octet
+            # sha1.update(int_to_bytes(self.packets[0].header.length)[0:1])
+            sha1.update(bcde_len[:1])
+            # a.3 low-order length octet
+            # sha1.update(int_to_bytes(self.packets[0].header.length)[-1:])
+            sha1.update(bcde_len[-1:])
+            # b) version number = 4 (1 octet);
+            sha1.update(b'\x04') # this is a v4 fingerprint
+            # c) timestamp of key creation (4 octets);
+            sha1.update(int_to_bytes(calendar.timegm(self.packets[0].key_creation.timetuple()), 4))
+            # d) algorithm (1 octet): 17 = DSA (example);
+            sha1.update(self.packets[0].key_algorithm.__bytes__())
+            # e) Algorithm-specific fields.
+            sha1.update(kmpis)
+
+            # now store the digest
+            self.fp = sha1.hexdigest().upper()
+
+        if item == "fingerprint":
+            return self.fp
 
         if item == "keyid":
-            s = [pkt.unhashed_subpackets for pkt in self.packets if pkt.header.tag == Header.Tag.Signature]
-            return s[0].Issuer.payload
+            # ... The Key ID is the low-order 64-bits of the fingerprint.
+            return self.fp[-16:]
 
+        if item == "encrypted":
+            if self.packets[0].stokey.id != 0:
+                return True
+
+            return False
+
+    def decrypt_keymaterial(self, passphrase):
+        if not self.encrypted:
+            return
+
+
+
+    ##TODO: encrypt secret key material that is not yet encrypted
+    ##TODO: generate String2Key specifier for newly encrypted data
