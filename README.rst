@@ -52,8 +52,8 @@ RFC 4880 compliance with the following data:
    - [x] Public-Subkey Packet (Tag 14)
 - Actions
    - [ ] Generate keys
-   - [ ] Load Public Keys
-   - [ ] Load Secret Keys
+   - [x] Load Public Keys
+   - [x] Load Secret Keys
    - [ ] Sign data
    - [ ] Verify data signature
    - [ ] Encrypt data
