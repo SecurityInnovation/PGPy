@@ -18,7 +18,7 @@ def load_key(request):
     return request.param
 
 
-class TestPGPKeyLoader:
+class TestPGPKeyCollection:
     def test_load(self, load_key, pgpdump):
         with pgpy.PGPKeyCollection(load_key) as k:
             assert '\n'.join(PGPDumpFormat(k).out) + '\n' == pgpdump.decode()
