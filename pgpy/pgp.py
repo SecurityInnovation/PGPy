@@ -6,12 +6,15 @@ import collections
 import base64
 import hashlib
 import calendar
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
 
 from .fileloader import FileLoader
 from .reg import *
 from .util import bytes_to_int, int_to_bytes
 from .packet import PGPPacket
 from .packet.fields import Header, SymmetricKeyAlgo
+from .packet.keyfields import MPIFields
 from .errors import PGPError
 
 def PGPLoad(pgpbytes):
@@ -317,7 +320,40 @@ class PGPKey(PGPBlock):
         if not self.encrypted:
             return
 
+        # Encryption/decryption of the secret data is done in CFB mode using
+        # the key created from the passphrase and the Initial Vector from the
+        # packet.  A different mode is used with V3 keys (which are only RSA)
+        # than with other key formats.  (...)
+        #
+        # With V4 keys, a simpler method is used.  All secret MPI values are
+        # encrypted in CFB mode, including the MPI bitcount prefix.
 
+        for i, pkt in [ (i, pkt) for i, pkt in enumerate(self.packets)
+                     if pkt.header.tag in [Header.Tag.PrivKey, Header.Tag.PrivSubKey]
+                     and pkt.stokey.id != 0 ]:
+            # derive a key from our passphrase. If the passphrase is correct, this will be the right one...
+            sessionkey = pkt.stokey.derive_key(passphrase)
+
+            # instantiate the correct algorithm with the correct keylength
+            if pkt.stokey.alg == SymmetricKeyAlgo.CAST5:
+                alg = algorithms.CAST5(sessionkey[:16])
+                # alg = algorithms.CAST5(sessionkey[-16:])
+
+            # attempt to decrypt this packet!
+            cipher = Cipher(alg, modes.CFB(pkt.stokey.iv), backend=default_backend())
+            decryptor = cipher.decryptor()
+
+            ct = decryptor.update(pkt.enc_seckey_material) + decryptor.finalize()
+
+            # check the hash to see if we decrypted successfully or not
+            if pkt.stokey.id == 254:
+                if not ct[-20:] == hashlib.new('sha1', ct[:-20]).digest():
+                    raise PGPError("Passphrase was incorrect!")
+
+                # parse decrypted key material into pkt.seckey_material
+                # self.packets[i]
+                pkt.seckey_material.parse(ct[:-20], pkt.header.tag, pkt.key_algorithm, sec=True)
+                pkt.checksum = ct[-20:]
 
     ##TODO: encrypt secret key material that is not yet encrypted
     ##TODO: generate String2Key specifier for newly encrypted data
