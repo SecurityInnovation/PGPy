@@ -127,6 +127,7 @@ class Header(PacketField):
         PrivKey = 5
         PrivSubKey = 7
         PubKey = 6
+        Trust = 12
         UserID = 13
         PubSubKey = 14
 
@@ -476,8 +477,8 @@ class SubPackets(PacketField):
             pos += sp.length
 
     def __getattr__(self, name):
-        if name in [ str(n.type) for n in self.subpackets ]:
-            i = [ str(n.type) for n in self.subpackets ].index(name)
+        if name in [ n.type.name for n in self.subpackets ]:
+            i = [ n.type.name for n in self.subpackets ].index(name)
             return self.subpackets[i]
 
         else:
