@@ -30,7 +30,7 @@ class PGPKeyring(object):
 
     def __getattr__(self, item):
         if item == "packets" and self.using is None:
-            return [ pkt for keys in list(self.pubkeys.values()) + list(self.seckeys.values()) for pkt in keys.packets]
+            return [ pkt for keys in list(self.pubkeys.values()) + list(self.seckeys.values()) for pkt in keys.packets ]
 
         if item == "keys" and self.using is None:
             return list(self.pubkeys.values()) + list(self.seckeys.values())
