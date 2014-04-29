@@ -33,7 +33,7 @@ RFC 4880 compliance with the following data:
    - [ ] Symmetrically Encrypted Data Packet (Tag 9)
    - [ ] Marker Packet (Tag 10)
    - [ ] Literal Data Packet (Tag 11)
-   - [ ] Trust Packet (Tag 12)
+   - [x] Trust Packet (Tag 12)
    - [x] User ID Packet (Tag 13)
    - [ ] User Attribute Packet (Tag 17)
    - [ ] Sym. Encrypted and Integrity Protected Data Packet (Tag 18)
