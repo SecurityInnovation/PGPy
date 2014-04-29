@@ -14,11 +14,11 @@ class PGPDumpFormat(object):
 
         # python 2.7
         if bytes is str:
-            o = ''.join('{:02x} '.format(ord(c)) for c in f)
+            o += ''.join('{:02x} '.format(ord(c)) for c in f)
 
         # python 3.x
         else:
-            o = ''.join('{:02x} '.format(c) for c in f)
+            o += ''.join('{:02x} '.format(c) for c in f)
 
         return o
 
@@ -143,8 +143,9 @@ class PGPDumpFormat(object):
                     )
 
                 if sub.type == SubPacket.Type.KeyExpirationTime:
-                    ct = calendar.timegm([ p for p in pkt.hashed_subpackets.subpackets + pkt.unhashed_subpackets.subpackets
-                                               if p.type == SubPacket.Type.SigCreationTime ][0].payload.timetuple())
+                    ct = calendar.timegm([ p for p in
+                                           pkt.hashed_subpackets.subpackets + pkt.unhashed_subpackets.subpackets
+                                           if p.type == SubPacket.Type.SigCreationTime ][0].payload.timetuple())
                     rt = datetime.utcfromtimestamp(ct + sub.payload)
                     o += "\t\tTime - {date}\n".format(
                         date=rt.strftime("%a %b %e %H:%M:%S UTC %Y")
