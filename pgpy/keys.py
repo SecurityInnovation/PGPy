@@ -6,7 +6,7 @@ import collections
 from .pgp import PGPLoad
 
 
-class PGPKeyCollection(object):
+class PGPKeyring(object):
     def __init__(self, keys=None):
         self.pubkeys = collections.OrderedDict()
         self.seckeys = collections.OrderedDict()
