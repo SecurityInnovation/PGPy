@@ -336,7 +336,7 @@ class PGPKey(PGPBlock):
 
             # instantiate the correct algorithm with the correct keylength
             if pkt.stokey.alg == SymmetricKeyAlgo.CAST5:
-                alg = algorithms.CAST5(sessionkey[:16])
+                alg = algorithms.CAST5(sessionkey)
                 # alg = algorithms.CAST5(sessionkey[-16:])
 
             # attempt to decrypt this packet!
