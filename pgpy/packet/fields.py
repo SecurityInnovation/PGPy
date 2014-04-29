@@ -359,7 +359,6 @@ class SubPacket(PacketField):
             if self == SubPacket.KeyServerPreferences.NoModify:
                 return "No-modify"
 
-
     def __init__(self, packet=None):
         self.length = 0
         self.type = 0
@@ -480,7 +479,7 @@ class SubPackets(PacketField):
 
     def parse(self, packet):
         self.length = bytes_to_int(packet[0:2]) + 2
-        packet = packet[:(self.length)]
+        packet = packet[:self.length]
 
         pos = 2
         while pos < self.length:
