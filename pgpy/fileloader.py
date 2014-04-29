@@ -99,8 +99,16 @@ class FileLoader(object):
         if self.bytes != bytes():
             self.parse()
 
+    def __bytes__(self):
+        return self.bytes
+
     def parse(self):
         pass
 
-    def __bytes__(self):
-        return self.bytes
+    def is_ascii(self):
+        try:
+            self.bytes.decode()
+            return True
+
+        except UnicodeDecodeError:
+            return False
