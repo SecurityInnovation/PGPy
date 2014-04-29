@@ -2,3 +2,5 @@
 """
 from ._author import *
 from .errors import PGPError
+
+from .keys import PGPKeyCollection
