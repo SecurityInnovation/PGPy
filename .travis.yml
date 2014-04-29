@@ -1,13 +1,13 @@
 language: python
 python:
-#  - "3.4" # Python 3.4 is not supported by travis yet :(
+  - "3.4"
   - "3.3"
   - "3.2"
   - "2.7"
 # install pgpdump - it's needed for testing
 before_install:
  - sudo apt-get update -qq
- - sudo apt-get install pgpdump -qq
+ - sudo apt-get install gnupg pgpdump -qq
 # command to install dependencies
 install:
  - pip install -r requirements.txt
