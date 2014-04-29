@@ -3,11 +3,25 @@
 import calendar
 from datetime import datetime
 
-from .fields import Header, SubPacket, PubKeyAlgo
-from .keyfields import String2Key
+from .packet import Header, SubPacket, String2Key
+from .packet.fields import PubKeyAlgo
 
 
 class PGPDumpFormat(object):
+    @staticmethod
+    def bytefield(f):
+        o = ""
+
+        # python 2.7
+        if bytes is str:
+            o = ''.join('{:02x} '.format(ord(c)) for c in f)
+
+        # python 3.x
+        else:
+            o = ''.join('{:02x} '.format(c) for c in f)
+
+        return o
+
     def __init__(self, pktobj):
         self.out = []
 
@@ -25,17 +39,22 @@ class PGPDumpFormat(object):
             if pkt.header.tag == Header.Tag.Signature:
                 o += self.signature_fields(pkt)
 
-            if pkt.header.tag == Header.Tag.UserID:
-                o += "\tUser ID - {userid}\n".format(
-                    userid=pkt.data.decode()
-                )
-
             if pkt.header.tag in [Header.Tag.PubKey, Header.Tag.PubSubKey,
                                   Header.Tag.PrivKey, Header.Tag.PrivSubKey]:
                 o += self.pubkey_fields(pkt)
 
             if pkt.header.tag in [Header.Tag.PrivKey, Header.Tag.PrivSubKey]:
                 o += self.privkey_fields(pkt)
+
+            if pkt.header.tag == Header.Tag.Trust:
+                o += "\tTrust - {trustbytes}\n".format(
+                    trustbytes=self.bytefield(pkt.trust)
+                )
+
+            if pkt.header.tag == Header.Tag.UserID:
+                o += "\tUser ID - {userid}\n".format(
+                    userid=pkt.data.decode()
+                )
 
             # because python 2.7 is stupid
             if bytes is str:
@@ -65,17 +84,8 @@ class PGPDumpFormat(object):
             hanum=pkt.hash_algorithm.value
         )
         o += self.subpkt_fields(pkt)
-
-        # python 2.7
-        if bytes is str:
-            h2 = ''.join('{:02x} '.format(ord(c)) for c in pkt.hash2)
-
-        # python 3
-        else:
-            h2 = ''.join('{:02x} '.format(c) for c in pkt.hash2)
-
         o += "\tHash left 2 bytes - {hash2}\n".format(
-            hash2=h2
+            hash2=self.bytefield(pkt.hash2)
         )
         o += self.mpi_fields(pkt)
         return o
@@ -237,17 +247,10 @@ class PGPDumpFormat(object):
             mpis = pkt.seckey_material
 
         for mpi in mpis.fields.values():
-            # python 2.7
-            if bytes is str:
-                kb = ''.join('{:02x} '.format(ord(c)) for c in mpi['bytes'])
-            # python 3
-            else:
-                kb = ''.join('{:02x} '.format(c) for c in mpi['bytes'])
-
             o += "\t{mname}({bitlen} bits) - {keybytes}\n".format(
                 mname=mpi['name'],
                 bitlen=mpi['bitlen'],
-                keybytes=kb,
+                keybytes=self.bytefield(mpi['bytes']),
             )
 
         # Only print the encoding if it's a signature packet
