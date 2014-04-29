@@ -5,6 +5,7 @@ import collections
 
 from .pgp import PGPLoad
 
+
 class PGPKeyCollection(object):
     def __init__(self, keys=None):
         self.pubkeys = collections.OrderedDict()
@@ -50,7 +51,6 @@ class PGPKeyCollection(object):
 
                 else:
                     self.pubkeys[k.keyid] = k
-
 
     def sign(self, subject, keyid, inline=False):
         # from the Computing Signatures section of RFC 4880 (http://tools.ietf.org/html/rfc4880#section-5.2.4)
