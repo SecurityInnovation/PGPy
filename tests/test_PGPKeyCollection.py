@@ -28,3 +28,13 @@ class TestPGPKeyLoader:
             fb = b''.join([open(f, 'rb').read() for f in load_key]) if type(load_key) is list else open(load_key, 'rb').read()
 
             assert k.__bytes__() == fb
+
+    # def test_list_pubkeys(self, load_key):
+    #     pass
+
+    # def test_list_privkeys(self, load_key):
+    #     pass
+
+    def test_str(self, load_key):
+        with pgpy.PGPKeyCollection(load_key) as k:
+            pass
