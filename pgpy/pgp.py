@@ -9,18 +9,77 @@ from .fileloader import FileLoader
 from .reg import *
 from .util import bytes_to_int, int_to_bytes
 from .packet import PGPPacket
+from .packet.fields import Header
+from .errors import PGPError
 
-ASCII_FORMAT = \
-    "-----BEGIN PGP {block_type}-----\n"\
-    "{headers}\n"\
-    "{packet}\n"\
-    "={crc}\n"\
-    "-----END PGP {block_type}-----\n"
+def PGPLoad(pgpbytes):
+    # load pgpbytes regardless of type, first
+    f = FileLoader(pgpbytes)
+
+    b = []
+
+    # now, are there any ASCII PGP blocks at all?
+    if f.is_ascii():
+        # decode/parse ASCII PGP blocks
+        nascii = list(re.finditer(ASCII_BLOCK, f.bytes.decode(), flags=re.MULTILINE | re.DOTALL))
+
+        if len(nascii) == 0:
+            raise PGPError("No PGP blocks to read!")
+
+        for block in nascii:
+            if block.group(1)[-9:] == "KEY BLOCK":
+                c = PGPKey
+
+            if block.group(1) == "SIGNATURE":
+                c = PGPSignature
+
+            p = c(block.group(0).encode())
+            b.append(p)
+
+    # try to load binary instead
+    else:
+        block = PGPBlock(pgpbytes)
+
+        # now go through block and split out any keys, if possible
+        bpos = 0
+        for i, pkt in enumerate(block.packets):
+            # if this is the last packet, we need to instantiate whatever type is at block.packets[bpos]
+            if i == len(block.packets) - 1:
+                pktblock = block.packets[bpos:]
+
+                if pktblock[0].header.tag in [Header.Tag.PubKey, Header.Tag.PrivKey]:
+                    bl = PGPKey(None)
+
+                bl.packets = pktblock
+                b.append(bl)
+                bpos = i
+                continue
+
+            # a public or private key (not subkey) indicates the start of a new block,
+            # so load the previous block into a new object
+            if i != bpos and pkt.header.tag in [Header.Tag.PubKey, Header.Tag.PrivKey]:
+                pktblock = block.packets[bpos:i]
+                bl = PGPKey(None)
+                bl.packets = pktblock
+                b.append(bl)
+                bpos = i
+                continue
+
+
+    # return loaded blocks
+    return b
 
 
 class PGPBlock(FileLoader):
     crc24_init = 0xB704CE
     crc24_poly = 0x1864CFB
+
+    ASCII_FORMAT = \
+        "-----BEGIN PGP {block_type}-----\n"\
+        "{headers}\n"\
+        "{packet}\n"\
+        "={crc}\n"\
+        "-----END PGP {block_type}-----\n"
 
     def __init__(self, data, btype=None, all=False):
         # options
@@ -35,6 +94,37 @@ class PGPBlock(FileLoader):
 
         super(PGPBlock, self).__init__(data)
 
+    def __str__(self):
+        headers = ""
+        for key, val in self.ascii_headers.items():
+            headers += "{key}: {val}\n".format(key=key, val=val)
+
+        # base64-encode our bytes, then insert a newline every 64th character
+        payload = b''
+        for pkt in self.packets:
+            payload += pkt.__bytes__()
+        payload = base64.b64encode(payload).decode()
+        payload = '\n'.join(payload[i:i+64] for i in range(0, len(payload), 64))
+
+        # figure out block type magic
+        t = ""
+        if self.type is not None:
+            t = str(self.type)
+
+        return self.ASCII_FORMAT.format(
+                block_type=t,
+                headers=headers,
+                packet=payload,
+                crc=base64.b64encode(int_to_bytes(self.crc, 3)).decode(),
+            )
+
+    def __bytes__(self):
+        _bytes = b''
+        for pkt in self.packets:
+            _bytes += pkt.__bytes__()
+
+        return _bytes
+
     def parse(self):
         ##TODO: load multiple keys from a single block
 
@@ -44,7 +134,7 @@ class PGPBlock(FileLoader):
         if self.bytes != b'':
             # parsing/decoding using the RFC 4880 section on "Forming ASCII Armor"
             # https://tools.ietf.org/html/rfc4880#section-6.2
-            k = re.split(ASCII_ARMOR_BLOCK_REG, self.bytes.decode(), flags=re.MULTILINE | re.DOTALL)[1:-1]
+            k = re.split(ASCII_BLOCK, self.bytes.decode(), flags=re.MULTILINE | re.DOTALL)[1:-1]
 
             # parse header field(s)
             h = [ h for h in re.split(r'^([^:]*): (.*)$\n?', k[1], flags=re.MULTILINE) if h != '' ]
@@ -59,7 +149,7 @@ class PGPBlock(FileLoader):
                 raise Exception("Bad CRC")
 
         # dump fields in all contained packets per RFC 4880, without using pgpdump
-        if self.bytes != b'':
+        if self.data != b'':
             pos = 0
             while pos < len(self.data):
                 self.packets.append(PGPPacket(self.data[pos:]))
@@ -95,26 +185,33 @@ class PGPBlock(FileLoader):
         data = self.bytes
 
         # if type is bytes, try to decode so re doesn't choke
-        if type(data) is bytes:
-            try:
-                data = data.decode()
-            except UnicodeDecodeError:
-                # this is not ASCII armored data at all
-                self.bytes = b''
-                self.data = data
-                return
+        if self.is_ascii():
+            data = data.decode()
 
-        # are there any ASCII armored PGP blocks present?
-        if self.type is None and re.search(Magic.Magic.value, data, flags=re.MULTILINE | re.DOTALL) is None:
+        # this is binary data; skip extracting the block and move on
+        else:
+            self.bytes = b''
+            self.data = data
+            return
+
+        # are there any ASCII armored PGP blocks present? if not, we may be dealing with binary data instead
+        if self.type is None and re.search(r'-----BEGIN PGP ([A-Z ]*)-----', data, flags=re.MULTILINE | re.DOTALL) is None:
             self.bytes = b''
             self.data = data.encode()
             return
 
-        # get all ASCII armored PGP blocks
-        pgpiter = re.finditer(ASCII_ARMOR_BLOCK_REG, data, flags=re.MULTILINE | re.DOTALL)
+        # find all ASCII armored PGP blocks
+        pgpiter = list(re.finditer(ASCII_BLOCK, data, flags=re.MULTILINE | re.DOTALL))
 
         # return all blocks
         if self.type is None and all:
+            # try to determine block type
+            if len(pgpiter) == 1:
+                for m in Magic.__members__.values():
+                    if re.search(m.value, data, flags=re.MULTILINE | re.DOTALL):
+                        self.type = m
+                        break
+
             _bytes = b''
 
             for m in pgpiter:
@@ -125,7 +222,14 @@ class PGPBlock(FileLoader):
 
         # return the first block only
         if self.type is None and not all:
-            m = list(pgpiter)[0]
+            m = pgpiter[0]
+
+            # try to determine block type
+            for _m in Magic.__members__.values():
+                if re.search(m.value, data, flags=re.MULTILINE | re.DOTALL):
+                    self.type = _m
+                    break
+
             self.bytes = data[m.start():m.end()].encode()
             return
 
@@ -142,28 +246,22 @@ class PGPBlock(FileLoader):
         self.bytes = b''
         self.data = data.encode()
 
-    def __str__(self):
-        headers = ""
-        for key, val in self.ascii_headers.items():
-            headers += "{key}: {val}\n".format(key=key, val=val)
 
-        # base64-encode our bytes, then insert a newline every 64th character
-        payload = b''
-        for pkt in self.packets:
-            payload += pkt.__bytes__()
-        payload = base64.b64encode(payload).decode()
-        payload = '\n'.join(payload[i:i+64] for i in range(0, len(payload), 64))
+class PGPSignature(PGPBlock):
+    def __init__(self, sigf):
+        super(PGPSignature, self).__init__(sigf, Magic.Signature)
+        ##TODO: handle creating a new signature
 
-        return ASCII_FORMAT.format(
-                block_type=str(self.type),
-                headers=headers,
-                packet=payload,
-                crc=base64.b64encode(int_to_bytes(self.crc, 3)).decode(),
-            )
 
-    def __bytes__(self):
-        _bytes = b''
-        for pkt in self.packets:
-            _bytes += pkt.__bytes__()
+class PGPKey(PGPBlock):
+    def __init__(self, keyb):
+        super(PGPKey, self).__init__(keyb)
 
-        return _bytes
+    def __getattr__(self, item):
+        if item == "sec":
+            return self.packets[0].header.tag == Header.Tag.PrivKey
+
+        if item == "keyid":
+            s = [pkt.unhashed_subpackets for pkt in self.packets if pkt.header.tag == Header.Tag.Signature]
+            return s[0].Issuer.payload
+
