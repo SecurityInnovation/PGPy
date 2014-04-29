@@ -8,6 +8,7 @@ import hashlib
 from .fields import Header, PacketField, PubKeyAlgo, HashAlgo, SymmetricKeyAlgo, PFIntEnum
 from ..util import bytes_to_int, int_to_bytes
 
+
 class MPIFields(object):
     field = {'name': "", 'bitlen': 0, 'bytes': b'', 'encoding': ''}
 
@@ -102,7 +103,6 @@ class MPIFields(object):
             mend = pos + length
             self.fields[f]['bytes'] = packet[pos:mend]
             pos = mend
-
 
     def __getattr__(self, item):
         return self.fields[item]
@@ -201,29 +201,8 @@ class String2Key(PacketField):
 
         return b''.join([hc.digest() for hc in h])[:int(keylen / 8)]
 
-
-        # Simple S2K and Salted S2K hash hdata once
-        # h.update(hdata)
-        # digest = h.digest()
-        #
-        # # count
-        # count = self.count
-        #
-        # if self.type == String2Key.Type.Iterated:
-        #     hashed = len(hdata)
-        #     # Iterated hashes multiple times
-        #     while (hashed + len(digest)) < count:
-        #         h.update(hdata)
-        #         hashed += len(digest)
-        #         # hashed += len(digest)
-        #         # digest = hashlib.new(self.hash.name, digest).digest()
-        #
-        #     h.update(hdata[:(count - hashed)])
-        #     digest = h.digest()
-
         # and finally, return!
         return digest
-
 
     def __bytes__(self):
         _bytes = b''
