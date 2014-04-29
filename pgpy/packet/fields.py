@@ -65,6 +65,12 @@ class SymmetricKeyAlgo(PFIntEnum):
 
         raise NotImplementedError(self.name)
 
+    def keylen(self):
+        if self == SymmetricKeyAlgo.CAST5:
+            return 128
+
+        raise NotImplementedError(self.name)
+
 
 class CompressionAlgo(PFIntEnum):
     Uncompressed = 0x00
@@ -89,6 +95,7 @@ class CompressionAlgo(PFIntEnum):
 
 
 class HashAlgo(PFIntEnum):
+    Invalid = 0x00
     MD5 = 0x01
     SHA1 = 0x02
     RIPEMD160 = 0x03
@@ -99,6 +106,12 @@ class HashAlgo(PFIntEnum):
 
     def __str__(self):
         return self.name
+
+    def digestlen(self):
+        if self == HashAlgo.SHA1:
+            return 160
+
+        raise NotImplementedError()
 
 
 class PacketField(object):
@@ -248,7 +261,6 @@ class Header(PacketField):
         _bytes += int_to_bytes(self.length)
 
         return _bytes
-
 
 
 class SubPacket(PacketField):
