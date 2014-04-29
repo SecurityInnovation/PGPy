@@ -24,6 +24,7 @@ class PGPDumpFormat(object):
 
     def __init__(self, pktobj):
         self.out = []
+        self.keycreation = 0
 
         for pkt in pktobj.packets:
             o = ""
@@ -96,6 +97,7 @@ class PGPDumpFormat(object):
         o += "\tPublic key creation time - {keycdate}\n".format(
             keycdate=pkt.key_creation.strftime("%a %b %d %H:%M:%S UTC %Y")
         )
+        self.keycreation = calendar.timegm(pkt.key_creation.timetuple())
         o += "\tPub alg - {alg}(pub {algn})\n".format(
             alg=str(pkt.key_algorithm),
             algn=pkt.key_algorithm.value
@@ -143,10 +145,7 @@ class PGPDumpFormat(object):
                     )
 
                 if sub.type == SubPacket.Type.KeyExpirationTime:
-                    ct = calendar.timegm([ p for p in
-                                           pkt.hashed_subpackets.subpackets + pkt.unhashed_subpackets.subpackets
-                                           if p.type == SubPacket.Type.SigCreationTime ][0].payload.timetuple())
-                    rt = datetime.utcfromtimestamp(ct + sub.payload)
+                    rt = datetime.utcfromtimestamp(self.keycreation + sub.payload)
                     o += "\t\tTime - {date}\n".format(
                         date=rt.strftime("%a %b %e %H:%M:%S UTC %Y")
                     )
