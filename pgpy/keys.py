@@ -2,34 +2,44 @@
 
 """
 import collections
+import contextlib
 
 from .pgp import PGPLoad
+from .errors import PGPError
 
 
-class PGPKeyCollection(object):
+def managed(func):
+    def inner(self, *args, **kwargs):
+        if not self.ctx:
+            raise PGPError("Invalid usage - this method must be invoked from a context managed state!")
+
+        return func(self, *args, **kwargs)
+    return inner
+
+
+class PGPKeyring(object):
     def __init__(self, keys=None):
         self.pubkeys = collections.OrderedDict()
         self.seckeys = collections.OrderedDict()
 
+        self.using = None
+        self.ctx = False
+
         if keys is not None:
             self.load(keys)
 
-    ##TODO: context management magic
-    def __enter__(self):
-        return self
-
-    def __exit__(self, type, value, tb):
-        pass
-
     def __getattr__(self, item):
-        if item == "packets":
+        if item == "packets" and self.using is None:
             return [ pkt for keys in list(self.pubkeys.values()) + list(self.seckeys.values()) for pkt in keys.packets]
 
-        if item == "keys":
+        if item == "keys" and self.using is None:
             return list(self.pubkeys.values()) + list(self.seckeys.values())
 
+        raise AttributeError(item)
+
     def __bytes__(self):
-        return b''.join(k.__bytes__() for k in list(self.pubkeys.values()) + list(self.seckeys.values()))
+        if self.using is None:
+            return b''.join(k.__bytes__() for k in list(self.pubkeys.values()) + list(self.seckeys.values()))
 
     def load(self, keys):
         ##TODO: type-check keys
@@ -37,12 +47,8 @@ class PGPKeyCollection(object):
         if type(keys) is not list:
             keys = [keys]
 
-        ##TODO: load ASCII armored keys
-        ##TODO: load binary keys
-        ##TODO: load GPG keyrings
-        ##TODO: load from GPG agent
         for key in keys:
-            # load the key into a PGPBlock object first
+            # load the key (or keys) using PGPLoad
             kb = PGPLoad(key)
 
             for k in kb:
@@ -52,7 +58,21 @@ class PGPKeyCollection(object):
                 else:
                     self.pubkeys[k.keyid] = k
 
-    def sign(self, subject, keyid, inline=False):
+    @contextlib.contextmanager
+    def key(self, id=None):
+        if id is not None:
+            if id not in [ key.keyid for key in list(self.pubkeys.values()) + list(self.seckeys.values()) ]:
+                raise PGPError("Key {keyid} not loaded".format(keyid=id))
+
+        self.using = id
+        self.ctx = True
+        yield
+
+        self.using = None
+        self.ctx = False
+
+    @managed
+    def sign(self, subject, inline=False):
         # from the Computing Signatures section of RFC 4880 (http://tools.ietf.org/html/rfc4880#section-5.2.4)
         #
         # All signatures are formed by producing a hash over the signature
@@ -90,14 +110,7 @@ class PGPKeyCollection(object):
         ##TODO: create PGPSignature object
         pass
 
-    def verify(self, signature, subject):
+    @managed
+    def verify(self, subject):
         ##TODO: verify existing PGPSignature object
-        pass
-
-    def list_pubkeys(self):
-        ##TODO: list loaded public key ids
-        pass
-
-    def list_privkeys(self):
-        ##TODO: list loaded private key ids
         pass

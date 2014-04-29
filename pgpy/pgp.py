@@ -71,6 +71,8 @@ def PGPLoad(pgpbytes):
                 bpos = i
                 continue
 
+    ##TODO: load from a GPG agent
+
     # return loaded blocks
     return b
 
