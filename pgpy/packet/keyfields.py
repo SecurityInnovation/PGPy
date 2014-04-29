@@ -169,7 +169,7 @@ class String2Key(PacketField):
         # how long does our key need to be, and how many hash contexts do we need?
         keylen = self.alg.keylen()
         hashlen = self.hash.digestlen()
-        ctx = int(math.ceil(keylen/hashlen))
+        ctx = int(math.ceil(keylen/float(hashlen)))
 
         h = []
         # instantiate our hash context(s)
