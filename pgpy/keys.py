@@ -24,6 +24,9 @@ class PGPKeyCollection(object):
         if item == "packets":
             return [ pkt for keys in list(self.pubkeys.values()) + list(self.seckeys.values()) for pkt in keys.packets]
 
+        if item == "keys":
+            return list(self.pubkeys.values()) + list(self.seckeys.values())
+
     def __bytes__(self):
         return b''.join(k.__bytes__() for k in list(self.pubkeys.values()) + list(self.seckeys.values()))
 
@@ -92,9 +95,9 @@ class PGPKeyCollection(object):
         pass
 
     def list_pubkeys(self):
-        ##TODO: list loaded public keys
+        ##TODO: list loaded public key ids
         pass
 
     def list_privkeys(self):
-        ##TODO: list loaded private keys
+        ##TODO: list loaded private key ids
         pass
