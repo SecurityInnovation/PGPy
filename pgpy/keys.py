@@ -3,15 +3,8 @@
 """
 import collections
 
-from .pgp import PGPBlock
-from .reg import Magic
-
-
-class PGPKey(PGPBlock):
-    def __init__(self, keyb):
-        self.sec = False
-        super(PGPKey, self).__init__(keyb)
-
+from pgpy import PGPLoad
+from .packet.fields import Header
 
 class PGPKeyCollection(object):
     def __init__(self, keys=None):
@@ -23,23 +16,38 @@ class PGPKeyCollection(object):
 
     ##TODO: context management magic
     def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, tb):
         pass
 
-    def __exit__(self):
-        pass
+    def __getattr__(self, item):
+        if item == "packets":
+            return [ pkt for keys in list(self.pubkeys.values()) + list(self.seckeys.values()) for pkt in keys.packets]
 
-    def load(self, keys=None):
+    def __bytes__(self):
+        return b''.join(k.__bytes__() for k in list(self.pubkeys.values()) + list(self.seckeys.values()))
+
+    def load(self, keys):
+        ##TODO: type-check keys
         # create one or more PGPKey objects in self.keys
         if type(keys) is not list:
             keys = [keys]
-
-        for key in keys:
-            k = PGPKey(key)
 
         ##TODO: load ASCII armored keys
         ##TODO: load binary keys
         ##TODO: load GPG keyrings
         ##TODO: load from GPG agent
+        for key in keys:
+            # load the key into a PGPBlock object first
+            kb = PGPLoad(key)
+
+            for k in kb:
+                if k.sec:
+                    self.seckeys[k.keyid] = k
+
+                else:
+                    self.pubkeys[k.keyid] = k
 
 
     def sign(self, subject, keyid, inline=False):
