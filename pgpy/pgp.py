@@ -6,6 +6,7 @@ import collections
 import base64
 import hashlib
 import calendar
+
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
@@ -14,8 +15,8 @@ from .reg import *
 from .util import bytes_to_int, int_to_bytes
 from .packet import PGPPacket
 from .packet.fields import Header, SymmetricKeyAlgo
-from .packet.keyfields import MPIFields
 from .errors import PGPError
+
 
 def PGPLoad(pgpbytes):
     # load pgpbytes regardless of type, first
@@ -70,7 +71,6 @@ def PGPLoad(pgpbytes):
                 bpos = i
                 continue
 
-
     # return loaded blocks
     return b
 
@@ -117,11 +117,11 @@ class PGPBlock(FileLoader):
             t = str(self.type)
 
         return self.ASCII_FORMAT.format(
-                block_type=t,
-                headers=headers,
-                packet=payload,
-                crc=base64.b64encode(int_to_bytes(self.crc, 3)).decode(),
-            )
+            block_type=t,
+            headers=headers,
+            packet=payload,
+            crc=base64.b64encode(int_to_bytes(self.crc, 3)).decode(),
+        )
 
     def __bytes__(self):
         _bytes = b''
@@ -159,7 +159,6 @@ class PGPBlock(FileLoader):
             while pos < len(self.data):
                 self.packets.append(PGPPacket(self.data[pos:]))
                 pos += len(self.packets[-1].__bytes__())
-
 
     def crc24(self):
         # CRC24 computation, as described in the RFC 4880 section on Radix-64 Conversions
@@ -200,7 +199,8 @@ class PGPBlock(FileLoader):
             return
 
         # are there any ASCII armored PGP blocks present? if not, we may be dealing with binary data instead
-        if self.type is None and re.search(r'-----BEGIN PGP ([A-Z ]*)-----', data, flags=re.MULTILINE | re.DOTALL) is None:
+        if self.type is None and re.search(r'-----BEGIN PGP ([A-Z ]*)-----', data,
+                                           flags=re.MULTILINE | re.DOTALL) is None:
             self.bytes = b''
             self.data = data.encode()
             return
@@ -244,7 +244,7 @@ class PGPBlock(FileLoader):
 
             # specific type
             if re.match(Magic(self.type).value, block):
-                self.bytes =  block.encode()
+                self.bytes = block.encode()
                 return
 
         # no ASCII blocks found :(
@@ -292,7 +292,7 @@ class PGPKey(PGPBlock):
             # sha1.update(int_to_bytes(self.packets[0].header.length)[-1:])
             sha1.update(bcde_len[-1:])
             # b) version number = 4 (1 octet);
-            sha1.update(b'\x04') # this is a v4 fingerprint
+            sha1.update(b'\x04')
             # c) timestamp of key creation (4 octets);
             sha1.update(int_to_bytes(calendar.timegm(self.packets[0].key_creation.timetuple()), 4))
             # d) algorithm (1 octet): 17 = DSA (example);
@@ -329,8 +329,8 @@ class PGPKey(PGPBlock):
         # encrypted in CFB mode, including the MPI bitcount prefix.
 
         for i, pkt in [ (i, pkt) for i, pkt in enumerate(self.packets)
-                     if pkt.header.tag in [Header.Tag.PrivKey, Header.Tag.PrivSubKey]
-                     and pkt.stokey.id != 0 ]:
+                        if pkt.header.tag in [Header.Tag.PrivKey, Header.Tag.PrivSubKey]
+                        and pkt.stokey.id != 0 ]:
             # derive a key from our passphrase. If the passphrase is correct, this will be the right one...
             sessionkey = pkt.stokey.derive_key(passphrase)
 
