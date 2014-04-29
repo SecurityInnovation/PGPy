@@ -1,5 +1,7 @@
 import pytest
-from pgpy.key import PGPKeyCollection
+
+import pgpy
+from pgpy.pgpdump import PGPDumpFormat
 
 keys = [
     "tests/testdata/testkeys.gpg",
@@ -18,8 +20,11 @@ def load_key(request):
 
 class TestPGPKeyLoader:
     def test_load(self, load_key, pgpdump):
-        k = PGPKeyCollection(load_key)
+        with pgpy.PGPKeyCollection(load_key) as k:
+            assert '\n'.join(PGPDumpFormat(k).out) + '\n' == pgpdump.decode()
 
+    def test_bytes(self, load_key):
+        with pgpy.PGPKeyCollection(load_key) as k:
+            fb = b''.join([open(f, 'rb').read() for f in load_key]) if type(load_key) is list else open(load_key, 'rb').read()
 
-    # def test_bytes(self):
-    #     pass
+            assert k.__bytes__() == fb

@@ -1,6 +1,7 @@
 import pytest
-from pgpy.key import PGPKey
-from pgpy.packet.pgpdump import PGPDumpFormat
+
+from pgpy.pgp import PGPLoad, PGPKey
+from pgpy.pgpdump import PGPDumpFormat
 
 pubkeys = [
     "tests/testdata/pubkeys/TestRSA.key",
@@ -30,7 +31,6 @@ keyids_pub = [
     "protected-rsa",
     "protected-rsa-signonly",
 ]
-##TODO: need more private key test material
 privkeys = [
     "tests/testdata/seckeys/TestRSA.sec.key",
     "tests/testdata/seckeys/TestDSAandElGamal.sec.key",
@@ -51,24 +51,28 @@ keyids_priv = [
     "protected-rsa",
     "protected-rsa-signonly",
 ]
-@pytest.fixture(params=pubkeys, ids=keyids_pub)
-def load_pub(request):
-    return request.param
-
-@pytest.fixture(params=privkeys, ids=keyids_priv)
-def load_priv(request):
+@pytest.fixture(params=pubkeys + privkeys, ids=keyids_pub + keyids_priv)
+def load_key(request):
     return request.param
 
 
 class TestPGPKey:
-    def test_parse_pub(self, load_pub, pgpdump):
-        k = PGPKey(load_pub)
+    def test_parse(self, load_key, pgpdump):
+        p = PGPLoad(load_key)
+        k = p[0]
+
+        assert len(p) == 1
+        assert type(k) == PGPKey
         assert '\n'.join(PGPDumpFormat(k).out) + '\n' == pgpdump.decode()
 
-    def test_parse_sec(self, load_priv, pgpdump):
-        k = PGPKey(load_priv)
-        assert '\n'.join(PGPDumpFormat(k).out) + '\n' == pgpdump.decode()
+    def test_crc24(self, load_key):
+        k = PGPLoad(load_key)[0]
+        k.crc == k.crc24()
 
-    def test_bytes(self, load_pub):
-        k = PGPKey(load_pub)
+    def test_str_pub(self, load_key):
+        k = PGPLoad(load_key)[0]
+        assert str(k) == k.bytes.decode()
+
+    def test_bytes(self, load_key):
+        k = PGPLoad(load_key)[0]
         assert k.__bytes__() == k.data

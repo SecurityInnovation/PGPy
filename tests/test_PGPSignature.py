@@ -1,6 +1,7 @@
 import pytest
-from pgpy.signature import PGPSignature
-from pgpy.packet.pgpdump import PGPDumpFormat
+
+from pgpy.pgp import PGPLoad, PGPSignature
+from pgpy.pgpdump import PGPDumpFormat
 
 test_files = [
     "tests/testdata/Release.gpg",
@@ -24,23 +25,24 @@ def pgpsig(request):
 
 class TestPGPSignature:
     def test_parse(self, pgpsig, pgpdump):
-        sig = PGPSignature(pgpsig)
+        p = PGPLoad(pgpsig)
+        sig = p[0]
+
+        assert len(p) == 1
+        assert type(sig) is PGPSignature
         assert '\n'.join(PGPDumpFormat(sig).out) + '\n' == pgpdump.decode()
 
-
     def test_crc24(self, pgpsig):
-        sig = PGPSignature(pgpsig)
+        sig = PGPLoad(pgpsig)[0]
+
         assert sig.crc == sig.crc24()
 
-    def test_print(self, pgpsig, capsys):
-        sig = PGPSignature(pgpsig)
+    def test_str(self, pgpsig):
+        sig = PGPLoad(pgpsig)[0]
 
-        print(sig)
-        out, _ = capsys.readouterr()
-        assert out == sig.bytes.decode() + '\n'
+        assert str(sig) == sig.bytes.decode()
 
     def test_bytes(self, pgpsig):
-        sig = PGPSignature(pgpsig)
-        sigpkt = sig.packets[0]
+        sig = PGPLoad(pgpsig)[0]
 
-        assert sigpkt.__bytes__() == sig.data
+        assert sig.__bytes__() == sig.data
