@@ -12,15 +12,43 @@ def PGPPacket(packetblob):
     # factory time
     header = Header(packetblob)
 
+    # tag support list
+    # [x] 0  - Reserved (Illegal Value)
+    # [ ] 1  - Public-Key Encrypted Session Key Packet
+    # [x] 2  - Signature Packet
+    # [ ] 3  - Symmetric-Key Encrypted Session Key Packet
+    # [ ] 4  - One-Pass Signature Packet
+    # [x] 5  - Secret-Key Packet
+    # [x] 6  - Public-Key Packet
+    # [x] 7  - Secret-Subkey Packet
+    # [ ] 8  - Compressed Data Packet
+    # [ ] 9  - Symmetrically Encrypted Data Packet
+    # [ ] 10 - Marker Packet
+    # [ ] 11 - Literal Data Packet
+    # [x] 12 - Trust Packet
+    # [x] 13 - User ID Packet
+    # [x] 14 - Public-Subkey Packet
+    # [ ] 17 - User Attribute Packet
+    # [ ] 18 - Sym. Encrypted and Integrity Protected Data Packet
+    # [ ] 19 - Modification Detection Code Packet
+
+    # Tag 2
     if header.tag == Header.Tag.Signature:
         return Signature(packetblob)
 
+    # Tag 6, Tag 14
     if header.tag in [Header.Tag.PubKey, Header.Tag.PubSubKey]:
         return PubKey(packetblob)
 
+    # Tag 5, Tag 7
     if header.tag in [Header.Tag.PrivKey, Header.Tag.PrivSubKey]:
         return PrivKey(packetblob)
 
+    # Tag 12
+    if header.tag == Header.Tag.Trust:
+        return Trust(packetblob)
+
+    # Tag 13
     if header.tag == Header.Tag.UserID:
         return UserID(packetblob)
 
@@ -259,5 +287,28 @@ class PrivKey(Packet):
         else:
             _bytes += self.seckey_material
         _bytes += self.checksum
+
+        return _bytes
+
+
+class Trust(Packet):
+    def __init__(self, packet):
+        self.name = 'Trust Packet'
+        self.trust = b''
+
+        super(Trust, self).__init__(packet)
+
+    def parse(self, packet):
+        # Trust packets contain data that record the user's
+        # specifications of which key holders are trustworthy introducers,
+        # along with other information that implementing software uses for
+        # trust information.  The format of Trust packets is defined by a given
+        # implementation.
+        self.trust = packet
+
+    def __bytes__(self):
+        _bytes = b''
+        _bytes += self.header.__bytes__()
+        _bytes += self.trust
 
         return _bytes
