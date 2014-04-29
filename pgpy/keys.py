@@ -3,8 +3,7 @@
 """
 import collections
 
-from pgpy import PGPLoad
-from .packet.fields import Header
+from .pgp import PGPLoad
 
 class PGPKeyCollection(object):
     def __init__(self, keys=None):
