@@ -4,6 +4,7 @@ regex helpers
 """
 from enum import Enum
 
+
 class Magic(Enum):
     Signature = r'^-----BEGIN PGP SIGNATURE-----'
     PubKey = r'^-----BEGIN PGP PUBLIC KEY BLOCK-----'
