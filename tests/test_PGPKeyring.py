@@ -56,12 +56,19 @@ class TestPGPKeyring:
     # def test_str(self, load_key):
     #     pass
 
-    def test_managed(self):
-        k = pgpy.PGPKeyring()
-        with k.key():
-            k.sign(None)
-            k.verify(None)
+    @pytest.mark.parametrize("sigf, sigsub",
+        [
+            ("tests/testdata/ubuntu-precise/Release.gpg", "tests/testdata/ubuntu-precise/Release"),
+            ("tests/testdata/debian-sid/Release.gpg", "tests/testdata/debian-sid/Release"),
+            ("tests/testdata/aa-testing/Release.gpg", "tests/testdata/aa-testing/Release"),
+        ], ids=[
+            "local-ubuntu",
+            "local-debian",
+            "local-aa-testing",
+        ]
+    )
+    def test_verify(self, sigf, sigsub):
+        k = pgpy.PGPKeyring(["tests/testdata/testkeys.gpg", "tests/testdata/testkeys.sec.gpg"])
 
-        with pytest.raises(PGPError):
-            k.sign(None)
-            k.verify(None)
+        with k.key():
+            assert k.verify(sigsub, sigf)
