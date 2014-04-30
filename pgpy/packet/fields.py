@@ -275,6 +275,7 @@ class SubPacket(PacketField):
         PreferredHashAlgorithms = 0x15
         PreferredCompressionAlgorithms = 0x16
         KeyServerPreferences = 0x17
+        PolicyURL = 0x1A
         KeyFlags = 0x1B
         Features = 0x1E
 
@@ -299,6 +300,9 @@ class SubPacket(PacketField):
 
             if self == SubPacket.Type.PreferredCompressionAlgorithms:
                 return "preferred compression algorithms"
+
+            if self == SubPacket.Type.PolicyURL:
+                return "policy URL"
 
             if self == SubPacket.Type.KeyFlags:
                 return "key flags"
