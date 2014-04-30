@@ -337,12 +337,21 @@ class PGPKey(PGPBlock):
     def secret(self):
         return self.packets[0].secret
 
-    def __init__(self, keyb):
-        super(PGPKey, self).__init__(keyb)
+    @property
+    def encrypted(self):
+        return False if self.packets[0].stokey.id == 0 else True
 
-    def __getattr__(self, item):
-        ##TODO: move these to @property methods like secret
-        if item in ["fingerprint", "keyid"] and self.fp is None:
+    @property
+    def fp(self):
+        return self.packets[0].fp
+
+    @fp.setter
+    def fp(self, value):
+        self.packets[0].fp = value
+
+    @property
+    def fingerprint(self):
+        if self.fp is None:
             # We have not yet computed the fingerprint, so we'll have to do that now.
             # Here is the RFC 4880 section on computing v4 fingerprints:
             #
@@ -379,18 +388,14 @@ class PGPKey(PGPBlock):
             # now store the digest
             self.fp = sha1.hexdigest().upper()
 
-        if item == "fingerprint":
-            return self.fp
+        return self.fp
 
-        if item == "keyid":
-            # ... The Key ID is the low-order 64-bits of the fingerprint.
-            return self.fp[-16:]
+    @property
+    def keyid(self):
+        return self.fingerprint[-16:]
 
-        if item == "encrypted":
-            if self.packets[0].stokey.id != 0:
-                return True
-
-            return False
+    def __init__(self, keyb):
+        super(PGPKey, self).__init__(keyb)
 
     def decrypt_keymaterial(self, passphrase):
         if not self.encrypted:

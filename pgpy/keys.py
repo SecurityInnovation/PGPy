@@ -4,6 +4,7 @@
 import collections
 import contextlib
 import hashlib
+import functools
 
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric import padding
@@ -19,6 +20,7 @@ from .util import bytes_to_int
 
 
 def managed(func):
+    @functools.wraps(func)
     def inner(self, *args, **kwargs):
         if not self.ctx:
             raise PGPError("Invalid usage - this method must be invoked from a context managed state!")
@@ -28,6 +30,25 @@ def managed(func):
 
 
 class PGPKeyring(object):
+    @property
+    def packets(self):
+        if self.using is None:
+            return [ pkt for keys in list(self.pubkeys.values()) + list(self.seckeys.values()) for pkt in keys.packets ]
+
+        raise NotImplementedError()
+
+    @property
+    def publickeys(self):
+        return list(self.pubkeys.values())
+
+    @property
+    def privatekeys(self):
+        return list(self.seckeys.values())
+
+    @property
+    def keys(self):
+        return self.publickeys + self.privatekeys
+
     def __init__(self, keys=None):
         self.pubkeys = collections.OrderedDict()
         self.seckeys = collections.OrderedDict()
@@ -37,22 +58,6 @@ class PGPKeyring(object):
 
         if keys is not None:
             self.load(keys)
-
-    def __getattr__(self, item):
-        ##TODO: move these to @property methods
-        if item == "packets" and self.using is None:
-            return [ pkt for keys in list(self.pubkeys.values()) + list(self.seckeys.values()) for pkt in keys.packets ]
-
-        if item == "publickeys":
-            return list(self.pubkeys.values())
-
-        if item == "privatekeys":
-            return list(self.seckeys.values())
-
-        if item == "keys":
-            return self.publickeys + self.privatekeys
-
-        raise AttributeError(item)
 
     def __bytes__(self):
         if self.using is None:
