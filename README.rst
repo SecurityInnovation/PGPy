@@ -18,66 +18,177 @@ Features
 
 RFC 4880 compliance with the following data:
 
-- Packet Tags
-   - [x] Old format
-   - [x] New format
-- ASCII-armoring
-   - [x] Decoding
-   - [x] Encoding
-   - [x] CRC24 computation
-- Packets without version distinctions
-   - [ ] Public-Key Encrypted Session Key Packet (Tag 1)
-   - [ ] Symmetric-Key Encrypted Session Key Packet (Tag 3)
-   - [ ] One-Pass Signature Packet (Tag 4)
-   - [ ] Compressed Data Packet (Tag 8)
-   - [ ] Symmetrically Encrypted Data Packet (Tag 9)
-   - [ ] Marker Packet (Tag 10)
-   - [ ] Literal Data Packet (Tag 11)
-   - [x] Trust Packet (Tag 12)
-   - [x] User ID Packet (Tag 13)
-   - [ ] User Attribute Packet (Tag 17)
-   - [ ] Sym. Encrypted and Integrity Protected Data Packet (Tag 18)
-   - [ ] Modification Detection Code Packet (Tag 19)
-- v3 Packets
-   - [ ] Signature Packet (Tag 2)
-   - [ ] Secret-Key Packet (Tag 5)
-   - [ ] Public-Key Packet (Tag 6)
-   - [ ] Secret-Subkey Packet (Tag 7)
-   - [ ] Public-Subkey Packet (Tag 14)
-- v4 Packets
-   - [x] Signature Packet (Tag 2)
-   - [x] Secret-Key Packet (Tag 5)
-   - [x] Public-Key Packet (Tag 6)
-   - [x] Secret-Subkey Packet (Tag 7)
-   - [x] Public-Subkey Packet (Tag 14)
-- Actions
-   - [ ] Generate keys
-   - [/] Load Keys
-     - [x] Public Keys
-     - [x] Secret Keys
-     - [x] From ASCII Armored blocks
-     - [x] From GPG Keyrings
-     - [/] Protected Secret Keys
-       - [ ] Encrypted with IDEA
-       - [x] Encrypted with CAST5
-       - [ ] Encrypted with Blowfish
-       - [ ] Encrypted with AES
-       - [ ] Encrypted with Twofish
-   - [ ] Encrypt Key Material
-     - [ ] with CAST5
-     - [ ] with AES
-   - [ ] Sign data
-     - [ ] with RSA
-     - [ ] with DSA
-   - [/] Verify data signature
-     - [x] with RSA
-     - [ ] with DSA
-   - [ ] Encrypt data
-     - [ ] with RSA
-     - [ ] with ElGamal
-   - [ ] Decrypt data
-     - [ ] with RSA
-     - [ ] with ElGamal
+:Packet Tags:
+    :Old format: Done
+    :New format: Done
+:ASCII-armoring:
+    :Decoding: Done
+    :Encoding: Done
+    :CRC24 computation: Done
+:Unversioned Packets:
+    :Public-Key Encrypted Session Key Packet:
+        :Tag: 1
+        :Done: No
+    :Symmetric-Key Encrypted Session Key Packet:
+        :Tag: 3
+        :Done: No
+    :One-Pass Signature Packet:
+        :Tag: 4
+        :Done: No
+    :Compressed Data Packet:
+        :Tag: 8
+        :Done: No
+    :Symmetrically Encrypted Data Packet:
+        :Tag: 9
+        :Done: No
+    :Marker Packet:
+        :Tag: 10
+        :Done: No
+    :Literal Data Packet:
+        :Tag: 11
+        :Done: No
+    :Trust Packet:
+        :Tag: 12
+        :Done: Yes
+    :User ID Packet:
+        :Tag: 13
+        :Done: Yes
+    :User Attribute Packet:
+        :Tag: 17
+        :Done: No
+    :Sym. Encrypted and Integrity Protected Data Packet:
+        :Tag: 18
+        :Done: No
+    :Modification Detection Code Packet:
+        :Tag: 19
+        :Done: No
+:Versioned Packets:
+    :Signature Packet:
+        :Tag: 2
+        :v3:
+            :Parsing: No
+            :Creating: No
+        :v4:
+            :Parsing: Yes
+            :Creating: No
+    :Secret-Key Packet:
+        :Tag: 5
+        :v3:
+            :Parsing: No
+            :Creating: No
+        :v4:
+            :Parsing: Yes
+            :Creating: No
+    :Public-Key Packet:
+        :Tag: 6
+        :v3:
+            :Parsing: No
+            :Creating: No
+        :v4:
+            :Parsing: Yes
+            :Creating: No
+    :Secret-Subkey Packet:
+        :Tag: 7
+        :v3:
+            :Parsing: No
+            :Creating: No
+        :v4:
+            :Parsing: Yes
+            :Creating: No
+    :Public-Subkey Packet:
+        :Tag: 14
+        :v3:
+            :Parsing: No
+            :Creating: No
+        :v4:
+            :Parsing: Yes
+            :Creating: No
+:Actions:
+    :Keys:
+        :Generate: None
+        :Load Keys:
+            :ASCII: Yes
+            :GPG Keyrings: Yes
+            :GPG Agent: No
+        :Load Public Keys:
+            :RSA: Yes
+            :DSA Sign Only: Yes
+            :DSA with ElGamal: Yes
+        :Load Private Keys:
+            :RSA: Yes
+            :DSA Sign Only: Yes
+            :DSA with ElGamal: Yes
+            :Unencrypted: Yes
+            :Encrypted:
+                :with IDEA: No
+                :with CAST5: Yes
+                :with Blowfish: No
+                :with AES: No
+                :with Twofish: No
+        :RSA:
+            :Load Private Keys:
+                :Unencrypted:
+        :DSA:
+            :Load Public Keys:
+                :ASCII: Yes
+                :GPG Keyrings: Yes
+                :GPG Agent: No
+    :Symmetric-Key:
+        :IDEA:
+            :Encrypt:
+                :Key Material: No
+                :Messages: No
+            :Decrypt:
+                :Key Material: No
+                :Messages: No
+        :TripleDES:
+            :Encrypt:
+                :Key Material: No
+                :Messages: No
+            :Decrypt:
+                :Key Material: No
+                :Messages: No
+        :CAST5:
+            :Encrypt:
+                :Key Material: No
+                :Messages: No
+            :Decrypt:
+                :Key Material: No
+                :Messages: Yes
+        :Blowfish:
+            :Encrypt:
+                :Key Material: No
+                :Messages: No
+            :Decrypt:
+                :Key Material: No
+                :Messages: No
+        :AES:
+            :Encrypt:
+                :Key Material: No
+                :Messages: No
+            :Decrypt:
+                :Key Material: No
+                :Messages: No
+        :Twofish:
+            :Encrypt:
+                :Key Material: No
+                :Messages: No
+            :Decrypt:
+                :Key Material: No
+                :Messages: No
+    :Public-Key:
+        :RSA:
+            :Encrypt: No
+            :Decrypt: No
+            :Sign:
+                :Sign: No
+                :Verify: Yes
+        :DSA:
+            :Encrypt: (ElGamal) No
+            :Decrypt: (ElGamal) No
+            :Sign:
+                :Key Material: No
+                :Messages: No
 
 Installation
 ------------
