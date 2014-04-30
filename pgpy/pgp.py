@@ -14,6 +14,7 @@ from .fileloader import FileLoader
 from .reg import *
 from .util import bytes_to_int, int_to_bytes
 from .packet import PGPPacket
+from .packet.packets import Signature
 from .packet.fields import Header, SymmetricKeyAlgo
 from .errors import PGPError
 
@@ -258,6 +259,65 @@ class PGPSignature(PGPBlock):
     def __init__(self, sigf):
         super(PGPSignature, self).__init__(sigf, Magic.Signature)
         ##TODO: handle creating a new signature
+
+    def hash(self, subject):
+        # from the Computing Signatures section of RFC 4880 (http://tools.ietf.org/html/rfc4880#section-5.2.4)
+        #
+        # All signatures are formed by producing a hash over the signature
+        # data, and then using the resulting hash in the signature algorithm.
+        #
+        # For binary document signatures (type 0x00), the document data is
+        # hashed directly.  For text document signatures (type 0x01), the
+        # document is canonicalized by converting line endings to <CR><LF>,
+        # and the resulting data is hashed.
+        #
+        # ...
+        #
+        # ...
+        #
+        # ...
+        #
+        # Once the data body is hashed, then a trailer is hashed.
+        # (...) A V4 signature hashes the packet body
+        # starting from its first field, the version number, through the end
+        # of the hashed subpacket data.  Thus, the fields hashed are the
+        # signature version, the signature type, the public-key algorithm, the
+        # hash algorithm, the hashed subpacket length, and the hashed
+        # subpacket body.
+        #
+        # V4 signatures also hash in a final trailer of six octets: the
+        # version of the Signature packet, i.e., 0x04; 0xFF; and a four-octet,
+        # big-endian number that is the length of the hashed data from the
+        # Signature packet (note that this number does not include these final
+        # six octets).
+        #
+        # After all this has been hashed in a single hash context, the
+        # resulting hash field is used in the signature algorithm and placed
+        # at the end of the Signature packet.
+        h = hashlib.new(self.packets[0].hash_algorithm.name)
+        s = FileLoader(subject)
+        spkt = self.packets[0]
+
+        if spkt.type == Signature.Type.BinaryDocument:
+            h.update(s.bytes)
+
+        else:
+            ##TODO: sign other types of things
+            raise NotImplementedError(spkt.type)
+
+        # add the signature trailer to the hash context
+        h.update(spkt.version.__bytes__())
+        h.update(spkt.type.__bytes__())
+        h.update(spkt.key_algorithm.__bytes__())
+        h.update(spkt.hash_algorithm.__bytes__())
+        h.update(spkt.hashed_subpackets.__bytes__())
+
+        # finally, hash the final six-octet trailer and return
+        hlen = 4 + len(spkt.hashed_subpackets.__bytes__())
+        h.update(b'\x04\xff')
+        h.update(int_to_bytes(hlen, 4))
+
+        return h.digest()
 
 
 class PGPKey(PGPBlock):
