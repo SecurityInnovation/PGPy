@@ -256,6 +256,10 @@ class PGPBlock(FileLoader):
 
 
 class PGPSignature(PGPBlock):
+    @property
+    def sigpkt(self):
+        return self.packets[0]
+
     def __init__(self, sigf):
         super(PGPSignature, self).__init__(sigf, Magic.Signature)
         ##TODO: handle creating a new signature
@@ -294,8 +298,6 @@ class PGPSignature(PGPBlock):
         # After all this has been hashed in a single hash context, the
         # resulting hash field is used in the signature algorithm and placed
         # at the end of the Signature packet.
-
-        spkt = self.packets[0]
         _data = b''
         # h = hashlib.new(spkt.hash_algorithm.name)
 
@@ -310,22 +312,22 @@ class PGPSignature(PGPBlock):
 
         s = FileLoader(subject)
 
-        if spkt.type == Signature.Type.BinaryDocument:
+        if self.sigpkt.type == Signature.Type.BinaryDocument:
             _data += s.bytes
 
         else:
             ##TODO: sign other types of things
-            raise NotImplementedError(spkt.type)
+            raise NotImplementedError(self.sigpkt.type)
 
         # add the signature trailer to the hash context
-        _data += spkt.version.__bytes__()
-        _data += spkt.type.__bytes__()
-        _data += spkt.key_algorithm.__bytes__()
-        _data += spkt.hash_algorithm.__bytes__()
-        _data += spkt.hashed_subpackets.__bytes__()
+        _data += self.sigpkt.version.__bytes__()
+        _data += self.sigpkt.type.__bytes__()
+        _data += self.sigpkt.key_algorithm.__bytes__()
+        _data += self.sigpkt.hash_algorithm.__bytes__()
+        _data += self.sigpkt.hashed_subpackets.__bytes__()
 
         # finally, hash the final six-octet trailer and return
-        hlen = 4 + len(spkt.hashed_subpackets.__bytes__())
+        hlen = 4 + len(self.sigpkt.hashed_subpackets.__bytes__())
         _data += b'\x04\xff'
         _data += int_to_bytes(hlen, 4)
 
@@ -334,20 +336,24 @@ class PGPSignature(PGPBlock):
 
 class PGPKey(PGPBlock):
     @property
+    def keypkt(self):
+        return self.packets[0]
+
+    @property
     def secret(self):
-        return self.packets[0].secret
+        return self.keypkt.secret
 
     @property
     def encrypted(self):
-        return False if self.packets[0].stokey.id == 0 else True
+        return False if self.keypkt.stokey.id == 0 else True
 
     @property
     def fp(self):
-        return self.packets[0].fp
+        return self.keypkt.fp
 
     @fp.setter
     def fp(self, value):
-        self.packets[0].fp = value
+        self.keypkt.fp = value
 
     @property
     def fingerprint(self):
@@ -360,28 +366,21 @@ class PGPKey(PGPBlock):
             # Public-Key packet starting with the version field.  The Key ID is the
             # low-order 64 bits of the fingerprint.
             sha1 = hashlib.sha1()
-
-            # kmpis = b''
-            # for mpi in self.packets[0].key_material.fields.values():
-            #     kmpis += mpi['bytes']
-            kmpis = self.packets[0].key_material.__bytes__()
-
+            kmpis = self.keypkt.key_material.__bytes__()
             bcde_len = int_to_bytes(6 + len(kmpis), 2)
 
             # a.1) 0x99 (1 octet)
             sha1.update(b'\x99')
             # a.2 high-order length octet
-            # sha1.update(int_to_bytes(self.packets[0].header.length)[0:1])
             sha1.update(bcde_len[:1])
             # a.3 low-order length octet
-            # sha1.update(int_to_bytes(self.packets[0].header.length)[-1:])
             sha1.update(bcde_len[-1:])
             # b) version number = 4 (1 octet);
             sha1.update(b'\x04')
             # c) timestamp of key creation (4 octets);
-            sha1.update(int_to_bytes(calendar.timegm(self.packets[0].key_creation.timetuple()), 4))
+            sha1.update(int_to_bytes(calendar.timegm(self.keypkt.key_creation.timetuple()), 4))
             # d) algorithm (1 octet): 17 = DSA (example);
-            sha1.update(self.packets[0].key_algorithm.__bytes__())
+            sha1.update(self.keypkt.key_algorithm.__bytes__())
             # e) Algorithm-specific fields.
             sha1.update(kmpis)
 

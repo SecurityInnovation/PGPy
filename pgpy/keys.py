@@ -109,7 +109,7 @@ class PGPKeyring(object):
         sigv.subject = subject
 
         # check to see if we have the public key half of the key that created the signature
-        skeyid = sig.packets[0].unhashed_subpackets.Issuer.payload.decode()
+        skeyid = sig.sigpkt.unhashed_subpackets.Issuer.payload.decode()
         if self.using is not None and skeyid[-8:] != self.using:
             raise PGPError("Key {skeyid} is not selected!".format(skeyid=skeyid))
 
@@ -120,7 +120,7 @@ class PGPKeyring(object):
         sigv.key = pubkey
 
         # first check - compare the left 16 bits of sh against the signature packet's hash2 field
-        dhash = hashlib.new(sig.packets[0].hash_algorithm.name, sigdata)
+        dhash = hashlib.new(sig.sigpkt.hash_algorithm.name, sigdata)
 
         if dhash.name == 'SHA1':
             h = hashes.SHA1()
@@ -131,17 +131,17 @@ class PGPKeyring(object):
         else:
             raise NotImplementedError(dhash.name)
 
-        if dhash.digest()[:2] == sig.packets[0].hash2:
+        if dhash.digest()[:2] == sig.sigpkt.hash2:
             # if this check passes, now we should do an actual signature verification
             sigv.message = "basic hash check passed"
 
             # create the verifier
-            if sig.packets[0].key_algorithm == PubKeyAlgo.RSAEncryptOrSign:
+            if sig.sigpkt.key_algorithm == PubKeyAlgo.RSAEncryptOrSign:
                 # public key components
-                e = bytes_to_int(pubkey.packets[0].key_material.fields['e']['bytes'])
-                n = bytes_to_int(pubkey.packets[0].key_material.fields['n']['bytes'])
+                e = bytes_to_int(pubkey.keypkt.key_material.fields['e']['bytes'])
+                n = bytes_to_int(pubkey.keypkt.key_material.fields['n']['bytes'])
                 # signature
-                s = sig.packets[0].signature.fields['md_mod_n']['bytes']
+                s = sig.sigpkt.signature.fields['md_mod_n']['bytes']
 
                 # public key object
                 pk = rsa.RSAPublicKey(e, n)
@@ -149,7 +149,7 @@ class PGPKeyring(object):
                 verifier = pk.verifier(s, padding.PKCS1v15(), h, openssl.backend)
 
             else:
-                raise NotImplementedError(sig.packets[0].key_algorithm)
+                raise NotImplementedError(sig.sigpkt.key_algorithm)
 
             # now verify!
             verifier.update(sigdata)
