@@ -190,6 +190,9 @@ class PGPDumpFormat(object):
                     o += "\t\tRevocable - {rev}\n".format(
                         rev="Yes" if sub.payload else "No"
                     )
+
+                if sub.type == SubPacket.Type.PolicyURL:
+                    o += "\t\tURL - {url}\n".format(url=sub.payload.decode())
         return o
 
     def string2key_fields(self, pkt):
