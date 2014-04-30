@@ -4,16 +4,16 @@ from pgpy.pgp import PGPLoad, PGPSignature
 from pgpy.pgpdump import PGPDumpFormat
 
 test_files = [
-    "tests/testdata/Release.gpg",
-    "tests/testdata/Ubuntu.Precise.Release.gpg",
-    "tests/testdata/Debian.Sid.Release.gpg",
+    "tests/testdata/ubuntu-precise/Release.gpg",
+    "tests/testdata/debian-sid/Release.gpg",
+    "tests/testdata/aa-testing/Release.gpg",
     "tests/testdata/signed_message.asc",
     "tests/testdata/inline_signed_message"
 ]
 test_ids = [
-    "local",
     "ubuntu-precise",
     "debian-sid",
+    "aa-test",
     "message-signed",
     "inline-signed",
 ]

@@ -1,0 +1,60 @@
+Origin: Ubuntu
+Label: Ubuntu Repository
+Suite: precise
+Codename: precise
+Architectures: i386
+Components: main multiverse restricted universe
+Description: Ubuntu Repository (precise)
+Date: Thu, 21 Nov 2013 21:53:43 UTC
+MD5Sum:
+ fabf9a777017e93b4053f5cb47b78f13          1276805 main/binary-i386/Packages
+ b67db03940f371d28be692171bda196c           199253 main/binary-i386/Packages.bz2
+ fde9d2ce1f6605132d298bf749b336d7           257210 main/binary-i386/Packages.gz
+ 688272b125f7ac7112a7da79ce2635d3             5226 multiverse/binary-i386/Packages
+ 9ea8297ede221cc2f99b7814de57229b             2125 multiverse/binary-i386/Packages.bz2
+ 4d9e1849c52bdc2edcff06c0563a270c             1956 multiverse/binary-i386/Packages.gz
+ 65fc97f86c432985c26d7a65688763ca            21749 restricted/binary-i386/Packages
+ 7b476c0ebb26456305ca7c65a8d417f3             3793 restricted/binary-i386/Packages.bz2
+ 40643b2e7c0ce29926c9a9a78a5317d8             3482 restricted/binary-i386/Packages.gz
+ 4a77173861addf45f1b9e1a8769158cb           384498 universe/binary-i386/Packages
+ ae6fcef0142ff5bd951b092f3652f1bb            68734 universe/binary-i386/Packages.bz2
+ 65ab477573f7eead3cd6eb7d86ec4ede            86722 universe/binary-i386/Packages.gz
+SHA1:
+ 40ff285fa016be39a674b774ca9c369efcf7c6f8          1276805 main/binary-i386/Packages
+ 5a5d8e31e06f73fe524eeb6c2a5ea67c45abe3f5           199253 main/binary-i386/Packages.bz2
+ b842fde116612cae4d02d40ef8e9f0656ab90e73           257210 main/binary-i386/Packages.gz
+ d5dacc424fb19689898250f4e7ebc2d3665161a7             5226 multiverse/binary-i386/Packages
+ ba81e19d6c08e02caa27ad3a221812ad089d5ce1             2125 multiverse/binary-i386/Packages.bz2
+ 6ab184c35d82635ada3a09299b9cac31adb78e4c             1956 multiverse/binary-i386/Packages.gz
+ c16144c61fcee4243fcd0eafeab6fc0d030517f7            21749 restricted/binary-i386/Packages
+ 4d796e52679ce0adbe9d2bcdc6a9545e1bd31c27             3793 restricted/binary-i386/Packages.bz2
+ f397def5d878b3af4c6e3682f9a3989479980ac1             3482 restricted/binary-i386/Packages.gz
+ 06a7abc091ca3956ded56bc735b2d909b674d4db           384498 universe/binary-i386/Packages
+ dbe8054ab19cba6cbe4b5ba117ebd5483efc7671            68734 universe/binary-i386/Packages.bz2
+ 0d400a09c209b1ddcf1c720ec9516ab7c18a153c            86722 universe/binary-i386/Packages.gz
+SHA256:
+ bb8e8648d5d51fa7eef9aa63fa55ddcf57792d3b87d2b9f62de944ec4fd47ea7          1276805 main/binary-i386/Packages
+ 4258c08697a226a23ceb83adc1bc4465bd908e2e8eff67cb23c5902f8514e7df           199253 main/binary-i386/Packages.bz2
+ fa206038925dcd7f3c231b2314579549a29ece6e19dc7888467c07545c344602           257210 main/binary-i386/Packages.gz
+ 779e6d6a8fbd4beee4ff34ca40eb445c79747a5e5d85c8664dc0df03aebeb774             5226 multiverse/binary-i386/Packages
+ 3660636e8d43da231989f047fef63065053aacdb31f1720ae280e06c15776203             2125 multiverse/binary-i386/Packages.bz2
+ b83e86df352c2eef0df2204c57fe1eee7738c5c7a03159cbbaa96055773ef69e             1956 multiverse/binary-i386/Packages.gz
+ 9f3d212f4c4ff545a84409983efd50c648c17348fc6b11ad13336f12842e9d3a            21749 restricted/binary-i386/Packages
+ 3500e4ac6bd16c973f305e59f73b73658fb29b10313ead9710ad4c7f336f3ecd             3793 restricted/binary-i386/Packages.bz2
+ 658516d3228258e6a8d67b90a0fb6e77775b91ed3cb3de2281b1135e12062406             3482 restricted/binary-i386/Packages.gz
+ ddbdf17bcaced399af346d5992fe1474c57d9f0e31b997cff5b01d84cc18b5a7           384498 universe/binary-i386/Packages
+ 5229ea954074611a174215c9e7c01e78c677d5e47c391219f76babddcd6d2e76            68734 universe/binary-i386/Packages.bz2
+ c7e8cbe58fc07e652e2140bb650b8232312cd3b2b96fe299086c2c92a886fd04            86722 universe/binary-i386/Packages.gz
+SHA512:
+ f870f30b58ed3ee3854df0adf09623f7d65faafe62b70b05760a8fcd2add8d49a0a81f52702350b4e4ce52263a9ab4b9906fe1ddd2034de942ddbf4026cbfc2a          1276805 main/binary-i386/Packages
+ 82c4090ce5fc175de7e491dab07d080d05295ca45625b7398ecf0668eba45d802ae7041be60829a391ce285bbab4f598b13f20f5a8f9c44f87db71607fb60c46           199253 main/binary-i386/Packages.bz2
+ 4be892651cbb698a6385b41adb082a1cb88448842d8f87d912abd7970f739ad66c7a8461cc4533daec629dd11e62f9c1f359cab4b71f09d244b8737828bb97c9           257210 main/binary-i386/Packages.gz
+ b30fddf5e001d6bb7051dfe79666dc43eee17bde055c928b036bd524e57b31aaf336f3355b31d93aed775ef5975dc903260f1d91c70f52348d13d786b650bbb5             5226 multiverse/binary-i386/Packages
+ d4b26f000466f6455feca5754e4ac17f94988b239b6954c3f4bc864d68754e3c197c5679836e9d78ff8ac840070074e1bda9235ba8e0a4d23c4187d79e78ee50             2125 multiverse/binary-i386/Packages.bz2
+ 8e7cdc56e8a5ead1e4da36587551b93e84cefc6d69797848187ec718e94386b295f5ca5bfb59ba172694c696c6c0429eaa5a903ea9ecaddb9dd2a96081a23b05             1956 multiverse/binary-i386/Packages.gz
+ 02bbc01adbe48439f8823c54b3a7494180fb369fee457ca7f9bea771372473fae7b206de942c8837f2e9bf7c2722330ebe765fbb30f3ad3338cdcbc884ae2067            21749 restricted/binary-i386/Packages
+ 619405fef99874d85009053cce9470f8b1270f120748b8de8cdc1723fe68955cdb209d0417311495ab638dad757f30a2287e0cff01bbb95f63c6343cd953fd2c             3793 restricted/binary-i386/Packages.bz2
+ c74348808899ab049aa84f36dde541b016eb3264dfdd66ee22ad1c6ae7cec8fe57fef9a226d6cc904d6892f8d649f880714f50ce73848b980d1401b0b99e7958             3482 restricted/binary-i386/Packages.gz
+ 4f0e773e60f3ba1b56d7eb41d076a838694afca1511473c680e0716bf268c3dbcc0df6fbdfce9f71e3302d58af03246b0959701cdf6c8e0453243c965fca3f45           384498 universe/binary-i386/Packages
+ 6a4dad6c4c01c20bcac4ddb4babb638254946decda6283e8eedefb7a1d5ef0141a7e0b0fd502d887851ec625124b5be9a73810b5d36a6f2525dc92ab4ee98383            68734 universe/binary-i386/Packages.bz2
+ 583e7615dd24324502592a6c6d913220b315aafd0984310f92b749252347e470f045e581886977075ba41a40588f7ba83f9fb4da4c2b7a5b3a56094262822b71            86722 universe/binary-i386/Packages.gz

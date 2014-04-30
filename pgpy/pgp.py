@@ -14,6 +14,7 @@ from .fileloader import FileLoader
 from .reg import *
 from .util import bytes_to_int, int_to_bytes
 from .packet import PGPPacket
+from .packet.packets import Signature
 from .packet.fields import Header, SymmetricKeyAlgo
 from .errors import PGPError
 
@@ -259,15 +260,89 @@ class PGPSignature(PGPBlock):
         super(PGPSignature, self).__init__(sigf, Magic.Signature)
         ##TODO: handle creating a new signature
 
+    def hashdata(self, subject):
+        # from the Computing Signatures section of RFC 4880 (http://tools.ietf.org/html/rfc4880#section-5.2.4)
+        #
+        # All signatures are formed by producing a hash over the signature
+        # data, and then using the resulting hash in the signature algorithm.
+        #
+        # For binary document signatures (type 0x00), the document data is
+        # hashed directly.  For text document signatures (type 0x01), the
+        # document is canonicalized by converting line endings to <CR><LF>,
+        # and the resulting data is hashed.
+        #
+        # ...
+        #
+        # ...
+        #
+        # ...
+        #
+        # Once the data body is hashed, then a trailer is hashed.
+        # (...) A V4 signature hashes the packet body
+        # starting from its first field, the version number, through the end
+        # of the hashed subpacket data.  Thus, the fields hashed are the
+        # signature version, the signature type, the public-key algorithm, the
+        # hash algorithm, the hashed subpacket length, and the hashed
+        # subpacket body.
+        #
+        # V4 signatures also hash in a final trailer of six octets: the
+        # version of the Signature packet, i.e., 0x04; 0xFF; and a four-octet,
+        # big-endian number that is the length of the hashed data from the
+        # Signature packet (note that this number does not include these final
+        # six octets).
+        #
+        # After all this has been hashed in a single hash context, the
+        # resulting hash field is used in the signature algorithm and placed
+        # at the end of the Signature packet.
+
+        spkt = self.packets[0]
+        _data = b''
+        # h = hashlib.new(spkt.hash_algorithm.name)
+
+        # if spkt.hash_algorithm == HashAlgo.SHA1:
+        #     h = SHA.new()
+        #
+        # elif spkt.hash_algorithm == HashAlgo.SHA256:
+        #     h = SHA256.new()
+        #
+        # else:
+        #     raise NotImplementedError()
+
+        s = FileLoader(subject)
+
+
+        if spkt.type == Signature.Type.BinaryDocument:
+            _data += s.bytes
+
+        else:
+            ##TODO: sign other types of things
+            raise NotImplementedError(spkt.type)
+
+        # add the signature trailer to the hash context
+        _data += spkt.version.__bytes__()
+        _data += spkt.type.__bytes__()
+        _data += spkt.key_algorithm.__bytes__()
+        _data += spkt.hash_algorithm.__bytes__()
+        _data += spkt.hashed_subpackets.__bytes__()
+
+        # finally, hash the final six-octet trailer and return
+        hlen = 4 + len(spkt.hashed_subpackets.__bytes__())
+        _data += b'\x04\xff'
+        _data += int_to_bytes(hlen, 4)
+
+        return _data
+
 
 class PGPKey(PGPBlock):
+    @property
+    def secret(self):
+        return self.packets[0].secret
+
     def __init__(self, keyb):
         super(PGPKey, self).__init__(keyb)
 
     def __getattr__(self, item):
-        if item == "secret":
-            return self.packets[0].secret
-
+        ##TODO: move these to @property methods like secret
         if item in ["fingerprint", "keyid"] and self.fp is None:
             # We have not yet computed the fingerprint, so we'll have to do that now.
             # Here is the RFC 4880 section on computing v4 fingerprints:
@@ -339,23 +414,21 @@ class PGPKey(PGPBlock):
             # instantiate the correct algorithm with the correct keylength
             if pkt.stokey.alg == SymmetricKeyAlgo.CAST5:
                 alg = algorithms.CAST5(sessionkey)
-                # alg = algorithms.CAST5(sessionkey[-16:])
 
             # attempt to decrypt this packet!
             cipher = Cipher(alg, modes.CFB(pkt.stokey.iv), backend=default_backend())
             decryptor = cipher.decryptor()
 
-            ct = decryptor.update(pkt.enc_seckey_material) + decryptor.finalize()
+            pt = decryptor.update(pkt.enc_seckey_material) + decryptor.finalize()
 
             # check the hash to see if we decrypted successfully or not
             if pkt.stokey.id == 254:
-                if not ct[-20:] == hashlib.new('sha1', ct[:-20]).digest():
+                if not pt[-20:] == hashlib.new('sha1', pt[:-20]).digest():
                     raise PGPError("Passphrase was incorrect!")
 
                 # parse decrypted key material into pkt.seckey_material
-                # self.packets[i]
-                pkt.seckey_material.parse(ct[:-20], pkt.header.tag, pkt.key_algorithm, sec=True)
-                pkt.checksum = ct[-20:]
+                pkt.seckey_material.parse(pt[:-20], pkt.header.tag, pkt.key_algorithm, sec=True)
+                pkt.checksum = pt[-20:]
 
     ##TODO: encrypt secret key material that is not yet encrypted
     ##TODO: generate String2Key specifier for newly encrypted data
