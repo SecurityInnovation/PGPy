@@ -58,9 +58,12 @@ keyids_priv = [
     "sec-protected-rsa",
     "sec-protected-rsa-signonly",
 ]
+
+
 @pytest.fixture(params=pubkeys + privkeys, ids=keyids_pub + keyids_priv)
 def load_key(request):
     return request.param
+
 
 class TestPGPKey:
     def test_parse(self, load_key, pgpdump):
@@ -83,7 +86,7 @@ class TestPGPKey:
 
     def test_fingerprint(self, load_key):
         k = PGPLoad(load_key)[0]
-        kfp = [ k.fingerprint[i:(i+4)] for i in range(0, len(k.fingerprint), 4)]
+        kfp = [ k.fingerprint[i:(i + 4)] for i in range(0, len(k.fingerprint), 4)]
         kfp[4] += ' '
         kfp = ' '.join(kfp)
         fp = subprocess.check_output(['gpg',

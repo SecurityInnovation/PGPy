@@ -18,6 +18,7 @@ test_ids = [
     "inline-signed",
 ]
 
+
 @pytest.fixture(params=test_files, ids=test_ids)
 def pgpsig(request):
     return request.param

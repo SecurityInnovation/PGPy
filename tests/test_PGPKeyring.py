@@ -15,6 +15,8 @@ keyids = [
     "testkeys-sec",
     "testkeys-both",
 ]
+
+
 @pytest.fixture(params=keys, ids=keyids)
 def load_key(request):
     return request.param
@@ -29,6 +31,7 @@ akeyids = [
     "seckeys",
     "both"
 ]
+
 
 @pytest.fixture(params=akeys, ids=akeyids)
 def load_akey(request):
@@ -45,7 +48,6 @@ class TestPGPKeyring:
     # def test_load2(self, load_key, load_akey):
     #     pass
 
-
     def test_bytes(self, load_key):
         k = pgpy.PGPKeyring(load_key)
         fb = b''.join([open(f, 'rb').read() for f in load_key]) if type(load_key) is list else open(load_key, 'rb').read()
@@ -57,18 +59,17 @@ class TestPGPKeyring:
     #     pass
 
     @pytest.mark.parametrize("sigf, sigsub",
-        [
-            pytest.mark.xfail(
-                ("tests/testdata/ubuntu-precise/Release.gpg", "tests/testdata/ubuntu-precise/Release")
-            ),
-            ("tests/testdata/debian-sid/Release.gpg", "tests/testdata/debian-sid/Release"),
-            ("tests/testdata/aa-testing/Release.gpg", "tests/testdata/aa-testing/Release"),
-        ], ids=[
-            "local-ubuntu",
-            "local-debian",
-            "local-aa-testing",
-        ]
-    )
+                             [
+                                 pytest.mark.xfail(
+                                     ("tests/testdata/ubuntu-precise/Release.gpg", "tests/testdata/ubuntu-precise/Release")
+                                 ),
+                                 ("tests/testdata/debian-sid/Release.gpg", "tests/testdata/debian-sid/Release"),
+                                 ("tests/testdata/aa-testing/Release.gpg", "tests/testdata/aa-testing/Release"),
+                             ], ids=[
+                                 "local-ubuntu",
+                                 "local-debian",
+                                 "local-aa-testing",
+                             ])
     def test_verify(self, sigf, sigsub):
         k = pgpy.PGPKeyring(["tests/testdata/testkeys.gpg", "tests/testdata/testkeys.sec.gpg"])
 

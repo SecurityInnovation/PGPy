@@ -1,6 +1,7 @@
 import pytest
 import subprocess
 
+
 @pytest.fixture()
 def pgpdump(request):
     pgpd_args = ['pgpdump', '-i', '-l', '-m', '-p', '-u', '--']

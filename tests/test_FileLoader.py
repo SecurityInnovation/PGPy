@@ -15,6 +15,7 @@ try:
 except ConnectionError:
     skipurls = True
 
+
 @pytest.fixture(
     params=[
         None,
