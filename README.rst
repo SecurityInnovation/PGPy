@@ -1,7 +1,7 @@
 PGPy: Pretty Good Privacy for Python
 ====================================
 
-.. image:: https://badge.fury.io/py/PGPy.png
+.. image:: https://badge.fury.io/py/PGPy.svg
     :target: http://badge.fury.io/py/PGPy
     :alt: Latest version
 
@@ -52,12 +52,32 @@ RFC 4880 compliance with the following data:
    - [x] Public-Subkey Packet (Tag 14)
 - Actions
    - [ ] Generate keys
-   - [x] Load Public Keys
-   - [x] Load Secret Keys
+   - [/] Load Keys
+     - [x] Public Keys
+     - [x] Secret Keys
+     - [x] From ASCII Armored blocks
+     - [x] From GPG Keyrings
+     - [/] Protected Secret Keys
+       - [ ] Encrypted with IDEA
+       - [x] Encrypted with CAST5
+       - [ ] Encrypted with Blowfish
+       - [ ] Encrypted with AES
+       - [ ] Encrypted with Twofish
+   - [ ] Encrypt Key Material
+     - [ ] with CAST5
+     - [ ] with AES
    - [ ] Sign data
-   - [ ] Verify data signature
+     - [ ] with RSA
+     - [ ] with DSA
+   - [/] Verify data signature
+     - [x] with RSA
+     - [ ] with DSA
    - [ ] Encrypt data
+     - [ ] with RSA
+     - [ ] with ElGamal
    - [ ] Decrypt data
+     - [ ] with RSA
+     - [ ] with ElGamal
 
 Installation
 ------------
@@ -86,6 +106,8 @@ Requirements
   Tested with: 3.4, 3.3, 3.2, 2.7
 
 - `Requests <https://pypi.python.org/pypi/requests>`
+
+- `Cryptography <https://pypi.python.org/pypi/cryptography>`
 
 License
 -------
