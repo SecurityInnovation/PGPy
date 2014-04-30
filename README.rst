@@ -5,7 +5,7 @@ PGPy: Pretty Good Privacy for Python
     :target: http://badge.fury.io/py/PGPy
     :alt: Latest version
 
-.. image:: https://travis-ci.org/Commod0re/PGPy.png?branch=master
+.. image:: https://travis-ci.org/Commod0re/PGPy.svg?branch=master
     :target: https://travis-ci.org/Commod0re/PGPy
     :alt: Travis-CI
 
