@@ -3,6 +3,7 @@
 import calendar
 from datetime import datetime
 from enum import IntEnum
+import functools
 
 from ..util import bytes_to_int, int_to_bytes, PFIntEnum
 from .. import PGPError
@@ -474,6 +475,23 @@ class SubPacket(PacketField):
 
 
 class SubPackets(PacketField):
+    # slightly less ugly metaprogramming time!
+    # subpacket_getter is a property that doesn't know it yet
+    # and doesn't have to conform to what property expects in a getter
+    # because it's wrapped with functools.partial
+    def subpacket_getter(self, name):
+        nl = [ n.type.name for n in self.subpackets ]
+        if name in nl:
+            return self.subpackets[nl.index(name)]
+
+        raise AttributeError
+
+    # and here we loop over the enum members of SubPacket.Type
+    # to generate our property getters
+    for sp in SubPacket.Type.__members__.values():
+        locals()[sp.name] = property(functools.partial(subpacket_getter, name=sp.name))
+
+
     def __init__(self, packet=None):
         self.length = 0
         self.hashed = False
@@ -490,14 +508,6 @@ class SubPackets(PacketField):
             sp = SubPacket(packet[pos:])
             self.subpackets.append(sp)
             pos += sp.length
-
-    def __getattr__(self, name):
-        if name in [ n.type.name for n in self.subpackets ]:
-            i = [ n.type.name for n in self.subpackets ].index(name)
-            return self.subpackets[i]
-
-        else:
-            raise AttributeError()
 
     def __bytes__(self):
         _bytes = int_to_bytes(self.length - 2, 2)

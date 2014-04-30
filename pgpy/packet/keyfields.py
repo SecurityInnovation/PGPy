@@ -2,8 +2,8 @@
 """
 import math
 import collections
-import copy
 import hashlib
+import functools
 
 from .fields import Header, PacketField, PubKeyAlgo, HashAlgo, SymmetricKeyAlgo, PFIntEnum
 from ..util import bytes_to_int, int_to_bytes
@@ -11,6 +11,22 @@ from ..util import bytes_to_int, int_to_bytes
 
 class MPIFields(object):
     field = {'name': "", 'bitlen': 0, 'bytes': b'', 'encoding': ''}
+
+    # More metaprogramming, this time with a setter *and* a getter!
+    def field_getter(self, item):
+        if item not in self.fields.keys():
+            self.fields[item] = self.field.copy()
+
+        return self.fields[item]
+
+    def field_setter(self, value, item, subitem=None):
+        self.fields[item] = value
+
+    for fname in ['md_mod_n', 'd', 'e', 'g', 'n', 'p', 'q', 'r', 's', 'u', 'x', 'y']:
+        locals()[fname] = property(
+            functools.partial(field_getter, item=fname),  # getter
+            functools.partial(field_setter, item=fname),  # setter
+        )
 
     def __init__(self):
         self.fields = collections.OrderedDict()
@@ -22,71 +38,43 @@ class MPIFields(object):
             self.encoding = 'PKCS-1'
 
             if pktype == Header.Tag.Signature:
-                self.fields['md_mod_n'] = copy.copy(self.field)
                 self.md_mod_n['name'] = 'RSA m^d mod n'
 
             if pktype in [Header.Tag.PubKey, Header.Tag.PubSubKey,
                           Header.Tag.PrivKey, Header.Tag.PrivSubKey] and not sec:
-                self.fields['n'] = copy.copy(self.field)
                 self.n['name'] = 'RSA n'
-
-                self.fields['e'] = copy.copy(self.field)
                 self.e['name'] = 'RSA e'
 
             if pktype in [Header.Tag.PrivKey, Header.Tag.PrivSubKey] and sec:
-                self.fields['d'] = copy.copy(self.field)
                 self.d['name'] = 'RSA d'
-
-                self.fields['p'] = copy.copy(self.field)
                 self.p['name'] = 'RSA p'
-
-                self.fields['q'] = copy.copy(self.field)
                 self.q['name'] = 'RSA q'
-
-                self.fields['u'] = copy.copy(self.field)
                 self.u['name'] = 'RSA u'
 
         if alg == PubKeyAlgo.DSA:
             self.encoding = 'hash(DSA q bits)'
 
             if pktype == Header.Tag.Signature:
-                self.fields['dsa_r'] = copy.copy(self.field)
-                self.dsa_r['name'] = 'DSA r'
-
-                self.fields['dsa_s'] = copy.copy(self.field)
-                self.dsa_s['name'] = 'DSA s'
+                self.r['name'] = 'DSA r'
+                self.s['name'] = 'DSA s'
 
             if pktype in [Header.Tag.PubKey, Header.Tag.PubSubKey,
                           Header.Tag.PrivKey, Header.Tag.PrivSubKey] and not sec:
-                self.fields['dsa_p'] = copy.copy(self.field)
-                self.dsa_p['name'] = 'DSA p'
-
-                self.fields['dsa_q'] = copy.copy(self.field)
-                self.dsa_q['name'] = 'DSA q'
-
-                self.fields['dsa_g'] = copy.copy(self.field)
-                self.dsa_g['name'] = 'DSA g'
-
-                self.fields['dsa_y'] = copy.copy(self.field)
-                self.dsa_y['name'] = 'DSA y'
+                self.p['name'] = 'DSA p'
+                self.q['name'] = 'DSA q'
+                self.g['name'] = 'DSA g'
+                self.y['name'] = 'DSA y'
 
             if pktype in [Header.Tag.PrivKey, Header.Tag.PrivSubKey] and sec:
-                self.fields['dsa_x'] = copy.copy(self.field)
-                self.dsa_x['name'] = 'DSA x'
+                self.x['name'] = 'DSA x'
 
         if alg == PubKeyAlgo.ElGamal and not sec:
-            self.fields['ElGamal_p'] = copy.copy(self.field)
-            self.ElGamal_p['name'] = 'ElGamal p'
-
-            self.fields['ElGamal_g'] = copy.copy(self.field)
-            self.ElGamal_g['name'] = 'ElGamal g'
-
-            self.fields['ElGamal_y'] = copy.copy(self.field)
-            self.ElGamal_y['name'] = 'ElGamal y'
+            self.p['name'] = 'ElGamal p'
+            self.g['name'] = 'ElGamal g'
+            self.y['name'] = 'ElGamal y'
 
         if alg == PubKeyAlgo.ElGamal and sec:
-            self.fields['ElGamal_x'] = copy.copy(self.field)
-            self.ElGamal_x['name'] = 'ElGamal x'
+            self.x['name'] = 'ElGamal x'
 
         # if no fields were set, the combo requested has not yet been implemented
         if len(self.fields.keys()) == 0:
@@ -103,9 +91,6 @@ class MPIFields(object):
             mend = pos + length
             self.fields[f]['bytes'] = packet[pos:mend]
             pos = mend
-
-    def __getattr__(self, item):
-        return self.fields[item]
 
     def __bytes__(self):
         _bytes = b''
