@@ -24,7 +24,6 @@ except ConnectionError:
         "tests/testdata/sym_to_unsigned_message",
         open("tests/testdata/unsigned_message", 'rb'),
         open("tests/testdata/unsigned_message", 'rb').read(),
-        open("tests/testdata/Release.gpg", 'rb').read(),
         open("tests/testdata/testkeys.gpg", 'rb').read(),
     ],
     ids=[
@@ -35,7 +34,6 @@ except ConnectionError:
         "symlink",
         "fileobj",
         "unsigned-text-bytes",
-        "gpg-signature-bytes",
         "gpg-keyring-bytes",
     ]
 )
