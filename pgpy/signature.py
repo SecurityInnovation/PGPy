@@ -6,6 +6,7 @@ class SignatureVerification(object):
         self.signature = None
         self.key = None
         self.subject = None
+        self.message = ""
 
         self.verified = False
 
@@ -18,4 +19,8 @@ class SignatureVerification(object):
         return self.verified
 
     def __repr__(self):
-        return "SignatureVerification({verified})".format(verified=str(bool(self)))
+        return "SignatureVerification({key}, {verified}, {message})".format(
+            verified=str(bool(self)),
+            key=self.key.keyid,
+            message=self.message
+        )
