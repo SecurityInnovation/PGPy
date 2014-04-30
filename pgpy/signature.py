@@ -1,6 +1,7 @@
 """signature.py
 """
 
+
 class SignatureVerification(object):
     def __init__(self):
         self.signature = None

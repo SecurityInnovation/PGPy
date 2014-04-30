@@ -112,7 +112,7 @@ class PGPBlock(FileLoader):
         for pkt in self.packets:
             payload += pkt.__bytes__()
         payload = base64.b64encode(payload).decode()
-        payload = '\n'.join(payload[i:i+64] for i in range(0, len(payload), 64))
+        payload = '\n'.join(payload[i:i + 64] for i in range(0, len(payload), 64))
 
         # figure out block type magic
         t = ""
@@ -146,7 +146,7 @@ class PGPBlock(FileLoader):
 
             # parse header field(s)
             h = [ h for h in re.split(r'^([^:]*): (.*)$\n?', k[1], flags=re.MULTILINE) if h != '' ]
-            for key, val in [ (h[i], h[i+1]) for i in range(0, len(h), 2) ]:
+            for key, val in [ (h[i], h[i + 1]) for i in range(0, len(h), 2) ]:
                 self.ascii_headers[key] = val
 
             self.data = base64.b64decode(k[2].replace('\n', '').encode())
@@ -309,7 +309,6 @@ class PGPSignature(PGPBlock):
         #     raise NotImplementedError()
 
         s = FileLoader(subject)
-
 
         if spkt.type == Signature.Type.BinaryDocument:
             _data += s.bytes

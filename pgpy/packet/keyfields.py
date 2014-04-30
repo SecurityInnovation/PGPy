@@ -160,7 +160,7 @@ class String2Key(PacketField):
                 pos = 13
 
         if self.id != 0:
-            self.iv = packet[pos:(pos + int(self.alg.block_size()/8))]
+            self.iv = packet[pos:(pos + int(self.alg.block_size() / 8))]
 
     def derive_key(self, passphrase):
         # we use the fields stored here along with the RFC 4880 String-to-Key usage description
@@ -169,12 +169,12 @@ class String2Key(PacketField):
         # how long does our key need to be, and how many hash contexts do we need?
         keylen = self.alg.keylen()
         hashlen = self.hash.digestlen()
-        ctx = int(math.ceil(keylen/float(hashlen)))
+        ctx = int(math.ceil(keylen / float(hashlen)))
 
         h = []
         # instantiate our hash context(s)
         for i in range(0, ctx):
-            h.append(hashlib.new(self.hash.name, b'\x00'*i))
+            h.append(hashlib.new(self.hash.name, b'\x00' * i))
 
         # Simple S2K
         hsalt = ""

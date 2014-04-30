@@ -248,7 +248,7 @@ class Header(PacketField):
 
             # compute length_type if it isn't already provided
             if self.length_type == 0:
-                while self.length >> (8*(self.length_type+1)) and self.length_type < 3:
+                while self.length >> (8 * (self.length_type + 1)) and self.length_type < 3:
                     self.length_type += 1
 
             _bytes += self.length_type

@@ -18,15 +18,6 @@ class FileLoader(object):
         if bytes is not str and type(ppath) is bytes:
             return False
 
-        # if we get to this point, testing will need to be a little more involved
-        # the POSIX specification (http://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap03.html#tag_03_276)
-        # for what constitutes a valid filename includes the following characters:
-        # A-Z, a-z, 0-9, ., _, -
-        #
-        # path separators are / on POSIX and \ on Windows
-        #
-        # lots of other characters that are not present here can indeed be part of a filename
-
         # this should be adequate most of the time
         # we'll detect all unprintable and extended ASCII characters as 'bad' - their presence will denote 'not a path'
         badchars = [ chr(c) for c in range(0, 32) ]
