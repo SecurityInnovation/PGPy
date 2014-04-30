@@ -18,177 +18,141 @@ Features
 
 RFC 4880 compliance with the following data:
 
-:Packet Tags:
-    :Old format: Done
-    :New format: Done
-:ASCII-armoring:
-    :Decoding: Done
-    :Encoding: Done
-    :CRC24 computation: Done
-:Unversioned Packets:
-    :Public-Key Encrypted Session Key Packet:
-        :Tag: 1
-        :Done: No
-    :Symmetric-Key Encrypted Session Key Packet:
-        :Tag: 3
-        :Done: No
-    :One-Pass Signature Packet:
-        :Tag: 4
-        :Done: No
-    :Compressed Data Packet:
-        :Tag: 8
-        :Done: No
-    :Symmetrically Encrypted Data Packet:
-        :Tag: 9
-        :Done: No
-    :Marker Packet:
-        :Tag: 10
-        :Done: No
-    :Literal Data Packet:
-        :Tag: 11
-        :Done: No
-    :Trust Packet:
-        :Tag: 12
-        :Done: Yes
-    :User ID Packet:
-        :Tag: 13
-        :Done: Yes
-    :User Attribute Packet:
-        :Tag: 17
-        :Done: No
-    :Sym. Encrypted and Integrity Protected Data Packet:
-        :Tag: 18
-        :Done: No
-    :Modification Detection Code Packet:
-        :Tag: 19
-        :Done: No
-:Versioned Packets:
-    :Signature Packet:
-        :Tag: 2
-        :v3:
-            :Parsing: No
-            :Creating: No
-        :v4:
-            :Parsing: Yes
-            :Creating: No
-    :Secret-Key Packet:
-        :Tag: 5
-        :v3:
-            :Parsing: No
-            :Creating: No
-        :v4:
-            :Parsing: Yes
-            :Creating: No
-    :Public-Key Packet:
-        :Tag: 6
-        :v3:
-            :Parsing: No
-            :Creating: No
-        :v4:
-            :Parsing: Yes
-            :Creating: No
-    :Secret-Subkey Packet:
-        :Tag: 7
-        :v3:
-            :Parsing: No
-            :Creating: No
-        :v4:
-            :Parsing: Yes
-            :Creating: No
-    :Public-Subkey Packet:
-        :Tag: 14
-        :v3:
-            :Parsing: No
-            :Creating: No
-        :v4:
-            :Parsing: Yes
-            :Creating: No
-:Actions:
-    :Keys:
-        :Generate: None
-        :Load Keys:
-            :ASCII: Yes
-            :GPG Keyrings: Yes
-            :GPG Agent: No
-        :Load Public Keys:
-            :RSA: Yes
-            :DSA Sign Only: Yes
-            :DSA with ElGamal: Yes
-        :Load Private Keys:
-            :RSA: Yes
-            :DSA Sign Only: Yes
-            :DSA with ElGamal: Yes
-            :Unencrypted: Yes
-            :Encrypted:
-                :with IDEA: No
-                :with CAST5: Yes
-                :with Blowfish: No
-                :with AES: No
-                :with Twofish: No
-        :RSA:
-            :Load Private Keys:
-                :Unencrypted:
-        :DSA:
-            :Load Public Keys:
-                :ASCII: Yes
-                :GPG Keyrings: Yes
-                :GPG Agent: No
-    :Symmetric-Key:
-        :IDEA:
-            :Encrypt:
-                :Key Material: No
-                :Messages: No
-            :Decrypt:
-                :Key Material: No
-                :Messages: No
-        :TripleDES:
-            :Encrypt:
-                :Key Material: No
-                :Messages: No
-            :Decrypt:
-                :Key Material: No
-                :Messages: No
-        :CAST5:
-            :Encrypt:
-                :Key Material: No
-                :Messages: No
-            :Decrypt:
-                :Key Material: No
-                :Messages: Yes
-        :Blowfish:
-            :Encrypt:
-                :Key Material: No
-                :Messages: No
-            :Decrypt:
-                :Key Material: No
-                :Messages: No
-        :AES:
-            :Encrypt:
-                :Key Material: No
-                :Messages: No
-            :Decrypt:
-                :Key Material: No
-                :Messages: No
-        :Twofish:
-            :Encrypt:
-                :Key Material: No
-                :Messages: No
-            :Decrypt:
-                :Key Material: No
-                :Messages: No
-    :Public-Key:
-        :RSA:
-            :Encrypt: No
-            :Decrypt: No
-            :Sign:
-                :Sign: No
-                :Verify: Yes
-        :DSA:
-            :Encrypt: (ElGamal) No
-            :Decrypt: (ElGamal) No
-            :Sign:
-                :Key Material: No
-                :Messages: No
++---------------------+---------+---------+------------+--------------+--------------+------------+
+| Feature                                                                            | Completion |
++=====================+=========+=========+============+==============+==============+============+
+| Packet Tags         | Old Format                                                   | Done       |
++                     +---------+---------+------------+--------------+--------------+------------+
+|                     | New Format                                                   | Done       |
++---------------------+---------+---------+------------+--------------+--------------+------------+
+| ASCII-armoring      | Decoding                                                     | Done       |
++                     +---------+---------+------------+--------------+--------------+------------+
+|                     | Encoding                                                     | Done       |
++                     +---------+---------+------------+--------------+--------------+------------+
+|                     | CRC24 Computation                                            | Done       |
++---------------------+---------+---------+------------+--------------+--------------+------------+
+| Unversioned Packets | **Tag** | **Name**                                           |            |
++---------------------+---------+---------+------------+--------------+--------------+------------+
+|                     | 1       | Public-Key Encrypted Session Key Packets           | No         |
++                     +---------+---------+------------+--------------+--------------+------------+
+|                     | 3       | Symmetric-Key Encrypted Session Key Packet         | No         |
++                     +---------+---------+------------+--------------+--------------+------------+
+|                     | 4       | One-Pass Signature Packet                          | No         |
++                     +---------+---------+------------+--------------+--------------+------------+
+|                     | 8       | Compressed Data Packet                             | No         |
++                     +---------+---------+------------+--------------+--------------+------------+
+|                     | 9       | Sym. Encrypted Data Packet                         | No         |
++                     +---------+---------+------------+--------------+--------------+------------+
+|                     | 10      | Marker Packet                                      | No         |
++                     +---------+---------+------------+--------------+--------------+------------+
+|                     | 11      | Literal Data Packet                                | No         |
++                     +---------+---------+------------+--------------+--------------+------------+
+|                     | 12      | Trust Packet                                       | Done       |
++                     +---------+---------+------------+--------------+--------------+------------+
+|                     | 13      | User ID Packet                                     | Done       |
++                     +---------+---------+------------+--------------+--------------+------------+
+|                     | 17      | User Attribute Packet                              | No         |
++                     +---------+---------+------------+--------------+--------------+------------+
+|                     | 18      | Sym. Enc. & Integrity Protected Data Packet        | No         |
++                     +---------+---------+------------+--------------+--------------+------------+
+|                     | 19      | Modification Detection Code Packet                 | No         |
++---------------------+---------+---------+------------+--------------+--------------+------------+
+| Versioned Packets   | **Tag** | **Name**                                           |            |
++                     +---------+---------+------------+--------------+--------------+------------+
+|                     | 2       | Signature Packet                                   | Done       |
++                     +---------+---------+------------+--------------+--------------+------------+
+|                     | 5       | Secret-Key Packet                                  | Done       |
++                     +---------+---------+------------+--------------+--------------+------------+
+|                     | 6       | Public-Key Packet                                  | Done       |
++                     +---------+---------+------------+--------------+--------------+------------+
+|                     | 7       | Secret-Subkey Packet                               | Done       |
++                     +---------+---------+------------+--------------+--------------+------------+
+|                     | 14      | Public-Subkey Packet                               | Done       |
++---------------------+---------+---------+------------+--------------+--------------+------------+
+| Actions             | Keys              | Loading    | ASCII                       | Done       |
++                     +                   +            +--------------+--------------+------------+
+|                     |                   |            | GPG Keyrings                | Done       |
++                     +                   +            +--------------+--------------+------------+
+|                     |                   |            | GPG Agents                  | No         |
++                     +                   +------------+--------------+--------------+------------+
+|                     |                   | Generate   | RSA                         | No         |
++                     +                   +            +--------------+--------------+------------+
+|                     |                   |            | DSA                         | No         |
++                     +                   +            +--------------+--------------+------------+
+|                     |                   |            | ElGamal                     | No         |
++                     +--------+----------+------------+--------------+--------------+------------+
+|                     | Symmetric-Key     | IDEA       | Encrypt      | Key Material | No         |
++                     +                   +            +              +--------------+------------+
+|                     |                   |            |              | Messages     | No         |
++                     +                   +            +--------------+--------------+------------+
+|                     |                   |            | Decrypt      | Key Material | No         |
++                     +                   +            +              +--------------+------------+
+|                     |                   |            |              | Messages     | No         |
++                     +                   +------------+--------------+--------------+------------+
+|                     |                   | TripleDES  | Encrypt      | Key Material | No         |
++                     +                   +            +              +--------------+------------+
+|                     |                   |            |              | Messages     | No         |
++                     +                   +            +--------------+--------------+------------+
+|                     |                   |            | Decrypt      | Key Material | No         |
++                     +                   +            +              +--------------+------------+
+|                     |                   |            |              | Messages     | No         |
++                     +                   +------------+--------------+--------------+------------+
+|                     |                   | CAST5      | Encrypt      | Key Material | No         |
++                     +                   +            +              +--------------+------------+
+|                     |                   |            |              | Messages     | No         |
++                     +                   +            +--------------+--------------+------------+
+|                     |                   |            | Decrypt      | Key Material | No         |
++                     +                   +            +              +--------------+------------+
+|                     |                   |            |              | Messages     | No         |
++                     +                   +------------+--------------+--------------+------------+
+|                     |                   | Blowfish   | Encrypt      | Key Material | No         |
++                     +                   +            +              +--------------+------------+
+|                     |                   |            |              | Messages     | No         |
++                     +                   +            +--------------+--------------+------------+
+|                     |                   |            | Decrypt      | Key Material | No         |
++                     +                   +            +              +--------------+------------+
+|                     |                   |            |              | Messages     | No         |
++                     +                   +------------+--------------+--------------+------------+
+|                     |                   | AES        | Encrypt      | Key Material | No         |
++                     +                   +            +              +--------------+------------+
+|                     |                   |            |              | Messages     | No         |
++                     +                   +            +--------------+--------------+------------+
+|                     |                   |            | Decrypt      | Key Material | No         |
++                     +                   +            +              +--------------+------------+
+|                     |                   |            |              | Messages     | No         |
++                     +                   +------------+--------------+--------------+------------+
+|                     |                   | Twofish    | Encrypt      | Key Material | No         |
++                     +                   +            +              +--------------+------------+
+|                     |                   |            |              | Messages     | No         |
++                     +                   +            +--------------+--------------+------------+
+|                     |                   |            | Decrypt      | Key Material | No         |
++                     +                   +            +              +--------------+------------+
+|                     |                   |            |              | Messages     | No         |
++                     +--------+----------+------------+--------------+--------------+------------+
+|                     | Public-Key        | RSA        | Encrypt      | Key Material | No         |
++                     +                   +            +              +--------------+------------+
+|                     |                   |            |              | Messages     | No         |
++                     +                   +            +--------------+--------------+------------+
+|                     |                   |            | Decrypt      | Key Material | No         |
++                     +                   +            +              +--------------+------------+
+|                     |                   |            |              | Messages     | No         |
++                     +                   +            +--------------+--------------+------------+
+|                     |                   |            | Sign                        | No         |
++                     +                   +            +--------------+--------------+------------+
+|                     |                   |            | Verify                      | Done       |
++                     +                   +------------+--------------+--------------+------------+
+|                     |                   | DSA        | Encrypt      | Key Material | No         |
++                     +                   +            +              +--------------+------------+
+|                     |                   |            |              | Messages     | No         |
++                     +                   +            +--------------+--------------+------------+
+|                     |                   |            | Decrypt      | Key Material | No         |
++                     +                   +            +              +--------------+------------+
+|                     |                   |            |              | Messages     | No         |
++                     +                   +            +--------------+--------------+------------+
+|                     |                   |            | Sign                        | No         |
++                     +                   +            +--------------+--------------+------------+
+|                     |                   |            | Verify                      | No         |
++---------------------+--------+----------+------------+--------------+--------------+------------+
 
 Installation
 ------------
