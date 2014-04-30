@@ -3,9 +3,19 @@
 """
 import collections
 import contextlib
+import hashlib
+
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.backends import openssl
+from cryptography.exceptions import InvalidSignature
 
 from .pgp import PGPLoad
+from .signature import SignatureVerification
 from .errors import PGPError
+from .packet.fields import PubKeyAlgo, HashAlgo
+from .util import bytes_to_int
 
 
 def managed(func):
@@ -29,11 +39,18 @@ class PGPKeyring(object):
             self.load(keys)
 
     def __getattr__(self, item):
+        ##TODO: move these to @property methods
         if item == "packets" and self.using is None:
             return [ pkt for keys in list(self.pubkeys.values()) + list(self.seckeys.values()) for pkt in keys.packets ]
 
-        if item == "keys" and self.using is None:
-            return list(self.pubkeys.values()) + list(self.seckeys.values())
+        if item == "publickeys":
+            return list(self.pubkeys.values())
+
+        if item == "privatekeys":
+            return list(self.seckeys.values())
+
+        if item == "keys":
+            return self.publickeys + self.privatekeys
 
         raise AttributeError(item)
 
@@ -73,44 +90,70 @@ class PGPKeyring(object):
 
     @managed
     def sign(self, subject, inline=False):
-        # from the Computing Signatures section of RFC 4880 (http://tools.ietf.org/html/rfc4880#section-5.2.4)
-        #
-        # All signatures are formed by producing a hash over the signature
-        # data, and then using the resulting hash in the signature algorithm.
-        #
-        # For binary document signatures (type 0x00), the document data is
-        # hashed directly.  For text document signatures (type 0x01), the
-        # document is canonicalized by converting line endings to <CR><LF>,
-        # and the resulting data is hashed.
-        #
-        # ...
-        #
-        # ...
-        #
-        # ...
-        #
-        # Once the data body is hashed, then a trailer is hashed.
-        # (...) A V4 signature hashes the packet body
-        # starting from its first field, the version number, through the end
-        # of the hashed subpacket data.  Thus, the fields hashed are the
-        # signature version, the signature type, the public-key algorithm, the
-        # hash algorithm, the hashed subpacket length, and the hashed
-        # subpacket body.
-        #
-        # V4 signatures also hash in a final trailer of six octets: the
-        # version of the Signature packet, i.e., 0x04; 0xFF; and a four-octet,
-        # big-endian number that is the length of the hashed data from the
-        # Signature packet (note that this number does not include these final
-        # six octets).
-        #
-        # After all this has been hashed in a single hash context, the
-        # resulting hash field is used in the signature algorithm and placed
-        # at the end of the Signature packet.
-
         ##TODO: create PGPSignature object
         pass
 
     @managed
-    def verify(self, subject):
-        ##TODO: verify existing PGPSignature object
-        pass
+    def verify(self, subject, signature):
+        ##TODO: type-checking
+        sig = PGPLoad(signature)[0]
+        sigdata = sig.hashdata(subject)
+
+        sigv = SignatureVerification()
+        sigv.signature = sig
+        sigv.subject = subject
+
+        # check to see if we have the public key half of the key that created the signature
+        skeyid = sig.packets[0].unhashed_subpackets.Issuer.payload.decode()
+        if self.using is not None and skeyid[-8:] != self.using:
+            raise PGPError("Key {skeyid} is not selected!".format(skeyid=skeyid))
+
+        if skeyid not in [key.keyid for key in self.publickeys]:
+            raise PGPError("Key {skeyid} is not loaded!".format(skeyid=skeyid))
+
+        pubkey = self.pubkeys[skeyid]
+        sigv.key = pubkey
+
+        # first check - compare the left 16 bits of sh against the signature packet's hash2 field
+        dhash = hashlib.new(sig.packets[0].hash_algorithm.name, sigdata)
+
+        if dhash.name == 'SHA1':
+            h = hashes.SHA1()
+
+        elif dhash.name == 'SHA256':
+            h = hashes.SHA256()
+
+        else:
+            raise NotImplementedError(dhash.name)
+
+        if dhash.digest()[:2] == sig.packets[0].hash2:
+            # if this check passes, now we should do an actual signature verification
+            sigv.message = "basic hash check passed"
+
+            # create the verifier
+            if sig.packets[0].key_algorithm == PubKeyAlgo.RSAEncryptOrSign:
+                # public key components
+                e = bytes_to_int(pubkey.packets[0].key_material.fields['e']['bytes'])
+                n = bytes_to_int(pubkey.packets[0].key_material.fields['n']['bytes'])
+                # signature
+                s = sig.packets[0].signature.fields['md_mod_n']['bytes']
+
+                # public key object
+                pk = rsa.RSAPublicKey(e, n)
+
+                verifier = pk.verifier(s, padding.PKCS1v15(), h, openssl.backend)
+
+            else:
+                raise NotImplementedError(sig.packets[0].key_algorithm)
+
+            # now verify!
+            verifier.update(sigdata)
+
+            try:
+                verifier.verify()
+                sigv.verified = True
+
+            except InvalidSignature:
+                sigv.message += "; verify() failed"
+
+        return sigv
