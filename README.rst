@@ -9,6 +9,10 @@ PGPy: Pretty Good Privacy for Python
     :target: https://travis-ci.org/Commod0re/PGPy
     :alt: Travis-CI
 
+.. image:: https://coveralls.io/repos/Commod0re/PGPy/badge.png
+    :target: https://coveralls.io/r/Commod0re/PGPy
+    :alt: Coveralls
+
 Homepage: None yet.
 
 `PGPy` is a Python (2 and 3) library for implementing Pretty Good Privacy into Python programs.
