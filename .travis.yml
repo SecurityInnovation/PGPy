@@ -16,7 +16,7 @@ install:
  - pip install .
 # use setup.py to invoke testing via coveralls
 script:
-  coverage run --source=pgpy py.test -vv tests
+  py.test -vv --cov pgpy tests/
 # and report coverage to coveralls
 after_success:
   coveralls
