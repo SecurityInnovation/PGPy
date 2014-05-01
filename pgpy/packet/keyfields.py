@@ -206,10 +206,8 @@ class String2Key(PacketField):
             for hc in h:
                 hc.update((hsalt + hpass)[:count])
 
-        return b''.join([hc.digest() for hc in h])[:int(keylen / 8)]
-
         # and finally, return!
-        return digest
+        return b''.join([hc.digest() for hc in h])[:int(keylen / 8)]
 
     def __bytes__(self):
         _bytes = b''
