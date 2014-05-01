@@ -28,7 +28,7 @@ def PGPLoad(pgpbytes):
     b = []
 
     # now, are there any ASCII PGP blocks at all?
-    if f.is_ascii():
+    if f.is_ascii:
         # decode/parse ASCII PGP blocks
         nascii = list(re.finditer(ASCII_BLOCK, f.bytes.decode(), flags=re.MULTILINE | re.DOTALL))
 
@@ -200,7 +200,7 @@ class PGPBlock(FileLoader):
         data = self.bytes
 
         # if type is bytes, try to decode so re doesn't choke
-        if self.is_ascii():
+        if self.is_ascii:
             data = data.decode()
 
         # this is binary data; skip extracting the block and move on
