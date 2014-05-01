@@ -20,23 +20,46 @@ from .packet import PubKeyAlgo
 from .util import bytes_to_int, int_to_bytes, modinv
 
 
-class PGPKeyring(object):
-    def managed(func):
-        @functools.wraps(func)
-        def inner(self, *args, **kwargs):
-            if not self.ctx:
+
+class Managed(object):
+    def __init__(self, selection_required=False, pubonly=False, privonly=False):
+        self.required = selection_required
+        self.pubonly = pubonly
+        self.privonly = privonly
+
+    def __call__(self, fn):
+        @functools.wraps(fn)
+        def decorated(iself, *args, **kwargs):
+            if not iself.ctx:
                 raise PGPError("Invalid usage - this method must be invoked from a context managed state!")
 
-            return func(self, *args, **kwargs)
+            if self.required and iself.using is None:
+                raise PGPError("Must select a loaded key!")
 
-        return inner
+            if self.required and iself.using not in iself.keyids:
+                raise PGPError("Key {keyid} is not loaded!".format(keyid=iself.using))
 
+            if self.pubonly and iself.using is not None and iself.using not in iself.pubkeyids:
+                raise PGPError("Key {keyid} is not loaded!".format(keyid=iself.using))
+
+            if self.privonly and iself.using is not None and iself.using not in iself.pubkeyids:
+                raise PGPError("Key {keyid} is not loaded!".format(keyid=iself.using))
+
+            return fn(iself, *args, **kwargs)
+
+        return decorated
+
+
+# just an alias; nothing to see here
+managed = Managed
+
+
+class PGPKeyring(object):
     @property
     def packets(self):
         if self.using is None:
             return [ pkt for keys in list(self.pubkeys.values()) + list(self.seckeys.values()) for pkt in keys.packets ]
 
-        raise NotImplementedError()
         raise NotImplementedError()  # pragma: no cover
 
     @property
@@ -143,22 +166,16 @@ class PGPKeyring(object):
         self.using = None
         self.ctx = False
 
-    @managed
+    @managed(selection_required=True, privonly=True)
     def unlock(self, passphrase):
-        # make sure we actually have something selected, and that something refers
-        # to a private key that is indeed loaded
-        if self.using is None or self.using not in self.privkeyids:
-            raise PGPError("Must select a loaded private key to unlock!")
+        # we shouldn't try this if the key isn't encrypted
+        if not self.selected_privkey.encrypted:
+            raise PGPError("Key {keyid} is not encrypted".format(keyid=self.using))
 
         self.selected_privkey.decrypt_keymaterial(passphrase)
 
-    @managed
+    @managed(selection_required=True, privonly=True)
     def sign(self, subject, inline=False):
-        # make sure we actually have something selected, and that something refers
-        # to a private key that is indeed loaded
-        if self.using is None:
-            raise PGPError("Must select a loaded private key to sign with!")
-
         # if the key material was encrypted, did we decrypt it yet?
         if self.selected_privkey.encrypted and self.selected_privkey.keypkt.seckey_material.empty:
             raise PGPError("The selected key is not unlocked!")
@@ -218,7 +235,7 @@ class PGPKeyring(object):
         return sig
 
 
-    @managed
+    @managed(pubonly=True)
     def verify(self, subject, signature):
         ##TODO: type-checking
         sig = PGPLoad(signature)[0]
@@ -243,10 +260,8 @@ class PGPKeyring(object):
         dhash = hashlib.new(sig.sigpkt.hash_algorithm.name, sigdata)
         h = sig.sigpkt.hash_algorithm.hasher
 
-        sigv.message = "basic hash check"
         if dhash.digest()[:2] == sig.sigpkt.hash2:
-            # if this check passes, now we should do an actual signature verification
-            sigv.message += "passed"
+            # the quick check passed; now we should do an actual signature verification
 
             # create the verifier
             if sig.sigpkt.key_algorithm == PubKeyAlgo.RSAEncryptOrSign:
@@ -272,6 +287,7 @@ class PGPKeyring(object):
                 sigv.verified = True
 
             except InvalidSignature:
-                sigv.message += "; verify() failed"
+                # signature verification failed; nothing more to do.
+                pass
 
         return sigv
