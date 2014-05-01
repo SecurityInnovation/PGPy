@@ -356,22 +356,12 @@ class SubPacket(PacketField):
 
 
 class SubPackets(PacketField):
-    # slightly less ugly metaprogramming time!
-    # subpacket_getter is a property that doesn't know it yet
-    # and doesn't have to conform to what property expects in a getter
-    # because it's wrapped with functools.partial
-    def subpacket_getter(self, name):
+    # property method to get the Issuer subpacket
+    # realistically, there will only ever be one of these for a given packet
+    @property
+    def Issuer(self):
         nl = [ n.type.name for n in self.subpackets ]
-        if name in nl:
-            return self.subpackets[nl.index(name)]
-
-        raise AttributeError(name)  # pgrama: no cover
-
-    # and here we loop over the enum members of SubPacket.Type
-    # to generate our property getters
-    for sp in SubPacket.Type.__members__.values():
-        locals()[sp.name] = property(functools.partial(subpacket_getter, name=sp.name))
-
+        return self.subpackets[nl.index("Issuer")]
 
     def __init__(self, packet=None):
         self.length = 0
