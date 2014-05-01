@@ -12,7 +12,11 @@ from ..util import bytes_to_int, int_to_bytes
 
 
 class MPIFields(object):
-    field = {'name': "", 'bitlen': 0, 'bytes': b'', 'encoding': ''}
+    field = {'name': "", 'bitlen': 0, 'bytes': b''}
+
+    @property
+    def empty(self):
+        return not any([f['bitlen'] > 0 for f in self.fields.values()])
 
     # More metaprogramming, this time with a setter *and* a getter!
     def field_getter(self, item):
@@ -102,6 +106,22 @@ class MPIFields(object):
 
         return _bytes
 
+    def reset(self):
+        import ctypes
+        import sys
+
+        for k in self.fields.keys():
+            # write null bytes over the key field bytes
+            bufsize = len(self.fields[k]['bytes'])
+            offset = sys.getsizeof(self.fields[k]['bytes']) - (bufsize + 1)
+            ctypes.memset(id(self.fields[k]['bytes']) + offset, 0, bufsize)
+
+            # set bit length to 0
+            self.fields[k]['bitlen'] = 0
+
+        del self.fields
+        self.fields = collections.OrderedDict()
+
 
 class String2Key(PacketField):
     class Type(PFIntEnum):
@@ -147,15 +167,15 @@ class String2Key(PacketField):
                 pos = 13
 
         if self.id != 0:
-            self.iv = packet[pos:(pos + int(self.alg.block_size() / 8))]
+            self.iv = packet[pos:(pos + int(self.alg.block_size / 8))]
 
     def derive_key(self, passphrase):
         # we use the fields stored here along with the RFC 4880 String-to-Key usage description
         # to derive a symmetric key from the given passphrase.
 
         # how long does our key need to be, and how many hash contexts do we need?
-        keylen = self.alg.keylen()
-        hashlen = self.hash.digestlen()
+        keylen = self.alg.keylen
+        hashlen = self.hash.digestlen
         ctx = int(math.ceil(keylen / float(hashlen)))
 
         h = []
