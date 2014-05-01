@@ -12,6 +12,11 @@ before_install:
 install:
  - pip install -r requirements.txt
  - pip install -r requirements-test.txt
+ - pip install coveralls
  - pip install .
-# use setup.py to invoke testing
-script: py.test -vv tests
+# use setup.py to invoke testing via coveralls
+script:
+  coverage run --source=pgpy py.test -vv tests
+# and report coverage to coveralls
+after_success:
+  coveralls
