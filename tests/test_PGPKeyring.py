@@ -110,6 +110,9 @@ class TestPGPKeyring:
             # verify the signature ourselves first
             assert k.verify("tests/testdata/unsigned_message", str(sig).encode())
 
+        # verify that the secret key material was destroyed and that seckey_material is now empty
+        assert k.seckeys["C4BC77CEAD66AAD5"].keypkt.seckey_material.empty
+
         # now write out to a file and test with gpg
         with open('tests/testdata/unsigned_message.asc', 'w') as sigf:
             sigf.write(str(sig))
