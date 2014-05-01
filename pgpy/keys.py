@@ -15,7 +15,7 @@ from cryptography.exceptions import InvalidSignature
 from .pgp import PGPLoad
 from .signature import SignatureVerification
 from .errors import PGPError
-from .packet.fields import PubKeyAlgo, HashAlgo
+from .packet import PubKeyAlgo
 from .util import bytes_to_int
 
 

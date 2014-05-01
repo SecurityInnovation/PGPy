@@ -3,9 +3,11 @@
 import calendar
 from datetime import datetime
 
-from .fields import Header, SubPackets, PubKeyAlgo, HashAlgo, SymmetricKeyAlgo
+from . import PubKeyAlgo, HashAlgo
+from .types import PFIntEnum
+from .fields import Header, SubPackets
 from .keyfields import MPIFields, String2Key
-from ..util import bytes_to_int, int_to_bytes, PFIntEnum
+from ..util import bytes_to_int, int_to_bytes
 
 
 def PGPPacket(packetblob):

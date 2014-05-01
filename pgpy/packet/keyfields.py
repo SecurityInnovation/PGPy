@@ -5,7 +5,9 @@ import collections
 import hashlib
 import functools
 
-from .fields import Header, PacketField, PubKeyAlgo, HashAlgo, SymmetricKeyAlgo, PFIntEnum
+from . import PubKeyAlgo, HashAlgo, SymmetricKeyAlgo
+from .types import PFIntEnum
+from .fields import Header, PacketField
 from ..util import bytes_to_int, int_to_bytes
 
 
