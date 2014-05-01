@@ -115,20 +115,106 @@ class PGPKeyring(object):
     @contextlib.contextmanager
     def key(self, id=None):
         if id is not None:
-            if id not in [ key.keyid for key in list(self.pubkeys.values()) + list(self.seckeys.values()) ]:
+            # half-key-id
+            if len(id) == 8:
+                keyids = {key.keyid[-8:]: key.keyid for key in self.keys}
+
+            # key-id
+            if len(id) == 16:
+                keyids = {key.keyid: key.keyid for key in self.keys}
+
+            # signature, with or without spaces
+            if len(id) >= 40:
+                keyids = {key.fingerprint: key.keyid for key in self.keys}
+                id = id.replace(' ', '')
+
+            if id not in keyids.keys():
                 raise PGPError("Key {keyid} not loaded".format(keyid=id))
 
-        self.using = id
+            self.using = keyids[id]
         self.ctx = True
         yield
 
+        # erase decrypted key material here (if any)
+        for dekey in [ key for key in self.privatekeys if key.encrypted ]:
+            dekey.undecrypt_keymaterial()
         self.using = None
         self.ctx = False
 
     @managed
+    def unlock(self, passphrase):
+        # make sure we actually have something selected, and that something refers
+        # to a private key that is indeed loaded
+        if self.using is None or self.using not in self.privkeyids:
+            raise PGPError("Must select a loaded private key to unlock!")
+
+        self.selected_privkey.decrypt_keymaterial(passphrase)
+
+    @managed
     def sign(self, subject, inline=False):
-        ##TODO: create PGPSignature object
-        pass
+        # make sure we actually have something selected, and that something refers
+        # to a private key that is indeed loaded
+        if self.using is None:
+            raise PGPError("Must select a loaded private key to sign with!")
+
+        # if the key material was encrypted, did we decrypt it yet?
+        if self.selected_privkey.encrypted and self.selected_privkey.keypkt.seckey_material.empty:
+            raise PGPError("The selected key is not unlocked!")
+
+        # alright, we have a key selected at this point, let's load it into cryptography
+        if self.selected_privkey.keypkt.key_algorithm == PubKeyAlgo.RSAEncryptOrSign:
+            pkm = self.selected_privkey.keypkt.key_material
+            km = self.selected_privkey.keypkt.seckey_material
+            p = bytes_to_int(km.p['bytes'])
+            q = bytes_to_int(km.q['bytes'])
+            d = bytes_to_int(km.d['bytes'])
+            pk = rsa.RSAPrivateKey(
+                p=p,
+                q=q,
+                private_exponent=d,
+                dmp1=d % (p - 1),
+                dmq1=d % (q - 1),
+                iqmp=modinv(p, q),
+                public_exponent=bytes_to_int(pkm.e['bytes']),
+                modulus=bytes_to_int(pkm.n['bytes'])
+            )
+
+            ##TODO: select the hash algorithm
+            signer = pk.signer(padding.PKCS1v15(), hashes.SHA512(), default_backend())
+
+        else:
+            raise NotImplementedError(self.selected_privkey.keypkt.key_algorithm)
+
+        # create a new PGPSignature object
+        sig = PGPSignature.new(self.using)
+
+        # get our full hash data
+        data = sig.hashdata(subject)
+
+        # set the hash2 field
+        sig.packets[0].hash2 = hashlib.new('sha512', data).digest()[:2]
+
+        # finally, sign the data and load the signature into sig
+        signer.update(data)
+        s = signer.finalize()
+        sf = int_to_bytes(bytes_to_int(s).bit_length(), 2) + s
+
+        sig.packets[0].signature.parse(sf, sig.packets[0].header.tag, sig.packets[0].key_algorithm)
+
+        # set the signature header length stuff
+        ##TODO: this probably shouldn't have to happen here
+        pktlen = len(sig.packets[0].__bytes__()) - len(sig.packets[0].header.__bytes__())
+        ltype = 0 if math.ceil(pktlen.bit_length() / 8.0) == 1 else \
+                1 if math.ceil(pktlen.bit_length() / 8.0) == 2 else \
+                2 if math.ceil(pktlen.bit_length() / 8.0) < 5  else 0
+
+        sig.packets[0].header.length_type = ltype
+        sig.packets[0].header.length = pktlen
+        ##TODO: get rid of this when PGPBlock.crc24() works on the output of its __bytes__() method
+        sig.data = sig.__bytes__()
+
+        return sig
+
 
     @managed
     def verify(self, subject, signature):
