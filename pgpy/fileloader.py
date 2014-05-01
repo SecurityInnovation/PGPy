@@ -88,7 +88,7 @@ class FileLoader(object):
 
         # we have been passed the contents of a file that were read elsewhere
         elif type(lfile) in [str, bytes]:
-            self.bytes = bytes(lfile)
+            self.bytes = lfile.encode() if type(lfile) is str else lfile
 
         # some other thing
         else:

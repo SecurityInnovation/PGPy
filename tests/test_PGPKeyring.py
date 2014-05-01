@@ -94,7 +94,7 @@ class TestPGPKeyring:
             sig = k.sign("tests/testdata/unsigned_message")
 
             # verify the signature ourselves first
-            assert k.verify("tests/testdata/unsigned_message", str(sig).encode())
+            assert k.verify("tests/testdata/unsigned_message", str(sig))
 
         # now write out to a file and test with gpg
         sig.path = "tests/testdata/unsigned_message.asc"
@@ -125,7 +125,7 @@ class TestPGPKeyring:
             sig = k.sign("tests/testdata/unsigned_message")
 
             # verify the signature ourselves first
-            assert k.verify("tests/testdata/unsigned_message", str(sig).encode())
+            assert k.verify("tests/testdata/unsigned_message", str(sig))
 
         # verify that the secret key material was destroyed and that seckey_material is now empty
         assert k.seckeys["C4BC77CEAD66AAD5"].keypkt.seckey_material.empty
