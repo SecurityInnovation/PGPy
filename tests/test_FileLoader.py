@@ -26,6 +26,7 @@ except ConnectionError:
         open("tests/testdata/unsigned_message", 'rb'),
         open("tests/testdata/unsigned_message", 'rb').read(),
         open("tests/testdata/testkeys.gpg", 'rb').read(),
+        "tests/testdata/newfile",
     ],
     ids=[
         "None",
@@ -36,6 +37,7 @@ except ConnectionError:
         "fileobj",
         "unsigned-text-bytes",
         "gpg-keyring-bytes",
+        "newfile",
     ]
 )
 def load(request):
@@ -44,39 +46,10 @@ def load(request):
 
 class TestFileLoader:
     def test_load(self, load):
-        loaded = FileLoader(load)
+        FileLoader(load)
 
-    # def test_load_none(self):
-    #     loaded = FileLoader(None)
-    #
-    #     assert loaded.bytes == b''
-    #     assert loaded.path is None
-    #
-    # def test_load_url(self, load_url):
-    #     assert load_url.bytes != b''
-    #     assert load_url.path is None
-    #
-    # def test_load_local(self, load_local):
-    #     assert load_local.bytes != b''
-    #     assert load_local.path is not None
-    #     assert len(load_local.bytes) == os.path.getsize(load_local.path)
-    #
-    # def test_load_newfile(self):
-    #     newfile_path = os.path.realpath(os.path.dirname(".")) + "/newfile"
-    #     loaded = FileLoader(newfile_path)
-    #
-    #     assert loaded.bytes == b''
-    #     assert loaded.path is not None
-    #     assert loaded.path == newfile_path
-    #
-    # def test_load_invalid_path(self):
-    #     with pytest.raises(e):
-    #         FileLoader("/this/path/does/not/exist")
-    #
-    # def test_load_bytes(self, load_bytes):
-    #     loaded = FileLoader(load_bytes)
-    #
-    #     assert loaded.bytes != b''
-    #     assert loaded.path is None
-    #     assert len(loaded.bytes) == len(load_bytes)
-    #     assert loaded.bytes == load_bytes
+    @pytest.mark.parametrize("fload", ["/this/path/is/not/valid", "http://www.google.com/404"],
+                             ids=["invalid-path", "invalid-url"])
+    def test_load_fail(self, fload):
+        with pytest.raises(e):
+            FileLoader(fload)
