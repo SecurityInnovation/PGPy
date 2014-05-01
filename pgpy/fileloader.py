@@ -32,6 +32,15 @@ class FileLoader(object):
 
         return True
 
+    @property
+    def is_ascii(self):
+        try:
+            self.bytes.decode()
+            return True
+
+        except UnicodeDecodeError:
+            return False
+
     def __init__(self, lfile):
         self.bytes = bytes()
         self.path = None
@@ -96,10 +105,4 @@ class FileLoader(object):
     def parse(self):
         pass
 
-    def is_ascii(self):
-        try:
-            self.bytes.decode()
-            return True
 
-        except UnicodeDecodeError:
-            return False
