@@ -28,7 +28,7 @@ class FileLoader(object):
             badchars += ['<', '>', ':', '"', '/', '\\', '|', '?', '*']  # pragma: no cover
 
         if any(c in ppath for c in badchars):
-            return False
+            return False  # pragma: no cover
 
         return True
 
@@ -65,7 +65,7 @@ class FileLoader(object):
                 r = requests.get(lfile, verify=True)
 
                 if not r.ok:
-                    raise e(lfile)
+                    raise e(lfile)  # pragma: no cover
 
                 self.bytes = r.content
 
@@ -100,7 +100,7 @@ class FileLoader(object):
             self.parse()
 
     def __bytes__(self):
-        return self.bytes
+        return self.bytes  # pragma: no cover
 
     def parse(self):
         pass
