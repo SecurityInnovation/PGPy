@@ -260,9 +260,49 @@ class PGPSignature(PGPBlock):
     def sigpkt(self):
         return self.packets[0]
 
+    @classmethod
+    def new(cls, keyid,
+            sigtype=Signature.Type.BinaryDocument,
+            alg=PubKeyAlgo.RSAEncryptOrSign,
+            hashalg=HashAlgo.SHA512):
+        # create a new signature
+        newsig = PGPSignature(None)
+
+        # create new ASCII headers
+        newsig.ascii_headers['Version'] = 'PGPy v' + __version__
+
+        # create a new header
+        ##TODO: this should be moved to Packet, probably
+        newheader = Header()
+        newheader.always_1 = 1
+        newheader.tag = Header.Tag.Signature
+
+        # create a new signature packet
+        newsig.packets = [Signature(None)]
+        newsig.sigpkt.header = newheader
+        newsig.sigpkt.version = Signature.Version.v4
+        newsig.sigpkt.type = sigtype
+        newsig.sigpkt.key_algorithm = alg
+        newsig.sigpkt.hash_algorithm = hashalg
+
+        # add hashed subpacket - signature creation time
+        ##TODO: maybe use the subpacket type instead of \x02
+        ##TODO: implement subpacket creation in SubPackets
+        hspacket = b'\x00\x06\x05\x02' + int_to_bytes(calendar.timegm(datetime.utcnow().timetuple()), 4)
+        newsig.sigpkt.hashed_subpackets.parse(hspacket)
+
+        # add unhashed subpacket - issuer key ID
+        ##TODO: maybe use the subpacket type instead of \x10
+        ##TODO: implement subpacket creation in SubPackets
+        spacket = b'\x09\x10' + int_to_bytes(int(keyid, 16), 8)
+        spacket = int_to_bytes(len(spacket), 2) + spacket
+        newsig.sigpkt.unhashed_subpackets.parse(spacket)
+
+        return newsig
+
     def __init__(self, sigf):
         super(PGPSignature, self).__init__(sigf, Magic.Signature)
-        ##TODO: handle creating a new signature
+
 
     def hashdata(self, subject):
         # from the Computing Signatures section of RFC 4880 (http://tools.ietf.org/html/rfc4880#section-5.2.4)
