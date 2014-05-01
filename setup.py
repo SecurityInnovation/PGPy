@@ -25,7 +25,7 @@ setup(
     download_url     = "",
 
     classifiers = [
-        'Development Status :: 2 - Pre-Alpha',
+        'Development Status :: 4 - Beta',
         'Operating System :: POSIX :: Linux',
         'Operating System :: MacOS :: MacOS X',
         'Operating System :: Microsoft :: Windows',
@@ -42,7 +42,7 @@ setup(
         'Topic :: Software Development :: Libraries :: Python Modules',
         'License :: OSI Approved :: MIT License',
     ],
-    keywords    = [],
+    keywords = ["PGP", "pgp", "Pretty Good Privacy", "GPG", "gpg", "OpenPGP"],
 
     install_requires = [ str(ir.req) for ir in reqs ],
 
