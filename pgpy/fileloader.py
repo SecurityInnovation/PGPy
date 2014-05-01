@@ -105,4 +105,9 @@ class FileLoader(object):
     def parse(self):
         pass
 
+    def write(self):
+        if self.path is None or (not os.path.exists(self.path) and not os.path.exists(os.path.dirname(self.path))):
+            raise e("Invalid path: {path}".format(path=self.path))  # pragma: no cover
 
+        with open(self.path, 'w' if self.is_ascii else 'wb') as fp:
+            fp.write(str(self) if self.is_ascii else self.bytes)
