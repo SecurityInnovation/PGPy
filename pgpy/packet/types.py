@@ -1,6 +1,7 @@
 """ types.py
 """
 from enum import IntEnum
+from cryptography.hazmat.primitives import hashes
 
 from ..util import int_to_bytes
 
@@ -43,6 +44,20 @@ class SymmetricKeyAlgo(PFIntEnum):
     AES256 = 0x09
     Twofish256 = 0x0A
 
+    @property
+    def block_size(self):
+        if self == SymmetricKeyAlgo.CAST5:
+            return 64
+
+        raise NotImplementedError(self.name)
+
+    @property
+    def keylen(self):
+        if self == SymmetricKeyAlgo.CAST5:
+            return 128
+
+        raise NotImplementedError(self.name)
+
     def __str__(self):
         if self == SymmetricKeyAlgo.TripleDES:
             return "Triple-DES"
@@ -58,18 +73,6 @@ class SymmetricKeyAlgo(PFIntEnum):
 
         if self == SymmetricKeyAlgo.AES256:
             return "AES with 256-bit key"
-
-        raise NotImplementedError(self.name)
-
-    def block_size(self):
-        if self == SymmetricKeyAlgo.CAST5:
-            return 64
-
-        raise NotImplementedError(self.name)
-
-    def keylen(self):
-        if self == SymmetricKeyAlgo.CAST5:
-            return 128
 
         raise NotImplementedError(self.name)
 
@@ -106,14 +109,28 @@ class HashAlgo(PFIntEnum):
     SHA512 = 0x0A
     SHA224 = 0x0B
 
-    def __str__(self):
-        return self.name
-
+    @property
     def digestlen(self):
         if self == HashAlgo.SHA1:
             return 160
 
-        raise NotImplementedError()
+        raise NotImplementedError(self.name)
+
+    @property
+    def hasher(self):
+        if self == HashAlgo.SHA1:
+            return hashes.SHA1()
+
+        if self == HashAlgo.SHA256:
+            return hashes.SHA256()
+
+        if self == HashAlgo.SHA512:
+            return hashes.SHA512()
+
+        raise NotImplementedError(self.name)
+
+    def __str__(self):
+        return self.name
 
 
 class PacketField(object):

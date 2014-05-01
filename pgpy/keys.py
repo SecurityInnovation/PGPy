@@ -5,18 +5,19 @@ import collections
 import contextlib
 import hashlib
 import functools
+import math
 
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.backends import openssl
+from cryptography.hazmat.backends import default_backend
 from cryptography.exceptions import InvalidSignature
 
-from .pgp import PGPLoad
+from .pgp import PGPLoad, PGPSignature
 from .signature import SignatureVerification
 from .errors import PGPError
 from .packet import PubKeyAlgo
-from .util import bytes_to_int
+from .util import bytes_to_int, int_to_bytes, modinv
 
 
 class PGPKeyring(object):
@@ -228,30 +229,23 @@ class PGPKeyring(object):
 
         # check to see if we have the public key half of the key that created the signature
         skeyid = sig.sigpkt.unhashed_subpackets.Issuer.payload.decode()
-        if self.using is not None and skeyid[-8:] != self.using:
+        if self.using is not None and skeyid != self.using:
             raise PGPError("Key {skeyid} is not selected!".format(skeyid=skeyid))
 
         if skeyid not in [key.keyid for key in self.publickeys]:
-            raise PGPError("Key {skeyid} is not loaded!".format(skeyid=skeyid))
+            raise PGPError("Public key {skeyid} is not loaded!".format(skeyid=skeyid))
 
         pubkey = self.pubkeys[skeyid]
         sigv.key = pubkey
 
         # first check - compare the left 16 bits of sh against the signature packet's hash2 field
         dhash = hashlib.new(sig.sigpkt.hash_algorithm.name, sigdata)
+        h = sig.sigpkt.hash_algorithm.hasher
 
-        if dhash.name == 'SHA1':
-            h = hashes.SHA1()
-
-        elif dhash.name == 'SHA256':
-            h = hashes.SHA256()
-
-        else:
-            raise NotImplementedError(dhash.name)
-
+        sigv.message = "basic hash check"
         if dhash.digest()[:2] == sig.sigpkt.hash2:
             # if this check passes, now we should do an actual signature verification
-            sigv.message = "basic hash check passed"
+            sigv.message += "passed"
 
             # create the verifier
             if sig.sigpkt.key_algorithm == PubKeyAlgo.RSAEncryptOrSign:
@@ -264,7 +258,7 @@ class PGPKeyring(object):
                 # public key object
                 pk = rsa.RSAPublicKey(e, n)
 
-                verifier = pk.verifier(s, padding.PKCS1v15(), h, openssl.backend)
+                verifier = pk.verifier(s, padding.PKCS1v15(), h, default_backend())
 
             else:
                 raise NotImplementedError(sig.sigpkt.key_algorithm)
