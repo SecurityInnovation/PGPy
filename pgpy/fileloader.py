@@ -25,7 +25,7 @@ class FileLoader(object):
 
         # Windows also specifies some reserved characters
         if os.name == "nt":
-            badchars += ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
+            badchars += ['<', '>', ':', '"', '/', '\\', '|', '?', '*']  # pragma: no cover
 
         if any(c in ppath for c in badchars):
             return False
@@ -83,7 +83,7 @@ class FileLoader(object):
 
         # some other thing
         else:
-            raise TypeError(type(lfile) + "Not expected")
+            raise TypeError(type(lfile) + "Not expected")  # pragma: no cover
 
         # try to kick off the parser
         # this only works on properly implemented children of this type

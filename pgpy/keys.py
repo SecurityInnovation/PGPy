@@ -37,6 +37,7 @@ class PGPKeyring(object):
             return [ pkt for keys in list(self.pubkeys.values()) + list(self.seckeys.values()) for pkt in keys.packets ]
 
         raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover
 
     @property
     def publickeys(self):

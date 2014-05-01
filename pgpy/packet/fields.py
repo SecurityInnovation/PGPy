@@ -78,7 +78,7 @@ class Header(PacketField):
 
         self.always_1 = tag >> 7
         if self.always_1 != 1:
-            raise PGPError("Malformed tag!")
+            raise PGPError("Malformed tag!")  # pgrama: no cover
 
         self.format = Header.Format((tag >> 6) & 1)
 
@@ -115,7 +115,7 @@ class Header(PacketField):
 
         # make sure the Tag is valid
         if self.tag == Header.Tag.Invalid:
-            raise PGPError("Invalid tag!")
+            raise PGPError("Invalid tag!")  # pgrama: no cover
 
         # if the length is provided, parse it
         if len(packet) > 1:
@@ -196,7 +196,7 @@ class SubPacket(PacketField):
                 return "key server preferences"
 
             ##TODO: the rest of these
-            raise NotImplementedError(self.name)
+            raise NotImplementedError(self.name)  # pgrama: no cover
 
     class KeyFlags(PFIntEnum):
         CertifyKeys = 0x01
@@ -229,7 +229,7 @@ class SubPacket(PacketField):
             if self == SubPacket.KeyFlags.PrivateShared:
                 return "The private component of this key may be in thepossession of more than one person"
 
-            raise NotImplementedError(self.name)
+            raise NotImplementedError(self.name)  # pgrama: no cover
 
     class Features(PFIntEnum):
         ModificationDetection = 0x01
@@ -365,7 +365,7 @@ class SubPackets(PacketField):
         if name in nl:
             return self.subpackets[nl.index(name)]
 
-        raise AttributeError
+        raise AttributeError(name)  # pgrama: no cover
 
     # and here we loop over the enum members of SubPacket.Type
     # to generate our property getters

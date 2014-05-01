@@ -54,7 +54,7 @@ def PGPPacket(packetblob):
     if header.tag == Header.Tag.UserID:
         return UserID(packetblob)
 
-    return Packet(packetblob)
+    return Packet(packetblob)  # pragma: no cover
 
 
 class Packet(object):
@@ -68,13 +68,13 @@ class Packet(object):
             self.parse(packet[start:end])
 
     def parse(self, packet):
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover
 
     def __bytes__(self):
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover
 
     def pgpdump_out(self):
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover
 
 
 class Signature(Packet):
@@ -120,7 +120,7 @@ class Signature(Packet):
                 return "Certification revocation signature"
 
             ##TODO: more of these
-            raise NotImplementedError(self.name)
+            raise NotImplementedError(self.name)  # pragma: no cover
 
     def __init__(self, packet):
         self.name = "Signature Packet"

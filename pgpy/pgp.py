@@ -33,7 +33,7 @@ def PGPLoad(pgpbytes):
         nascii = list(re.finditer(ASCII_BLOCK, f.bytes.decode(), flags=re.MULTILINE | re.DOTALL))
 
         if len(nascii) == 0:
-            raise PGPError("No PGP blocks to read!")
+            raise PGPError("No PGP blocks to read!")  # pgrama: no cover
 
         for block in nascii:
             if block.group(1)[-9:] == "KEY BLOCK":
@@ -161,7 +161,7 @@ class PGPBlock(FileLoader):
 
             # verify CRC
             if self.crc != self.crc24():
-                raise Exception("Bad CRC")
+                raise Exception("Bad CRC")  # pgrama: no cover
 
         # dump fields in all contained packets per RFC 4880, without using pgpdump
         if self.data != b'':
@@ -181,7 +181,7 @@ class PGPBlock(FileLoader):
         # radix-64, rather than on the converted data.
         ##TODO: if self.data == b'', work on the output of self.__bytes__() instead
         if self.data == b'':
-            return None
+            return None  # pgrama: no cover
 
         crc = self.crc24_init
         sig = [ ord(i) for i in self.data ] if type(self.data) is str else self.data
@@ -365,7 +365,7 @@ class PGPSignature(PGPBlock):
 
         else:
             ##TODO: sign other types of things
-            raise NotImplementedError(self.sigpkt.type)
+            raise NotImplementedError(self.sigpkt.type)  # pgrama: no cover
 
         # add the signature trailer to the hash context
         _data += self.sigpkt.version.__bytes__()
@@ -452,7 +452,7 @@ class PGPKey(PGPBlock):
 
     def decrypt_keymaterial(self, passphrase):
         if not self.encrypted:
-            return
+            return  # pgrama: no cover
 
         # Encryption/decryption of the secret data is done in CFB mode using
         # the key created from the passphrase and the Initial Vector from the
@@ -479,7 +479,7 @@ class PGPKey(PGPBlock):
             # check the hash to see if we decrypted successfully or not
             if pkt.stokey.id == 254:
                 if not pt[-20:] == hashlib.new('sha1', pt[:-20]).digest():
-                    raise PGPError("Passphrase was incorrect!")
+                    raise PGPError("Passphrase was incorrect!")  # pgrama: no cover
 
                 # parse decrypted key material into pkt.seckey_material
                 pkt.seckey_material.parse(pt[:-20], pkt.header.tag, pkt.key_algorithm, sec=True)

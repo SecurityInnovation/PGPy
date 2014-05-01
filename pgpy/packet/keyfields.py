@@ -134,7 +134,7 @@ class String2Key(PacketField):
                 return "Iterated and salted string-to-key"
 
             ##TODO: the others
-            raise NotImplementedError(self.name)
+            raise NotImplementedError(self.name)  # pragma: no cover
 
     def __init__(self, packet=None):
         self.id = 0

@@ -20,7 +20,7 @@ class Magic(Enum):
         if self == Magic.PrivKey:
             return "PRIVATE KEY BLOCK"
 
-        return ""
+        return ""  # pragma: no cover
 
 ASCII_BLOCK = \
     r'^-----BEGIN PGP ([A-Z ]*)-----$\n'\
