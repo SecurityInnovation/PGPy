@@ -49,6 +49,38 @@ class PGPKeyring(object):
     def keys(self):
         return self.publickeys + self.privatekeys
 
+    @property
+    def pubkeyids(self):
+        return list(self.pubkeys.keys())
+
+    @property
+    def privkeyids(self):
+        return list(self.seckeys.keys())
+
+    @property
+    def keyids(self):
+        return list(set(self.pubkeyids + self.privkeyids))
+
+    @property
+    def pubkeyfingerprints(self):
+        return [ k.fingerprint for k in self.publickeys ]
+
+    @property
+    def privkeyfingerprints(self):
+        return [ k.fingerprint for k in self.privatekeys ]
+
+    @property
+    def keyfingerprints(self):
+        return list(set(self.pubkeyfingerprints + self.privkeyfingerprints))
+
+    @property
+    def selected_pubkey(self):
+        return self.pubkeys[self.using]
+
+    @property
+    def selected_privkey(self):
+        return self.seckeys[self.using]
+
     def __init__(self, keys=None):
         self.pubkeys = collections.OrderedDict()
         self.seckeys = collections.OrderedDict()
