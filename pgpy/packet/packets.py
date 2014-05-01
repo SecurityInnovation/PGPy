@@ -246,7 +246,7 @@ class PrivKey(Packet):
         self.key_material = MPIFields()
         self.stokey = String2Key()
         self.seckey_material = MPIFields()
-        self.enc_seckey_mateiral = b''
+        self.enc_seckey_material = b''
         self.checksum = b''
 
         super(PrivKey, self).__init__(packet)
