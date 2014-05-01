@@ -7,16 +7,18 @@ import base64
 import hashlib
 import calendar
 
+from datetime import datetime
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
 from .fileloader import FileLoader
 from .reg import *
 from .util import bytes_to_int, int_to_bytes
-from .packet import PGPPacket
+from .packet import PGPPacket, SymmetricKeyAlgo, PubKeyAlgo, HashAlgo
 from .packet.packets import Signature
-from .packet.fields import Header, SymmetricKeyAlgo
+from .packet.fields import Header
 from .errors import PGPError
+from ._author import __version__
 
 
 def PGPLoad(pgpbytes):
@@ -46,6 +48,11 @@ def PGPLoad(pgpbytes):
     # try to load binary instead
     else:
         block = PGPBlock(pgpbytes)
+
+        # is this a signature?
+        if block.packets[0].header.tag == Header.Tag.Signature:
+            b.append(PGPSignature(pgpbytes))
+            block.packets = []
 
         # now go through block and split out any keys, if possible
         bpos = 0
@@ -123,7 +130,7 @@ class PGPBlock(FileLoader):
             block_type=t,
             headers=headers,
             packet=payload,
-            crc=base64.b64encode(int_to_bytes(self.crc, 3)).decode(),
+            crc=base64.b64encode(int_to_bytes(self.crc24(), 3)).decode(),
         )
 
     def __bytes__(self):
@@ -172,6 +179,7 @@ class PGPBlock(FileLoader):
         # by using the generator 0x864CFB and an initialization of 0xB704CE.
         # The accumulation is done on the data before it is converted to
         # radix-64, rather than on the converted data.
+        ##TODO: if self.data == b'', work on the output of self.__bytes__() instead
         if self.data == b'':
             return None
 
@@ -380,6 +388,12 @@ class PGPKey(PGPBlock):
         return self.packets[0]
 
     @property
+    def keypkts(self):
+        return [ packet for packet in self.packets if
+                 hasattr(packet, "key_material") or
+                 hasattr(packet, "seckey_material") ]
+
+    @property
     def secret(self):
         return self.keypkt.secret
 
@@ -448,9 +462,7 @@ class PGPKey(PGPBlock):
         # With V4 keys, a simpler method is used.  All secret MPI values are
         # encrypted in CFB mode, including the MPI bitcount prefix.
 
-        for i, pkt in [ (i, pkt) for i, pkt in enumerate(self.packets)
-                        if pkt.header.tag in [Header.Tag.PrivKey, Header.Tag.PrivSubKey]
-                        and pkt.stokey.id != 0 ]:
+        for pkt in self.keypkts:
             # derive a key from our passphrase. If the passphrase is correct, this will be the right one...
             sessionkey = pkt.stokey.derive_key(passphrase)
 
@@ -472,6 +484,10 @@ class PGPKey(PGPBlock):
                 # parse decrypted key material into pkt.seckey_material
                 pkt.seckey_material.parse(pt[:-20], pkt.header.tag, pkt.key_algorithm, sec=True)
                 pkt.checksum = pt[-20:]
+
+    def undecrypt_keymaterial(self):
+        for pkt in self.keypkts:
+            pkt.seckey_material.reset()
 
     ##TODO: encrypt secret key material that is not yet encrypted
     ##TODO: generate String2Key specifier for newly encrypted data
