@@ -97,8 +97,8 @@ class TestPGPKeyring:
             assert k.verify("tests/testdata/unsigned_message", str(sig).encode())
 
         # now write out to a file and test with gpg
-        with open('tests/testdata/unsigned_message.asc', 'w') as sigf:
-            sigf.write(str(sig))
+        sig.path = "tests/testdata/unsigned_message.asc"
+        sig.write()
 
         assert b'Good signature from "TestRSAKey (TESTING-USE-ONLY) <email@address.tld>"' in \
             check_output(['gpg',
@@ -131,8 +131,8 @@ class TestPGPKeyring:
         assert k.seckeys["C4BC77CEAD66AAD5"].keypkt.seckey_material.empty
 
         # now write out to a file and test with gpg
-        with open('tests/testdata/unsigned_message.asc', 'w') as sigf:
-            sigf.write(str(sig))
+        sig.path = "tests/testdata/unsigned_message.asc"
+        sig.write()
 
         assert b'Good signature from "KeyTestDecryption-RSA (Passphrase: QwertyUiop) <email@address.tld>"' in \
             check_output(['gpg',
