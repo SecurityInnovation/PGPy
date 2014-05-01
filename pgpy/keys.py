@@ -19,17 +19,17 @@ from .packet import PubKeyAlgo
 from .util import bytes_to_int
 
 
-def managed(func):
-    @functools.wraps(func)
-    def inner(self, *args, **kwargs):
-        if not self.ctx:
-            raise PGPError("Invalid usage - this method must be invoked from a context managed state!")
-
-        return func(self, *args, **kwargs)
-    return inner
-
-
 class PGPKeyring(object):
+    def managed(func):
+        @functools.wraps(func)
+        def inner(self, *args, **kwargs):
+            if not self.ctx:
+                raise PGPError("Invalid usage - this method must be invoked from a context managed state!")
+
+            return func(self, *args, **kwargs)
+
+        return inner
+
     @property
     def packets(self):
         if self.using is None:
