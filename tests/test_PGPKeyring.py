@@ -1,5 +1,6 @@
 import pytest
 import os
+from subprocess import check_output, STDOUT
 
 import pgpy
 from pgpy.pgpdump import PGPDumpFormat
@@ -54,9 +55,76 @@ class TestPGPKeyring:
 
         assert k.__bytes__() == fb
 
-    ##TODO: test bytes
+    ##TODO: test str
     # def test_str(self, load_key):
     #     pass
+
+    @pytest.mark.parametrize("keyid",
+                             ["9AFBC22F", "6D30F6669AFBC22F",
+                              "ADC14E18DAD752BBF78D44226D30F6669AFBC22F",
+                              "ADC1 4E18 DAD7 52BB F78D  4422 6D30 F666 9AFB C22F"],
+                             ids=["half-key id", "key id", "fp-no-spaces", "fingerprint"])
+    def test_key_selection(self, keyid):
+        k = pgpy.PGPKeyring(["tests/testdata/testkeys.gpg", "tests/testdata/testkeys.sec.gpg"])
+
+        with k.key(keyid):
+            assert k.using == "6D30F6669AFBC22F"
+
+    def test_sign_with_rsa(self):
+        k = pgpy.PGPKeyring(["tests/testdata/testkeys.gpg", "tests/testdata/testkeys.sec.gpg"])
+
+        with k.key("6C368E85"):
+            sig = k.sign("tests/testdata/unsigned_message")
+
+            # verify the signature ourselves first
+            assert k.verify("tests/testdata/unsigned_message", str(sig).encode())
+
+        # now write out to a file and test with gpg
+        with open('tests/testdata/unsigned_message.asc', 'w') as sigf:
+            sigf.write(str(sig))
+
+        assert b'Good signature from "TestRSAKey (TESTING-USE-ONLY) <email@address.tld>"' in \
+            check_output(['gpg',
+                          '--no-default-keyring',
+                          '--keyring', 'tests/testdata/testkeys.gpg',
+                          '--secret-keyring', 'tests/testdata/testkeys.sec.gpg',
+                          '-vv',
+                          '--verify', 'tests/testdata/unsigned_message.asc',
+                          'tests/testdata/unsigned_message'], stderr=STDOUT)
+
+        # and finally, remove the file
+        os.remove('tests/testdata/unsigned_message.asc')
+
+    def test_sign_with_encrypted_rsa(self):
+        k = pgpy.PGPKeyring(["tests/testdata/testkeys.gpg", "tests/testdata/testkeys.sec.gpg"])
+
+        with k.key("AD66AAD5"):
+            # first, make sure an exception is raised if we try to sign with it before decrypting
+            with pytest.raises(PGPError):
+                k.sign("tests/testdata/unsigned_message")
+
+            # now decrypt the key with the right passphrase and *then* sign
+            k.unlock("QwertyUiop")
+            sig = k.sign("tests/testdata/unsigned_message")
+
+            # verify the signature ourselves first
+            assert k.verify("tests/testdata/unsigned_message", str(sig).encode())
+
+        # now write out to a file and test with gpg
+        with open('tests/testdata/unsigned_message.asc', 'w') as sigf:
+            sigf.write(str(sig))
+
+        assert b'Good signature from "KeyTestDecryption-RSA (Passphrase: QwertyUiop) <email@address.tld>"' in \
+            check_output(['gpg',
+                          '--no-default-keyring',
+                          '--keyring', 'tests/testdata/testkeys.gpg',
+                          '--secret-keyring', 'tests/testdata/testkeys.sec.gpg',
+                          '-vv',
+                          '--verify', 'tests/testdata/unsigned_message.asc',
+                          'tests/testdata/unsigned_message'], stderr=STDOUT)
+
+        # and finally, remove the file
+        os.remove('tests/testdata/unsigned_message.asc')
 
     @pytest.mark.parametrize("sigf, sigsub",
                              [
@@ -65,12 +133,14 @@ class TestPGPKeyring:
                                  ),
                                  ("tests/testdata/debian-sid/Release.gpg", "tests/testdata/debian-sid/Release"),
                                  ("tests/testdata/aa-testing/Release.gpg", "tests/testdata/aa-testing/Release"),
+                                 ("tests/testdata/signed_message.asc", "tests/testdata/signed_message"),
                              ], ids=[
                                  "local-ubuntu",
                                  "local-debian",
                                  "local-aa-testing",
+                                 "signed_message",
                              ])
-    def test_verify(self, sigf, sigsub):
+    def test_verify_signature(self, sigf, sigsub):
         k = pgpy.PGPKeyring(["tests/testdata/testkeys.gpg", "tests/testdata/testkeys.sec.gpg"])
 
         with k.key():
