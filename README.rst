@@ -6,11 +6,11 @@ PGPy: Pretty Good Privacy for Python
     :alt: Latest version
 
 .. image:: https://travis-ci.org/Commod0re/PGPy.svg?branch=master
-    :target: https://travis-ci.org/Commod0re/PGPy
+    :target: https://travis-ci.org/Commod0re/PGPy?branch=master
     :alt: Travis-CI
 
-.. image:: https://coveralls.io/repos/Commod0re/PGPy/badge.png
-    :target: https://coveralls.io/r/Commod0re/PGPy
+.. image:: https://coveralls.io/repos/Commod0re/PGPy/badge.png?branch=master
+    :target: https://coveralls.io/r/Commod0re/PGPy?branch=master
     :alt: Coveralls
 
 Homepage: None yet.
