@@ -60,9 +60,12 @@ def PGPPacket(packetblob):
 class Packet(object):
     def __init__(self, packet):
         self.header = Header(packet)
-        start = len(self.header.__bytes__())
-        end = start + self.header.length
-        self.parse(packet[start:end])
+
+        # packet will be None if we're creating a new packet from scratch
+        if packet is not None:
+            start = len(self.header.__bytes__())
+            end = start + self.header.length
+            self.parse(packet[start:end])
 
     def parse(self, packet):
         raise NotImplementedError()
