@@ -8,6 +8,7 @@ from .fields import PacketField
 from .types import PFIntEnum
 from ..util import bytes_to_int, int_to_bytes
 
+
 class SubPacket(PacketField):
     class Type(PFIntEnum):
         ##TODO: parse more of these
@@ -237,6 +238,7 @@ class PreferenceFlags(SubPacket):
         _bytes += int_to_bytes(sum([f.value for f in self.payload]), self.length - 2)
 
         return _bytes
+
 
 class KeyServerPreferences(PreferenceFlags):
     class Flags(PFIntEnum):
