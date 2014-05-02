@@ -19,7 +19,4 @@ class SignatureVerification(object):
         return self.verified
 
     def __repr__(self):  # pragma: no cover
-        return "SignatureVerification({key}, {verified})".format(
-            verified=str(bool(self)),
-            key=self.key.keyid
-        )
+        return "SignatureVerification({key}, {verified})".format(verified=str(bool(self)), key=self.key.keyid)
