@@ -57,7 +57,7 @@ def PGPPacket(packetblob):
             if self == PGPPacketClass.UserID:
                 return UserID
 
-            return Packet
+            return Packet  # pragma: no cover
 
     # factory time
     header = Header(packetblob)
