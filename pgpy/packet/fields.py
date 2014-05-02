@@ -76,7 +76,7 @@ class Header(PacketField):
 
         self.always_1 = tag >> 7
         if self.always_1 != 1:
-            raise PGPError("Malformed tag!")  # pgrama: no cover
+            raise PGPError("Malformed tag!")  # pragma: no cover
 
         self.format = Header.Format((tag >> 6) & 1)
 
@@ -113,7 +113,7 @@ class Header(PacketField):
 
         # make sure the Tag is valid
         if self.tag == Header.Tag.Invalid:
-            raise PGPError("Invalid tag!")  # pgrama: no cover
+            raise PGPError("Invalid tag!")  # pragma: no cover
 
         # if the length is provided, parse it
         if len(packet) > 1:

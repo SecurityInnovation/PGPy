@@ -30,7 +30,7 @@ class PubKeyAlgo(PFIntEnum):
             return "DSA Digital Signature Algorithm"
 
         ##TODO: do the rest of these
-        raise NotImplementedError(self.name)  # pgrama: no cover
+        raise NotImplementedError(self.name)  # pragma: no cover
 
 
 class SymmetricKeyAlgo(PFIntEnum):
@@ -56,7 +56,7 @@ class SymmetricKeyAlgo(PFIntEnum):
         if self == SymmetricKeyAlgo.CAST5:
             return 128
 
-        raise NotImplementedError(self.name)  # pgrama: no cover
+        raise NotImplementedError(self.name)  # pragma: no cover
 
     def __str__(self):
         if self == SymmetricKeyAlgo.TripleDES:
@@ -74,7 +74,7 @@ class SymmetricKeyAlgo(PFIntEnum):
         if self == SymmetricKeyAlgo.AES256:
             return "AES with 256-bit key"
 
-        raise NotImplementedError(self.name)  # pgrama: no cover
+        raise NotImplementedError(self.name)  # pragma: no cover
 
 
 class CompressionAlgo(PFIntEnum):
@@ -96,7 +96,7 @@ class CompressionAlgo(PFIntEnum):
         if self == CompressionAlgo.BZ2:
             return "BZip2"
 
-        raise NotImplementedError(self.name)  # pgrama: no cover
+        raise NotImplementedError(self.name)  # pragma: no cover
 
 
 class HashAlgo(PFIntEnum):
@@ -114,7 +114,7 @@ class HashAlgo(PFIntEnum):
         if self == HashAlgo.SHA1:
             return 160
 
-        raise NotImplementedError(self.name)  # pgrama: no cover
+        raise NotImplementedError(self.name)  # pragma: no cover
 
     @property
     def hasher(self):
@@ -142,7 +142,7 @@ class PacketField(object):
         """
         :param packet: raw packet bytes
         """
-        raise NotImplementedError()  # pgrama: no cover
+        raise NotImplementedError()  # pragma: no cover
 
     def __bytes__(self):
-        raise NotImplementedError()  # pgrama: no cover
+        raise NotImplementedError()  # pragma: no cover

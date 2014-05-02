@@ -100,7 +100,7 @@ class SubPacket(PacketField):
                 return "key server preferences"
 
             ##TODO: the rest of these
-            raise NotImplementedError(self.name)  # pgrama: no cover
+            raise NotImplementedError(self.name)  # pragma: no cover
 
     def __init__(self, packet=None):
         self.length = 0
