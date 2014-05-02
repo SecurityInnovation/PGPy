@@ -1,16 +1,18 @@
+import sys
+
 from distutils.core import setup
 from pip.req import parse_requirements
 
 import pgpy._author
 
-import os
+
 
 # long_description is the contents of README.rst
 with open('README.rst') as readme:
     long_desc = readme.read()
 
 # requirements generators
-reqs = parse_requirements('requirements.txt')
+reqs = [ str(ir.req) for ir in parse_requirements('requirements.txt') ]
 test_reqs = parse_requirements('requirements-test.txt')
 
 ##TODO: fill in blank fields
@@ -44,7 +46,7 @@ setup(
     ],
     keywords = ["PGP", "pgp", "Pretty Good Privacy", "GPG", "gpg", "OpenPGP"],
 
-    install_requires = [ str(ir.req) for ir in reqs ],
+    install_requires = reqs if sys.version_info < (3,4) else [ req for req in reqs if req != 'enum34' ],
 
     packages = [
         "pgpy",
