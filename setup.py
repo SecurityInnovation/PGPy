@@ -6,7 +6,6 @@ from pip.req import parse_requirements
 import pgpy._author
 
 
-
 # long_description is the contents of README.rst
 with open('README.rst') as readme:
     long_desc = readme.read()
@@ -46,7 +45,7 @@ setup(
     ],
     keywords = ["PGP", "pgp", "Pretty Good Privacy", "GPG", "gpg", "OpenPGP"],
 
-    install_requires = reqs if sys.version_info < (3,4) else [ req for req in reqs if req != 'enum34' ],
+    install_requires = reqs if sys.version_info < (3, 4) else [ req for req in reqs if req != 'enum34' ],
 
     packages = [
         "pgpy",
