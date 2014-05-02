@@ -56,6 +56,13 @@ managed = Managed
 class PGPKeyring(object):
     """
     PGPKeyring objects represent in-memory keyrings.
+
+    :param keys:
+        Accepts None, a path, URL, file-like object, or byte-string containing ASCII or binary encoded PGP/GPG keys.
+        Can also accept a list of any of the above types, or combination therein.
+    :type keys:
+        str, bytes, file-like object, list, None
+
     """
 
     @property
@@ -128,6 +135,9 @@ class PGPKeyring(object):
         :param keys:
             Accepts a path, URL, file-like object, or byte-string containing ASCII or binary encoded PGP/GPG keys.
             Can also accept a list of any of the above types, or combination therein.
+        :type keys:
+            str, bytes, file-like object, list
+
         """
         ##TODO: type-check keys
         # create one or more PGPKey objects in self.keys
@@ -148,9 +158,7 @@ class PGPKeyring(object):
     @contextlib.contextmanager
     def key(self, id=None):
         """
-        Context manager method. Select a key to use in the context managed block
-
-        .. code-block:: python
+        Context manager method. Select a key to use in the context managed block::
 
             k = pgpy.PGPKeyring([os.environ['HOME'] + '/.gnupg/pubring.gpg', os.environ['HOME'] + '/.gnupg/secring.gpg'])
             with k.key('DEADBEEF'):
@@ -160,7 +168,8 @@ class PGPKeyring(object):
             Specify a Key ID to use. This can be an 8 or 16 hex digit key ID, or a full key fingerprint, with or without spaces.
             Specifying no key (or None) is acceptable for key verification.
         :raises:
-            :py:exc:`pgpy.errors.PGPError` is raised if the key specified is not loaded.
+            :py:exc:`~pgpy.errors.PGPError` is raised if the key specified is not loaded.
+
         """
         if id is not None:
             # half-key-id
@@ -192,9 +201,7 @@ class PGPKeyring(object):
     @managed(selection_required=True, privonly=True)
     def unlock(self, passphrase):
         """
-        Decrypt encryted key material in a protected private key.
-
-        .. code-block:: python
+        Decrypt encryted key material in a protected private key::
 
             k = pgpy.PGPKeyring([os.environ['HOME'] + '/.gnupg/pubring.gpg', os.environ['HOME'] + '/.gnupg/secring.gpg'])
             with k.key('DEADBEEF'):
@@ -204,9 +211,9 @@ class PGPKeyring(object):
         :param str passphrase:
             The passphrase used to decrypt the encrypted private key material.
         :raises:
-            :py:exc:`PGPError` if the key specified is not encrypted
+            :py:exc:`~pgpy.errors.PGPError` if the key specified is not encrypted
         :raises:
-            :py:exc:`PGPKeyDecryptionError` if the passphrase was incorrect
+            :py:exc:`~pgpy.errors.PGPKeyDecryptionError` if the passphrase was incorrect
 
         """
         # we shouldn't try this if the key isn't encrypted
@@ -218,9 +225,9 @@ class PGPKeyring(object):
     @managed(selection_required=True, privonly=True)
     def sign(self, subject, inline=False):
         """
-        Sign a document using the selected private key.
+        sign(self, subject)
 
-        .. code-block:: python
+        Sign a document using the selected private key::
 
             k = pgpy.PGPKeyring([os.environ['HOME'] + '/.gnupg/pubring.gpg', os.environ['HOME'] + '/.gnupg/secring.gpg'])
             with k.key('DEADBEEF'):
@@ -229,12 +236,15 @@ class PGPKeyring(object):
 
         :param subject:
             Accepts a path, URL, file-like object, or byte-string containing the thing you would like to sign
-        :param inline:
-            Does nothing at this point.
+        :type subject:
+            str, bytes, file-like object
         :return:
-            :py:obj:`pgpy.PGPSignature` containing the newly created signature of the specified document.
+            newly created signature of the specified document.
+        :rtype:
+            :py:obj:`~pgpy.pgp.PGPSignature`
         :raises:
             :py:exc:`NotImplementedError` if the selected key is not an RSA key
+
         """
         # if the key material was encrypted, did we decrypt it yet?
         if self.selected_privkey.encrypted and self.selected_privkey.keypkt.seckey_material.empty:
@@ -298,9 +308,7 @@ class PGPKeyring(object):
     @managed(pubonly=True)
     def verify(self, subject, signature):
         """
-        Verify the integrity of something using its signature and a loaded public key.
-
-        .. code-block:: python
+        Verify the integrity of something using its signature and a loaded public key::
 
             k = pgpy.PGPKeyring([os.environ['HOME'] + '/.gnupg/pubring.gpg', os.environ['HOME'] + '/.gnupg/secring.gpg'])
             with k.key():
@@ -310,10 +318,17 @@ class PGPKeyring(object):
 
         :param subject:
             Accepts a path, URL, file-like object, or byte-string containing the thing you would like to verify
+        :type subject:
+            str, bytes, file-like object
         :param signature:
             Accepts a path, URL, file-like object, or byte-string containing the signature of the thing you would like to verify
+        :type signature:
+            str, bytes, file-like object
         :return:
-            :py:obj:`pgpy.signature.SignatureVerification` indicating whether or not the signature verified.
+            indicating whether or not the signature verified.
+        :rtype:
+            :py:obj:`~pgpy.signature.SignatureVerification`
+
         """
         ##TODO: type-checking
         sig = PGPLoad(signature)[0]

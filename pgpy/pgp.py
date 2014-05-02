@@ -1,5 +1,4 @@
 """ pgp.py
-
 """
 import re
 import collections
@@ -264,6 +263,9 @@ class PGPBlock(FileLoader):
 
 
 class PGPSignature(PGPBlock):
+    """
+    Returned by :py:meth:`pgpy.PGPKeyring.sign`
+    """
     @property
     def sigpkt(self):
         return self.packets[0]
@@ -449,6 +451,11 @@ class PGPKey(PGPBlock):
     def __init__(self, keyb):
         super(PGPKey, self).__init__(keyb)
 
+    def encrypt_keymaterial(self, passphrase):
+        ##TODO: encrypt secret key material that is not yet encrypted
+        ##TODO: generate String2Key specifier for newly encrypted data
+        pass
+
     def decrypt_keymaterial(self, passphrase):
         if not self.encrypted:
             return  # pragma: no cover
@@ -487,6 +494,3 @@ class PGPKey(PGPBlock):
     def undecrypt_keymaterial(self):
         for pkt in self.keypkts:
             pkt.seckey_material.reset()
-
-    ##TODO: encrypt secret key material that is not yet encrypted
-    ##TODO: generate String2Key specifier for newly encrypted data

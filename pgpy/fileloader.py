@@ -106,6 +106,12 @@ class FileLoader(object):
         pass
 
     def write(self):
+        """
+        Writes the loaded contents to disk, at the path specified in :py:attr:`path`
+
+        :raises:
+            :py:exc:`FileNotFoundError` (or :py:exc:`IOError` on Python 2.x) if :py:attr:`.path` is invalid or None
+        """
         if self.path is None or (not os.path.exists(self.path) and not os.path.exists(os.path.dirname(self.path))):
             raise e("Invalid path: {path}".format(path=self.path))  # pragma: no cover
 

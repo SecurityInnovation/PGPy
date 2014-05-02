@@ -4,25 +4,23 @@
 
 class SignatureVerification(object):
     """
-    Returned by :py:meth:`pgpy.PGPKeyring.verify`. Can be compared directly as a boolean to determine whether
-    or not the specified signature verified.
+    Returned by :py:meth:`pgpy.PGPKeyring.verify`
 
-    .. py:attribute:: signature
-
-        Reference to the signature that was verified.
-
-    .. py:attribute:: key
-
-        Reference to the key used to verify a signature.
-
-    .. py:attribute:: subject
-
-        Reference to the subject that was verified
+    Can be compared directly as a boolean to determine whether or not the specified signature verified.
     """
     def __init__(self):
         self.signature = None
+        """
+        The :py:class:`~pgpy.pgp.PGPSignature` that was used in the verification that returned this
+        """
         self.key = None
+        """
+        The :py:class:`~pgpy.pgp.PGPKey` (if available) that was used to verify the signature
+        """
         self.subject = None
+        """
+        The subject of the verification
+        """
 
         self.verified = False
 
