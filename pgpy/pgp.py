@@ -311,7 +311,6 @@ class PGPSignature(PGPBlock):
     def __init__(self, sigf):
         super(PGPSignature, self).__init__(sigf, Magic.Signature)
 
-
     def hashdata(self, subject):
         # from the Computing Signatures section of RFC 4880 (http://tools.ietf.org/html/rfc4880#section-5.2.4)
         #

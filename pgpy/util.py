@@ -5,6 +5,7 @@ utility functions for debutils.pgp
 import binascii
 import math
 
+
 def bytes_to_int(b):
     return int(binascii.hexlify(b), 16)
 

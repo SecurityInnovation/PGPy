@@ -20,7 +20,6 @@ from .packet import PubKeyAlgo
 from .util import bytes_to_int, int_to_bytes, modinv
 
 
-
 class Managed(object):
     def __init__(self, selection_required=False, pubonly=False, privonly=False):
         self.required = selection_required
@@ -223,9 +222,10 @@ class PGPKeyring(object):
         # set the signature header length stuff
         ##TODO: this probably shouldn't have to happen here
         pktlen = len(sig.packets[0].__bytes__()) - len(sig.packets[0].header.__bytes__())
-        ltype = 0 if math.ceil(pktlen.bit_length() / 8.0) == 1 else \
-                1 if math.ceil(pktlen.bit_length() / 8.0) == 2 else \
-                2 if math.ceil(pktlen.bit_length() / 8.0) < 5  else 0
+        ltype = \
+            0 if math.ceil(pktlen.bit_length() / 8.0) == 1 else \
+            1 if math.ceil(pktlen.bit_length() / 8.0) == 2 else \
+            2 if math.ceil(pktlen.bit_length() / 8.0) < 5 else 3
 
         sig.packets[0].header.length_type = ltype
         sig.packets[0].header.length = pktlen
@@ -233,7 +233,6 @@ class PGPKeyring(object):
         sig.data = sig.__bytes__()
 
         return sig
-
 
     @managed(pubonly=True)
     def verify(self, subject, signature):
