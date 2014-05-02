@@ -2,6 +2,7 @@
 """
 import calendar
 from datetime import datetime
+from enum import Enum
 
 from . import PubKeyAlgo, HashAlgo
 from .types import PFIntEnum
@@ -11,50 +12,57 @@ from ..util import bytes_to_int, int_to_bytes
 
 
 def PGPPacket(packetblob):
+    class PGPPacketClass(Enum):
+        # tag support list
+        # [x] 0  - Reserved (Illegal Value)
+        # [ ] 1  - Public-Key Encrypted Session Key Packet
+        # [x] 2  - Signature Packet
+        Signature = Header.Tag.Signature
+        # [ ] 3  - Symmetric-Key Encrypted Session Key Packet
+        # [ ] 4  - One-Pass Signature Packet
+        # [x] 5  - Secret-Key Packet
+        PrivKey = Header.Tag.PrivKey
+        # [x] 6  - Public-Key Packet
+        PubKey = Header.Tag.PubKey
+        # [x] 7  - Secret-Subkey Packet
+        PrivSubKey = Header.Tag.PrivSubKey
+        # [ ] 8  - Compressed Data Packet
+        # [ ] 9  - Symmetrically Encrypted Data Packet
+        # [ ] 10 - Marker Packet
+        # [ ] 11 - Literal Data Packet
+        # [x] 12 - Trust Packet
+        Trust = Header.Tag.Trust
+        # [x] 13 - User ID Packet
+        UserID = Header.Tag.UserID
+        # [x] 14 - Public-Subkey Packet
+        PubSubKey = Header.Tag.PubSubKey
+        # [ ] 17 - User Attribute Packet
+        # [ ] 18 - Sym. Encrypted and Integrity Protected Data Packet
+        # [ ] 19 - Modification Detection Code Packet
+
+        @property
+        def subclass(self):
+            if self == PGPPacketClass.Signature:
+                return Signature
+
+            if self in [PGPPacketClass.PubKey, PGPPacketClass.PubSubKey]:
+                return PubKey
+
+            if self in [PGPPacketClass.PrivKey, PGPPacketClass.PrivSubKey]:
+                return PrivKey
+
+            if self == PGPPacketClass.Trust:
+                return Trust
+
+            if self == PGPPacketClass.UserID:
+                return UserID
+
+            return Packet
+
     # factory time
     header = Header(packetblob)
 
-    # tag support list
-    # [x] 0  - Reserved (Illegal Value)
-    # [ ] 1  - Public-Key Encrypted Session Key Packet
-    # [x] 2  - Signature Packet
-    # [ ] 3  - Symmetric-Key Encrypted Session Key Packet
-    # [ ] 4  - One-Pass Signature Packet
-    # [x] 5  - Secret-Key Packet
-    # [x] 6  - Public-Key Packet
-    # [x] 7  - Secret-Subkey Packet
-    # [ ] 8  - Compressed Data Packet
-    # [ ] 9  - Symmetrically Encrypted Data Packet
-    # [ ] 10 - Marker Packet
-    # [ ] 11 - Literal Data Packet
-    # [x] 12 - Trust Packet
-    # [x] 13 - User ID Packet
-    # [x] 14 - Public-Subkey Packet
-    # [ ] 17 - User Attribute Packet
-    # [ ] 18 - Sym. Encrypted and Integrity Protected Data Packet
-    # [ ] 19 - Modification Detection Code Packet
-
-    # Tag 2
-    if header.tag == Header.Tag.Signature:
-        return Signature(packetblob)
-
-    # Tag 6, Tag 14
-    if header.tag in [Header.Tag.PubKey, Header.Tag.PubSubKey]:
-        return PubKey(packetblob)
-
-    # Tag 5, Tag 7
-    if header.tag in [Header.Tag.PrivKey, Header.Tag.PrivSubKey]:
-        return PrivKey(packetblob)
-
-    # Tag 12
-    if header.tag == Header.Tag.Trust:
-        return Trust(packetblob)
-
-    # Tag 13
-    if header.tag == Header.Tag.UserID:
-        return UserID(packetblob)
-
-    return Packet(packetblob)  # pragma: no cover
+    return PGPPacketClass(header.tag).subclass(packetblob)
 
 
 class Packet(object):
@@ -68,13 +76,13 @@ class Packet(object):
             self.parse(packet[start:end])
 
     def parse(self, packet):
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError(self.header.tag.name)  # pragma: no cover
 
     def __bytes__(self):
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError(self.header.tag.name)  # pragma: no cover
 
     def pgpdump_out(self):
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError(self.header.tag.name)  # pragma: no cover
 
 
 class Signature(Packet):
