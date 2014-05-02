@@ -14,6 +14,11 @@ install:
  - pip install -r requirements-test.txt
  - pip install python-coveralls
  - pip install .
+# run pep8 against the project with some errors disabled
+before_script:
+ - pep8 --ignore=E201,E202,E501,E265,E221,E251 setup.py
+ - pep8 --ignore=E201,E202,E501,E265 pgpy
+
 # use setup.py to invoke testing via coveralls
 script:
   PYTHONPATH=. py.test -vv --cov pgpy --cov-report term-missing tests/
