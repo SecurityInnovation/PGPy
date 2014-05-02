@@ -206,7 +206,7 @@ class PGPKeyring(object):
         :raises:
             :py:exc:`PGPError` if the key specified is not encrypted
         :raises:
-            :py:exc:`PGPError` if the passphrase was incorrect
+            :py:exc:`PGPKeyDecryptionError` if the passphrase was incorrect
 
         """
         # we shouldn't try this if the key isn't encrypted

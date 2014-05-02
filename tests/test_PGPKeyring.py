@@ -5,7 +5,7 @@ from subprocess import check_output, STDOUT
 
 import pgpy
 from pgpy.pgpdump import PGPDumpFormat
-from pgpy.errors import PGPError
+from pgpy.errors import PGPError, PGPKeyDecryptionError
 
 keys = [
     "tests/testdata/testkeys.gpg",
@@ -119,6 +119,10 @@ class TestPGPKeyring:
             # first, make sure an exception is raised if we try to sign with it before decrypting
             with pytest.raises(PGPError):
                 k.sign("tests/testdata/unsigned_message")
+
+            # now try with the wrong password
+            with pytest.raises(PGPKeyDecryptionError):
+                k.unlock("TheWrongPassword")
 
             # now decrypt the key with the right passphrase and *then* sign
             k.unlock("QwertyUiop")

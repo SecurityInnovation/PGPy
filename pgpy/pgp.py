@@ -17,7 +17,7 @@ from .util import bytes_to_int, int_to_bytes
 from .packet import PGPPacket, SymmetricKeyAlgo, PubKeyAlgo, HashAlgo
 from .packet.packets import Signature
 from .packet.fields import Header
-from .errors import PGPError
+from .errors import PGPError, PGPKeyDecryptionError
 from ._author import __version__
 
 
@@ -33,7 +33,7 @@ def PGPLoad(pgpbytes):
         nascii = list(re.finditer(ASCII_BLOCK, f.bytes.decode(), flags=re.MULTILINE | re.DOTALL))
 
         if len(nascii) == 0:
-            raise PGPError("No PGP blocks to read!")  # pgrama: no cover
+            raise PGPError("No PGP blocks to read!")  # pragma: no cover
 
         for block in nascii:
             if block.group(1)[-9:] == "KEY BLOCK":
@@ -161,7 +161,7 @@ class PGPBlock(FileLoader):
 
             # verify CRC
             if self.crc != self.crc24():
-                raise Exception("Bad CRC")  # pgrama: no cover
+                raise Exception("Bad CRC")  # pragma: no cover
 
         # dump fields in all contained packets per RFC 4880, without using pgpdump
         if self.data != b'':
@@ -181,7 +181,7 @@ class PGPBlock(FileLoader):
         # radix-64, rather than on the converted data.
         ##TODO: if self.data == b'', work on the output of self.__bytes__() instead
         if self.data == b'':
-            return None  # pgrama: no cover
+            return None  # pragma: no cover
 
         crc = self.crc24_init
         sig = [ ord(i) for i in self.data ] if type(self.data) is str else self.data
@@ -364,7 +364,7 @@ class PGPSignature(PGPBlock):
 
         else:
             ##TODO: sign other types of things
-            raise NotImplementedError(self.sigpkt.type)  # pgrama: no cover
+            raise NotImplementedError(self.sigpkt.type)  # pragma: no cover
 
         # add the signature trailer to the hash context
         _data += self.sigpkt.version.__bytes__()
@@ -478,7 +478,7 @@ class PGPKey(PGPBlock):
             # check the hash to see if we decrypted successfully or not
             if pkt.stokey.id == 254:
                 if not pt[-20:] == hashlib.new('sha1', pt[:-20]).digest():
-                    raise PGPError("Passphrase was incorrect!")  # pgrama: no cover
+                    raise PGPKeyDecryptionError("Passphrase was incorrect!")
 
                 # parse decrypted key material into pkt.seckey_material
                 pkt.seckey_material.parse(pt[:-20], pkt.header.tag, pkt.key_algorithm, sec=True)
