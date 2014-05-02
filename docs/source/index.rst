@@ -14,7 +14,6 @@ Contents:
    using_pgpy
    api
 
-
 .. include:: using_pgpy.rst
 
 .. Links and References

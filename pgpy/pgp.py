@@ -451,7 +451,7 @@ class PGPKey(PGPBlock):
 
     def decrypt_keymaterial(self, passphrase):
         if not self.encrypted:
-            return  # pgrama: no cover
+            return  # pragma: no cover
 
         # Encryption/decryption of the secret data is done in CFB mode using
         # the key created from the passphrase and the Initial Vector from the

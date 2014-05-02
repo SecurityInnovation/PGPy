@@ -1,4 +1,4 @@
-""" key.py
+""" keys.py
 
 """
 import collections
@@ -54,6 +54,10 @@ managed = Managed
 
 
 class PGPKeyring(object):
+    """
+    PGPKeyring objects represent in-memory keyrings.
+    """
+
     @property
     def packets(self):
         if self.using is None:
@@ -120,6 +124,11 @@ class PGPKeyring(object):
             return b''.join(k.__bytes__() for k in list(self.pubkeys.values()) + list(self.seckeys.values()))
 
     def load(self, keys):
+        """
+        :param keys:
+            Accepts a path, URL, file-like object, or byte-string containing ASCII or binary encoded PGP/GPG keys.
+            Can also accept a list of any of the above types, or combination therein.
+        """
         ##TODO: type-check keys
         # create one or more PGPKey objects in self.keys
         if type(keys) is not list:
@@ -138,6 +147,21 @@ class PGPKeyring(object):
 
     @contextlib.contextmanager
     def key(self, id=None):
+        """
+        Context manager method. Select a key to use in the context managed block
+
+        .. code-block:: python
+
+            k = pgpy.PGPKeyring([os.environ['HOME'] + '/.gnupg/pubring.gpg', os.environ['HOME'] + '/.gnupg/secring.gpg'])
+            with k.key('DEADBEEF'):
+                # do things with that key here
+
+        :param str id:
+            Specify a Key ID to use. This can be an 8 or 16 hex digit key ID, or a full key fingerprint, with or without spaces.
+            Specifying no key (or None) is acceptable for key verification.
+        :raises:
+            :py:exc:`pgpy.errors.PGPError` is raised if the key specified is not loaded.
+        """
         if id is not None:
             # half-key-id
             if len(id) == 8:
@@ -167,6 +191,24 @@ class PGPKeyring(object):
 
     @managed(selection_required=True, privonly=True)
     def unlock(self, passphrase):
+        """
+        Decrypt encryted key material in a protected private key.
+
+        .. code-block:: python
+
+            k = pgpy.PGPKeyring([os.environ['HOME'] + '/.gnupg/pubring.gpg', os.environ['HOME'] + '/.gnupg/secring.gpg'])
+            with k.key('DEADBEEF'):
+                k.unlock('Dead Beef')
+                # now that the private key is unlocked, use it for things
+
+        :param str passphrase:
+            The passphrase used to decrypt the encrypted private key material.
+        :raises:
+            :py:exc:`PGPError` if the key specified is not encrypted
+        :raises:
+            :py:exc:`PGPError` if the passphrase was incorrect
+
+        """
         # we shouldn't try this if the key isn't encrypted
         if not self.selected_privkey.encrypted:
             raise PGPError("Key {keyid} is not encrypted".format(keyid=self.using))
@@ -175,6 +217,25 @@ class PGPKeyring(object):
 
     @managed(selection_required=True, privonly=True)
     def sign(self, subject, inline=False):
+        """
+        Sign a document using the selected private key.
+
+        .. code-block:: python
+
+            k = pgpy.PGPKeyring([os.environ['HOME'] + '/.gnupg/pubring.gpg', os.environ['HOME'] + '/.gnupg/secring.gpg'])
+            with k.key('DEADBEEF'):
+                sig1 = k.sign('This is an unsigned document')
+                sig2 = k.sign('path/to/another/unsigned/document')
+
+        :param subject:
+            Accepts a path, URL, file-like object, or byte-string containing the thing you would like to sign
+        :param inline:
+            Does nothing at this point.
+        :return:
+            :py:obj:`pgpy.PGPSignature` containing the newly created signature of the specified document.
+        :raises:
+            :py:exc:`NotImplementedError` if the selected key is not an RSA key
+        """
         # if the key material was encrypted, did we decrypt it yet?
         if self.selected_privkey.encrypted and self.selected_privkey.keypkt.seckey_material.empty:
             raise PGPError("The selected key is not unlocked!")
@@ -236,6 +297,24 @@ class PGPKeyring(object):
 
     @managed(pubonly=True)
     def verify(self, subject, signature):
+        """
+        Verify the integrity of something using its signature and a loaded public key.
+
+        .. code-block:: python
+
+            k = pgpy.PGPKeyring([os.environ['HOME'] + '/.gnupg/pubring.gpg', os.environ['HOME'] + '/.gnupg/secring.gpg'])
+            with k.key():
+                sv = k.verify('path/to/an/unsigned/document', 'path/to/signature')
+                if sv:
+                    print('Signature verified with {key}'.format(key=sv.key.keyid)
+
+        :param subject:
+            Accepts a path, URL, file-like object, or byte-string containing the thing you would like to verify
+        :param signature:
+            Accepts a path, URL, file-like object, or byte-string containing the signature of the thing you would like to verify
+        :return:
+            :py:obj:`pgpy.signature.SignatureVerification` indicating whether or not the signature verified.
+        """
         ##TODO: type-checking
         sig = PGPLoad(signature)[0]
         sigdata = sig.hashdata(subject)
