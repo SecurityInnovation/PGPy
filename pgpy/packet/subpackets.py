@@ -226,10 +226,14 @@ class Issuer(SubPacket):
 
 
 class PreferenceFlags(SubPacket):
+    class Flags:
+        # Override this in subclasses
+        pass
+
     def parse(self, packet):
         self.payload = []
         bits = bytes_to_int(packet[2:])
-        for flag in list(self.Flags.__members__.values()):
+        for flag in sorted(self.Flags.__members__.values()):
             if bits & flag.value:
                 self.payload.append(flag)
 
