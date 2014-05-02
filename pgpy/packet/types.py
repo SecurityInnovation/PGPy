@@ -118,14 +118,26 @@ class HashAlgo(PFIntEnum):
 
     @property
     def hasher(self):
+        if self == HashAlgo.MD5:
+            return hashes.MD5()
+
         if self == HashAlgo.SHA1:
             return hashes.SHA1()
+
+        if self == HashAlgo.RIPEMD160:
+            return hashes.RIPEMD160()
 
         if self == HashAlgo.SHA256:
             return hashes.SHA256()
 
+        if self == HashAlgo.SHA384:
+            return hashes.SHA384()
+
         if self == HashAlgo.SHA512:
             return hashes.SHA512()
+
+        if self == HashAlgo.SHA224:
+            return hashes.SHA224()
 
         raise NotImplementedError(self.name)
 
