@@ -13,6 +13,7 @@ Contents:
 
    using_pgpy
    api
+   progress
 
 .. include:: using_pgpy.rst
 
