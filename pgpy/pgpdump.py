@@ -95,7 +95,7 @@ class PGPDumpFormat(object):
         o = ""
         o += self.pkt_ver(pkt)
         o += "\tPublic key creation time - {keycdate}\n".format(
-            keycdate=pkt.key_creation.strftime("%a %b %d %H:%M:%S UTC %Y")
+            keycdate=pkt.key_creation.strftime("%a %b %e %H:%M:%S UTC %Y")
         )
         self.keycreation = calendar.timegm(pkt.key_creation.timetuple())
         o += "\tPub alg - {alg}(pub {algn})\n".format(
