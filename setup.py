@@ -24,7 +24,7 @@ setup(
     author_email     = "mgreene@securityinnovation.com",
     license          = pgpy._author.__license__,
     url              = "https://github.com/Commod0re/PGPy",
-    download_url     = "",
+    download_url     = "https://github.com/Commod0re/PGPy/archive/0.1.0.tar.gz",
 
     classifiers = [
         'Development Status :: 4 - Beta',
