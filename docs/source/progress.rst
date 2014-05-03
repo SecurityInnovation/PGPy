@@ -81,7 +81,7 @@ PGPy currently provides the following RFC 4880 compliance and functionality:
 +---+                     +                   +            +              +--------------+
 |   |                     |                   |            |              | Messages     |
 +---+                     +                   +            +--------------+--------------+
-|   |                     |                   |            | Decrypt      | Key Material |
+| x |                     |                   |            | Decrypt      | Key Material |
 +---+                     +                   +            +              +--------------+
 |   |                     |                   |            |              | Messages     |
 +---+                     +                   +------------+--------------+--------------+
@@ -89,7 +89,7 @@ PGPy currently provides the following RFC 4880 compliance and functionality:
 +---+                     +                   +            +              +--------------+
 |   |                     |                   |            |              | Messages     |
 +---+                     +                   +            +--------------+--------------+
-|   |                     |                   |            | Decrypt      | Key Material |
+| x |                     |                   |            | Decrypt      | Key Material |
 +---+                     +                   +            +              +--------------+
 |   |                     |                   |            |              | Messages     |
 +---+                     +                   +------------+--------------+--------------+
@@ -97,7 +97,7 @@ PGPy currently provides the following RFC 4880 compliance and functionality:
 +---+                     +                   +            +              +--------------+
 |   |                     |                   |            |              | Messages     |
 +---+                     +                   +            +--------------+--------------+
-|   |                     |                   |            | Decrypt      | Key Material |
+| x |                     |                   |            | Decrypt      | Key Material |
 +---+                     +                   +            +              +--------------+
 |   |                     |                   |            |              | Messages     |
 +---+                     +                   +------------+--------------+--------------+
@@ -105,11 +105,19 @@ PGPy currently provides the following RFC 4880 compliance and functionality:
 +---+                     +                   +            +              +--------------+
 |   |                     |                   |            |              | Messages     |
 +---+                     +                   +            +--------------+--------------+
-|   |                     |                   |            | Decrypt      | Key Material |
+| x |                     |                   |            | Decrypt      | Key Material |
 +---+                     +                   +            +              +--------------+
 |   |                     |                   |            |              | Messages     |
 +---+                     +                   +------------+--------------+--------------+
 |   |                     |                   | Twofish    | Encrypt      | Key Material |
++---+                     +                   +            +              +--------------+
+|   |                     |                   |            |              | Messages     |
++---+                     +                   +            +--------------+--------------+
+|   |                     |                   |            | Decrypt      | Key Material |
++---+                     +                   +            +              +--------------+
+|   |                     |                   |            |              | Messages     |
++---+                     +                   +------------+--------------+--------------+
+|   |                     |                   | Camellia   | Encrypt      | Key Material |
 +---+                     +                   +            +              +--------------+
 |   |                     |                   |            |              | Messages     |
 +---+                     +                   +            +--------------+--------------+

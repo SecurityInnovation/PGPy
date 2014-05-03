@@ -2,8 +2,10 @@
 """
 from enum import IntEnum
 from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.ciphers import algorithms
 
 from ..util import int_to_bytes
+from ..errors import WontImplementError
 
 
 class PFIntEnum(IntEnum):
@@ -49,10 +51,10 @@ class SymmetricKeyAlgo(PFIntEnum):
 
     @property
     def block_size(self):
-        if self in [SymmetricKeyAlgo.CAST5,
+        if self in [SymmetricKeyAlgo.IDEA,
+                    SymmetricKeyAlgo.CAST5,
                     SymmetricKeyAlgo.TripleDES,
-                    SymmetricKeyAlgo.Blowfish,
-                    SymmetricKeyAlgo.IDEA]:
+                    SymmetricKeyAlgo.Blowfish]:
             return 64
 
         if self in [SymmetricKeyAlgo.AES128,
@@ -68,10 +70,55 @@ class SymmetricKeyAlgo(PFIntEnum):
 
     @property
     def keylen(self):
-        if self == SymmetricKeyAlgo.CAST5:
+        if self in [SymmetricKeyAlgo.IDEA,
+                    SymmetricKeyAlgo.CAST5,
+                    SymmetricKeyAlgo.AES128,
+                    SymmetricKeyAlgo.Camellia128,
+                    SymmetricKeyAlgo.Blowfish]:
             return 128
 
+        if self in [SymmetricKeyAlgo.AES192,
+                    SymmetricKeyAlgo.Camellia192,
+                    SymmetricKeyAlgo.TripleDES]:
+            return 192
+
+        if self in [SymmetricKeyAlgo.AES256,
+                    SymmetricKeyAlgo.Camellia256,
+                    SymmetricKeyAlgo.Twofish256]:
+            return 256
+
         raise NotImplementedError(self.name)  # pragma: no cover
+
+    @property
+    def decalg(self):
+        if self == SymmetricKeyAlgo.IDEA:
+            return algorithms.IDEA
+
+        if self == SymmetricKeyAlgo.TripleDES:
+            return algorithms.TripleDES
+
+        if self == SymmetricKeyAlgo.CAST5:
+            return algorithms.CAST5
+
+        if self == SymmetricKeyAlgo.Blowfish:
+            return algorithms.Blowfish
+
+        if self in [SymmetricKeyAlgo.AES128,
+                    SymmetricKeyAlgo.AES192,
+                    SymmetricKeyAlgo.AES256]:
+            return algorithms.AES
+
+        if self in [SymmetricKeyAlgo.Camellia128,
+                    SymmetricKeyAlgo.Camellia192,
+                    SymmetricKeyAlgo.Camellia256]:
+            return algorithms.Camellia
+
+        raise NotImplementedError(self.name)
+
+    @property
+    def encalg(self):
+        # encryption cipher
+        pass
 
     def __str__(self):
         if self in [SymmetricKeyAlgo.CAST5,
