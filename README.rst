@@ -36,7 +36,7 @@ To install PGPy, simply:
 Documentation
 -------------
 
-None yet!
+`PGPy Documentation <http://commod0re.github.io/PGPy/>`
 
 Requirements
 ------------
