@@ -21,6 +21,7 @@ setup(
     description      = 'Pretty Good Privacy for Python',
     long_description = long_desc,
     author           = pgpy._author.__author__,
+    author_email     = "mgreene@securityinnovation.com",
     license          = pgpy._author.__license__,
     url              = "https://github.com/Commod0re/PGPy",
     download_url     = "",
@@ -45,7 +46,7 @@ setup(
     ],
     keywords = ["PGP", "pgp", "Pretty Good Privacy", "GPG", "gpg", "OpenPGP"],
 
-    install_requires = reqs if sys.version_info < (3, 4) else [ req for req in reqs if req != 'enum34' ],
+    install_requires = reqs,
 
     packages = [
         "pgpy",
