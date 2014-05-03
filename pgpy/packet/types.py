@@ -43,11 +43,26 @@ class SymmetricKeyAlgo(PFIntEnum):
     AES192 = 0x08
     AES256 = 0x09
     Twofish256 = 0x0A
+    Camellia128 = 0x0B
+    Camellia192 = 0x0C
+    Camellia256 = 0x0D
 
     @property
     def block_size(self):
-        if self == SymmetricKeyAlgo.CAST5:
+        if self in [SymmetricKeyAlgo.CAST5,
+                    SymmetricKeyAlgo.TripleDES,
+                    SymmetricKeyAlgo.Blowfish,
+                    SymmetricKeyAlgo.IDEA]:
             return 64
+
+        if self in [SymmetricKeyAlgo.AES128,
+                    SymmetricKeyAlgo.AES192,
+                    SymmetricKeyAlgo.AES256,
+                    SymmetricKeyAlgo.Camellia128,
+                    SymmetricKeyAlgo.Camellia192,
+                    SymmetricKeyAlgo.Camellia256,
+                    SymmetricKeyAlgo.Twofish256]:
+            return 128
 
         raise NotImplementedError(self.name)
 
@@ -59,20 +74,26 @@ class SymmetricKeyAlgo(PFIntEnum):
         raise NotImplementedError(self.name)  # pragma: no cover
 
     def __str__(self):
+        if self in [SymmetricKeyAlgo.CAST5,
+                    SymmetricKeyAlgo.Blowfish,
+                    SymmetricKeyAlgo.IDEA]:
+            return self.name
+
         if self == SymmetricKeyAlgo.TripleDES:
             return "Triple-DES"
 
-        if self == SymmetricKeyAlgo.CAST5:
-            return "CAST5"
+        if self == SymmetricKeyAlgo.Twofish256:
+            return "Twofish with 256-bit key"
 
-        if self == SymmetricKeyAlgo.AES128:
-            return "AES with 128-bit key"
+        if self in [SymmetricKeyAlgo.AES128,
+                    SymmetricKeyAlgo.AES192,
+                    SymmetricKeyAlgo.AES256]:
+            return "AES with {keysize}-bit key".format(keysize=self.name[-3:])
 
-        if self == SymmetricKeyAlgo.AES192:
-            return "AES with 192-bit key"
-
-        if self == SymmetricKeyAlgo.AES256:
-            return "AES with 256-bit key"
+        if self in [SymmetricKeyAlgo.Camellia128,
+                    SymmetricKeyAlgo.Camellia192,
+                    SymmetricKeyAlgo.Camellia256]:
+            return "Camellia with {keysize}-bit key".format(keysize=self.name[-3:])
 
         raise NotImplementedError(self.name)  # pragma: no cover
 
