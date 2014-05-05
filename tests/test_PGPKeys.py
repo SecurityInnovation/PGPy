@@ -6,6 +6,8 @@ from pgpy.pgp import PGPLoad, PGPKey
 from pgpy.pgpdump import PGPDumpFormat
 from pgpy.packet.fields import Header
 
+ciphers = subprocess.check_output(['openssl', 'help'], stderr=subprocess.STDOUT).decode()
+
 pubkeys = [
     "tests/testdata/pubkeys/TestRSA.key",
     "tests/testdata/pubkeys/TestDSAandElGamal.key",
@@ -107,16 +109,24 @@ class TestPGPKey:
         "tests/testdata/seckeys/TestKeyDecryption-DSASignOnly.sec.key",
         "tests/testdata/seckeys/TestKeyDecryption-RSA.sec.key",
         "tests/testdata/seckeys/TestKeyDecryption-RSASignOnly.sec.key",
-        "tests/testdata/seckeys/TestKeyDecryption-RSA-IDEA.sec.key",
+        pytest.mark.skipif("idea-cfb" not in ciphers,
+                           "tests/testdata/seckeys/TestKeyDecryption-RSA-IDEA.sec.key",
+                           reason="OpenSSL compiled without IDEA CFB support"),
         "tests/testdata/seckeys/TestKeyDecryption-RSA-3DES.sec.key",
         "tests/testdata/seckeys/TestKeyDecryption-RSA-Blowfish.sec.key",
         "tests/testdata/seckeys/TestKeyDecryption-RSA-AES128.sec.key",
         "tests/testdata/seckeys/TestKeyDecryption-RSA-AES192.sec.key",
         "tests/testdata/seckeys/TestKeyDecryption-RSA-AES256.sec.key",
-        "tests/testdata/seckeys/TestKeyDecryption-RSA-Twofish.sec.key",
-        "tests/testdata/seckeys/TestKeyDecryption-RSA-Camellia128.sec.key",
-        "tests/testdata/seckeys/TestKeyDecryption-RSA-Camellia192.sec.key",
-        "tests/testdata/seckeys/TestKeyDecryption-RSA-Camellia256.sec.key",
+        pytest.mark.xfail("tests/testdata/seckeys/TestKeyDecryption-RSA-Twofish.sec.key"),
+        pytest.mark.skipif("camellia-128-cfb" not in ciphers,
+                           "tests/testdata/seckeys/TestKeyDecryption-RSA-Camellia128.sec.key",
+                           reason="OpenSSL compiled without Camellia-128 CFB support"),
+        pytest.mark.skipif("camellia-192-cfb" not in ciphers,
+                           "tests/testdata/seckeys/TestKeyDecryption-RSA-Camellia192.sec.key",
+                           reason="OpenSSL compiled without Camellia-192 CFB support"),
+        pytest.mark.skipif("camellia-256-cfb" not in ciphers,
+                           "tests/testdata/seckeys/TestKeyDecryption-RSA-Camellia256.sec.key",
+                           reason="OpenSSL compiled without Camellia-256 CFB support"),
     ], ids=[
         "sec-protected-dsa",
         "sec-protected-dsa-signonly",
@@ -136,8 +146,6 @@ class TestPGPKey:
     def test_decrypt_keymaterial(self, key):
         k = PGPLoad(key)[0]
         k.decrypt_keymaterial("QwertyUiop")
-
-        print(k)
 
     def test_bytes(self, load_key):
         k = PGPLoad(load_key)[0]
