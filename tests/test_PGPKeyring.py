@@ -152,9 +152,7 @@ class TestPGPKeyring:
 
     @pytest.mark.parametrize("sigf, sigsub",
                              [
-                                 pytest.mark.xfail(
-                                     ("tests/testdata/ubuntu-precise/Release.gpg", "tests/testdata/ubuntu-precise/Release")
-                                 ),
+                                 ("tests/testdata/ubuntu-precise/Release.gpg", "tests/testdata/ubuntu-precise/Release"),
                                  ("tests/testdata/debian-sid/Release.gpg", "tests/testdata/debian-sid/Release"),
                                  ("tests/testdata/aa-testing/Release.gpg", "tests/testdata/aa-testing/Release"),
                                  ("tests/testdata/signed_message.asc", "tests/testdata/signed_message"),

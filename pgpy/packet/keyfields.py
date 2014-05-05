@@ -18,6 +18,30 @@ class MPIFields(object):
     def empty(self):
         return not any([f['bitlen'] > 0 for f in self.fields.values()])
 
+    @property
+    def as_asn1_der(self):
+        # turn filled in values in self.fields into an ASN.1 sequence of integers
+        # (see http://en.wikipedia.org/wiki/Abstract_Syntax_Notation_One#Example_encoded_in_DER)
+        # type tag indicating that this is a SEQUENCE
+        _bytes = b'\x30'
+        # next is the constructed length of all integer fields, so construct those first
+        _fbytes = b''
+        for item in [ f['bytes'] for f in self.fields.values() if f['name'] != '' ]:
+            # field type is INTEGER, so this is 0x02
+            _fbytes += b'\x02'
+            # length in octets of this field
+            _fbytes += int_to_bytes(len(item))
+            # and the field itself
+            _fbytes += item
+
+        # now add the length of _fbytes to _bytes
+        _bytes += int_to_bytes(len(_fbytes))
+
+        # and finally _fbytes
+        _bytes += _fbytes
+
+        return _bytes
+
     # More metaprogramming, this time with a setter *and* a getter!
     def field_getter(self, item):
         if item not in self.fields.keys():

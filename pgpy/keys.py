@@ -7,7 +7,7 @@ import hashlib
 import functools
 import math
 
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric import rsa, dsa
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
@@ -351,7 +351,6 @@ class PGPKeyring(object):
 
         # first check - compare the left 16 bits of sh against the signature packet's hash2 field
         dhash = hashlib.new(sig.sigpkt.hash_algorithm.name, sigdata)
-        h = sig.sigpkt.hash_algorithm.hasher
 
         if dhash.digest()[:2] == sig.sigpkt.hash2:
             # the quick check passed; now we should do an actual signature verification
@@ -359,15 +358,34 @@ class PGPKeyring(object):
             # create the verifier
             if sig.sigpkt.key_algorithm == PubKeyAlgo.RSAEncryptOrSign:
                 # public key components
-                e = bytes_to_int(pubkey.keypkt.key_material.fields['e']['bytes'])
-                n = bytes_to_int(pubkey.keypkt.key_material.fields['n']['bytes'])
+                e = bytes_to_int(pubkey.keypkt.key_material.e['bytes'])
+                n = bytes_to_int(pubkey.keypkt.key_material.n['bytes'])
                 # signature
-                s = sig.sigpkt.signature.fields['md_mod_n']['bytes']
+                s = sig.sigpkt.signature.md_mod_n['bytes']
+
+                # public key object and verifier
+                pk = rsa.RSAPublicKey(e, n)
+                verifier = pk.verifier(s, padding.PKCS1v15(), sig.sigpkt.hash_algorithm.hasher, default_backend())
+
+            elif sig.sigpkt.key_algorithm == PubKeyAlgo.DSA:
+                # public key components
+                p = bytes_to_int(pubkey.keypkt.key_material.p['bytes'])
+                q = bytes_to_int(pubkey.keypkt.key_material.q['bytes'])
+                g = bytes_to_int(pubkey.keypkt.key_material.g['bytes'])
+                y = bytes_to_int(pubkey.keypkt.key_material.y['bytes'])
+                # signature
+                # r = sig.sigpkt.signature.r['bytes']
+                # s = sig.sigpkt.signature.s['bytes']
+                s = sig.sigpkt.signature.as_asn1_der
 
                 # public key object
-                pk = rsa.RSAPublicKey(e, n)
-
-                verifier = pk.verifier(s, padding.PKCS1v15(), h, default_backend())
+                pk = dsa.DSAPublicKey(
+                    modulus=p,
+                    subgroup_order=q,
+                    generator=g,
+                    y=y
+                )
+                verifier = pk.verifier(s, sig.sigpkt.hash_algorithm.hasher, default_backend())
 
             else:
                 raise NotImplementedError(sig.sigpkt.key_algorithm)
