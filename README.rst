@@ -45,9 +45,11 @@ Requirements
 
   Tested with: 3.4, 3.3, 3.2, 2.7
 
-- `Requests <https://pypi.python.org/pypi/requests>`
+- `Requests <https://pypi.python.org/pypi/requests>`_
 
-- `Cryptography <https://pypi.python.org/pypi/cryptography>`
+- `Cryptography <https://pypi.python.org/pypi/cryptography>`_
+
+- `enum34 <https://pypi.python.org/pypi/enum34>`_
 
 License
 -------
