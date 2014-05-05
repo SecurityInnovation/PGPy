@@ -91,29 +91,11 @@ class SymmetricKeyAlgo(PFIntEnum):
 
     @property
     def decalg(self):
-        if self == SymmetricKeyAlgo.IDEA:
-            return algorithms.IDEA
+        if hasattr(algorithms, self.name if self.name[-3:] not in ['128', '192', '256'] else self.name[:-3]):
+            return getattr(algorithms, self.name if self.name[-3:] not in ['128', '192', '256'] else self.name[:-3])
 
-        if self == SymmetricKeyAlgo.TripleDES:
-            return algorithms.TripleDES
-
-        if self == SymmetricKeyAlgo.CAST5:
-            return algorithms.CAST5
-
-        if self == SymmetricKeyAlgo.Blowfish:
-            return algorithms.Blowfish
-
-        if self in [SymmetricKeyAlgo.AES128,
-                    SymmetricKeyAlgo.AES192,
-                    SymmetricKeyAlgo.AES256]:
-            return algorithms.AES
-
-        if self in [SymmetricKeyAlgo.Camellia128,
-                    SymmetricKeyAlgo.Camellia192,
-                    SymmetricKeyAlgo.Camellia256]:
-            return algorithms.Camellia
-
-        raise NotImplementedError(self.name)
+        else:
+            raise NotImplementedError(self.name)
 
     @property
     def encalg(self):
@@ -129,18 +111,14 @@ class SymmetricKeyAlgo(PFIntEnum):
         if self == SymmetricKeyAlgo.TripleDES:
             return "Triple-DES"
 
-        if self == SymmetricKeyAlgo.Twofish256:
-            return "Twofish with 256-bit key"
-
         if self in [SymmetricKeyAlgo.AES128,
                     SymmetricKeyAlgo.AES192,
-                    SymmetricKeyAlgo.AES256]:
-            return "AES with {keysize}-bit key".format(keysize=self.name[-3:])
-
-        if self in [SymmetricKeyAlgo.Camellia128,
+                    SymmetricKeyAlgo.AES256,
+                    SymmetricKeyAlgo.Camellia128,
                     SymmetricKeyAlgo.Camellia192,
-                    SymmetricKeyAlgo.Camellia256]:
-            return "Camellia with {keysize}-bit key".format(keysize=self.name[-3:])
+                    SymmetricKeyAlgo.Camellia256,
+                    SymmetricKeyAlgo.Twofish256]:
+            return "{alg} with {keysize}-bit key".format(alg=self.name[:-3], keysize=self.name[-3:])
 
         raise NotImplementedError(self.name)  # pragma: no cover
 
@@ -186,26 +164,8 @@ class HashAlgo(PFIntEnum):
 
     @property
     def hasher(self):
-        if self == HashAlgo.MD5:
-            return hashes.MD5()
-
-        if self == HashAlgo.SHA1:
-            return hashes.SHA1()
-
-        if self == HashAlgo.RIPEMD160:
-            return hashes.RIPEMD160()
-
-        if self == HashAlgo.SHA256:
-            return hashes.SHA256()
-
-        if self == HashAlgo.SHA384:
-            return hashes.SHA384()
-
-        if self == HashAlgo.SHA512:
-            return hashes.SHA512()
-
-        if self == HashAlgo.SHA224:
-            return hashes.SHA224()
+        if hasattr(hashes, self.name):
+            return getattr(hashes, self.name)()
 
         raise NotImplementedError(self.name)
 

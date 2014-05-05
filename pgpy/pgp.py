@@ -472,13 +472,8 @@ class PGPKey(PGPBlock):
             # derive a key from our passphrase. If the passphrase is correct, this will be the right one...
             sessionkey = pkt.stokey.derive_key(passphrase)
 
-            # instantiate the correct algorithm with the correct keylength
-            # if pkt.stokey.alg == SymmetricKeyAlgo.CAST5:
-            #     alg = algorithms.CAST5(sessionkey)
-            alg = pkt.stokey.alg.decalg(sessionkey)
-
             # attempt to decrypt this packet!
-            cipher = Cipher(alg, modes.CFB(pkt.stokey.iv), backend=default_backend())
+            cipher = Cipher(pkt.stokey.alg.decalg(sessionkey), modes.CFB(pkt.stokey.iv), backend=default_backend())
             decryptor = cipher.decryptor()
 
             pt = decryptor.update(pkt.enc_seckey_material) + decryptor.finalize()
