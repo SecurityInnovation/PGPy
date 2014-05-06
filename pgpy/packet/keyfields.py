@@ -221,7 +221,7 @@ class String2Key(PacketField):
             h.append(hashlib.new(self.hash.name, b'\x00' * i))
 
         # Simple S2K
-        hsalt = ""
+        hsalt = b''
         hpass = passphrase.encode()
 
         # Salted S2K (or Iterated)
@@ -229,15 +229,15 @@ class String2Key(PacketField):
             hsalt = self.salt
 
         # Set the total to-be-hashed octet count
-        count = len(self.salt + hpass)
+        count = len(hsalt + hpass)
         if self.type == String2Key.Type.Iterated and self.count > len(hsalt + hpass):
             count = self.count
 
-        while count > len(self.salt + hpass):
+        while count > len(hsalt + hpass):
             for hc in h:
                 hc.update(hsalt)
                 hc.update(hpass)
-            count -= len(self.salt + hpass)
+            count -= len(hsalt + hpass)
 
         if count > 0:
             for hc in h:
