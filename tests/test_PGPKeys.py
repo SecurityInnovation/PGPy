@@ -1,6 +1,8 @@
 import pytest
 import subprocess
 import re
+import cryptography.exceptions
+
 from tests.conftest import TestFiles
 
 from pgpy.pgp import PGPLoad, PGPKey
@@ -64,4 +66,13 @@ class TestPGPKey:
 
     def test_decrypt_keymaterial(self, load_enc_key):
         k = PGPLoad(load_enc_key)[0]
-        k.decrypt_keymaterial("QwertyUiop")
+
+        try:
+            k.decrypt_keymaterial("QwertyUiop")
+
+        except cryptography.exceptions.UnsupportedAlgorithm:
+            pytest.mark.xfail("OpenSSL not compiled with support for this symmetric cipher in CFB mode")
+
+        except NotImplementedError:
+            if load_enc_key == 'tests/testdata/seckeys/TestRSA-EncTWOFISH-1024.sec.key':
+                pytest.mark.xfail("OpenSSL does not support Twofish at all")
