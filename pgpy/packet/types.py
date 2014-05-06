@@ -157,8 +157,18 @@ class HashAlgo(PFIntEnum):
 
     @property
     def digestlen(self):
-        if self == HashAlgo.SHA1:
+        if self == HashAlgo.MD5:
+            return 128
+
+        if self in [HashAlgo.SHA1,
+                    HashAlgo.RIPEMD160]:
             return 160
+
+        if self in [HashAlgo.SHA256,
+                    HashAlgo.SHA384,
+                    HashAlgo.SHA512,
+                    HashAlgo.SHA224]:
+            return int(self.name[-3:])
 
         raise NotImplementedError(self.name)  # pragma: no cover
 
