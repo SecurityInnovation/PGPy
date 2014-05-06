@@ -91,7 +91,7 @@ class TestPGPKeyring:
         k = pgpy.PGPKeyring(["tests/testdata/testkeys.gpg", "tests/testdata/testkeys.sec.gpg"])
 
         with k.key(keyid):
-            assert k.using == "6D30F6669AFBC22F"
+            assert k.using == "642546A53F3DDA4C"
 
     @pytest.mark.parametrize("keyid",
                              [
