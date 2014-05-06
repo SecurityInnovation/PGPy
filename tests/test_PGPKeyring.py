@@ -2,11 +2,6 @@ import pytest
 import os
 import sys
 from subprocess import check_output, STDOUT
-from distutils.version import LooseVersion
-
-from cryptography.hazmat.backends import openssl
-# mosslv = LooseVersion("1.0.0")
-# osslv = LooseVersion(openssl.backend.openssl_version_text().split(' ')[1])
 
 import pgpy
 from pgpy.pgpdump import PGPDumpFormat

@@ -1,25 +1,14 @@
 import pytest
 
+from tests.conftest import TestFiles
+
 from pgpy.pgp import PGPLoad, PGPSignature
 from pgpy.pgpdump import PGPDumpFormat
 
-test_files = [
-    "tests/testdata/ubuntu-precise/Release.gpg",
-    "tests/testdata/debian-sid/Release.gpg",
-    "tests/testdata/aa-testing/Release.gpg",
-    "tests/testdata/signed_message.asc",
-    "tests/testdata/inline_signed_message"
-]
-test_ids = [
-    "ubuntu-precise",
-    "debian-sid",
-    "aa-test",
-    "message-signed",
-    "inline-signed",
-]
+tf = TestFiles()
 
 
-@pytest.fixture(params=test_files, ids=test_ids)
+@pytest.fixture(params=tf.sigs, ids=tf.sigids)
 def pgpsig(request):
     return request.param
 
