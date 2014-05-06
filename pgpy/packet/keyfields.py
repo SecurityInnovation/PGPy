@@ -154,10 +154,15 @@ class String2Key(PacketField):
         Iterated = 3
 
         def __str__(self):
+            if self == String2Key.Type.Simple:
+                return "Simple string-to-key"
+
+            if self == String2Key.Type.Salted:
+                return "Salted string-to-key"
+
             if self == String2Key.Type.Iterated:
                 return "Iterated and salted string-to-key"
 
-            ##TODO: the others
             raise NotImplementedError(self.name)  # pragma: no cover
 
     def __init__(self, packet=None):
