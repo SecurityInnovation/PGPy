@@ -247,7 +247,7 @@ class PGPKeyring(object):
 
         """
         # if the key material was encrypted, did we decrypt it yet?
-        if self.selected_privkey.encrypted and self.selected_privkey.keypkt.seckey_material.empty:
+        if self.selected_privkey.encrypted and self.selected_privkey.keypkt.seckey_material.privempty:
             raise PGPError("The selected key is not unlocked!")
 
         # alright, we have a key selected at this point, let's load it into cryptography

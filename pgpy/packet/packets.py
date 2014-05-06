@@ -200,7 +200,7 @@ class PubKey(Packet):
         super(PubKey, self).__init__(packet)
 
     def parse(self, packet):
-        if self.header.tag in [Header.Tag.PubSubKey, Header.Tag.PrivSubKey]:
+        if self.header.tag.is_subkey:
             self.is_subkey = True
             self.name = 'Public Subkey Packet'
 
@@ -263,7 +263,7 @@ class PrivKey(Packet):
         super(PrivKey, self).__init__(packet)
 
     def parse(self, packet):
-        if self.header.tag == Header.Tag.PrivSubKey:
+        if self.header.tag.is_subkey:
             self.is_subkey = True
             self.name = 'Secret Subkey Packet'
 

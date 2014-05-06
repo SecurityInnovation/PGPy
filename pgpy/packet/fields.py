@@ -24,6 +24,23 @@ class Header(PacketField):
         UserID = 13
         PubSubKey = 14
 
+        @property
+        def is_signature(self):
+            return self == Header.Tag.Signature
+
+        @property
+        def is_key(self):
+            return self in [Header.Tag.PubKey, Header.Tag.PubSubKey, Header.Tag.PrivKey, Header.Tag.PrivSubKey]
+
+        @property
+        def is_privkey(self):
+            return self in [Header.Tag.PrivKey, Header.Tag.PrivSubKey]
+
+        @property
+        def is_subkey(self):
+            return self in [Header.Tag.PubSubKey, Header.Tag.PrivSubKey]
+
+
     def __init__(self, packet=None):
         self.always_1 = 0
         self.format = Header.Format.old

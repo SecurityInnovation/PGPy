@@ -37,14 +37,13 @@ class PGPDumpFormat(object):
             )
 
             # state machine time!
-            if pkt.header.tag == Header.Tag.Signature:
+            if pkt.header.tag.is_signature:
                 o += self.signature_fields(pkt)
 
-            if pkt.header.tag in [Header.Tag.PubKey, Header.Tag.PubSubKey,
-                                  Header.Tag.PrivKey, Header.Tag.PrivSubKey]:
+            if pkt.header.tag.is_key:
                 o += self.pubkey_fields(pkt)
 
-            if pkt.header.tag in [Header.Tag.PrivKey, Header.Tag.PrivSubKey]:
+            if pkt.header.tag.is_privkey:
                 o += self.privkey_fields(pkt)
 
             if pkt.header.tag == Header.Tag.Trust:

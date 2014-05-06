@@ -49,7 +49,7 @@ def PGPLoad(pgpbytes):
         block = PGPBlock(pgpbytes)
 
         # is this a signature?
-        if block.packets[0].header.tag == Header.Tag.Signature:
+        if block.packets[0].header.tag.is_signature:
             b.append(PGPSignature(pgpbytes))
             block.packets = []
 
@@ -60,7 +60,7 @@ def PGPLoad(pgpbytes):
             if i == len(block.packets) - 1:
                 pktblock = block.packets[bpos:]
 
-                if pktblock[0].header.tag in [Header.Tag.PubKey, Header.Tag.PrivKey]:
+                if pktblock[0].header.tag.is_key and not pktblock[0].header.tag.is_subkey:
                     bl = PGPKey(None)
 
                 bl.packets = pktblock
@@ -70,7 +70,7 @@ def PGPLoad(pgpbytes):
 
             # a public or private key (not subkey) indicates the start of a new block,
             # so load the previous block into a new object
-            if i != bpos and pkt.header.tag in [Header.Tag.PubKey, Header.Tag.PrivKey]:
+            if i != bpos and pkt.header.tag.is_key and not pkt.header.tag.is_subkey:
                 pktblock = block.packets[bpos:i]
                 bl = PGPKey(None)
                 bl.packets = pktblock
