@@ -2,6 +2,11 @@ import pytest
 import os
 import sys
 from subprocess import check_output, STDOUT
+from distutils.version import LooseVersion
+
+from cryptography.hazmat.backends import openssl
+# mosslv = LooseVersion("1.0.0")
+# osslv = LooseVersion(openssl.backend.openssl_version_text().split(' ')[1])
 
 import pgpy
 from pgpy.pgpdump import PGPDumpFormat
@@ -87,20 +92,51 @@ class TestPGPKeyring:
         with k.key(keyid):
             assert k.using == "6D30F6669AFBC22F"
 
-    def test_sign_with_rsa(self):
+    @pytest.mark.parametrize("keyid",
+                             [
+                                 "6C368E85",  # TestRSAKey
+                                 "AD66AAD5",  # TestKeyDecryption-RSA
+                                 "9AFBC22F",  # TestDSAKey
+                                 "C511044C",  # TestDSAKey-1024
+                                 "FAB79385",  # TestKeyDecryption-DSA
+                                 "61AAE186",  # TestKeyDecryption-DSA-1024
+                                 "F880CE25",  # TestDSAandElGamalKey
+                                 "08866F66",  # TestDSAandElGamal-1024
+                             ], ids=[
+                                 "rsa",
+                                 "enc-rsa",
+                                 "dsa",
+                                 "dsa-1024",
+                                 "enc-dsa",
+                                 "enc-dsa-1024",
+                                 "enc-dsa-elg",
+                                 "enc-dsa-elg-1024",
+                             ])
+    def test_sign_with_key(self, keyid):
         k = pgpy.PGPKeyring(["tests/testdata/testkeys.gpg", "tests/testdata/testkeys.sec.gpg"])
 
-        with k.key("6C368E85"):
+        with k.key(keyid):
+            # is this an encrypted private key?
+            if k.selected_privkey.encrypted:
+                # first, make sure an exception is raised if we try to sign with it before decrypting
+                with pytest.raises(PGPError):
+                    k.sign("tests/testdata/unsigned_message")
+
+                # now try with the wrong password
+                with pytest.raises(PGPKeyDecryptionError):
+                    k.unlock("TheWrongPassword")
+
+                # and finally, unlock with the correct password
+                k.unlock("QwertyUiop")
+
+            # now sign
             sig = k.sign("tests/testdata/unsigned_message")
 
-            # verify the signature ourselves first
-            assert k.verify("tests/testdata/unsigned_message", str(sig))
-
-        # now write out to a file and test with gpg
+        # write out to a file and test with gpg, then remove the file
         sig.path = "tests/testdata/unsigned_message.asc"
         sig.write()
 
-        assert b'Good signature from "TestRSAKey (TESTING-USE-ONLY) <email@address.tld>"' in \
+        assert b'Good signature from' in \
             check_output(['gpg',
                           '--no-default-keyring',
                           '--keyring', 'tests/testdata/testkeys.gpg',
@@ -108,47 +144,16 @@ class TestPGPKeyring:
                           '-vv',
                           '--verify', 'tests/testdata/unsigned_message.asc',
                           'tests/testdata/unsigned_message'], stderr=STDOUT)
-
-        # and finally, remove the file
         os.remove('tests/testdata/unsigned_message.asc')
 
-    def test_sign_with_encrypted_rsa(self):
-        k = pgpy.PGPKeyring(["tests/testdata/testkeys.gpg", "tests/testdata/testkeys.sec.gpg"])
+        # finally, verify the signature ourselves to make sure that works
+        with k.key():
+            sigv = k.verify("tests/testdata/unsigned_message", str(sig))
 
-        with k.key("AD66AAD5"):
-            # first, make sure an exception is raised if we try to sign with it before decrypting
-            with pytest.raises(PGPError):
-                k.sign("tests/testdata/unsigned_message")
-
-            # now try with the wrong password
-            with pytest.raises(PGPKeyDecryptionError):
-                k.unlock("TheWrongPassword")
-
-            # now decrypt the key with the right passphrase and *then* sign
-            k.unlock("QwertyUiop")
-            sig = k.sign("tests/testdata/unsigned_message")
-
-            # verify the signature ourselves first
-            assert k.verify("tests/testdata/unsigned_message", str(sig))
-
-        # verify that the secret key material was destroyed and that seckey_material is now empty
-        assert k.seckeys["C4BC77CEAD66AAD5"].keypkt.seckey_material.empty
-
-        # now write out to a file and test with gpg
-        sig.path = "tests/testdata/unsigned_message.asc"
-        sig.write()
-
-        assert b'Good signature from "KeyTestDecryption-RSA (Passphrase: QwertyUiop) <email@address.tld>"' in \
-            check_output(['gpg',
-                          '--no-default-keyring',
-                          '--keyring', 'tests/testdata/testkeys.gpg',
-                          '--secret-keyring', 'tests/testdata/testkeys.sec.gpg',
-                          '-vv',
-                          '--verify', 'tests/testdata/unsigned_message.asc',
-                          'tests/testdata/unsigned_message'], stderr=STDOUT)
-
-        # and finally, remove the file
-        os.remove('tests/testdata/unsigned_message.asc')
+            # used the same key
+            assert sigv.key.keyid[-8:] == keyid
+            # signature verified
+            assert sigv
 
     @pytest.mark.parametrize("sigf, sigsub",
                              [
