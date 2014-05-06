@@ -17,7 +17,7 @@ from .pgp import PGPLoad, PGPSignature
 from .signature import SignatureVerification
 from .errors import PGPError
 from .packet import PubKeyAlgo
-from .util import bytes_to_int, int_to_bytes, modinv
+from .util import bytes_to_int, int_to_bytes, modinv, asn1_seqint_to_tuple
 
 
 class Managed(object):
@@ -269,26 +269,58 @@ class PGPKeyring(object):
             )
 
             ##TODO: select the hash algorithm
-            signer = pk.signer(padding.PKCS1v15(), hashes.SHA512(), default_backend())
+            signer = pk.signer(padding.PKCS1v15(), hashes.SHA256(), default_backend())
+
+        elif self.selected_privkey.keypkt.key_algorithm == PubKeyAlgo.DSA:
+            pkm = self.selected_privkey.keypkt.key_material
+            km = self.selected_privkey.keypkt.seckey_material
+            p = bytes_to_int(pkm.p['bytes'])
+            q = bytes_to_int(pkm.q['bytes'])
+            g = bytes_to_int(pkm.g['bytes'])
+            y = bytes_to_int(pkm.y['bytes'])
+            x = bytes_to_int(km.x['bytes'])
+            pk = dsa.DSAPrivateKey(
+                modulus=p,
+                subgroup_order=q,
+                generator=g,
+                x=x,
+                y=y
+            )
+
+            ##TODO: select the hash algorithm
+            signer = pk.signer(hashes.SHA256(), default_backend())
 
         else:
-            raise NotImplementedError(self.selected_privkey.keypkt.key_algorithm)
+            raise NotImplementedError(self.selected_privkey.keypkt.key_algorithm.name)
 
         # create a new PGPSignature object
-        sig = PGPSignature.new(self.using)
+        sig = PGPSignature.new(self.using, alg=self.selected_privkey.keypkt.key_algorithm)
 
         # get our full hash data
         data = sig.hashdata(subject)
 
         # set the hash2 field
-        sig.packets[0].hash2 = hashlib.new('sha512', data).digest()[:2]
+        sig.packets[0].hash2 = hashlib.new('sha256', data).digest()[:2]
 
         # finally, sign the data and load the signature into sig
         signer.update(data)
         s = signer.finalize()
-        sf = int_to_bytes(bytes_to_int(s).bit_length(), 2) + s
 
-        sig.packets[0].signature.parse(sf, sig.packets[0].header.tag, sig.packets[0].key_algorithm)
+        if self.selected_privkey.keypkt.key_algorithm == PubKeyAlgo.RSAEncryptOrSign:
+            sf = int_to_bytes(bytes_to_int(s).bit_length(), 2) + s
+            sig.packets[0].signature.parse(sf, sig.packets[0].header.tag, sig.packets[0].key_algorithm)
+
+        elif self.selected_privkey.keypkt.key_algorithm == PubKeyAlgo.DSA:
+            sf = asn1_seqint_to_tuple(s)
+            sig.packets[0].signature.parse(
+                int_to_bytes(sf[0].bit_length(), 2) + int_to_bytes(sf[0]) +
+                int_to_bytes(sf[1].bit_length(), 2) + int_to_bytes(sf[1]),
+                sig.packets[0].header.tag,
+                sig.packets[0].key_algorithm
+            )
+
+        else:
+            raise NotImplementedError(self.selected_privkey.keypkt.key_algorithm.name)
 
         # set the signature header length stuff
         ##TODO: this probably shouldn't have to happen here
@@ -374,8 +406,6 @@ class PGPKeyring(object):
                 g = bytes_to_int(pubkey.keypkt.key_material.g['bytes'])
                 y = bytes_to_int(pubkey.keypkt.key_material.y['bytes'])
                 # signature
-                # r = sig.sigpkt.signature.r['bytes']
-                # s = sig.sigpkt.signature.s['bytes']
                 s = sig.sigpkt.signature.as_asn1_der
 
                 # public key object
