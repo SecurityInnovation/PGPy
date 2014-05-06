@@ -82,9 +82,10 @@ class TestPGPKeyring:
     #     pass
 
     @pytest.mark.parametrize("keyid",
-                             ["9AFBC22F", "6D30F6669AFBC22F",
-                              "ADC14E18DAD752BBF78D44226D30F6669AFBC22F",
-                              "ADC1 4E18 DAD7 52BB F78D  4422 6D30 F666 9AFB C22F"],
+                             ["3F3DDA4C",
+                              "642546A53F3DDA4C",
+                              "F3E0666247D1D9DA4D6447CA642546A53F3DDA4C",
+                              "F3E0 6662 47D1 D9DA 4D64  47CA 6425 46A5 3F3D DA4C"],
                              ids=["half-key id", "key id", "fp-no-spaces", "fingerprint"])
     def test_key_selection(self, keyid):
         k = pgpy.PGPKeyring(["tests/testdata/testkeys.gpg", "tests/testdata/testkeys.sec.gpg"])
