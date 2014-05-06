@@ -29,12 +29,20 @@ class MPIFields(object):
         for item in [ f['bytes'] for f in self.fields.values() if f['name'] != '' ]:
             # field type is INTEGER, so this is 0x02
             _fbytes += b'\x02'
+
             # length in octets of this field
+            if len(item) > 128:
+                # long form
+                _fbytes += int_to_bytes(128 ^ len(int_to_bytes(len(item))))
             _fbytes += int_to_bytes(len(item))
+
             # and the field itself
             _fbytes += item
 
         # now add the length of _fbytes to _bytes
+        if len(_fbytes) > 128:
+            # long form
+            _bytes += int_to_bytes(128 ^ len(int_to_bytes(len(_fbytes))))
         _bytes += int_to_bytes(len(_fbytes))
 
         # and finally _fbytes
