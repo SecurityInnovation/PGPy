@@ -70,9 +70,11 @@ class TestPGPKey:
         try:
             k.decrypt_keymaterial("QwertyUiop")
 
-        except cryptography.exceptions.UnsupportedAlgorithm:
-            pytest.mark.xfail("OpenSSL not compiled with support for this symmetric cipher in CFB mode")
+        except cryptography.exceptions.UnsupportedAlgorithm as e:
+            pytest.xfail("OpenSSL not compiled with support for this symmetric cipher in CFB mode")
+            pytest.fail(e)
 
-        except NotImplementedError:
+        except NotImplementedError as e:
             if load_enc_key == 'tests/testdata/seckeys/TestRSA-EncTWOFISH-1024.sec.key':
-                pytest.mark.xfail("OpenSSL does not support Twofish at all")
+                pytest.xfail("OpenSSL does not support Twofish at all")
+                pytest.fail(e)
