@@ -274,7 +274,7 @@ class PGPSignature(PGPBlock):
     def new(cls, keyid,
             sigtype=Signature.Type.BinaryDocument,
             alg=PubKeyAlgo.RSAEncryptOrSign,
-            hashalg=HashAlgo.SHA512):
+            hashalg=HashAlgo.SHA256):
         # create a new signature
         newsig = PGPSignature(None)
 
