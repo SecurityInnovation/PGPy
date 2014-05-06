@@ -3,6 +3,9 @@ import os
 import sys
 from subprocess import check_output, STDOUT
 
+from tests.conftest import TestFiles
+tf = TestFiles()
+
 import pgpy
 from pgpy.pgpdump import PGPDumpFormat
 from pgpy.errors import PGPError, PGPKeyDecryptionError
@@ -151,18 +154,20 @@ class TestPGPKeyring:
             # signature verified
             assert sigv
 
+    # @pytest.mark.parametrize("sigf, sigsub",
+    #                          [
+    #                              ("tests/testdata/ubuntu-precise/Release.gpg", "tests/testdata/ubuntu-precise/Release"),
+    #                              ("tests/testdata/debian-sid/Release.gpg", "tests/testdata/debian-sid/Release"),
+    #                              ("tests/testdata/aa-testing/Release.gpg", "tests/testdata/aa-testing/Release"),
+    #                              ("tests/testdata/signed_message.asc", "tests/testdata/signed_message"),
+    #                          ], ids=[
+    #                              "local-ubuntu",
+    #                              "local-debian",
+    #                              "local-aa-testing",
+    #                              "signed_message",
+    #                          ])
     @pytest.mark.parametrize("sigf, sigsub",
-                             [
-                                 ("tests/testdata/ubuntu-precise/Release.gpg", "tests/testdata/ubuntu-precise/Release"),
-                                 ("tests/testdata/debian-sid/Release.gpg", "tests/testdata/debian-sid/Release"),
-                                 ("tests/testdata/aa-testing/Release.gpg", "tests/testdata/aa-testing/Release"),
-                                 ("tests/testdata/signed_message.asc", "tests/testdata/signed_message"),
-                             ], ids=[
-                                 "local-ubuntu",
-                                 "local-debian",
-                                 "local-aa-testing",
-                                 "signed_message",
-                             ])
+                             list(zip(tf.sigs, tf.sigm)), ids=tf.sigids)
     def test_verify_signature(self, sigf, sigsub):
         k = pgpy.PGPKeyring(["tests/testdata/testkeys.gpg", "tests/testdata/testkeys.sec.gpg"])
 
