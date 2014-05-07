@@ -33,6 +33,11 @@ To install PGPy, simply:
 
     $ pip install PGPy
 
+Examples
+--------
+
+
+
 Documentation
 -------------
 
@@ -54,5 +59,5 @@ Requirements
 License
 -------
 
-MIT licensed. See the bundled `LICENSE`_ file for more details.
+BSD 3-Clause licensed. See the bundled `LICENSE <https://github.com/Commod0re/PGPy/blob/master/LICENSE>`_ file for more details.
 
