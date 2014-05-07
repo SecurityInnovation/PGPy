@@ -311,9 +311,9 @@ class PGPKeyring(object):
         elif self.selected_privkey.keypkt.key_algorithm == PubKeyAlgo.DSA:
             sf = asn1_seqint_to_tuple(s)
             sig.packets[0].signature.parse(
-                int_to_bytes(sf[0].bit_length(), 2) + \
-                int_to_bytes(sf[0]) + \
-                int_to_bytes(sf[1].bit_length(), 2) + \
+                int_to_bytes(sf[0].bit_length(), 2) +
+                int_to_bytes(sf[0]) +
+                int_to_bytes(sf[1].bit_length(), 2) +
                 int_to_bytes(sf[1]),
                 sig.packets[0].header.tag,
                 sig.packets[0].key_algorithm

@@ -40,7 +40,6 @@ class Header(PacketField):
         def is_subkey(self):
             return self in [Header.Tag.PubSubKey, Header.Tag.PrivSubKey]
 
-
     def __init__(self, packet=None):
         self.always_1 = 0
         self.format = Header.Format.old
