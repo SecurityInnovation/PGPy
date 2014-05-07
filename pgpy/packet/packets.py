@@ -11,8 +11,7 @@ from .keyfields import MPIFields, String2Key
 from ..util import bytes_to_int, int_to_bytes
 
 
-def PGPPacket(packetblob):
-    class PGPPacketClass(Enum):
+class PGPPacketClass(Enum):
         # tag support list
         # [x] 0  - Reserved (Illegal Value)
         # [ ] 1  - Public-Key Encrypted Session Key Packet
@@ -57,20 +56,35 @@ def PGPPacket(packetblob):
             if self == PGPPacketClass.UserID:
                 return UserID
 
-            return Packet  # pragma: no cover
-
-    # factory time
-    header = Header(packetblob)
-
-    return PGPPacketClass(header.tag).subclass(packetblob)
+            raise NotImplementedError(self)  # pragma: no cover
 
 
 class Packet(object):
-    def __init__(self, packet):
-        self.header = Header(packet)
+    name = ""
 
+    def __init__(self, packet=None, ptype=None):
+        # __init__ on Packet is now a "factory" of sorts
+        #   - if `packet` is None, this is to be a shiny new packet created by PGPy
+        #     of type `type`
+        #   - if `packet` is not None, this is an existing packet to be parsed
+        #     `type` is ignored
+        #
         # packet will be None if we're creating a new packet from scratch
+        self.header = Header()
+
+        if packet is None and ptype is not None:
+            self.header.tag = ptype
+            self.__class__ = PGPPacketClass(ptype).subclass
+            self.__class__.__init__(self)
+
+        # we're parsing an existing packet
         if packet is not None:
+            # parse header, then change into our subclass
+            self.header.parse(packet)
+            self.__class__ = PGPPacketClass(self.header.tag).subclass
+            self.__class__.__init__(self)
+
+            # get the current packet length from the header, then parse it
             start = len(self.header.__bytes__())
             end = start + self.header.length
             self.parse(packet[start:end])
@@ -87,7 +101,6 @@ class Packet(object):
 
 class Signature(Packet):
     class Version(PFIntEnum):
-        Invalid = 0
         ##TODO: parse v3 packets
         v4 = 4
 
@@ -130,19 +143,18 @@ class Signature(Packet):
             ##TODO: more of these
             raise NotImplementedError(self.name)  # pragma: no cover
 
-    def __init__(self, packet):
-        self.name = "Signature Packet"
-        self.version = Signature.Version.Invalid
-        self.type = -1
-        self.key_algorithm = PubKeyAlgo.Invalid
+    name = "Signature Packet"
+
+    def __init__(self):
+        self.version = Signature.Version.v4  # default for new Signature packets
+        self.type = Signature.Type.BinaryDocument  # default for new Signature packets
+        self.key_algorithm = PubKeyAlgo.RSAEncryptOrSign  # default for new Signature packets
         self.hash_algorithm = 0
         self.hashed_subpackets = SubPackets()
         self.hashed_subpackets.hashed = True
         self.unhashed_subpackets = SubPackets()
         self.hash2 = b''
         self.signature = MPIFields()
-
-        super(Signature, self).__init__(packet)
 
     def parse(self, packet):
         self.version = Signature.Version(bytes_to_int(packet[:1]))
@@ -181,23 +193,21 @@ class Signature(Packet):
 
 class PubKey(Packet):
     class Version(PFIntEnum):
-        Invalid = 0
         ##TODO: parse v3 packets
         v4 = 4
 
-    def __init__(self, packet):
+    name = "Public Key Packet"
+
+    def __init__(self):
         # Tag 6 Public-Key signature packets and Tag 14 Public-Subkey packets share the same format
-        self.name = 'Public Key Packet'
         self.is_subkey = False
         self.secret = False
         self.fp = None
 
-        self.version = PubKey.Version.Invalid
-        self.key_creation = 0
-        self.key_algorithm = PubKeyAlgo.Invalid
+        self.version = PubKey.Version.v4  # default for new PubKey packets
+        self.key_creation = datetime.utcnow()  # default for new PubKey packets
+        self.key_algorithm = PubKeyAlgo.RSAEncryptOrSign  # default for new PubKey packets
         self.key_material = MPIFields()
-
-        super(PubKey, self).__init__(packet)
 
     def parse(self, packet):
         if self.header.tag.is_subkey:
@@ -221,11 +231,10 @@ class PubKey(Packet):
 
 
 class UserID(Packet):
-    def __init__(self, packet):
-        self.name = 'User ID Packet'
-        self.data = b''
+    name = "User ID Packet"
 
-        super(UserID, self).__init__(packet)
+    def __init__(self):
+        self.data = b''
 
     def parse(self, packet):
         self.data = packet
@@ -240,26 +249,24 @@ class UserID(Packet):
 
 class PrivKey(Packet):
     class Version(PFIntEnum):
-        Invalid = 0
         ##TODO: parse v3 packets
         v4 = 4
 
-    def __init__(self, packet):
+    name = "Secret Key Packet"
+
+    def __init__(self):
         # Tag 5 Secret-Key packets and Tag 7 Secret-Subkey packets share the same format
-        self.name = 'Secret Key Packet'
         self.is_subkey = False
         self.secret = True
         self.fp = None
 
-        self.version = PrivKey.Version.Invalid
-        self.key_creation = 0
-        self.key_algorithm = PubKeyAlgo.Invalid
+        self.version = PrivKey.Version.v4  # default for new PrivKey packets
+        self.key_creation = datetime.utcnow()  # default for new PrivKey packets
+        self.key_algorithm = PubKeyAlgo.RSAEncryptOrSign  # default for new PrivKey packets
         self.key_material = MPIFields()
         self.stokey = String2Key()
         self.enc_seckey_material = b''
         self.checksum = b''
-
-        super(PrivKey, self).__init__(packet)
 
     def parse(self, packet):
         if self.header.tag.is_subkey:
@@ -308,11 +315,10 @@ class PrivKey(Packet):
 
 
 class Trust(Packet):
-    def __init__(self, packet):
-        self.name = 'Trust Packet'
-        self.trust = b''
+    name = "Trust Packet"
 
-        super(Trust, self).__init__(packet)
+    def __init__(self):
+        self.trust = b''
 
     def parse(self, packet):
         # Trust packets contain data that record the user's
