@@ -58,20 +58,21 @@ class TestPGPKeyring:
     # def test_load2(self, load_key, load_akey):
     #     pass
 
-    @pytest.mark.parametrize("prop", [ k for k, thing in pgpy.PGPKeyring.__dict__.items() if type(thing) is property ])
-    def test_properties(self, prop):
-        k = pgpy.PGPKeyring(["tests/testdata/testkeys.gpg", "tests/testdata/testkeys.sec.gpg"])
-
-        try:
-            eval("k.{p}".format(p=prop)) is not None
-
-        except KeyError:
-            if prop[:8] != "selected":
-                pytest.fail("k.{p} raised KeyError".format(p=prop))
-
-        except:
-            e = sys.exc_info()[0]
-            pytest.fail("k.{p} raised {ex}".format(p=prop, ex=str(e)))
+    ##TODO: is this test actually useful?
+    # @pytest.mark.parametrize("prop", [ k for k, thing in pgpy.PGPKeyring.__dict__.items() if type(thing) is property ])
+    # def test_properties(self, prop):
+    #     k = pgpy.PGPKeyring(["tests/testdata/testkeys.gpg", "tests/testdata/testkeys.sec.gpg"])
+    #
+    #     try:
+    #         eval("k.{p}".format(p=prop)) is not None
+    #
+    #     except KeyError:
+    #         if prop[:8] != "selected":
+    #             pytest.fail("k.{p} raised KeyError".format(p=prop))
+    #
+    #     except:
+    #         e = sys.exc_info()[0]
+    #         pytest.fail("k.{p} raised {ex}".format(p=prop, ex=str(e)))
 
     def test_bytes(self, load_key):
         k = pgpy.PGPKeyring(load_key)
