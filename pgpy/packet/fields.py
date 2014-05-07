@@ -136,25 +136,40 @@ class Header(PacketField):
             self.length = bytes_to_int(packet[1:])
 
     def __bytes__(self):
-        _bytes = self.always_1 << 7
-        _bytes += self.format << 6
+        _bytes = b''
+
+        # first byte is bitfields
+        fbyte = self.always_1 << 7
+        fbyte += self.format << 6
 
         if self.format == Header.Format.old:
-            _bytes += self.tag << 2
+            fbyte += self.tag << 2
 
             # compute length_type if it isn't already provided
             if self.length_type == 0:
                 while self.length >> (8 * (self.length_type + 1)) and self.length_type < 3:
                     self.length_type += 1
 
-            _bytes += self.length_type
+            fbyte += self.length_type
 
         else:
-            _bytes += self.tag
+            fbyte += self.tag & 0x3F
 
-        _bytes = int_to_bytes(_bytes)
+        _bytes += int_to_bytes(fbyte)
 
-        _bytes += int_to_bytes(self.length)
+        if self.format == Header.Format.old:
+            _bytes += int_to_bytes(self.length)
+
+        else:
+            if self.length < 192:
+                _bytes += int_to_bytes(self.length)
+
+            elif self.length < 8384:
+                _bytes += int_to_bytes(((self.length & 0xFF00) + (192 << 8)) + abs((self.length & 0xFF) - 192))
+
+            else:
+                _bytes += b'x\FF' + int_to_bytes(self.length, 4)
+
 
         return _bytes
 
