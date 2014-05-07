@@ -486,5 +486,5 @@ class PGPKey(PGPBlock):
                 pkt.checksum = pt[-20:]
 
     def undecrypt_keymaterial(self):
-        for pkt in self.keypkts:
+        for pkt in [ k for k in self.keypkts if not k.key_material.privempty ]:
             pkt.key_material.reset()

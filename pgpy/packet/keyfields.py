@@ -95,8 +95,8 @@ class MPIFields(object):
         return _bytes
 
     def reset(self):
-        for k in self.privfields:
-            eval('del self.{k}'.format(k))
+        for k in [ k for k in self.privfields if self.fields[k]['bitlen'] > 0 ]:
+            delattr(self, k)
 
 
 def propinator(field, name, fdel=False):
@@ -175,7 +175,7 @@ class DSAMPI(MPIFields):
         _bytes = b'\x30'
         # next is the constructed length of all integer fields, so construct those first
         _fbytes = b''
-        for item in [ f['bytes'] for f in self.fields.values() if f['name'] != '' ]:
+        for item in [ f['bytes'] for f in self.fields.values() if f['bitlen'] > 0 ]:
             # field type is INTEGER, so this is 0x02
             _fbytes += b'\x02'
 
