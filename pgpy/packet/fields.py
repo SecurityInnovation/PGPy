@@ -15,6 +15,7 @@ class Header(PacketField):
         new = 1
 
     class Tag(IntEnum):
+        ##TODO: implement the rest of these
         Invalid = 0
         Signature = 2
         PrivKey = 5
@@ -41,10 +42,13 @@ class Header(PacketField):
             return self in [Header.Tag.PubSubKey, Header.Tag.PrivSubKey]
 
     def __init__(self, packet=None):
-        self.always_1 = 0
-        self.format = Header.Format.old
+        self.always_1 = 1
+        self.format = Header.Format.new
         self.tag = Header.Tag.Invalid
         self.length_type = 0
+        ##TODO: length should also be computable from the rest of the packet
+        #       this means we'll probably need to store a reference to the Packet object
+        #       to which this Header instance belongs
         self.length = 0
 
         super(Header, self).__init__(packet)
