@@ -3,7 +3,11 @@ import os
 import sys
 from subprocess import check_output, STDOUT
 
-from tests.conftest import TestFiles
+try:
+    from tests.conftest import TestFiles
+except ImportError:
+    from conftest import TestFiles
+
 tf = TestFiles()
 
 import pgpy
@@ -171,5 +175,4 @@ class TestPGPKeyring:
             except AssertionError as e:
                 if 'DSA' in sigf and int(sigf[-8:-4]) > 1024:
                     pytest.xfail("Some versions of OpenSSL can't handle DSA p > 1024 bits")
-                    pytest.fail(e)
-
+                    raise

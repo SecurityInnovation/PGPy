@@ -1,6 +1,10 @@
 import pytest
 
-from tests.conftest import TestFiles
+try:
+    from tests.conftest import TestFiles
+
+except:
+    from conftest import TestFiles
 
 from pgpy.pgp import PGPLoad, PGPSignature
 from pgpy.pgpdump import PGPDumpFormat

@@ -3,7 +3,10 @@ import subprocess
 import re
 import cryptography.exceptions
 
-from tests.conftest import TestFiles
+try:
+    from tests.conftest import TestFiles
+except:
+    from conftest import TestFiles
 
 from pgpy.pgp import PGPLoad, PGPKey
 from pgpy.pgpdump import PGPDumpFormat
@@ -72,9 +75,9 @@ class TestPGPKey:
 
         except cryptography.exceptions.UnsupportedAlgorithm as e:
             pytest.xfail("OpenSSL not compiled with support for this symmetric cipher in CFB mode")
-            pytest.fail(e)
+            raise
 
         except NotImplementedError as e:
             if load_enc_key == 'tests/testdata/seckeys/TestRSA-EncTWOFISH-1024.sec.key':
                 pytest.xfail("OpenSSL does not support Twofish at all")
-                pytest.fail(e)
+                raise

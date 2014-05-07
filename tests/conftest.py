@@ -9,14 +9,22 @@ class TestFiles(object):
         f = file.split('/')[-1]
 
         if f[:4] == "Test":
-            return '{kalg}{encalg}-{bitlen}'.format(
-                kalg=f.split('-')[0][4:].lower(),
-                encalg='' if 'Enc' not in f else '-' + f.split('-')[1][3:].lower(),
-                bitlen=f.split('-')[-1][:4]
-            )
+            if f[-8:] == '.sec.key':
+                return 'sec-{kalg}{encalg}-{bitlen}'.format(
+                    kalg=f.split('-')[0][4:].lower(),
+                    encalg='' if 'Enc' not in f else '-' + f.split('-')[1][3:].lower(),
+                    bitlen=f.split('-')[-1][:4]
+                )
+
+            else:
+                return '{kalg}{encalg}-{bitlen}'.format(
+                    kalg=f.split('-')[0][4:].lower(),
+                    encalg='' if 'Enc' not in f else '-' + f.split('-')[1][3:].lower(),
+                    bitlen=f.split('-')[-1][:4]
+                )
 
         if f[-4:] == '.key':
-            return file.replace('_', '_').split('.')[0]
+            return file.replace('_', '-').split('.')[0].split('/')[-1]
 
         if f.split('.')[0] == 'signed_message':
             return f.split('.')[1].lower()
