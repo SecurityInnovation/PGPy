@@ -58,8 +58,7 @@ class TestPGPKeyring:
     # def test_load2(self, load_key, load_akey):
     #     pass
 
-    @pytest.mark.parametrize("prop", [ k for k, thing in pgpy.PGPKeyring.__dict__.items()
-                                       if type(thing) is property ])
+    @pytest.mark.parametrize("prop", [ k for k, thing in pgpy.PGPKeyring.__dict__.items() if type(thing) is property ])
     def test_properties(self, prop):
         k = pgpy.PGPKeyring(["tests/testdata/testkeys.gpg", "tests/testdata/testkeys.sec.gpg"])
 
@@ -97,24 +96,32 @@ class TestPGPKeyring:
         with k.key(keyid):
             assert k.using == "642546A53F3DDA4C"
 
-    ##TODO: refactor the parametrization of this test
+    ##TODO: better refactor the parametrization of this test
     @pytest.mark.parametrize("keyid",
                              [
                                  "642546A53F3DDA4C", # TestRSA-1024
                                  "5D28BF073325A4E7", # TestRSA-2048
+                                 "C2D6BA57AEF0B534", # TestRSA-3072
+                                 "D5A7CB4B1E95616E", # TestRSA-4096
                                  "EDE981F5CAFD4E2F", # TestDSA-1024
                                  "58350056D8046712", # TestDSA-2048
+                                 "FA35AD25FCAC544C", # TestDSA-3072
+                                 "1C5D9C9C8F9BF36E", # TestDSA-4096
                                  "E6DF2EF657E2B327", # TestRSA-EncCAST5-1024
                                  "624D36067A9F2F3B", # TestDSA-EncCAST5-1024
                              ], ids=[
-                                "rsa-1024",
+                                'rsa-1024',
                                 'rsa-2048',
+                                'rsa-3072',
+                                'rsa-4096',
                                 'dsa-1024',
                                 'dsa-2048',
+                                'dsa-3072',
+                                'dsa-4096',
                                 'rsa-cast5-1024',
                                 'dsa-cast5-1024',
                              ])
-    def test_sign(self, keyid):
+    def test_sign(self, request, keyid):
         k = pgpy.PGPKeyring(["tests/testdata/testkeys.gpg", "tests/testdata/testkeys.sec.gpg"])
 
         with k.key(keyid):
@@ -132,7 +139,16 @@ class TestPGPKeyring:
                 k.unlock("QwertyUiop")
 
             # now sign
-            sig = k.sign("tests/testdata/unsigned_message")
+            try:
+                sig = k.sign("tests/testdata/unsigned_message")
+
+            except AssertionError:
+                if sys.platform == 'darwin' and request.node._genid in ['dsa-1024', 'dsa-cast5-1024']:
+                    # for some reason, signing things with DSA keys with p values of 1024-bits
+                    # does not work right with OpenSSL v0.9.8y on OSX.
+                    # (see issue #16 - https://github.com/Commod0re/PGPy/issues/16)
+                    pytest.xfail("OpenSSL on OSX is janky")
+                    raise
 
         # write out to a file and test with gpg, then remove the file
         sig.path = "tests/testdata/unsigned_message.asc"
@@ -148,24 +164,6 @@ class TestPGPKeyring:
                           '--verify', 'tests/testdata/unsigned_message.asc',
                           'tests/testdata/unsigned_message'], stderr=STDOUT)
         os.remove('tests/testdata/unsigned_message.asc')
-
-        # finally, verify the signature ourselves to make sure that works
-        with k.key():
-            try:
-                sigv = k.verify("tests/testdata/unsigned_message", str(sig))
-                # used the same key
-                assert sigv.key.keyid == keyid
-                # signature verified
-                assert sigv
-
-            except AssertionError:
-                if keyid == "58350056D8046712":
-                    # Some versions of OpenSSL can't verify DSA signatures where p > 1024 bits, but they can certainly produce them.
-                    # If we made it to this point, GPG already verified the signature that was produced
-                    # so it's probably safe to call it good.
-                    pass
-                else:
-                    raise
 
 
     @pytest.mark.parametrize("sigf, sigsub",
