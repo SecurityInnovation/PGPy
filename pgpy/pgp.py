@@ -7,13 +7,13 @@ import hashlib
 import calendar
 
 from datetime import datetime
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.ciphers import Cipher, modes
 from cryptography.hazmat.backends import default_backend
 
 from .fileloader import FileLoader
 from .reg import *
 from .util import bytes_to_int, int_to_bytes
-from .packet import PGPPacket, SymmetricKeyAlgo, PubKeyAlgo, HashAlgo
+from .packet import Packet, PubKeyAlgo, HashAlgo
 from .packet.packets import Signature
 from .packet.fields import Header
 from .errors import PGPError, PGPKeyDecryptionError
@@ -166,7 +166,7 @@ class PGPBlock(FileLoader):
         if self.data != b'':
             pos = 0
             while pos < len(self.data):
-                self.packets.append(PGPPacket(self.data[pos:]))
+                self.packets.append(Packet(self.data[pos:]))
                 pos += len(self.packets[-1].__bytes__())
 
     def crc24(self):
@@ -281,16 +281,8 @@ class PGPSignature(PGPBlock):
         # create new ASCII headers
         newsig.ascii_headers['Version'] = 'PGPy v' + __version__
 
-        # create a new header
-        ##TODO: this should be moved to Packet, probably
-        newheader = Header()
-        newheader.always_1 = 1
-        newheader.tag = Header.Tag.Signature
-
         # create a new signature packet
-        newsig.packets = [Signature(None)]
-        newsig.sigpkt.header = newheader
-        newsig.sigpkt.version = Signature.Version.v4
+        newsig.packets = [Packet(ptype=Header.Tag.Signature)]
         newsig.sigpkt.type = sigtype
         newsig.sigpkt.key_algorithm = alg
         newsig.sigpkt.hash_algorithm = hashalg
