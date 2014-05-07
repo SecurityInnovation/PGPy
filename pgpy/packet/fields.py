@@ -144,7 +144,6 @@ class Header(PacketField):
         if self.tag == Header.Tag.Invalid:
             raise PGPError("Invalid tag!")  # pragma: no cover
 
-
     def __bytes__(self):
         _bytes = b''
 
@@ -179,7 +178,6 @@ class Header(PacketField):
 
             else:
                 _bytes += b'x\FF' + int_to_bytes(self.length, 4)
-
 
         return _bytes
 
