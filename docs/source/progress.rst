@@ -137,17 +137,19 @@ PGPy currently provides the following RFC 4880 compliance and functionality:
 +---+                     +                   +            +--------------+--------------+
 | x |                     |                   |            | Verify                      |
 +---+                     +                   +------------+--------------+--------------+
-|   |                     |                   | DSA        | Encrypt      | Key Material |
+|   |                     |                   | DSA**      | Sign                        |
++---+                     +                   +            +--------------+--------------+
+| x |                     |                   |            | Verify                      |
++---+                     +                   +------------+--------------+--------------+
+|   |                     |                   | ElGamal    | Encrypt      | Key Material |
 +---+                     +                   +            +              +--------------+
 |   |                     |                   |            |              | Messages     |
 +---+                     +                   +            +--------------+--------------+
 |   |                     |                   |            | Decrypt      | Key Material |
 +---+                     +                   +            +              +--------------+
 |   |                     |                   |            |              | Messages     |
-+---+                     +                   +            +--------------+--------------+
-|   |                     |                   |            | Sign                        |
-+---+                     +                   +            +--------------+--------------+
-|   |                     |                   |            | Verify                      |
 +---+---------------------+--------+----------+------------+--------------+--------------+
 
-*if the installed OpenSSL was compiled with support for it
+* if the installed OpenSSL was compiled with support for it
+
+** combination of DSA p sizes > 1024 bits depends on the version of OpenSSL being used

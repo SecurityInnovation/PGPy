@@ -42,7 +42,7 @@ setup(
         'Topic :: Security :: Cryptography',
         'Topic :: Software Development :: Libraries',
         'Topic :: Software Development :: Libraries :: Python Modules',
-        'License :: OSI Approved :: MIT License',
+        'License :: OSI Approved :: BSD License',
     ],
     keywords = ["PGP", "pgp", "Pretty Good Privacy", "GPG", "gpg", "OpenPGP"],
 

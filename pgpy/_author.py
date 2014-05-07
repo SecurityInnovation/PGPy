@@ -9,5 +9,5 @@ from distutils.version import LooseVersion
 
 __author__ = "Michael Greene"
 __copyright__ = "Copyright (c) 2014 Michael Greene"
-__license__ = "MIT"
+__license__ = "BSD"
 __version__ = str(LooseVersion("0.1.0"))
