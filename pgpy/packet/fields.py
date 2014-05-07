@@ -114,26 +114,32 @@ class Header(PacketField):
             else:
                 packet = packet[:1]
 
+            # if the length is provided, parse it
+            if len(packet) > 1:
+                self.length = bytes_to_int(packet[1:])
+
         # new style packet header
         else:
             self.tag = Header.Tag(tag & 0x3F)
 
+            # 1 octet length
             if bytes_to_int(packet[1:2]) < 191:
-                packet = packet[:2]
+                self.length = bytes_to_int(packet[1:2])
 
-            if bytes_to_int(packet[1:2]) > 191:
-                packet = packet[:3]
+            # 2 octet length
+            if 223 > bytes_to_int(packet[1:2]) > 191:
+                # ((num - (192 << 8)) & 0xFF00) + ((num & 0xFF) + 192)
+                elen = bytes_to_int(packet[1:3])
+                self.length = ((elen - (192 << 8)) & 0xFF00) + ((elen & 0xFF) + 192)
 
-            if bytes_to_int(packet[2:3] > 8383):
-                packet = packet[:6]
+            # 5 octet length
+            if bytes_to_int(packet[1:2] == 255):
+                self.length = bytes_to_int(packet[2:6])
 
         # make sure the Tag is valid
         if self.tag == Header.Tag.Invalid:
             raise PGPError("Invalid tag!")  # pragma: no cover
 
-        # if the length is provided, parse it
-        if len(packet) > 1:
-            self.length = bytes_to_int(packet[1:])
 
     def __bytes__(self):
         _bytes = b''
