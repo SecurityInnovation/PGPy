@@ -152,7 +152,7 @@ class TestPGPKeyring:
                     raise
 
         # write out to a file and test with gpg, then remove the file
-        sig.path = "tests/testdata/unsigned_message.asc"
+        sig.path = "tests/testdata/unsigned_message.{refid}.asc".format(refid=request.node._genid)
         sig.write()
 
         assert b'Good signature from' in \
@@ -162,9 +162,11 @@ class TestPGPKeyring:
                           '--secret-keyring', 'tests/testdata/testkeys.sec.gpg',
                           '--trustdb-name', 'tests/testdata/testkeys.trust',
                           '-vv',
-                          '--verify', 'tests/testdata/unsigned_message.asc',
+                          '--verify', sig.path,
                           'tests/testdata/unsigned_message'], stderr=STDOUT)
-        os.remove('tests/testdata/unsigned_message.asc')
+
+        # and finally, clean up after ourselves
+        os.remove(sig.path)
 
 
     @pytest.mark.parametrize("sigf, sigsub",
