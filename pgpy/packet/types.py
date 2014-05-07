@@ -51,6 +51,9 @@ class SymmetricKeyAlgo(PFIntEnum):
 
     @property
     def block_size(self):
+        if self == SymmetricKeyAlgo.Plaintext:
+            return 0
+
         if self in [SymmetricKeyAlgo.IDEA,
                     SymmetricKeyAlgo.CAST5,
                     SymmetricKeyAlgo.TripleDES,

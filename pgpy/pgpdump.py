@@ -238,25 +238,26 @@ class PGPDumpFormat(object):
     def mpi_fields(self, pkt, sec=False):
         o = ""
 
-        if pkt.header.tag == Header.Tag.Signature:
+        if pkt.header.tag.is_signature:
             mpis = pkt.signature
+            mpifn = pkt.signature.sigfields
 
-        if pkt.header.tag in [Header.Tag.PubKey, Header.Tag.PubSubKey,
-                              Header.Tag.PrivKey, Header.Tag.PrivSubKey] and not sec:
+        if pkt.header.tag.is_key:
             mpis = pkt.key_material
+            mpifn = pkt.key_material.pubfields
 
-        if pkt.header.tag in [Header.Tag.PrivKey, Header.Tag.PrivSubKey] and sec:
-            mpis = pkt.seckey_material
+        if pkt.header.tag.is_privkey and sec:
+            mpifn = pkt.key_material.privfields
 
-        for mpi in mpis.fields.values():
+        for mpi in mpifn:
             o += "\t{mname}({bitlen} bits) - {keybytes}\n".format(
-                mname=mpi['name'],
-                bitlen=mpi['bitlen'],
-                keybytes=self.bytefield(mpi['bytes']),
+                mname=getattr(mpis.__class__, mpi).__doc__,
+                bitlen=getattr(mpis, mpi)['bitlen'],
+                keybytes=self.bytefield(getattr(mpis, mpi)['bytes']),
             )
 
         # Only print the encoding if it's a signature packet
-        if pkt.header.tag == Header.Tag.Signature:
+        if pkt.header.tag.is_signature:
             o += "\t\t-> {enc}\n".format(enc=mpis.encoding)
 
         return o

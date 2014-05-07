@@ -174,7 +174,7 @@ class Signature(Packet):
         _bytes += self.hashed_subpackets.__bytes__()
         _bytes += self.unhashed_subpackets.__bytes__()
         _bytes += self.hash2
-        _bytes += self.signature.__bytes__()
+        _bytes += self.signature.sigbytes()
 
         return _bytes
 
@@ -215,7 +215,7 @@ class PubKey(Packet):
         _bytes += self.version.__bytes__()
         _bytes += int_to_bytes(calendar.timegm(self.key_creation.timetuple()), 4)
         _bytes += self.key_algorithm.__bytes__()
-        _bytes += self.key_material.__bytes__()
+        _bytes += self.key_material.pubbytes()
 
         return _bytes
 
@@ -256,7 +256,6 @@ class PrivKey(Packet):
         self.key_algorithm = PubKeyAlgo.Invalid
         self.key_material = MPIFields()
         self.stokey = String2Key()
-        self.seckey_material = MPIFields()
         self.enc_seckey_material = b''
         self.checksum = b''
 
@@ -271,15 +270,15 @@ class PrivKey(Packet):
         self.key_creation = datetime.utcfromtimestamp(bytes_to_int(packet[1:5]))
         self.key_algorithm = PubKeyAlgo(bytes_to_int(packet[5:6]))
         self.key_material.parse(packet[6:], self.header.tag, self.key_algorithm)
-        pos = 6 + len(self.key_material.__bytes__())
+        pos = 6 + len(self.key_material.pubbytes())
 
         self.stokey.parse(packet[pos:])
         pos += len(self.stokey.__bytes__())
 
         # secret key material is not encrypted
         if self.stokey.id == 0:
-            self.seckey_material.parse(packet[pos:], self.header.tag, self.key_algorithm, sec=True)
-            pos += len(self.seckey_material.__bytes__())
+            self.key_material.parse(packet[pos:], self.header.tag, self.key_algorithm, sec=True)
+            pos += len(self.key_material.privbytes())
 
         # secret key material is encrypted
         else:
@@ -297,10 +296,10 @@ class PrivKey(Packet):
         _bytes += self.version.__bytes__()
         _bytes += int_to_bytes(calendar.timegm(self.key_creation.timetuple()), 4)
         _bytes += self.key_algorithm.__bytes__()
-        _bytes += self.key_material.__bytes__()
+        _bytes += self.key_material.pubbytes()
         _bytes += self.stokey.__bytes__()
         if self.stokey.id == 0:
-            _bytes += self.seckey_material.__bytes__()
+            _bytes += self.key_material.privbytes()
         else:
             _bytes += self.enc_seckey_material
         _bytes += self.checksum

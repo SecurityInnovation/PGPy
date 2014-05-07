@@ -3,20 +3,169 @@
 import math
 import collections
 import hashlib
+import ctypes
+import sys
 import functools
 
 from . import PubKeyAlgo, HashAlgo, SymmetricKeyAlgo
 from .types import PFIntEnum
-from .fields import Header, PacketField
+from .fields import PacketField
 from ..util import bytes_to_int, int_to_bytes
 
 
 class MPIFields(object):
-    field = {'name': "", 'bitlen': 0, 'bytes': b''}
+    field = {'bitlen': 0, 'bytes': b''}
+    sigfields = []
+    pubfields = []
+    privfields = []
 
     @property
-    def empty(self):
-        return not any([f['bitlen'] > 0 for f in self.fields.values()])
+    def privempty(self):
+        return not any([ getattr(self, f)['bitlen'] > 0 for f in self.privfields ])
+
+    def __init__(self):
+        self.fields = collections.OrderedDict()
+
+    def parse(self, packet, pktype, alg, sec=False):
+        # determine fields
+        if alg == PubKeyAlgo.RSAEncryptOrSign:
+            self.__class__ = RSAMPI
+
+        if alg == PubKeyAlgo.DSA:
+            self.__class__ = DSAMPI
+
+        if alg == PubKeyAlgo.ElGamal:
+            self.__class__ = ElGMPI
+
+        # if our class hasn't changed, then something went wrong
+        if self.__class__ == MPIFields:
+            raise NotImplementedError(alg.name)
+
+        # determine how many fields we need to parse
+        fields = []
+        if pktype.is_signature:
+            fields = self.sigfields
+
+        if pktype.is_key and not sec:
+            fields = self.pubfields
+
+        if pktype.is_privkey and sec:
+            fields = self.privfields
+
+        # if fields is 0, we got something wrong, or this type isn't taken into account yet
+        if len(fields) == 0:
+            raise NotImplementedError(pktype)
+
+        # now parse!
+        pos = 0
+        for field in fields:
+            bitlen = bytes_to_int(packet[pos:(pos + 2)])
+            pos += 2
+
+            bytelen = int(math.ceil(bitlen / 8.0))
+            mend = pos + bytelen
+
+            getattr(self, field)['bitlen'] = bitlen
+            getattr(self, field)['bytes'] = packet[pos:mend]
+
+            pos = mend
+
+    def sigbytes(self):
+        _bytes = b''
+        for field in [ getattr(self, vf) for vf in self.sigfields ]:
+            _bytes += int_to_bytes(field['bitlen'], 2)
+            _bytes += field['bytes']
+
+        return _bytes
+
+    def pubbytes(self):
+        _bytes = b''
+        for field in [ getattr(self, vf) for vf in self.pubfields ]:
+            _bytes += int_to_bytes(field['bitlen'], 2)
+            _bytes += field['bytes']
+
+        return _bytes
+
+    def privbytes(self):
+        _bytes = b''
+        for field in [ getattr(self, vf) for vf in self.privfields ]:
+            _bytes += int_to_bytes(field['bitlen'], 2)
+            _bytes += field['bytes']
+
+        return _bytes
+
+    def reset(self):
+        for k in self.privfields:
+            eval('del self.{k}'.format(k))
+
+
+def propinator(field, name, fdel=False):
+    # some metaprogramming going on here - this is a generic property getter
+    # that will be assigned to several when MPIFields morphs into one of its subclasses
+    def field_get(self, name):
+        if name not in self.fields.keys():
+            self.fields[name] = self.field.copy()
+
+        return self.fields[name]
+
+    # and this is a generic property setter that will also be assigned
+    def field_set(self, name, value):
+        self.fields[name] = value
+
+    # and this is a generic property deleter for private key values
+    def field_del(self, name):
+        self.fields[name]['bitlen'] = 0
+
+        bufsize = len(self.fields[name]['bytes'])
+        offset = sys.getsizeof(self.fields[name]['bytes']) - (bufsize + 1)
+        ctypes.memset(id(self.fields[name]['bytes']) + offset, 0, bufsize)
+
+    return property(
+        functools.partial(field_get, name=field),
+        functools.partial(field_set, name=field),
+        functools.partial(field_del, name=field) if fdel else None,
+        name
+    )
+
+
+class RSAMPI(MPIFields):
+    encoding = 'PKCS-1'
+    sigfields = ['md_mod_n']
+    pubfields = ['n', 'e']
+    privfields = ['d', 'p', 'q', 'u']
+
+    # signature fields
+    md_mod_n = propinator('md_mod_n', 'RSA m^d mod n')
+
+    # public key fields
+    n = propinator('n', 'RSA n')
+    e = propinator('e', 'RSA e')
+
+    # private key fields
+    d = propinator('d', 'RSA d', fdel=True)
+    p = propinator('p', 'RSA p', fdel=True)
+    q = propinator('q', 'RSA q', fdel=True)
+    u = propinator('u', 'RSA u', fdel=True)
+
+
+class DSAMPI(MPIFields):
+    encoding = 'hash(DSA q bits)'
+    sigfields = ['r', 's']
+    pubfields = ['p', 'q', 'g', 'y']
+    privfields = ['x']
+
+    # signature fields
+    r = propinator('r', 'DSA r')
+    s = propinator('s', 'DSA s')
+
+    # public key fields
+    p = propinator('p', 'DSA p')
+    q = propinator('q', 'DSA q')
+    g = propinator('g', 'DSA g')
+    y = propinator('y', 'DSA y')
+
+    # private key fields
+    x = propinator('x', 'DSA x', fdel=True)
 
     @property
     def as_asn1_der(self):
@@ -50,109 +199,20 @@ class MPIFields(object):
 
         return _bytes
 
-    # More metaprogramming, this time with a setter *and* a getter!
-    def field_getter(self, item):
-        if item not in self.fields.keys():
-            self.fields[item] = self.field.copy()
 
-        return self.fields[item]
+class ElGMPI(MPIFields):
+    # ElGamal can't sign, so no signature fields
+    sigfields = []
+    pubfields = ['p', 'g', 'y']
+    privfields = ['x']
 
-    def field_setter(self, value, item, subitem=None):
-        self.fields[item] = value
+    # public key fields
+    p = propinator('p', 'ElGamal p')
+    g = propinator('g', 'ElGamal g')
+    y = propinator('y', 'ElGamal y')
 
-    for fname in ['md_mod_n', 'd', 'e', 'g', 'n', 'p', 'q', 'r', 's', 'u', 'x', 'y']:
-        locals()[fname] = property(
-            functools.partial(field_getter, item=fname),  # getter
-            functools.partial(field_setter, item=fname),  # setter
-        )
-
-    def __init__(self):
-        self.fields = collections.OrderedDict()
-        self.encoding = ""
-
-    def parse(self, packet, pktype, alg, sec=False):
-        # determine fields
-        if alg == PubKeyAlgo.RSAEncryptOrSign:
-            self.encoding = 'PKCS-1'
-
-            if pktype == Header.Tag.Signature:
-                self.md_mod_n['name'] = 'RSA m^d mod n'
-
-            if pktype in [Header.Tag.PubKey, Header.Tag.PubSubKey,
-                          Header.Tag.PrivKey, Header.Tag.PrivSubKey] and not sec:
-                self.n['name'] = 'RSA n'
-                self.e['name'] = 'RSA e'
-
-            if pktype in [Header.Tag.PrivKey, Header.Tag.PrivSubKey] and sec:
-                self.d['name'] = 'RSA d'
-                self.p['name'] = 'RSA p'
-                self.q['name'] = 'RSA q'
-                self.u['name'] = 'RSA u'
-
-        if alg == PubKeyAlgo.DSA:
-            self.encoding = 'hash(DSA q bits)'
-
-            if pktype == Header.Tag.Signature:
-                self.r['name'] = 'DSA r'
-                self.s['name'] = 'DSA s'
-
-            if pktype in [Header.Tag.PubKey, Header.Tag.PubSubKey,
-                          Header.Tag.PrivKey, Header.Tag.PrivSubKey] and not sec:
-                self.p['name'] = 'DSA p'
-                self.q['name'] = 'DSA q'
-                self.g['name'] = 'DSA g'
-                self.y['name'] = 'DSA y'
-
-            if pktype in [Header.Tag.PrivKey, Header.Tag.PrivSubKey] and sec:
-                self.x['name'] = 'DSA x'
-
-        if alg == PubKeyAlgo.ElGamal and not sec:
-            self.p['name'] = 'ElGamal p'
-            self.g['name'] = 'ElGamal g'
-            self.y['name'] = 'ElGamal y'
-
-        if alg == PubKeyAlgo.ElGamal and sec:
-            self.x['name'] = 'ElGamal x'
-
-        # if no fields were set, the combo requested has not yet been implemented
-        if len(self.fields.keys()) == 0:
-            raise NotImplementedError(alg.name)
-
-        # now parse!
-        pos = 0
-        for i in range(0, len(self.fields.keys())):
-            f = list(self.fields.keys())[i]
-            self.fields[f]['bitlen'] = bytes_to_int(packet[pos:(pos + 2)])
-            pos += 2
-
-            length = int(math.ceil(self.fields[f]['bitlen'] / 8.0))
-            mend = pos + length
-            self.fields[f]['bytes'] = packet[pos:mend]
-            pos = mend
-
-    def __bytes__(self):
-        _bytes = b''
-        for field in self.fields.values():
-            _bytes += int_to_bytes(field['bitlen'], 2)
-            _bytes += field['bytes']
-
-        return _bytes
-
-    def reset(self):
-        import ctypes
-        import sys
-
-        for k in self.fields.keys():
-            # write null bytes over the key field bytes
-            bufsize = len(self.fields[k]['bytes'])
-            offset = sys.getsizeof(self.fields[k]['bytes']) - (bufsize + 1)
-            ctypes.memset(id(self.fields[k]['bytes']) + offset, 0, bufsize)
-
-            # set bit length to 0
-            self.fields[k]['bitlen'] = 0
-
-        del self.fields
-        self.fields = collections.OrderedDict()
+    # private key fields
+    x = propinator('x', 'ElGamal x', fdel=True)
 
 
 class String2Key(PacketField):

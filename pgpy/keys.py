@@ -247,13 +247,12 @@ class PGPKeyring(object):
 
         """
         # if the key material was encrypted, did we decrypt it yet?
-        if self.selected_privkey.encrypted and self.selected_privkey.keypkt.seckey_material.privempty:
+        if self.selected_privkey.encrypted and self.selected_privkey.keypkt.key_material.privempty:
             raise PGPError("The selected key is not unlocked!")
 
         # alright, we have a key selected at this point, let's load it into cryptography
         if self.selected_privkey.keypkt.key_algorithm == PubKeyAlgo.RSAEncryptOrSign:
-            pkm = self.selected_privkey.keypkt.key_material
-            km = self.selected_privkey.keypkt.seckey_material
+            km = self.selected_privkey.keypkt.key_material
             p = bytes_to_int(km.p['bytes'])
             q = bytes_to_int(km.q['bytes'])
             d = bytes_to_int(km.d['bytes'])
@@ -264,20 +263,19 @@ class PGPKeyring(object):
                 dmp1=d % (p - 1),
                 dmq1=d % (q - 1),
                 iqmp=modinv(p, q),
-                public_exponent=bytes_to_int(pkm.e['bytes']),
-                modulus=bytes_to_int(pkm.n['bytes'])
+                public_exponent=bytes_to_int(km.e['bytes']),
+                modulus=bytes_to_int(km.n['bytes'])
             )
 
             ##TODO: select the hash algorithm
             signer = pk.signer(padding.PKCS1v15(), hashes.SHA256(), default_backend())
 
         elif self.selected_privkey.keypkt.key_algorithm == PubKeyAlgo.DSA:
-            pkm = self.selected_privkey.keypkt.key_material
-            km = self.selected_privkey.keypkt.seckey_material
-            p = bytes_to_int(pkm.p['bytes'])
-            q = bytes_to_int(pkm.q['bytes'])
-            g = bytes_to_int(pkm.g['bytes'])
-            y = bytes_to_int(pkm.y['bytes'])
+            km = self.selected_privkey.keypkt.key_material
+            p = bytes_to_int(km.p['bytes'])
+            q = bytes_to_int(km.q['bytes'])
+            g = bytes_to_int(km.g['bytes'])
+            y = bytes_to_int(km.y['bytes'])
             x = bytes_to_int(km.x['bytes'])
             pk = dsa.DSAPrivateKey(
                 modulus=p,

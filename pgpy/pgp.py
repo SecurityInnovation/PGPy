@@ -390,9 +390,7 @@ class PGPKey(PGPBlock):
 
     @property
     def keypkts(self):
-        return [ packet for packet in self.packets if
-                 hasattr(packet, "key_material") or
-                 hasattr(packet, "seckey_material") ]
+        return [ packet for packet in self.packets if hasattr(packet, "key_material") ]
 
     @property
     def secret(self):
@@ -421,7 +419,7 @@ class PGPKey(PGPBlock):
             # Public-Key packet starting with the version field.  The Key ID is the
             # low-order 64 bits of the fingerprint.
             sha1 = hashlib.sha1()
-            kmpis = self.keypkt.key_material.__bytes__()
+            kmpis = self.keypkt.key_material.pubbytes()
             bcde_len = int_to_bytes(6 + len(kmpis), 2)
 
             # a.1) 0x99 (1 octet)
@@ -483,10 +481,10 @@ class PGPKey(PGPBlock):
                 if not pt[-20:] == hashlib.new('sha1', pt[:-20]).digest():
                     raise PGPKeyDecryptionError("Passphrase was incorrect!")
 
-                # parse decrypted key material into pkt.seckey_material
-                pkt.seckey_material.parse(pt[:-20], pkt.header.tag, pkt.key_algorithm, sec=True)
+                # parse decrypted key material into pkt.key_material
+                pkt.key_material.parse(pt[:-20], pkt.header.tag, pkt.key_algorithm, sec=True)
                 pkt.checksum = pt[-20:]
 
     def undecrypt_keymaterial(self):
         for pkt in self.keypkts:
-            pkt.seckey_material.reset()
+            pkt.key_material.reset()
