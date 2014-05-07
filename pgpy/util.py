@@ -20,7 +20,7 @@ def asn1_seqint_to_tuple(asn1block):
     # very limited asn1 decoder - only intended to decode a DER encoded sequence of integers
     # returned as a tuple
     if not bytes_to_int(asn1block[:1]) == 0x30:
-        raise NotImplementedError("Only decodes ASN.1 Sequences")
+        raise NotImplementedError("Only decodes ASN.1 Sequences")  # pragma: no cover
 
     if bytes_to_int(asn1block[1:2]) & 0x80:
         llen = bytes_to_int(asn1block[1:2]) & 0x7F
@@ -35,7 +35,7 @@ def asn1_seqint_to_tuple(asn1block):
     # parse fields
     while pos < end:
         if asn1block[pos:(pos + 1)] != b'\x02':
-            raise NotImplementedError("Only decodes INTEGER fields")
+            raise NotImplementedError("Only decodes INTEGER fields")  # pragma: no cover
         pos += 1
 
         if bytes_to_int(asn1block[pos:(pos + 1)]) & 0x80:

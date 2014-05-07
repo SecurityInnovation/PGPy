@@ -186,7 +186,7 @@ class PGPKeyring(object):
                 id = id.replace(' ', '')
 
             if id not in keyids.keys():
-                raise PGPError("Key {keyid} not loaded".format(keyid=id))
+                raise PGPError("Key {keyid} not loaded".format(keyid=id))  # pragma: no cover
 
             self.using = keyids[id]
         self.ctx = True
@@ -218,7 +218,7 @@ class PGPKeyring(object):
         """
         # we shouldn't try this if the key isn't encrypted
         if not self.selected_privkey.encrypted:
-            raise PGPError("Key {keyid} is not encrypted".format(keyid=self.using))
+            raise PGPError("Key {keyid} is not encrypted".format(keyid=self.using))  # pragma: no cover
 
         self.selected_privkey.decrypt_keymaterial(passphrase)
 
@@ -289,7 +289,7 @@ class PGPKeyring(object):
             signer = pk.signer(hashes.SHA256(), default_backend())
 
         else:
-            raise NotImplementedError(self.selected_privkey.keypkt.key_algorithm.name)
+            raise NotImplementedError(self.selected_privkey.keypkt.key_algorithm.name)  # pragma: no cover
 
         # create a new PGPSignature object
         sig = PGPSignature.new(self.using, alg=self.selected_privkey.keypkt.key_algorithm)
@@ -320,7 +320,7 @@ class PGPKeyring(object):
             )
 
         else:
-            raise NotImplementedError(self.selected_privkey.keypkt.key_algorithm.name)
+            raise NotImplementedError(self.selected_privkey.keypkt.key_algorithm.name)  # pragma: no cover
 
         # set the signature header length stuff
         ##TODO: this probably shouldn't have to happen here
@@ -373,10 +373,10 @@ class PGPKeyring(object):
         # check to see if we have the public key half of the key that created the signature
         skeyid = sig.sigpkt.unhashed_subpackets.Issuer.payload.decode()
         if self.using is not None and skeyid != self.using:
-            raise PGPError("Key {skeyid} is not selected!".format(skeyid=skeyid))
+            raise PGPError("Key {skeyid} is not selected!".format(skeyid=skeyid))  # pragma: no cover
 
         if skeyid not in [key.keyid for key in self.publickeys]:
-            raise PGPError("Public key {skeyid} is not loaded!".format(skeyid=skeyid))
+            raise PGPError("Public key {skeyid} is not loaded!".format(skeyid=skeyid))  # pragma: no cover
 
         pubkey = self.pubkeys[skeyid]
         sigv.key = pubkey
@@ -418,7 +418,7 @@ class PGPKeyring(object):
                 verifier = pk.verifier(s, sig.sigpkt.hash_algorithm.hasher, default_backend())
 
             else:
-                raise NotImplementedError(sig.sigpkt.key_algorithm)
+                raise NotImplementedError(sig.sigpkt.key_algorithm)  # pragma: no cover
 
             # now verify!
             verifier.update(sigdata)

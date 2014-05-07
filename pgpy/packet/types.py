@@ -69,7 +69,7 @@ class SymmetricKeyAlgo(PFIntEnum):
                     SymmetricKeyAlgo.Twofish256]:
             return 128
 
-        raise NotImplementedError(self.name)
+        raise NotImplementedError(self.name)  # pragma: no cover
 
     @property
     def keylen(self):
@@ -180,7 +180,7 @@ class HashAlgo(PFIntEnum):
         if hasattr(hashes, self.name):
             return getattr(hashes, self.name)()
 
-        raise NotImplementedError(self.name)
+        raise NotImplementedError(self.name)  # pragma: no cover
 
     def __str__(self):
         return self.name
