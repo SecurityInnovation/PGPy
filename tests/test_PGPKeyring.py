@@ -171,9 +171,8 @@ class TestPGPKeyring:
 
     @pytest.mark.parametrize("sigf, sigsub",
                              list(zip(tf.sigs, tf.sigm)), ids=tf.sigids)
-    def test_verify_signature(self, sigf, sigsub):
+    def test_verify(self, sigf, sigsub):
         k = pgpy.PGPKeyring(["tests/testdata/testkeys.gpg", "tests/testdata/testkeys.sec.gpg"])
-
 
         with k.key():
             try:
@@ -183,3 +182,9 @@ class TestPGPKeyring:
                 if 'DSA' in sigf and int(sigf[-8:-4]) > 1024:
                     pytest.xfail("Some versions of OpenSSL can't handle DSA p > 1024 bits")
                 raise
+
+    def test_verify_inline(self):
+        k = pgpy.PGPKeyring(["tests/testdata/testkeys.gpg", "tests/testdata/testkeys.sec.gpg"])
+
+        with k.key():
+            k.verify("tests/testdata/inline_signed_message.asc", None)
