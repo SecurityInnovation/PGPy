@@ -183,6 +183,8 @@ class TestPGPKeyring:
                     pytest.xfail("Some versions of OpenSSL can't handle DSA p > 1024 bits")
                 raise
 
+    ##TODO: unmark this when the test is implemented
+    @pytest.mark.xfail
     def test_verify_inline(self):
         k = pgpy.PGPKeyring(["tests/testdata/testkeys.gpg", "tests/testdata/testkeys.sec.gpg"])
 
