@@ -1,8 +1,8 @@
-"""_version.py
+"""_author.py
 
 Canonical location for authorship information
 __version__ is a PEP-386 compliant version string,
-making use of distutils.version.StrictVersion
+making use of distutils.version.LooseVersion
 """
 
 from distutils.version import LooseVersion
