@@ -370,7 +370,7 @@ class PGPKeyring(object):
         sigv.subject = subject
 
         # check to see if we have the public key half of the key that created the signature
-        skeyid = sig.sigpkt.unhashed_subpackets.Issuer.payload.decode()
+        skeyid = sig.sigpkt.unhashed_subpackets.issuer.payload.decode()
         if self.using is not None and skeyid != self.using:
             raise PGPError("Key {skeyid} is not selected!".format(skeyid=skeyid))  # pragma: no cover
 
