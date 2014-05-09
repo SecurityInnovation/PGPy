@@ -2,7 +2,9 @@ import pytest
 import os
 import subprocess
 
-def pytest_runtest_setup(item)
+def pytest_runtest_setup(item):
+    from cryptography.hazmat.backends import openssl
+    print("Using " + openssl.backend.openssl_version_text() + "\n")
 
 class TestFiles(object):
     @staticmethod
