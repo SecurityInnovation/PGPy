@@ -2,7 +2,10 @@
 from distutils.core import setup
 from pip.req import parse_requirements
 
-import pgpy._author
+# this is dirty
+import sys
+sys.path.append('pgpy')
+import _author
 
 # long_description is the contents of README.rst
 with open('README.rst') as readme:
@@ -15,12 +18,12 @@ test_reqs = parse_requirements('requirements-test.txt')
 ##TODO: fill in blank fields
 setup(
     name             = 'PGPy',
-    version          = pgpy._author.__version__,
+    version          = _author.__version__,
     description      = 'Pretty Good Privacy for Python',
     long_description = long_desc,
-    author           = pgpy._author.__author__,
+    author           = _author.__author__,
     author_email     = "mgreene@securityinnovation.com",
-    license          = pgpy._author.__license__,
+    license          = _author.__license__,
     url              = "https://github.com/Commod0re/PGPy",
     download_url     = "https://github.com/Commod0re/PGPy/archive/0.1.0.tar.gz",
 

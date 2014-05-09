@@ -12,7 +12,7 @@ tf = TestFiles()
 
 import pgpy
 from pgpy.pgpdump import PGPDumpFormat
-from pgpy.packet.types import PubKeyAlgo
+from pgpy.packet.pftypes import PubKeyAlgo
 from pgpy.errors import PGPError, PGPKeyDecryptionError
 
 keys = [

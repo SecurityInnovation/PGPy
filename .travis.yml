@@ -4,24 +4,35 @@ python:
   - "3.3"
   - "3.2"
   - "2.7"
-# install pgpdump - it's needed for testing
-before_install:
- - sudo apt-get update -qq
- - sudo apt-get install gnupg pgpdump -qq
-# command to install dependencies
+env:
+  matrix:
+    # test all versions against libssl 0.9.8
+    - LIBSSL=0.9.8
+    # test all versions against libssl 1.0.0
+    - LIBSSL=1.0.0
+matrix:
+  include:
+    # add a pep8 test for python 2.7
+    - python: 2.7
+      env: TOXENV=pep8
+    # add a py3pep8 test for python 3.x
+    - python: 3.4
+      env: TOXENV=py3pep8
+# install requirements
 install:
- - pip install -r requirements.txt
- - pip install -r requirements-test.txt
- - pip install python-coveralls
- - pip install .
-# run pep8 against the project with some errors disabled
+  # install dependencies
+  - pip install -r requirements-test.txt python-coveralls
+  # remove the current version of libssl, first
+  - sudo dpkg --remove --force-depends libssl[01]\*
+  # make sure gnupg, pgpdump, and the requested version of libssl are installed
+  - sudo apt-get update
+  - sudo apt-get install -y gnupg pgpdump libssl${LIBSSL}
+# set TOXENV if it isn't yet
 before_script:
- - pep8 --ignore=E201,E202,E501,E265,E221,E251 setup.py
- - pep8 --ignore=E201,E202,E501,E265 pgpy
-
+  - if [[ -z "$TOXENV" ]]; then TOXENV=py${TRAVIS_PYTHON_VERSION//.}; fi
 # use setup.py to invoke testing via coveralls
 script:
-  PYTHONPATH=. py.test -vv --cov pgpy --cov-report term-missing tests/
+ - tox
 # and report coverage to coveralls
 after_success:
   coveralls
