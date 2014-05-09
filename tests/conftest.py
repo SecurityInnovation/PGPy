@@ -2,6 +2,7 @@ import pytest
 import os
 import subprocess
 
+def pytest_runtest_setup(item)
 
 class TestFiles(object):
     @staticmethod

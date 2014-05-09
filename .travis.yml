@@ -6,10 +6,10 @@ python:
   - "2.7"
 env:
   matrix:
-    # test all versions against libssl 0.9.8
-    - LIBSSL=0.9.8
-    # test all versions against libssl 1.0.0
-    - LIBSSL=1.0.0
+    # test all versions against OpenSSL 0.9.8
+    - OPENSSL=0.9.8
+    # test all versions against OpenSSL 1.0.0
+    - OPENSSL=1.0.1
 matrix:
   include:
     # add a pep8 test for python 2.7
@@ -22,11 +22,12 @@ matrix:
 install:
   # install dependencies
   - pip install -r requirements-test.txt python-coveralls
-  # remove the current version of libssl, first
-  - sudo dpkg --remove --force-depends libssl[01]\*
-  # make sure gnupg, pgpdump, and the requested version of libssl are installed
+  # add the lucid repo for if we need OpenSSL 0.9.8
+  - sudo add-apt-repository "deb http://archive.ubuntu.com/ubuntu/ lucid main"
+  # make sure gnupg, pgpdump, and the requested version of OpenSSL are installed
   - sudo apt-get update
-  - sudo apt-get install -y gnupg pgpdump libssl${LIBSSL}
+  - sudo apt-get install -y gnupg pgpdump
+  - if [[ "${OPENSSL}" == "0.9.8" ]]; then sudo apt-get install -y --force-yes libssl-dev/lucid; fi
 # set TOXENV if it isn't yet
 before_script:
   - if [[ -z "$TOXENV" ]]; then TOXENV=py${TRAVIS_PYTHON_VERSION//.}; fi
