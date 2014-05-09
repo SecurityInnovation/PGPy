@@ -42,6 +42,7 @@ def pgpload(pgpbytes):
                 c = PGPSignature
 
             p = c(block.group(0).encode())
+            p.path = f.path
             b.append(p)
 
     # try to load binary instead
