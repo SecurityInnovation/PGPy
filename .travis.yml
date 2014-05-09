@@ -27,7 +27,7 @@ install:
   - sudo apt-get install -y gnupg pgpdump
   - if [[ "${OPENSSL}" == "0.9.8" ]]; then sudo apt-get install -y --force-yes libssl-dev/lucid; fi
   # install coveralls
-  - pip install python-coveralls
+  - pip install tox python-coveralls
 # set TOXENV if it isn't yet
 before_script:
   - if [[ -z "$TOXENV" ]]; then export TOXENV=py${TRAVIS_PYTHON_VERSION//.}; fi
