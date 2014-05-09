@@ -20,14 +20,14 @@ matrix:
       env: TOXENV=py3pep8
 # install requirements
 install:
-  # install dependencies
-  - pip install -r requirements-test.txt python-coveralls
   # add the lucid repo for if we need OpenSSL 0.9.8
   - sudo add-apt-repository "deb http://archive.ubuntu.com/ubuntu/ lucid main"
   # make sure gnupg, pgpdump, and the requested version of OpenSSL are installed
   - sudo apt-get update
   - sudo apt-get install -y gnupg pgpdump
   - if [[ "${OPENSSL}" == "0.9.8" ]]; then sudo apt-get install -y --force-yes libssl-dev/lucid; fi
+  # install dependencies
+  - pip install -r requirements-test.txt python-coveralls
 # set TOXENV if it isn't yet
 before_script:
   - if [[ -z "$TOXENV" ]]; then TOXENV=py${TRAVIS_PYTHON_VERSION//.}; fi
