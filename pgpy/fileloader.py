@@ -4,6 +4,7 @@ File-based metaclass to reduce duplicate code.
 """
 import os
 import os.path
+
 import requests
 
 try:

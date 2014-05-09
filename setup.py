@@ -1,10 +1,8 @@
-import sys
-
+#!/usr/bin/python
 from distutils.core import setup
 from pip.req import parse_requirements
 
 import pgpy._author
-
 
 # long_description is the contents of README.rst
 with open('README.rst') as readme:

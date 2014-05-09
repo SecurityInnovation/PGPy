@@ -3,8 +3,7 @@
 import calendar
 from datetime import datetime
 
-from .packet import Header, SubPacket, String2Key
-from .packet import PubKeyAlgo
+from .packet import Header, PubKeyAlgo, String2Key, SubPacket
 
 
 class PGPDumpFormat(object):

@@ -2,11 +2,10 @@
 """
 from enum import IntEnum
 
-
-from .types import PacketField
+from ..errors import PGPError
+from .pftypes import PacketField
 from .subpackets import SubPacket
 from ..util import bytes_to_int, int_to_bytes
-from .. import PGPError
 
 
 class Header(PacketField):
@@ -186,7 +185,7 @@ class SubPackets(PacketField):
     # property method to get the Issuer subpacket
     # realistically, there will only ever be one of these for a given packet
     @property
-    def Issuer(self):
+    def issuer(self):
         nl = [ n.type.name for n in self.subpackets ]
         return self.subpackets[nl.index("Issuer")]
 

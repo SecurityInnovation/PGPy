@@ -3,9 +3,8 @@
 import calendar
 from datetime import datetime
 
-from . import SymmetricKeyAlgo, CompressionAlgo, HashAlgo
 from .fields import PacketField
-from .types import PFIntEnum
+from .pftypes import CompressionAlgo, HashAlgo, PFIntEnum, SymmetricKeyAlgo
 from ..util import bytes_to_int, int_to_bytes
 
 

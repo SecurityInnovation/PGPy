@@ -3,21 +3,20 @@
 """
 import collections
 import contextlib
-import hashlib
 import functools
+import hashlib
 import math
 
-from cryptography.hazmat.primitives.asymmetric import rsa, dsa
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.backends import default_backend
 from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import dsa, padding, rsa
 
-from .pgp import PGPLoad, PGPSignature
-from .signature import SignatureVerification
 from .errors import PGPError
 from .packet import PubKeyAlgo
-from .util import bytes_to_int, int_to_bytes, modinv, asn1_seqint_to_tuple
+from .pgp import PGPSignature, pgpload
+from .signature import SignatureVerification
+from .util import asn1_seqint_to_tuple, bytes_to_int, int_to_bytes, modinv
 
 
 class Managed(object):
@@ -146,7 +145,7 @@ class PGPKeyring(object):
 
         for key in keys:
             # load the key (or keys) using PGPLoad
-            kb = PGPLoad(key)
+            kb = pgpload(key)
 
             for k in kb:
                 if k.secret:
@@ -363,7 +362,7 @@ class PGPKeyring(object):
 
         """
         ##TODO: type-checking
-        sig = PGPLoad(signature)[0]
+        sig = pgpload(signature)[0]
         sigdata = sig.hashdata(subject)
 
         sigv = SignatureVerification()

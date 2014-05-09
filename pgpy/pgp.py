@@ -1,26 +1,26 @@
 """ pgp.py
 """
-import re
-import collections
 import base64
-import hashlib
 import calendar
-
+import collections
+import hashlib
+import re
 from datetime import datetime
-from cryptography.hazmat.primitives.ciphers import Cipher, modes
+
 from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.ciphers import Cipher, modes
 
-from .fileloader import FileLoader
-from .reg import *
-from .util import bytes_to_int, int_to_bytes
-from .packet import Packet, PubKeyAlgo, HashAlgo
-from .packet.packets import Signature
-from .packet.fields import Header
-from .errors import PGPError, PGPKeyDecryptionError
 from ._author import __version__
+from .errors import PGPError, PGPKeyDecryptionError
+from .fileloader import FileLoader
+from .packet import HashAlgo, Packet, PubKeyAlgo
+from .packet.fields import Header
+from .packet.packets import Signature
+from .reg import ASCII_BLOCK, Magic
+from .util import bytes_to_int, int_to_bytes
 
 
-def PGPLoad(pgpbytes):
+def pgpload(pgpbytes):
     # load pgpbytes regardless of type, first
     f = FileLoader(pgpbytes)
 

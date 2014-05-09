@@ -1,11 +1,11 @@
 """ types.py
 """
 from enum import IntEnum
+
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers import algorithms
 
 from ..util import int_to_bytes
-from ..errors import WontImplementError
 
 
 class PFIntEnum(IntEnum):

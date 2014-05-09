@@ -4,10 +4,9 @@ import calendar
 from datetime import datetime
 from enum import Enum
 
-from . import PubKeyAlgo, HashAlgo
-from .types import PFIntEnum
 from .fields import Header, SubPackets
 from .keyfields import MPIFields, String2Key
+from .pftypes import HashAlgo, PFIntEnum, PubKeyAlgo
 from ..util import bytes_to_int, int_to_bytes
 
 

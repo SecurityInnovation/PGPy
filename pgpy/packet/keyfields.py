@@ -1,15 +1,14 @@
 """ keyfields.py
 """
-import math
 import collections
-import hashlib
 import ctypes
-import sys
 import functools
+import hashlib
+import math
+import sys
 
-from . import PubKeyAlgo, HashAlgo, SymmetricKeyAlgo
-from .types import PFIntEnum
 from .fields import PacketField
+from .pftypes import HashAlgo, PFIntEnum, PubKeyAlgo, SymmetricKeyAlgo
 from ..util import bytes_to_int, int_to_bytes
 
 
