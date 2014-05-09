@@ -3,10 +3,8 @@ import subprocess
 import re
 import cryptography.exceptions
 
-try:
-    from tests.conftest import tf, openssl_ver
-except:
-    from conftest import tf, openssl_ver
+from conftest import TestFiles
+from conftest import openssl_ver
 
 from pgpy.pgp import pgpload, PGPKey
 from pgpy.pgpdump import PGPDumpFormat
@@ -18,14 +16,14 @@ from pgpy.packet.fields import Header
 ciphers = subprocess.check_output(['openssl', 'help'], stderr=subprocess.STDOUT).decode()
 
 
-@pytest.fixture(params=tf.keys, ids=tf.keyids)
-def load_key(request):
-    return request.param
-
-
-@pytest.fixture(params=tf.enckeys, ids=tf.enckeyids)
-def load_enc_key(request):
-    return request.param
+# @pytest.fixture(params=tf.keys, ids=tf.keyids)
+# def load_key(request):
+#     return request.param
+#
+#
+# @pytest.fixture(params=tf.enckeys, ids=tf.enckeyids)
+# def load_enc_key(request):
+#     return request.param
 
 class TestPGPKey:
     def test_parse(self, load_key, pgpdump):

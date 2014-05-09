@@ -1,8 +1,9 @@
+import os.path
+
 import pytest
 import requests
-from pgpy.fileloader import FileLoader
 
-import os.path
+from pgpy.fileloader import FileLoader
 
 try:
     e = FileNotFoundError
@@ -45,8 +46,17 @@ def load(request):
 
 
 class TestFileLoader:
-    def test_load(self, load):
-        FileLoader(load)
+    def test_load(self, load, request):
+        f = FileLoader(load)
+
+        if request.node._genid in ['path', 'symlink', 'newfile']:
+            assert f.path == os.path.realpath(load)
+
+        elif request.node._genid == 'fileobj':
+            assert f.path == os.path.realpath(load.name)
+
+        else:
+            assert f.path is None
 
     @pytest.mark.parametrize("fload", ["/this/path/is/not/valid", "http://www.google.com/404"],
                              ids=["invalid-path", "invalid-url"])

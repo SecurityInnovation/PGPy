@@ -7,10 +7,8 @@ import pgpy
 from pgpy.pgpdump import PGPDumpFormat
 from pgpy.errors import PGPError, PGPKeyDecryptionError
 
-try:
-    from tests.conftest import tf, openssl_ver
-except ImportError:
-    from conftest import tf, openssl_ver
+from tests.conftest import TestFiles
+from tests.conftest import openssl_ver
 
 keys = [
     "tests/testdata/testkeys.gpg",
