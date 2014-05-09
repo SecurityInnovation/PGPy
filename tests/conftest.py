@@ -1,11 +1,16 @@
 import pytest
 import os
 import subprocess
+from distutils.version import LooseVersion
+
+from cryptography.hazmat.backends import openssl
+
+openssl_ver = LooseVersion(openssl.backend.openssl_version_text().split(' ')[1])
 
 def pytest_runtest_setup(item):
-    from cryptography.hazmat.backends import openssl
-    print("Using " + openssl.backend.openssl_version_text() + "\n")
+    print("Using OpenSSL " + str(openssl_ver) + "\n")
 
+##TODO: refactor this a bit so that it gives more finely grained options and also nicely sorted output
 class TestFiles(object):
     @staticmethod
     def id(file):
@@ -73,6 +78,10 @@ class TestFiles(object):
         self.sigm += [ 'tests/testdata/' + d + '/Release' for d in ['aa-testing', 'debian-sid', 'ubuntu-precise']]
 
 
+tf = TestFiles()
+
+##TODO: rewrite this fixture as a closure that returns a pgpdump function that takes input
+##TODO: write a similar fixture using a closure for doing things using GPG (such as signature validation)
 @pytest.fixture()
 def pgpdump(request):
     pgpd_args = ['pgpdump', '-i', '-l', '-m', '-p', '-u', '--']

@@ -1,15 +1,13 @@
 import pytest
 
 try:
-    from tests.conftest import TestFiles
+    from tests.conftest import tf, openssl_ver
 
 except:
-    from conftest import TestFiles
+    from conftest import tf, openssl_ver
 
 from pgpy.pgp import pgpload, PGPSignature
 from pgpy.pgpdump import PGPDumpFormat
-
-tf = TestFiles()
 
 
 @pytest.fixture(params=tf.sigs, ids=tf.sigids)

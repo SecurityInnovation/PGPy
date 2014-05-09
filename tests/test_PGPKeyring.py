@@ -1,19 +1,16 @@
 import pytest
 import os
-import sys
+from distutils.version import LooseVersion
 from subprocess import check_output, STDOUT
-
-try:
-    from tests.conftest import TestFiles
-except ImportError:
-    from conftest import TestFiles
-
-tf = TestFiles()
 
 import pgpy
 from pgpy.pgpdump import PGPDumpFormat
-from pgpy.packet.pftypes import PubKeyAlgo
 from pgpy.errors import PGPError, PGPKeyDecryptionError
+
+try:
+    from tests.conftest import tf, openssl_ver
+except ImportError:
+    from conftest import tf, openssl_ver
 
 keys = [
     "tests/testdata/testkeys.gpg",
@@ -125,6 +122,10 @@ class TestPGPKeyring:
     def test_sign(self, request, keyid):
         k = pgpy.PGPKeyring(["tests/testdata/testkeys.gpg", "tests/testdata/testkeys.sec.gpg"])
 
+        # is this likely to fail?
+        if openssl_ver < LooseVersion('1.0.0') and request.node._genid in ['dsa-1024', 'dsa-cast5-1024']:
+            pytest.xfail("cryptography + OpenSSL " + str(openssl_ver) + " does not sign correctly with 1024-bit DSA keys")
+
         with k.key(keyid):
             # is this an encrypted private key?
             if k.selected_privkey.encrypted:
@@ -140,16 +141,7 @@ class TestPGPKeyring:
                 k.unlock("QwertyUiop")
 
             # now sign
-            try:
-                sig = k.sign("tests/testdata/unsigned_message")
-
-            except AssertionError:
-                if sys.platform == 'darwin' and request.node._genid in ['dsa-1024', 'dsa-cast5-1024']:
-                    # for some reason, signing things with DSA keys with p values of 1024-bits
-                    # does not work right with OpenSSL v0.9.8y on OSX.
-                    # (see issue #16 - https://github.com/Commod0re/PGPy/issues/16)
-                    pytest.xfail("OpenSSL on OSX is janky")
-                    raise
+            sig = k.sign("tests/testdata/unsigned_message")
 
         # write out to a file and test with gpg, then remove the file
         sig.path = "tests/testdata/unsigned_message.{refid}.asc".format(refid=request.node._genid)
@@ -174,14 +166,12 @@ class TestPGPKeyring:
     def test_verify(self, sigf, sigsub):
         k = pgpy.PGPKeyring(["tests/testdata/testkeys.gpg", "tests/testdata/testkeys.sec.gpg"])
 
-        with k.key():
-            try:
-                assert k.verify(sigsub, sigf)
+        # is this likely to fail?
+        if openssl_ver < LooseVersion('1.0.0') and 'DSA' in sigf and int(sigf[-8:-4]) > 1024:
+            pytest.xfail("OpenSSL " + str(openssl_ver) + "cannot verify signatures from DSA p > 1024 bits")
 
-            except AssertionError:
-                if 'DSA' in sigf and int(sigf[-8:-4]) > 1024:
-                    pytest.xfail("Some versions of OpenSSL can't handle DSA p > 1024 bits")
-                raise
+        with k.key():
+            assert k.verify(sigsub, sigf)
 
     ##TODO: unmark this when the test is implemented
     @pytest.mark.xfail

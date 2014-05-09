@@ -4,16 +4,18 @@ import re
 import cryptography.exceptions
 
 try:
-    from tests.conftest import TestFiles
+    from tests.conftest import tf, openssl_ver
 except:
-    from conftest import TestFiles
+    from conftest import tf, openssl_ver
 
 from pgpy.pgp import pgpload, PGPKey
 from pgpy.pgpdump import PGPDumpFormat
 from pgpy.packet.fields import Header
 
+##TODO: change this out for a call to openssl.backend.cipher_supported
+##      it might also be a good idea to do that check in the PGPy code,
+##      and then just raise an error we can detect (some kidn of UnsupportedError or something)
 ciphers = subprocess.check_output(['openssl', 'help'], stderr=subprocess.STDOUT).decode()
-tf = TestFiles()
 
 
 @pytest.fixture(params=tf.keys, ids=tf.keyids)
@@ -77,7 +79,7 @@ class TestPGPKey:
             pytest.xfail("OpenSSL not compiled with support for this symmetric cipher in CFB mode")
             raise
 
-        except NotImplementedError as e:
+        except NotImplementedError:
             if load_enc_key == 'tests/testdata/seckeys/TestRSA-EncTWOFISH-1024.sec.key':
                 pytest.xfail("OpenSSL does not support Twofish at all")
                 raise
