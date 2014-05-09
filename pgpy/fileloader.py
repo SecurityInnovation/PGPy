@@ -56,7 +56,7 @@ class FileLoader(object):
 
             # try to extract the path, too
             if hasattr(lfile, "name") and os.path.exists(os.path.realpath(lfile.name)):
-                self.path = lfile.name
+                self.path = os.path.realpath(lfile.name)
 
         # str without NUL bytes means this is likely a file path or URL
         # because in 2.x, bytes is just an alias of str
