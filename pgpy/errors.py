@@ -11,6 +11,7 @@ class PGPKeyDecryptionError(Exception):
     """Raised when decryption fails"""
     pass
 
+
 class PGPOpenSSLCipherNotSupported(Exception):
     """Raised when OpenSSL does not support the requested cipher"""
     pass

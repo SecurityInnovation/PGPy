@@ -2,9 +2,8 @@
 """
 from enum import IntEnum
 
-from cryptography.hazmat.backends import openssl
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.ciphers import algorithms, modes
+from cryptography.hazmat.primitives.ciphers import algorithms
 
 from ..errors import PGPOpenSSLCipherNotSupported
 from ..util import int_to_bytes
