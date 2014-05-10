@@ -2,9 +2,11 @@
 """
 from enum import IntEnum
 
+from cryptography.hazmat.backends import openssl
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.ciphers import algorithms
+from cryptography.hazmat.primitives.ciphers import algorithms, modes
 
+from ..errors import PGPOpenSSLCipherNotSupported
 from ..util import int_to_bytes
 
 
@@ -93,12 +95,18 @@ class SymmetricKeyAlgo(PFIntEnum):
         raise NotImplementedError(self.name)  # pragma: no cover
 
     @property
+    def backend_alg_name(self):
+        return self.name if self.name[-3:] not in ['128', '192', '256'] else self.name[:-3]
+
+    @property
     def decalg(self):
-        if hasattr(algorithms, self.name if self.name[-3:] not in ['128', '192', '256'] else self.name[:-3]):
-            return getattr(algorithms, self.name if self.name[-3:] not in ['128', '192', '256'] else self.name[:-3])
+        if hasattr(algorithms, self.backend_alg_name):
+            return getattr(algorithms, self.backend_alg_name)
 
         else:
-            raise NotImplementedError(self.name)
+            raise PGPOpenSSLCipherNotSupported("Algorithm " +
+                                               self.backend_alg_name +
+                                               " not supported by OpenSSL")
 
     @property
     def encalg(self):
