@@ -117,6 +117,21 @@ class TestFiles(object):
     def protected_privkeys(cls):
         return [ 'seckeys/' + pk
                  for pk in sorted([ pk for pk in cls._private__keys if 'Enc' in pk ]) ]
+@CWD_As('tests/testdata')
+def gpg_getfingerprint(keyname):
+    gpg_args = _gpg_args + ['--with-colons', '--list-keys', '--fingerprint', keyname]
+
+    try:
+        gpgo = subprocess.check_output(gpg_args, stderr=subprocess.STDOUT).decode()
+        return re.search(r'fpr:::::::::(.*):', gpgo).group(1)
+
+    except subprocess.CalledProcessError as e:
+        return "/usr/bin/gpg returned {ret}\n"\
+               "===========================\n"\
+               "{out}".format(ret=e.returncode, out=e.output.decode())
+
+
+# test fixtures #
 
 
 @pytest.fixture()
