@@ -179,9 +179,8 @@ class PGPBlock(FileLoader):
         # by using the generator 0x864CFB and an initialization of 0xB704CE.
         # The accumulation is done on the data before it is converted to
         # radix-64, rather than on the converted data.
-        ##TODO: if self.data == b'', work on the output of self.__bytes__() instead
         if self.data == b'':
-            return None  # pragma: no cover
+            self.data = self.__bytes__()
 
         crc = self.crc24_init
         sig = [ ord(i) for i in self.data ] if type(self.data) is str else self.data
