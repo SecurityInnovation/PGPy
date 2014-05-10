@@ -6,7 +6,6 @@ from pgpy.pgp import pgpload, PGPSignature
 from pgpy.pgpdump import PGPDumpFormat
 
 from conftest import TestFiles
-from conftest import openssl_ver
 
 
 def pytest_generate_tests(metafunc):
@@ -33,7 +32,7 @@ class TestPGPSignature:
         assert type(sig) is PGPSignature
         assert sig.path is not None
         assert sig.path == os.path.abspath('tests/testdata/' + sigpath)
-        assert '\n'.join(PGPDumpFormat(sig).out) + '\n' == pgpdump(sigpath).decode()
+        assert '\n'.join(PGPDumpFormat(sig).out) + '\n' == pgpdump(sigpath)
 
     def test_crc24(self, pgpsig):
         sig = pgpsig[0]

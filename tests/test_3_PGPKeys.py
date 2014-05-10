@@ -1,83 +1,69 @@
 import pytest
-import subprocess
 import re
-import cryptography.exceptions
 
-from conftest import TestFiles
-from conftest import openssl_ver
+from cryptography.exceptions import UnsupportedAlgorithm
 
+from pgpy.errors import PGPOpenSSLCipherNotSupported
 from pgpy.pgp import pgpload, PGPKey
 from pgpy.pgpdump import PGPDumpFormat
 from pgpy.packet.fields import Header
 
-##TODO: change this out for a call to openssl.backend.cipher_supported
-##      it might also be a good idea to do that check in the PGPy code,
-##      and then just raise an error we can detect (some kidn of UnsupportedError or something)
-ciphers = subprocess.check_output(['openssl', 'help'], stderr=subprocess.STDOUT).decode()
+from conftest import TestFiles
 
+def pytest_generate_tests(metafunc):
+    if 'key' in metafunc.fixturenames:
+        ids = TestFiles.ids(TestFiles.keys)
+        args = 'key'
+        argvals = [ pgpload('tests/testdata/' + k)[0] for k in TestFiles.keys ]
 
-# @pytest.fixture(params=tf.keys, ids=tf.keyids)
-# def load_key(request):
-#     return request.param
-#
-#
-# @pytest.fixture(params=tf.enckeys, ids=tf.enckeyids)
-# def load_enc_key(request):
-#     return request.param
+    if 'enc_key' in metafunc.fixturenames:
+        ids = TestFiles.ids(TestFiles.protected_privkeys)
+        args = 'enc_key'
+        argvals = [ pgpload('tests/testdata/' + k)[0] for k in TestFiles.protected_privkeys ]
+
+    metafunc.parametrize(args, argvals, ids=ids, scope="module")
+
 
 class TestPGPKey:
-    def test_parse(self, load_key, pgpdump):
-        p = pgpload(load_key)
-        k = p[0]
+    def test_parse(self, key, pgpdump):
+        assert type(key) == PGPKey
+        assert '\n'.join(PGPDumpFormat(key).out) + '\n' == pgpdump(key.path)
 
-        assert len(p) == 1
-        assert type(k) == PGPKey
-        assert '\n'.join(PGPDumpFormat(k).out) + '\n' == pgpdump.decode()
+    def test_crc24(self, key):
+        assert key.crc == key.crc24()
 
-    def test_crc24(self, load_key):
-        k = pgpload(load_key)[0]
-        k.crc == k.crc24()
+    def test_keyid(self, key):
+        spkt = [pkt.unhashed_subpackets for pkt in key.packets if pkt.header.tag == Header.Tag.Signature][0]
 
-    def test_keyid(self, load_key):
-        k = pgpload(load_key)[0]
-        spkt = [pkt.unhashed_subpackets for pkt in k.packets if pkt.header.tag == Header.Tag.Signature][0]
+        assert key.keyid == spkt.issuer.payload.decode()
 
-        assert k.keyid == spkt.issuer.payload.decode()
-
-    def test_fingerprint(self, load_key):
-        k = pgpload(load_key)[0]
-        kfp = [ k.fingerprint[i:(i + 4)] for i in range(0, len(k.fingerprint), 4)]
+    def test_fingerprint(self, key, gpg_fingerprint):
+        kfp = [ key.fingerprint[i:(i + 4)] for i in range(0, len(key.fingerprint), 4)]
         kfp[4] += ' '
         kfp = ' '.join(kfp)
-        fp = subprocess.check_output(['gpg',
-                                      '--no-default-keyring',
-                                      '--keyring', 'tests/testdata/testkeys.gpg',
-                                      '--secret-keyring', 'tests/testdata/testkeys.sec.gpg',
-                                      '--fingerprint', k.keyid])
+        fp = gpg_fingerprint(key.keyid)
 
-        assert kfp == re.search(r'Key fingerprint = ([0-9A-F ]*)', fp.decode()).group(1)
+        assert kfp == re.search(r'Key fingerprint = ([0-9A-F ]*)', fp).group(1)
 
-    def test_str(self, load_key):
-        k = pgpload(load_key)[0]
+    def test_str(self, key):
+        assert str(key) == key.bytes.decode()
 
-        assert str(k) == k.bytes.decode()
+    def test_bytes(self, key):
+        assert key.__bytes__() == key.data
 
-    def test_bytes(self, load_key):
-        k = pgpload(load_key)[0]
-
-        assert k.__bytes__() == k.data
-
-    def test_decrypt_keymaterial(self, load_enc_key):
-        k = pgpload(load_enc_key)[0]
-
+    def test_decrypt_keymaterial(self, enc_key):
         try:
-            k.decrypt_keymaterial("QwertyUiop")
+            enc_key.decrypt_keymaterial("QwertyUiop")
 
-        except cryptography.exceptions.UnsupportedAlgorithm as e:
-            pytest.xfail("OpenSSL not compiled with support for this symmetric cipher in CFB mode")
+        except (PGPOpenSSLCipherNotSupported, UnsupportedAlgorithm):
+            pytest.xfail("OpenSSL was not compiled with support for this symmetric cipher in CFB mode")
             raise
 
-        except NotImplementedError:
-            if load_enc_key == 'tests/testdata/seckeys/TestRSA-EncTWOFISH-1024.sec.key':
-                pytest.xfail("OpenSSL does not support Twofish at all")
-                raise
+        # except cryptography.exceptions.UnsupportedAlgorithm:
+        #     pytest.xfail("OpenSSL not compiled with support for this symmetric cipher in CFB mode")
+        #     raise
+        #
+        # except NotImplementedError:
+        #     if enc_key == 'tests/testdata/seckeys/TestRSA-EncTWOFISH-1024.sec.key':
+        #         pytest.xfail("OpenSSL does not support Twofish at all")
+        #         raise
