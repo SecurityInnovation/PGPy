@@ -1,10 +1,17 @@
 import functools
 import os
+import re
 import subprocess
 
 import pytest
 
 # fixture utilities
+_gpg_args = ['/usr/bin/gpg',
+             '--no-default-keyring',
+             '--keyring', './testkeys.gpg',
+             '--secret-keyring', './testkeys.sec.gpg',
+             '--trustdb-name', './testkeys.trust']
+
 class CWD_As(object):
     def __init__(self, newwd):
         if not os.path.exists(newwd):
@@ -28,7 +35,7 @@ class ClassProperty(property):
         return self.fget.__get__(None, owner)()
 
 
-# test fixtures
+# parametrization helpers #
 
 
 class TestFiles(object):
@@ -38,19 +45,19 @@ class TestFiles(object):
     # 2. to group them syntactically with abstracted support functions that are used by the fixture methods
 
     # keys under testdata/pubkeys/
-    _public___keys = [ k for k in os.listdir('tests/testdata/pubkeys')
+    _public___keys = [ 'pubkeys/' + k for k in os.listdir('tests/testdata/pubkeys')
                               if k.split('.')[-1] == 'key']
-    _private__keys = [ k for k in os.listdir('tests/testdata/seckeys')
-                              if k.split('.')[-1] == '.sec.key']
-    _detached_sigs = sorted([ s for s in os.listdir('tests/testdata/signatures')
-                              if s.split('.')[0]  == 'signed_message'])
-    _inline___sigs = sorted([ s for s in os.listdir('tests/testdata/signatures')
-                              if s.split('.')[0]  == 'inline_signed_message'])
-    _deb__releases = sorted([ os.path.join(d, r)
+    _private__keys = [ 'seckeys/' + k for k in os.listdir('tests/testdata/seckeys')
+                              if k.split('.')[-1] == 'key']
+    _detached_sigs = [ s for s in os.listdir('tests/testdata/signatures')
+                              if s.split('.')[0]  == 'signed_message']
+    _inline___sigs = [ s for s in os.listdir('tests/testdata/signatures')
+                              if s.split('.')[0]  == 'inline_signed_message']
+    _deb__releases = [ os.path.join(d, r)
                                 for d in ['aa-testing', 'debian-sid', 'ubuntu-precise']
                                 for r in os.listdir('tests/testdata/' + d)
-                              if r == 'Release' ])
-    _deb_rel__sigs = sorted([ r + '.gpg' for r in _deb__releases ])
+                              if r == 'Release' ]
+    _deb_rel__sigs = [ r + '.gpg' for r in _deb__releases ]
 
     @staticmethod
     def test_id(file):
@@ -79,7 +86,7 @@ class TestFiles(object):
             return f.split('.')[1].lower()
 
         if f[:7] == 'Release':
-            return file.split('/')[-2]
+            return file.split('/')[0]
 
     @staticmethod
     def ids(params):
@@ -88,35 +95,45 @@ class TestFiles(object):
     @ClassProperty
     @classmethod
     def signatures(cls):
-        return [ 'signatures/' + s for s in cls._detached_sigs ] + cls._deb_rel__sigs
+        return sorted([ 'signatures/' + s for s in cls._detached_sigs ] + cls._deb_rel__sigs,
+                      key=lambda k: TestFiles.test_id(k))
 
     @ClassProperty
     @classmethod
     def sigsubjects(cls):
-        return [ 'signatures/' + s for s in (['signed_message',] * len(cls._detached_sigs)) ] + cls._deb__releases
+        return sorted([ s for s in (['signed_message',] * len(cls._detached_sigs)) ] + cls._deb__releases)
 
     @ClassProperty
     @classmethod
     def pubkeys(cls):
-        return [ 'pubkeys/' + pk
-                 for pk in sorted(cls._public___keys) ]
+        return sorted(cls._public___keys,
+                      key=lambda k: cls.test_id(k))
 
     @ClassProperty
     @classmethod
     def privkeys(cls):
-        return sorted(cls._private__keys)
+        return sorted(cls._private__keys,
+                      key=lambda k: cls.test_id(k))
+
+    @ClassProperty
+    @classmethod
+    def keys(cls):
+        return sorted([ k for k in cls.pubkeys + cls.privkeys],
+                      key=lambda k: cls.test_id(k) if 'sec' not in k else cls.test_id(k)[4:])
 
     @ClassProperty
     @classmethod
     def unprotected_privkeys(cls):
-        return [ 'seckeys/' + pk
-                 for pk in sorted([ pk for pk in cls._private__keys if 'Enc' not in pk ]) ]
+        return sorted([ pk for pk in cls._private__keys if 'Enc' not in pk ],
+                      key=lambda k: cls.test_id(k))
 
     @ClassProperty
     @classmethod
     def protected_privkeys(cls):
-        return [ 'seckeys/' + pk
-                 for pk in sorted([ pk for pk in cls._private__keys if 'Enc' in pk ]) ]
+        return sorted([ pk for pk in cls._private__keys if 'Enc' in pk ],
+                      key=lambda k: cls.test_id(k))
+
+
 @CWD_As('tests/testdata')
 def gpg_getfingerprint(keyname):
     gpg_args = _gpg_args + ['--with-colons', '--list-keys', '--fingerprint', keyname]
@@ -144,42 +161,52 @@ def pgpdump():
         pgpd_args = ['/usr/bin/pgpdump', '-i', '-l', '-m', '-p', '-u', '--', pgpdpath]
 
         try:
-            return subprocess.check_output(pgpd_args, stderr=subprocess.STDOUT)
+            return subprocess.check_output(pgpd_args, stderr=subprocess.STDOUT).decode()
 
         ##TODO: add another exception clause here for catching when pgpdump does not exist
         # pgpdump execution returned non-zero for some reason
         except subprocess.CalledProcessError as e:
             return "/usr/bin/pgpdump returned {ret}\n"\
                    "===============================\n"\
-                   "{out}".format(ret=e.returncode, out=e.output)
+                   "{out}".format(ret=e.returncode, out=e.output.decode())
 
     return _pgpdump
+
 
 @pytest.fixture()
 def gpg_verify():
     @CWD_As('tests/testdata')
     def _gpg_verify(gpg_subjpath, gpg_sigpath=None):
-        gpg_args = ['/usr/bin/gpg',
-                '--no-default-keyring',
-                '--keyring', './testkeys.gpg',
-                '--secret-keyring', './testkeys.sec.gpg',
-                '--trustdb-name', './testkeys.trust',
-                '-vv', '--verify']
+        gpg_args = _gpg_args + ['-vv', '--verify']
 
         if gpg_sigpath is not None:
             gpg_args += [gpg_sigpath]
-        gpg_args += gpg_subjpath
+        gpg_args += [gpg_subjpath]
 
         try:
-            return subprocess.check_output(gpg_args, stderr=subprocess.STDOUT)
+            return subprocess.check_output(gpg_args, stderr=subprocess.STDOUT).decode()
 
         except subprocess.CalledProcessError as e:
             return "/usr/bin/gpg returned {ret}\n"\
                    "===========================\n"\
-                   "{out}".format(ret=e.returncode, out=e.output)
-
+                   "{out}".format(ret=e.returncode, out=e.output.decode())
     return _gpg_verify
 
 
+@pytest.fixture()
+def gpg_fingerprint():
+    @CWD_As('tests/testdata')
+    def _gpg_fingerprint(gpg_fp):
+        gpg_args = _gpg_args + ['--fingerprint', gpg_fp]
+
+        try:
+            return subprocess.check_output(gpg_args, stderr=subprocess.STDOUT).decode()
+
+        except subprocess.CalledProcessError as e:
+            return "/usr/bin/gpg returned {ret}\n"\
+                   "===========================\n"\
+                   "{out}".format(ret=e.returncode, out=e.output.decode())
+    return _gpg_fingerprint
+
 # only allow a handful of things to be imported
-__all__ = [pgpdump, gpg_verify]
+__all__ = [TestFiles, pgpdump, gpg_verify, gpg_fingerprint]
