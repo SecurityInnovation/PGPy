@@ -1,4 +1,5 @@
 import os
+import sys
 
 from distutils.version import LooseVersion
 
@@ -13,6 +14,15 @@ if 'PGPy' in os.getcwd():
 
 else:
     raise Exception("Could not set the proper expected working directory!")
+
+# make sure path is how we want it
+if os.getcwd() not in sys.path:
+    sys.path.insert(0, os.getcwd())
+else:
+    sys.path.insert(0, sys.path.pop(sys.path.index(os.getcwd())))
+
+if os.path.join(os.getcwd(), 'tests') not in sys.path:
+    sys.path.insert(1, os.path.join(os.getcwd(), 'tests'))
 
 # now import stuff from fixtures so it can be imported by test modules
 from fixtures import TestFiles, gpg_getfingerprint, pgpdump, gpg_verify, gpg_fingerprint
