@@ -75,6 +75,7 @@ def pgpload(pgpbytes):
                 pktblock = block.packets[bpos:i]
                 bl = PGPKey(None)
                 bl.packets = pktblock
+
                 b.append(bl)
                 bpos = i
                 continue
@@ -401,6 +402,22 @@ class PGPKey(PGPBlock):
         self.keypkt.fp = value
 
     @property
+    def type(self):
+        ##TODO: this feels a bit hacky
+        if self._type is None and len(self.packets) > 0:
+            if self.secret:
+                self._type = Magic.PrivKey
+
+            else:
+                self._type = Magic.PubKey
+
+        return self._type
+
+    @type.setter
+    def type(self, value):
+        self._type = value
+
+    @property
     def fingerprint(self):
         if self.fp is None:
             # We have not yet computed the fingerprint, so we'll have to do that now.
@@ -439,6 +456,7 @@ class PGPKey(PGPBlock):
         return self.fingerprint[-16:]
 
     def __init__(self, keyb):
+        self._type = None
         super(PGPKey, self).__init__(keyb)
 
     def encrypt_keymaterial(self, passphrase):

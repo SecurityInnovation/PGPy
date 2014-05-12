@@ -62,6 +62,14 @@ class TestPGPKeyring:
         assert '\n'.join(PGPDumpFormat(keyring).out) + '\n' == ''.join([pgpdump("testkeys.gpg"),
                                                                         pgpdump("testkeys.sec.gpg")])
 
+    def test_magic(self, keyring):
+        for key in keyring.keys:
+            assert key.type
+            if key.secret:
+                assert "PRIVATE KEY BLOCK" in str(key)
+            else:
+                assert "PUBLIC KEY BLOCK" in str(key)
+
     ##TODO: test keyring contents against ascii armored key contents
     # def test_load2(self, load_key, load_akey):
     #     pass

@@ -30,7 +30,7 @@ class TestPGPSignature:
         sig = pgpsig[0]
 
         assert type(sig) is PGPSignature
-        assert sig.path is not None
+        assert sig.path
         assert sig.path == os.path.abspath('tests/testdata/' + sigpath)
         assert '\n'.join(PGPDumpFormat(sig).out) + '\n' == pgpdump(sigpath)
 
