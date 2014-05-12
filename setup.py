@@ -1,5 +1,6 @@
 #!/usr/bin/python
-from distutils.core import setup
+# from distutils.core import setup
+from setuptools import setup
 from pip.req import parse_requirements
 
 # this is dirty
@@ -17,6 +18,7 @@ test_reqs = parse_requirements('requirements-test.txt')
 
 ##TODO: fill in blank fields
 setup(
+    # basic metadata
     name             = 'PGPy',
     version          = _author.__version__,
     description      = 'Pretty Good Privacy for Python',
@@ -24,9 +26,16 @@ setup(
     author           = _author.__author__,
     author_email     = "mgreene@securityinnovation.com",
     license          = _author.__license__,
-    url              = "https://github.com/Commod0re/PGPy",
-    download_url     = "https://github.com/Commod0re/PGPy/archive/0.1.0.tar.gz",
 
+    # dependencies
+    install_requires = reqs,
+
+    # # urls
+    url              = "https://github.com/Commod0re/PGPy",
+    download_url     = "https://github.com/Commod0re/PGPy/archive/{pgpy_ver}.tar.gz".format(pgpy_ver=_author.__license__),
+    # bugtrack_url     = "https://github.com/Commod0re/PGPy/issues",
+
+    # classifiers, keywords, etc
     classifiers = [
         'Development Status :: 4 - Beta',
         'Operating System :: POSIX :: Linux',
@@ -47,8 +56,7 @@ setup(
     ],
     keywords = ["PGP", "pgp", "Pretty Good Privacy", "GPG", "gpg", "OpenPGP"],
 
-    install_requires = reqs,
-
+    # package hierarchy
     packages = [
         "pgpy",
         "pgpy.packet",
