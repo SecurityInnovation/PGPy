@@ -316,8 +316,29 @@ class PrivKey(Packet):
 class Trust(Packet):
     name = "Trust Packet"
 
+    class TrustLevel(PFIntEnum):
+        # trust levels
+        Unknown = 0
+        Expired = 1
+        Undefined = 2
+        Never = 3
+        Marginal = 4
+        Fully = 5
+        Ultimate = 6
+
+    class TrustFlags(PFIntEnum):
+        Revoked = 32
+        SubRevoked = 64
+        Disabled = 128
+        PendingCheck = 256
+
+    @property
+    def trust(self):
+        return int_to_bytes(self.trustlevel + sum(self.trustflags), 2)
+
     def __init__(self):
-        self.trust = b''
+        self.trustlevel = Trust.TrustLevel.Unknown
+        self.trustflags = []
 
     def parse(self, packet):
         # Trust packets contain data that record the user's
@@ -325,11 +346,17 @@ class Trust(Packet):
         # along with other information that implementing software uses for
         # trust information.  The format of Trust packets is defined by a given
         # implementation.
-        self.trust = packet
+        # self.trust = packet
+
+        # GPG Trust packet format - see https://github.com/Commod0re/PGPy/issues/14
+        self.trustlevel = Trust.TrustLevel(bytes_to_int(packet) % 0xF)
+        for tf in sorted(Trust.TrustFlags.__members__.values()):
+            if bytes_to_int(packet) & tf.value:
+                self.trustflags.append(tf.value)
 
     def __bytes__(self):
         _bytes = b''
         _bytes += self.header.__bytes__()
-        _bytes += self.trust
+        _bytes += int_to_bytes(self.trustlevel + sum(self.trustflags), 2)
 
         return _bytes

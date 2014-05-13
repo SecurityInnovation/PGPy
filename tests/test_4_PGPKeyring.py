@@ -58,6 +58,13 @@ def pytest_generate_tests(metafunc):
 
 
 class TestPGPKeyring(object):
+    def test_pgpdump(self, keyring, pgpdump):
+        pko = '\n'.join([ '\n'.join(PGPDumpFormat(pk).out) for pk in keyring.publickeys ]) + '\n'
+        sko = '\n'.join([ '\n'.join(PGPDumpFormat(sk).out) for sk in keyring.privatekeys ]) + '\n'
+
+        assert pko == pgpdump('testkeys.gpg')
+        assert sko == pgpdump('testkeys.sec.gpg')
+
     def test_key_selection(self, keyring, keysel):
         with keyring.key(keysel):
             assert keyring.using == gpg_getfingerprint('TestRSA-1024').replace(' ', '')[-16:]
