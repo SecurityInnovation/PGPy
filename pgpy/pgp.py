@@ -104,6 +104,7 @@ class PGPBlock(FileLoader):
 
         # data fields
         self.ascii_headers = collections.OrderedDict()
+        self.ascii_headers['Version'] = 'PGPy v' + __version__  # Default value
         self.data = b''
         self.crc = 0
         self.packets = []
@@ -278,9 +279,6 @@ class PGPSignature(PGPBlock):
             hashalg=HashAlgo.SHA256):
         # create a new signature
         newsig = PGPSignature(None)
-
-        # create new ASCII headers
-        newsig.ascii_headers['Version'] = 'PGPy v' + __version__
 
         # create a new signature packet
         newsig.packets = [Packet(ptype=Header.Tag.Signature)]
