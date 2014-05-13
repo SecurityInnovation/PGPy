@@ -357,6 +357,6 @@ class Trust(Packet):
     def __bytes__(self):
         _bytes = b''
         _bytes += self.header.__bytes__()
-        _bytes += int_to_bytes(self.trustlevel + sum(self.trustflags), 2)
+        _bytes += self.trust
 
         return _bytes
