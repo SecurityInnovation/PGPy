@@ -58,12 +58,3 @@ class TestPGPKey:
         except (PGPOpenSSLCipherNotSupported, UnsupportedAlgorithm):
             pytest.xfail("OpenSSL was not compiled with support for this symmetric cipher in CFB mode")
             raise
-
-        # except cryptography.exceptions.UnsupportedAlgorithm:
-        #     pytest.xfail("OpenSSL not compiled with support for this symmetric cipher in CFB mode")
-        #     raise
-        #
-        # except NotImplementedError:
-        #     if enc_key == 'tests/testdata/seckeys/TestRSA-EncTWOFISH-1024.sec.key':
-        #         pytest.xfail("OpenSSL does not support Twofish at all")
-        #         raise
