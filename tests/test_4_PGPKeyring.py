@@ -14,54 +14,50 @@ from conftest import openssl_ver
 from conftest import gpg_getfingerprint
 
 def pytest_generate_tests(metafunc):
-    # all of the functions in TestPGPKeyring use this one
-    krarg = 'keyring'
-    krargval = [pgpy.PGPKeyring(["tests/testdata/testkeys.gpg", "tests/testdata/testkeys.sec.gpg"]),]
+    args = {}
     ids = []
 
+    if 'keyring' in metafunc.fixturenames:
+        args['keyring'] = itertools.repeat(pgpy.PGPKeyring(["tests/testdata/testkeys.gpg",
+                                                            "tests/testdata/testkeys.sec.gpg"]))
+    # if 'key' in metafunc.fixturenames:
+    #     args['key'] = TestFiles.keys
+    #     ids = TestFiles.ids(TestFiles.keys)
+
     if 'keysel' in metafunc.fixturenames:
-        args = krarg + ', keysel'
         fp_rsa1024 = gpg_getfingerprint('TestRSA-1024')
-        a1 = krargval * 4
-        a2 = [fp_rsa1024[-8:],
-              fp_rsa1024[-16:],
-              fp_rsa1024,
-              ' '.join([ fp_rsa1024[i:i+4] if i != 16 else fp_rsa1024[i:i+4] + ' ' for i in range(0, 40, 4)])]
-        argval = list(zip(a1, a2))
+        args['keysel'] = [
+            fp_rsa1024[-8:],
+            fp_rsa1024[-16:],
+            fp_rsa1024,
+            ' '.join([ fp_rsa1024[i:i+4] if i != 16 else fp_rsa1024[i:i+4] + ' ' for i in range(0, 40, 4)])
+        ]
+
         ids = ["half-key id", "key id", "fp-no-spaces", "fingerprint"]
 
-    elif 'keyid' in metafunc.fixturenames:
-        args = krarg + ', keyid'
-        a2 = [ gpg_getfingerprint('-'.join(list(k))) for k in
-               itertools.product(['TestDSA', 'TestRSA'],
-                                 ['1024', '2048', '3072', '4096', 'EncCAST5-1024']) ]
-        a1 = krargval * len(a2)
+    if 'keyid' in metafunc.fixturenames:
+        args['keyid'] = [ gpg_getfingerprint('-'.join(list(k))) for k in
+                          itertools.product(['TestDSA', 'TestRSA'],
+                                            ['1024', '2048', '3072', '4096', 'EncCAST5-1024'])
+                        ]
 
-        argval = list(zip(a1, a2))
         ids = [ '-'.join(list(k))
                 for k in itertools.product(['dsa', 'rsa'],
                                            ['1024', '2048', '3072', '4096', 'cast5-1024']) ]
 
-    elif 'sigf' in metafunc.fixturenames:
-        args = krarg + ', sigf, sigsub'
-        a1 = krargval * len(TestFiles.signatures)
-        a2 = TestFiles.signatures
-        a3 = TestFiles.sigsubjects
-        argval = list(zip(a1, a2, a3))
+    if 'sigf' in metafunc.fixturenames:
+        args['sigf'] = TestFiles.signatures
+        args['sigsub'] = TestFiles.sigsubjects
         ids = TestFiles.ids(TestFiles.signatures)
 
-    else:
-        args = krarg
-        argval = krargval
+    metafunc.parametrize(', '.join(args.keys()),
+                         list(zip(*args.values())) if len(args.keys()) > 1 else
+                         list(*args.values()) if not all(isinstance(x, itertools.repeat) for x in args.values())
+                         else [next(list(args.values())[0])],
+                         ids=ids)
 
-    metafunc.parametrize(args, argval, ids=ids)
 
-
-class TestPGPKeyring:
-    def test_load(self, keyring, pgpdump):
-        assert '\n'.join(PGPDumpFormat(keyring).out) + '\n' == ''.join([pgpdump("testkeys.gpg"),
-                                                                        pgpdump("testkeys.sec.gpg")])
-
+class TestPGPKeyring(object):
     def test_magic(self, keyring):
         for key in keyring.keys:
             assert key.type
