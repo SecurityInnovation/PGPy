@@ -58,28 +58,6 @@ def pytest_generate_tests(metafunc):
 
 
 class TestPGPKeyring(object):
-    def test_magic(self, keyring):
-        for key in keyring.keys:
-            assert key.type
-            if key.secret:
-                assert "PRIVATE KEY BLOCK" in str(key)
-            else:
-                assert "PUBLIC KEY BLOCK" in str(key)
-
-    ##TODO: test keyring contents against ascii armored key contents
-    # def test_load2(self, load_key, load_akey):
-    #     pass
-
-    ##TODO: this doesn't work right
-    # def test_bytes(self, keyring):
-    #     fb = b''.join([open(f, 'rb').read() for f in keyring]) if type(keyring) is list else open(load_key, 'rb').read()
-    #
-    #     assert keyring.__bytes__() == fb
-
-    ##TODO: test str
-    # def test_str(self, load_key):
-    #     pass
-
     def test_key_selection(self, keyring, keysel):
         with keyring.key(keysel):
             assert keyring.using == gpg_getfingerprint('TestRSA-1024').replace(' ', '')[-16:]
