@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.asymmetric import dsa, padding, rsa
 
 from .errors import PGPError
 from .packet import PubKeyAlgo
-from .pgp import PGPSignature, pgpload
+from .pgp import pgpload, PGPKey, PGPSignature
 from .signature import SignatureVerification
 from .util import asn1_seqint_to_tuple, bytes_to_int, int_to_bytes, modinv
 
@@ -34,13 +34,13 @@ class Managed(object):
             if self.required and iself.using is None:
                 raise PGPError("Must select a loaded key!")
 
-            if self.required and iself.using not in iself.keyids:
+            if self.required and iself.using not in iself.keyfingerprints:
                 raise PGPError("Key {keyid} is not loaded!".format(keyid=iself.using))
 
-            if self.pubonly and iself.using is not None and iself.using not in iself.pubkeyids:
+            if self.pubonly and iself.using is not None and iself.selected.pubkey is None:
                 raise PGPError("Key {keyid} is not loaded!".format(keyid=iself.using))
 
-            if self.privonly and iself.using is not None and iself.using not in iself.pubkeyids:
+            if self.privonly and iself.using is not None and iself.selected.privkey is None:
                 raise PGPError("Key {keyid} is not loaded!".format(keyid=iself.using))
 
             return fn(iself, *args, **kwargs)
@@ -50,6 +50,36 @@ class Managed(object):
 
 # just an alias; nothing to see here
 managed = Managed
+
+
+class PGPKeyPair(object):
+    @property
+    def fingerprint(self):
+        if self.pubkey is not None:
+            return self.pubkey.fp
+
+        if self.privkey is not None:
+            return self.privkey.fp
+
+        raise PGPError("No key is loaded into this key pair!")  # pragma: no cover
+
+    @property
+    def keys(self):
+        return filter(None, [self.pubkey, self.privkey])
+
+    def __init__(self):
+        self.pubkey = None
+        self.privkey = None
+
+    def add(self, key):
+        if type(key) is not PGPKey:
+            raise TypeError("Expected: PGPKey")  # pragma: no cover
+
+        if key.secret:
+            self.privkey = key
+
+        else:
+            self.pubkey = key
 
 
 class PGPKeyring(object):
@@ -67,57 +97,27 @@ class PGPKeyring(object):
     @property
     def packets(self):
         if self.using is None:
-            return [ pkt for keys in list(self.pubkeys.values()) + list(self.seckeys.values()) for pkt in keys.packets ]
+            return [ pkts for kp in self.keys for key in kp.keys for pkts in key.packets ]
 
-        raise NotImplementedError()  # pragma: no cover
-
-    @property
-    def publickeys(self):
-        return list(self.pubkeys.values())
-
-    @property
-    def privatekeys(self):
-        return list(self.seckeys.values())
-
-    @property
-    def keys(self):
-        return self.publickeys + self.privatekeys
-
-    @property
-    def pubkeyids(self):
-        return list(self.pubkeys.keys())
-
-    @property
-    def privkeyids(self):
-        return list(self.seckeys.keys())
+        else:
+            return [ pkt for kp in self.keys for pkt in kp.packets if kp.keyid == self.using ]
 
     @property
     def keyids(self):
-        return list(set(self.pubkeyids + self.privkeyids))
-
-    @property
-    def pubkeyfingerprints(self):
-        return [ k.fingerprint for k in self.publickeys ]
-
-    @property
-    def privkeyfingerprints(self):
-        return [ k.fingerprint for k in self.privatekeys ]
+        return [ kfp[-16:] for kfp in self.keyfingerprints ]
 
     @property
     def keyfingerprints(self):
-        return list(set(self.pubkeyfingerprints + self.privkeyfingerprints))
+        return [ kp.fingerprint for kp in self.keys ]
 
     @property
-    def selected_pubkey(self):
-        return self.pubkeys[self.using]
-
-    @property
-    def selected_privkey(self):
-        return self.seckeys[self.using]
+    @managed(selection_required=True)
+    def selected(self):
+        ki = self.keyfingerprints.index(self.using)
+        return self.keys[ki]
 
     def __init__(self, keys=None):
-        self.pubkeys = collections.OrderedDict()
-        self.seckeys = collections.OrderedDict()
+        self.keys = []
 
         self.using = None
         self.ctx = False
@@ -126,8 +126,7 @@ class PGPKeyring(object):
             self.load(keys)
 
     def __bytes__(self):
-        if self.using is None:
-            return b''.join(k.__bytes__() for k in list(self.pubkeys.values()) + list(self.seckeys.values()))
+        return b''.join(key.__bytes__() for kp in self.keys for key in kp.keys)
 
     def load(self, keys):
         """
@@ -138,7 +137,7 @@ class PGPKeyring(object):
             str, bytes, file-like object, list
 
         """
-        ##TODO: type-check keys
+        ##TODO: raise error if unable to load keys from a given input
         # create one or more PGPKey objects in self.keys
         if type(keys) is not list:
             keys = [keys]
@@ -148,14 +147,18 @@ class PGPKeyring(object):
             kb = pgpload(key)
 
             for k in kb:
-                if k.secret:
-                    self.seckeys[k.keyid] = k
+                if k.fingerprint not in self.keyfingerprints:
+                    kp = PGPKeyPair()
+                    kp.add(k)
+                    self.keys.append(kp)
+                    del kp
 
                 else:
-                    self.pubkeys[k.keyid] = k
+                    kpi = self.keyfingerprints.index(k.fingerprint)
+                    self.keys[kpi].add(k)
 
     @contextlib.contextmanager
-    def key(self, id=None):
+    def key(self, fp=None):
         """
         Context manager method. Select a key to use in the context managed block::
 
@@ -170,29 +173,34 @@ class PGPKeyring(object):
             :py:exc:`~pgpy.errors.PGPError` is raised if the key specified is not loaded.
 
         """
-        if id is not None:
+        if fp is not None:
+            fp = fp.replace(' ', '')
+            keyfps = {}
+
             # half-key-id
-            if len(id) == 8:
-                keyids = {key.keyid[-8:]: key.keyid for key in self.keys}
+            if len(fp) == 8:
+                keyfps = {kp.fingerprint[-8:]: kp.fingerprint for kp in self.keys}
 
             # key-id
-            if len(id) == 16:
-                keyids = {key.keyid: key.keyid for key in self.keys}
+            if len(fp) == 16:
+                keyfps = {kp.fingerprint[-16:]: kp.fingerprint for kp in self.keys}
 
             # signature, with or without spaces
-            if len(id) >= 40:
-                keyids = {key.fingerprint: key.keyid for key in self.keys}
-                id = id.replace(' ', '')
+            if len(fp) >= 40:
+                keyfps = {kp.fingerprint: kp.fingerprint for kp in self.keys}
 
-            if id not in keyids.keys():
-                raise PGPError("Key {keyid} not loaded".format(keyid=id))  # pragma: no cover
+            ##TODO: select key by User ID
 
-            self.using = keyids[id]
+            if fp in keyfps.keys():
+                self.using = keyfps[fp]
+
+            else:
+                raise PGPError("Key {input} not loaded".format(input=fp))  # pragma: no cover
         self.ctx = True
         yield
 
-        # erase decrypted key material here (if any)
-        for dekey in [ key for key in self.privatekeys if key.encrypted ]:
+        # destroy all decrypted secret key material here (if any) if it was encrypted when loaded
+        for dekey in [ kp.privkey for kp in self.keys if kp.privkey is not None and kp.privkey.encrypted ]:
             dekey.undecrypt_keymaterial()
         self.using = None
         self.ctx = False
@@ -216,10 +224,10 @@ class PGPKeyring(object):
 
         """
         # we shouldn't try this if the key isn't encrypted
-        if not self.selected_privkey.encrypted:
+        if not self.selected.privkey.encrypted:
             raise PGPError("Key {keyid} is not encrypted".format(keyid=self.using))  # pragma: no cover
 
-        self.selected_privkey.decrypt_keymaterial(passphrase)
+        self.selected.privkey.decrypt_keymaterial(passphrase)
 
     @managed(selection_required=True, privonly=True)
     def sign(self, subject, inline=False):
@@ -246,12 +254,12 @@ class PGPKeyring(object):
 
         """
         # if the key material was encrypted, did we decrypt it yet?
-        if self.selected_privkey.encrypted and self.selected_privkey.keypkt.key_material.privempty:
+        if self.selected.privkey.encrypted and self.selected.privkey.keypkt.key_material.privempty:
             raise PGPError("The selected key is not unlocked!")
 
         # alright, we have a key selected at this point, let's load it into cryptography
-        if self.selected_privkey.keypkt.key_algorithm == PubKeyAlgo.RSAEncryptOrSign:
-            km = self.selected_privkey.keypkt.key_material
+        if self.selected.privkey.keypkt.key_algorithm == PubKeyAlgo.RSAEncryptOrSign:
+            km = self.selected.privkey.keypkt.key_material
             p = bytes_to_int(km.p['bytes'])
             q = bytes_to_int(km.q['bytes'])
             d = bytes_to_int(km.d['bytes'])
@@ -269,8 +277,8 @@ class PGPKeyring(object):
             ##TODO: select the hash algorithm
             signer = pk.signer(padding.PKCS1v15(), hashes.SHA256(), default_backend())
 
-        elif self.selected_privkey.keypkt.key_algorithm == PubKeyAlgo.DSA:
-            km = self.selected_privkey.keypkt.key_material
+        elif self.selected.privkey.keypkt.key_algorithm == PubKeyAlgo.DSA:
+            km = self.selected.privkey.keypkt.key_material
             p = bytes_to_int(km.p['bytes'])
             q = bytes_to_int(km.q['bytes'])
             g = bytes_to_int(km.g['bytes'])
@@ -288,10 +296,10 @@ class PGPKeyring(object):
             signer = pk.signer(hashes.SHA256(), default_backend())
 
         else:
-            raise NotImplementedError(self.selected_privkey.keypkt.key_algorithm.name)  # pragma: no cover
+            raise NotImplementedError(self.selected.privkey.keypkt.key_algorithm.name)  # pragma: no cover
 
         # create a new PGPSignature object
-        sig = PGPSignature.new(self.using, alg=self.selected_privkey.keypkt.key_algorithm)
+        sig = PGPSignature.new(self.using[-16:], alg=self.selected.privkey.keypkt.key_algorithm)
 
         # get our full hash data
         data = sig.hashdata(subject)
@@ -303,11 +311,11 @@ class PGPKeyring(object):
         signer.update(data)
         s = signer.finalize()
 
-        if self.selected_privkey.keypkt.key_algorithm == PubKeyAlgo.RSAEncryptOrSign:
+        if self.selected.privkey.keypkt.key_algorithm == PubKeyAlgo.RSAEncryptOrSign:
             sf = int_to_bytes(bytes_to_int(s).bit_length(), 2) + s
             sig.packets[0].signature.parse(sf, sig.packets[0].header.tag, sig.packets[0].key_algorithm)
 
-        elif self.selected_privkey.keypkt.key_algorithm == PubKeyAlgo.DSA:
+        elif self.selected.privkey.keypkt.key_algorithm == PubKeyAlgo.DSA:
             sf = asn1_seqint_to_tuple(s)
             sig.packets[0].signature.parse(
                 int_to_bytes(sf[0].bit_length(), 2) +
@@ -319,7 +327,7 @@ class PGPKeyring(object):
             )
 
         else:
-            raise NotImplementedError(self.selected_privkey.keypkt.key_algorithm.name)  # pragma: no cover
+            raise NotImplementedError(self.selected.privkey.keypkt.key_algorithm.name)  # pragma: no cover
 
         # set the signature header length stuff
         ##TODO: this probably shouldn't have to happen here
@@ -371,14 +379,26 @@ class PGPKeyring(object):
 
         # check to see if we have the public key half of the key that created the signature
         skeyid = sig.sigpkt.unhashed_subpackets.issuer.payload.decode()
-        if self.using is not None and skeyid != self.using:
-            raise PGPError("Key {skeyid} is not selected!".format(skeyid=skeyid))  # pragma: no cover
 
-        if skeyid not in [key.keyid for key in self.publickeys]:
-            raise PGPError("Public key {skeyid} is not loaded!".format(skeyid=skeyid))  # pragma: no cover
+        try:
+            ski = self.keyids.index(skeyid)
 
-        pubkey = self.pubkeys[skeyid]
-        sigv.key = pubkey
+            # respect the selected key, even if it's not the one that was used to generate the signature to be verified
+            if self.using is not None and self.using != self.keyfingerprints[ski]:
+                raise IndexError()
+
+            self.using = self.keyfingerprints[ski]
+            if self.selected.pubkey is None:
+                raise ValueError()
+
+        except ValueError:
+            raise PGPError("Key {key} is not loaded!".format(key=self.using if self.using is not None else skeyid))
+
+        except IndexError:
+            raise PGPError("Wrong key selected!")
+
+        # if we get to this point, it should be safe to assume that the requested key is both loaded, and
+        sigv.key = pubkey = self.selected.pubkey
 
         # first check - compare the left 16 bits of sh against the signature packet's hash2 field
         dhash = hashlib.new(sig.sigpkt.hash_algorithm.name, sigdata)

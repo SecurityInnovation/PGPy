@@ -59,15 +59,15 @@ def pytest_generate_tests(metafunc):
 
 class TestPGPKeyring(object):
     def test_pgpdump(self, keyring, pgpdump):
-        pko = '\n'.join([ '\n'.join(PGPDumpFormat(pk).out) for pk in keyring.publickeys ]) + '\n'
-        sko = '\n'.join([ '\n'.join(PGPDumpFormat(sk).out) for sk in keyring.privatekeys ]) + '\n'
+        pko = '\n'.join([ '\n'.join(PGPDumpFormat(kp.pubkey).out) for kp in keyring.keys if kp.pubkey is not None]) + '\n'
+        sko = '\n'.join([ '\n'.join(PGPDumpFormat(kp.privkey).out) for kp in keyring.keys if kp.privkey is not None]) + '\n'
 
         assert pko == pgpdump('testkeys.gpg')
         assert sko == pgpdump('testkeys.sec.gpg')
 
     def test_key_selection(self, keyring, keysel):
         with keyring.key(keysel):
-            assert keyring.using == gpg_getfingerprint('TestRSA-1024').replace(' ', '')[-16:]
+            assert keyring.using == gpg_getfingerprint('TestRSA-1024').replace(' ', '')
 
     def test_sign(self, request, keyring, keyid, gpg_verify):
         # is this likely to fail?
@@ -76,7 +76,7 @@ class TestPGPKeyring(object):
 
         with keyring.key(keyid):
             # is this an encrypted private key?
-            if keyring.selected_privkey.encrypted:
+            if keyring.selected.privkey.encrypted:
                 # first, make sure an exception is raised if we try to sign with it before decrypting
                 with pytest.raises(PGPError):
                     keyring.sign("tests/testdata/unsigned_message")
