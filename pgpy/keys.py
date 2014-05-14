@@ -1,7 +1,6 @@
 """ keys.py
 
 """
-import collections
 import contextlib
 import functools
 import hashlib
