@@ -13,7 +13,7 @@ except NameError:
 skipurls = False
 try:
     test_request = requests.get("https://www.google.com/robots.txt")
-except ConnectionError:
+except requests.exceptions.ConnectionError:
     skipurls = True
 
 
@@ -58,7 +58,8 @@ class TestFileLoader:
         else:
             assert f.path is None
 
-    @pytest.mark.parametrize("fload", ["/this/path/is/not/valid", "http://www.google.com/404"],
+    @pytest.mark.parametrize("fload", ["/this/path/is/not/valid",
+                                       pytest.mark.skipif(skipurls, "http://www.google.com/404", reason="No Internet")],
                              ids=["invalid-path", "invalid-url"])
     def test_load_fail(self, fload):
         with pytest.raises(e):
