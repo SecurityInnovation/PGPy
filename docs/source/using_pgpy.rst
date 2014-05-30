@@ -33,7 +33,7 @@ and additional keys can be loaded as you go::
 
     pubsec = pgpy.PGPKeyring(["/home/user/.gnupg/pubring.gpg", "/home/user/.gnupg/secring.gpg"])
     pubsec.load("path/to/another/key")
-    pubsec.load(["another/pubring.gpg", "anther/secring.gpg"])
+    pubsec.load(["another/pubring.gpg", "another/secring.gpg"])
 
 
 PGPKeyring also accepts URLs, file-like objects, strings, and byte strings.
