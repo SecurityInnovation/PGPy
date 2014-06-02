@@ -61,7 +61,7 @@ class MPIFields(object):
             bitlen = bytes_to_int(packet[pos:(pos + 2)])
             pos += 2
 
-            bytelen = int(math.ceil(bitlen / 8.0))
+            bytelen = (bitlen + 7) // 8
             mend = pos + bytelen
 
             getattr(self, field)['bitlen'] = bitlen
