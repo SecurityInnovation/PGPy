@@ -18,6 +18,9 @@ matrix:
     # add a py3pep8 test for python 3.x
     - python: 3.4
       env: TOXENV=py3pep8
+  allow_failures:
+    - env: TOXENV=pep8
+    - env: TOXENV=py3pep8
 # install requirements
 install:
   # add the lucid repo for if we need OpenSSL 0.9.8
