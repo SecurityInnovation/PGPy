@@ -1,7 +1,6 @@
 import itertools
 import os
 from distutils.version import LooseVersion
-from subprocess import check_output, STDOUT
 
 import pytest
 
