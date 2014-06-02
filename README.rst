@@ -76,7 +76,7 @@ Examples
 Documentation
 -------------
 
-`PGPy Documentation <http://commod0re.github.io/PGPy/>`
+`PGPy Documentation <https://pythonhosted.org/PGPy/>`_
 
 Requirements
 ------------
