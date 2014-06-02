@@ -7,11 +7,12 @@ import hashlib
 import re
 from datetime import datetime
 
+from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, modes
 
 from ._author import __version__
-from .errors import PGPError, PGPKeyDecryptionError
+from .errors import PGPError, PGPKeyDecryptionError, PGPOpenSSLCipherNotSupported
 from .fileloader import FileLoader
 from .packet import HashAlgo, Packet, PubKeyAlgo
 from .packet.fields import Header
@@ -480,7 +481,11 @@ class PGPKey(PGPBlock):
 
             # attempt to decrypt this packet!
             cipher = Cipher(pkt.stokey.alg.decalg(sessionkey), modes.CFB(pkt.stokey.iv), backend=default_backend())
-            decryptor = cipher.decryptor()
+            try:
+                decryptor = cipher.decryptor()
+
+            except UnsupportedAlgorithm as e:
+                raise PGPOpenSSLCipherNotSupported(str(e))
 
             pt = decryptor.update(pkt.enc_seckey_material) + decryptor.finalize()
 

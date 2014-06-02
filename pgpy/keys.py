@@ -196,13 +196,18 @@ class PGPKeyring(object):
             else:
                 raise PGPError("Key {input} not loaded".format(input=fp))  # pragma: no cover
         self.ctx = True
-        yield
 
-        # destroy all decrypted secret key material here (if any) if it was encrypted when loaded
-        for dekey in [ kp.privkey for kp in self.keys if kp.privkey is not None and kp.privkey.encrypted ]:
-            dekey.undecrypt_keymaterial()
-        self.using = None
-        self.ctx = False
+        # trap exceptions raised while in the context managed state momentarily so cleanup is ensured
+        # even when an exception is raised
+        try:
+            yield
+
+        finally:
+            # destroy all decrypted secret key material here (if any) if it was encrypted when loaded
+            for dekey in [ kp.privkey for kp in self.keys if kp.privkey is not None and kp.privkey.encrypted ]:
+                dekey.undecrypt_keymaterial()
+            self.using = None
+            self.ctx = False
 
     @managed(selection_required=True, privonly=True)
     def unlock(self, passphrase):

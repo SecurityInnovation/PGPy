@@ -1,8 +1,6 @@
 import pytest
 import re
 
-from cryptography.exceptions import UnsupportedAlgorithm
-
 from pgpy.errors import PGPOpenSSLCipherNotSupported
 from pgpy.pgp import pgpload, PGPKey
 from pgpy.pgpdump import PGPDumpFormat
@@ -55,6 +53,6 @@ class TestPGPKey:
         try:
             enc_key.decrypt_keymaterial("QwertyUiop")
 
-        except (PGPOpenSSLCipherNotSupported, UnsupportedAlgorithm):
+        except PGPOpenSSLCipherNotSupported:
             pytest.xfail("OpenSSL was not compiled with support for this symmetric cipher in CFB mode")
             raise
