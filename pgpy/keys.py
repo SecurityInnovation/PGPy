@@ -166,8 +166,11 @@ class PGPKeyring(object):
                 # do things with that key here
 
         :param str id:
-            Specify a Key ID to use. This can be an 8 or 16 hex digit key ID, or a full key fingerprint, with or without spaces.
-            Specifying no key (or None) is acceptable for key verification.
+            Specify a Key ID to use. This can be:
+                - 8 hex digit key ID
+                - 16 hex digit key ID
+                - 40 hex digit key fingerprint, with or without spaces
+            Specifying no key (or None) is acceptable for signature verification.
         :raises:
             :py:exc:`~pgpy.errors.PGPError` is raised if the key specified is not loaded.
 
@@ -448,7 +451,7 @@ class PGPKeyring(object):
 
             try:
                 verifier.verify()
-                sigv.verified = True
+                sigv._verified = True
 
             except InvalidSignature:
                 # signature verification failed; nothing more to do.
