@@ -377,10 +377,6 @@ class PGPSignature(PGPBlock):
 
 class PGPKey(PGPBlock):
     @property
-    def keypkt(self):
-        return self.packets[0]
-
-    @property
     def keypkts(self):
         return [ packet for packet in self.packets if hasattr(packet, "key_material") ]
 
