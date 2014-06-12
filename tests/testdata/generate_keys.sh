@@ -2,12 +2,12 @@
 
 source gpg.sh
 
-unencrypted key generation
+# unencrypted key generation
 for alg in RSA DSA; do
     [[ "$alg" == "RSA" ]] && salg="RSA"
     [[ "$alg" == "DSA" ]] && salg="ELG"
 
-    for bitlen in 1024 2048 3072 4096; do
+    for bitlen in 1024 2048 3072; do
         # sign/encrypt keys
         $GPG --batch --gen-key <<EOI
             %echo Generating Test${alg}-${bitlen} ...
@@ -43,27 +43,27 @@ EOI
             %echo done
 EOI
     done
+done
 
-    # encrypted key generation
-    for symalg in IDEA 3DES CAST5 BLOWFISH AES AES192 AES256 TWOFISH CAMELLIA128 CAMELLIA192 CAMELLIA256; do
-        $GPG --batch --s2k-cipher-algo ${symalg} --gen-key <<EOI
-            %echo Generating Test${alg}-Enc${symalg}-1024 ...
-            %transient-key
-            Key-Type: ${alg}
-            Key-Length: 1024
-            Key-Usage: sign
-            Subkey-Type: ${salg}
-            Subkey-Length: 1024
-            Subkey-Usage: encrypt
-            Name-Real: Test${alg}-Enc${symalg}-1024
-            Name-Comment: Passphrase: QwertyUiop
-            Name-Email: email@address.tld
-            Expire-Date: 0
-            Passphrase: QwertyUiop
-            %commit
-            %echo done
+# encrypted key generation
+for symalg in IDEA 3DES CAST5 BLOWFISH AES AES192 AES256 TWOFISH CAMELLIA128 CAMELLIA192 CAMELLIA256; do
+    $GPG --batch --s2k-cipher-algo ${symalg} --gen-key <<EOI
+        %echo Generating TestEnc-${symalg}-1024 ...
+        %transient-key
+        Key-Type: RSA
+        Key-Length: 1024
+        Key-Usage: sign
+        Subkey-Type: RSA
+        Subkey-Length: 1024
+        Subkey-Usage: encrypt
+        Name-Real: TestEnc-${symalg}-1024
+        Name-Comment: Passphrase: QwertyUiop
+        Name-Email: email@address.tld
+        Expire-Date: 0
+        Passphrase: QwertyUiop
+        %commit
+        %echo done
 EOI
-    done
 done
 
 # additional encryption mode key generation
@@ -110,6 +110,6 @@ for keyfp in `gpg_get_fingerprint`; do
     $GPG --armor --output pubkeys/${keyname}.key --export ${keyfp}
 
     # export private key
-    echo "Exporting ${keyfp} to seckeys/${keyname}.sec.key ... "
-    $GPG --armor --output seckeys/${keyname}.sec.key --export-secret-keys ${keyfp}
+    echo "Exporting ${keyfp} to seckeys/${keyname}.key ... "
+    $GPG --armor --output seckeys/${keyname}.key --export-secret-keys ${keyfp}
 done
