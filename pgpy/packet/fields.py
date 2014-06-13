@@ -23,6 +23,7 @@ class Header(PacketField):
         Trust = 12
         UserID = 13
         PubSubKey = 14
+        UserAttribute = 17
 
         @property
         def is_signature(self):
@@ -179,7 +180,7 @@ class Header(PacketField):
                 _bytes += int_to_bytes(((self.length & 0xFF00) + (192 << 8)) + abs((self.length & 0xFF) - 192))
 
             else:
-                _bytes += b'x\FF' + int_to_bytes(self.length, 4)
+                _bytes += b'\xFF' + int_to_bytes(self.length, 4)
 
         return _bytes
 
