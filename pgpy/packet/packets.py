@@ -34,7 +34,8 @@ class PGPPacketClass(Enum):
         UserID = Header.Tag.UserID
         # [x] 14 - Public-Subkey Packet
         PubSubKey = Header.Tag.PubSubKey
-        # [ ] 17 - User Attribute Packet
+        # [x] 17 - User Attribute Packet
+        UserAttribute = Header.Tag.UserAttribute
         # [ ] 18 - Sym. Encrypted and Integrity Protected Data Packet
         # [ ] 19 - Modification Detection Code Packet
 
@@ -54,6 +55,9 @@ class PGPPacketClass(Enum):
 
             if self == PGPPacketClass.UserID:
                 return UserID
+
+            if self == PGPPacketClass.UserAttribute:
+                return UserAttribute
 
             raise NotImplementedError(self)  # pragma: no cover
 
@@ -358,5 +362,26 @@ class Trust(Packet):
         _bytes = b''
         _bytes += self.header.__bytes__()
         _bytes += self.trust
+
+        return _bytes
+
+
+class UserAttribute(Packet):
+    name = "User Attribute Packet"
+
+    def __init__(self):
+        self.contents = ""
+
+    def parse(self, packet):
+        ##TODO: these are a separate set of subpackets from the usual subpackets
+        ##      defined as User Attribute Subpackets. There is only one currently defined in the standard
+        ##      but we should treat it the same way for later extensibility
+        ##      for now, let's just store it, though
+        self.contents = packet
+
+    def __bytes__(self):
+        _bytes = b''
+        _bytes += self.header.__bytes__()
+        _bytes += self.contents
 
         return _bytes
