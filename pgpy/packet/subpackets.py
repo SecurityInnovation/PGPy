@@ -86,16 +86,31 @@ class SubPacket(PacketField):
         super(SubPacket, self).__init__(packet)
 
     def parse(self, packet):
-        self.length = bytes_to_int(packet[:1]) + 1
+        # subpacket lengths can be 1, 2, or 5 octets long
+        if bytes_to_int(packet[:1]) + 1 < 192:
+            self.length = bytes_to_int(packet[:1]) + 1
+            pos = 1
+
+        elif 255 > bytes_to_int(packet[:1]) >= 192:
+            # self.length = bytes_to_int(packet[:2]) + 1
+            elen = bytes_to_int(packet[:2])
+            self.length = ((elen - (192 << 8)) & 0xFF00) + ((elen & 0xFF) + 192) + 2
+            pos = 2
+
+        else:
+            self.length = bytes_to_int(packet[1:5]) + 5
+            pos = 5
+
         packet = packet[:self.length]
-        self.type = SubPacket.Type(bytes_to_int(packet[1:2]))
+        self.type = SubPacket.Type(bytes_to_int(packet[pos:(pos + 1)]))
+        pos += 1
 
         try:
             self.__class__ = self.type.subclass(packet).__class__
             self.parse(packet)
 
         except NotImplementedError:
-            self.payload = packet[2:]
+            self.payload = packet[pos:]
 
     def __bytes__(self):
         _bytes = int_to_bytes(self.length - 1)
