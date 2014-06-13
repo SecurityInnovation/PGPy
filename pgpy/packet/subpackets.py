@@ -46,80 +46,37 @@ class SubPacket(PacketField):
 
         @property
         def subclass(self):
-            if self == SubPacket.Type.SigCreationTime:
-                return SigCreationTime
+            classes = {'SigCreationTime': SigCreationTime,
+                       'SigExpirationTime': SigExpirationTime,
+                       'ExportableCertification': None,
+                       'TrustSignature': None,
+                       'RegularExpression': None,
+                       'Revocable': Revocable,
+                       'KeyExpirationTime': KeyExpirationTime,
+                       'PreferredSymmetricAlgorithms': PreferredSymmetricAlgorithm,
+                       'RevocationKey': None,
+                       'Issuer': Issuer,
+                       'NotationData': None,
+                       'PreferredHashAlgorithms': PreferredHashAlgorithm,
+                       'PreferredCompressionAlgorithms': PreferredCompressionAlgorithm,
+                       'KeyServerPreferences': KeyServerPreferences,
+                       'PrimaryUserID': PrimaryUserID,
+                       'PolicyURL': None,
+                       'KeyFlags': KeyFlags,
+                       'SignerUserID': None,
+                       'RevocationReason': None,
+                       'Features': Features,
+                       'EmbeddedSignature': EmbeddedSignature}
 
-            if self == SubPacket.Type.SigExpirationTime:
-                return SigExpirationTime
+            if classes[self.name] is not None:
+                return classes[self.name]
 
-            if self == SubPacket.Type.KeyExpirationTime:
-                return KeyExpirationTime
-
-            if self == SubPacket.Type.Revocable:
-                return Revocable
-
-            if self == SubPacket.Type.KeyExpirationTime:
-                return KeyExpirationTime
-
-            if self == SubPacket.Type.PreferredSymmetricAlgorithms:
-                return PreferredSymmetricAlgorithm
-
-            if self == SubPacket.Type.Issuer:
-                return Issuer
-
-            if self == SubPacket.Type.PreferredHashAlgorithms:
-                return PreferredHashAlgorithm
-
-            if self == SubPacket.Type.PreferredCompressionAlgorithms:
-                return PreferredCompressionAlgorithm
-
-            if self == SubPacket.Type.KeyServerPreferences:
-                return KeyServerPreferences
-
-            if self == SubPacket.Type.KeyFlags:
-                return KeyFlags
-
-            if self == SubPacket.Type.Features:
-                return Features
-
-            raise NotImplementedError(self.name)
+            raise NotImplementedError(self.name)  # pragma: no cover
 
         def __str__(self):
-            if self == SubPacket.Type.SigCreationTime:
-                return "signature creation time"
+            return self.subclass.name
 
-            if self == SubPacket.Type.Issuer:
-                return "issuer key ID"
-
-            if self == SubPacket.Type.Revocable:
-                return "revocable"
-
-            if self == SubPacket.Type.KeyExpirationTime:
-                return "key expiration time"
-
-            if self == SubPacket.Type.PreferredSymmetricAlgorithms:
-                return "preferred symmetric algorithms"
-
-            if self == SubPacket.Type.PreferredHashAlgorithms:
-                return "preferred hash algorithms"
-
-            if self == SubPacket.Type.PreferredCompressionAlgorithms:
-                return "preferred compression algorithms"
-
-            if self == SubPacket.Type.PolicyURL:
-                return "policy URL"
-
-            if self == SubPacket.Type.KeyFlags:
-                return "key flags"
-
-            if self == SubPacket.Type.Features:
-                return "features"
-
-            if self == SubPacket.Type.KeyServerPreferences:
-                return "key server preferences"
-
-            ##TODO: the rest of these
-            raise NotImplementedError(self.name)  # pragma: no cover
+    name = ""
 
     def __init__(self, packet=None):
         self.length = 0
@@ -285,28 +242,15 @@ class KeyFlags(PreferenceFlags):
         PrivateShared = 0x80
 
         def __str__(self):
-            if self == KeyFlags.Flags.CertifyKeys:
-                return "This key may be used to certify other keys"
+            flags = {'CertifyKeys': "This key may be used to certify other keys",
+                     'SignData': "This key may be used to sign data",
+                     'EncryptComms': "This key may be used to encrypt communications",
+                     'EncryptStorage': "This key may be used to encrypt storage",
+                     'PrivateSplit': "The private component of this key may have been split by a secret-sharing mechanism",
+                     'Authentication': "This key may be used for authentication",
+                     'PrivateShared': "The private component of this key may be in thepossession of more than one person"}
 
-            if self == KeyFlags.Flags.SignData:
-                return "This key may be used to sign data"
-
-            if self == KeyFlags.Flags.EncryptComms:
-                return "This key may be used to encrypt communications"
-
-            if self == KeyFlags.Flags.EncryptStorage:
-                return "This key may be used to encrypt storage"
-
-            if self == KeyFlags.Flags.PrivateSplit:
-                return "The private component of this key may have been split by a secret-sharing mechanism"
-
-            if self == KeyFlags.Flags.Authentication:
-                return "This key may be used for authentication"
-
-            if self == KeyFlags.Flags.PrivateShared:
-                return "The private component of this key may be in thepossession of more than one person"
-
-            raise NotImplementedError(self.name)  # pragma: no cover
+            return flags[self.name]
 
 
 class Features(PreferenceFlags):
