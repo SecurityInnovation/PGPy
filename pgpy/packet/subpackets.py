@@ -10,19 +10,39 @@ from ..util import bytes_to_int, int_to_bytes
 
 class SubPacket(PacketField):
     class Type(PFIntEnum):
-        ##TODO: parse more of these
+        # 0x00 - Reserved
+        # 0x01 - Reserved
         SigCreationTime = 0x02
         SigExpirationTime = 0x03
+        ExportableCertification = 0x04
+        TrustSignature = 0x05
+        RegularExpression = 0x06
         Revocable = 0x07
+        # 0x08 - Reserved
         KeyExpirationTime = 0x09
+        # 0x0A - Placeholder for backwards compatibility
         PreferredSymmetricAlgorithms = 0x0B
+        RevocationKey = 0x0C
+        # 0x0D - Reserved
+        # 0x0E - Reserved
+        # 0x0F - Reserved
         Issuer = 0x10
+        # 0x11 - Reserved
+        # 0x12 - Reserved
+        # 0x13 - Reserved
+        NotationData = 0x14
         PreferredHashAlgorithms = 0x15
         PreferredCompressionAlgorithms = 0x16
         KeyServerPreferences = 0x17
+        PreferredKeyServer = 0x18
+        PrimaryUserID = 0x19
         PolicyURL = 0x1A
         KeyFlags = 0x1B
+        SignerUserID = 0x1C
+        RevocationReason = 0x1D
         Features = 0x1E
+        SignatureTarget = 0x1F
+        EmbeddedSignature = 0x20
 
         @property
         def subclass(self):
