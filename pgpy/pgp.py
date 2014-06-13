@@ -171,7 +171,7 @@ class PGPBlock(FileLoader):
             pos = 0
             while pos < len(self.data):
                 self.packets.append(Packet(self.data[pos:]))
-                pos += len(self.packets[-1].__bytes__())
+                pos += len(self.packets[-1].header.__bytes__()) + self.packets[-1].header.length
 
     def crc24(self):
         # CRC24 computation, as described in the RFC 4880 section on Radix-64 Conversions
