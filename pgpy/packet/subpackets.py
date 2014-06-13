@@ -126,6 +126,8 @@ class SubPacket(PacketField):
 
 
 class SigCreationTime(SubPacket):
+    name = "signature creation time"
+
     def parse(self, packet):
         self.payload = datetime.utcfromtimestamp(bytes_to_int(packet[2:]))
 
@@ -153,14 +155,22 @@ class KeyExpirationTime(ExpirationTime):
     pass
 
 
-class Revocable(SubPacket):
+class BooleanSubPacket(SubPacket):
     def parse(self, packet):
         self.payload = True if bytes_to_int(packet[2:3]) == 1 else False
 
     def __bytes__(self):
-        _bytes = super(Revocable, self).__bytes__()
+        _bytes = super(BooleanSubPacket, self).__bytes__()
         _bytes += int_to_bytes(1 if self.payload else 0)
         return _bytes
+
+
+class Revocable(BooleanSubPacket):
+    pass
+
+
+class PrimaryUserID(BooleanSubPacket):
+    pass
 
 
 class PreferredAlgorithm(SubPacket):
@@ -200,6 +210,8 @@ class PreferredCompressionAlgorithm(PreferredAlgorithm):
 
 
 class Issuer(SubPacket):
+    name = "issuer key ID"
+
     def parse(self, packet):
         # python 2.7
         if type(packet) is str:
@@ -240,10 +252,9 @@ class KeyServerPreferences(PreferenceFlags):
         NoModify = 0x80
 
         def __str__(self):
-            if self == KeyServerPreferences.Flags.NoModify:
-                return "No-modify"
+            flags = {'NoModify': "No-modify"}
 
-            raise NotImplementedError(self.name)
+            return flags[self.name]
 
 
 class KeyFlags(PreferenceFlags):
@@ -275,3 +286,7 @@ class Features(PreferenceFlags):
         def __str__(self):
             if self == Features.Flags.ModificationDetection:
                 return "Modification detection (packets 18 and 19)"
+
+class EmbeddedSignature(SubPacket):
+    def parse(self, packet):
+        raise NotImplementedError()
