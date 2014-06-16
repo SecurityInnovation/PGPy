@@ -178,6 +178,7 @@ class Header(PacketField):
 
             elif self.length < 8384:
                 _bytes += int_to_bytes(((self.length & 0xFF00) + (192 << 8)) + abs((self.length & 0xFF) - 192))
+                _bytes += int_to_bytes(((self.length & 0xFF00) + (192 << 8)) + ((self.length & 0xFF) - 192))
 
             else:
                 _bytes += b'\xFF' + int_to_bytes(self.length, 4)
