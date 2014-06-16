@@ -209,6 +209,14 @@ class SubPackets(PacketField):
             sp = SubPacket(packet[pos:])
             self.subpackets.append(sp)
             pos += sp.length
+            if 192 > sp.length:
+                pos += 1
+
+            elif 255 > sp.length >= 192:
+                pos += 2
+
+            else:
+                pos += 5
 
     def __bytes__(self):
         _bytes = int_to_bytes(self.length - 2, 2)
