@@ -94,7 +94,6 @@ class SubPacket(PacketField):
         elif 255 > bytes_to_int(packet[:1]) >= 192:
             # self.length = bytes_to_int(packet[:2]) + 1
             elen = bytes_to_int(packet[:2])
-            self.length = ((elen - (192 << 8)) & 0xFF00) + ((elen & 0xFF) + 192) + 2
             self.length = ((elen - (192 << 8)) & 0xFF00) + ((elen & 0xFF) + 192)
             pos = 2
 
