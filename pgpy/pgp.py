@@ -11,12 +11,18 @@ from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, modes
 
-from ._author import __version__
-from .errors import PGPError, PGPKeyDecryptionError, PGPOpenSSLCipherNotSupported
-from .fileloader import FileLoader
-from .packet import HashAlgo, Packet, PubKeyAlgo
-from .packet.fields import Header
+from .packet.packets import Packet
 from .packet.packets import Signature
+from .packet.types import HashAlgo
+from .packet.types import PubKeyAlgo
+
+from .packet.fields.fields import Header
+
+from ._author import __version__
+from .errors import PGPError
+from .errors import PGPKeyDecryptionError
+from .errors import PGPOpenSSLCipherNotSupported
+from .fileloader import FileLoader
 from .reg import ASCII_BLOCK, Magic
 from .util import bytes_to_int, int_to_bytes
 
@@ -377,24 +383,28 @@ class PGPSignature(PGPBlock):
 
 class PGPKey(PGPBlock):
     @property
+    def primarykey(self):
+        return self.packets[0]
+
+    @property
     def keypkts(self):
         return [ packet for packet in self.packets if hasattr(packet, "key_material") ]
 
     @property
     def secret(self):
-        return self.keypkt.secret
+        return self.primarykey.secret
 
     @property
     def encrypted(self):
-        return False if self.keypkt.stokey.id == 0 else True
+        return False if self.primarykey.stokey.id == 0 else True
 
     @property
     def fp(self):
-        return self.keypkt.fp
+        return self.primarykey.fp
 
     @fp.setter
     def fp(self, value):
-        self.keypkt.fp = value
+        self.primarykey.fp = value
 
     @property
     def type(self):
@@ -423,7 +433,7 @@ class PGPKey(PGPBlock):
             # Public-Key packet starting with the version field.  The Key ID is the
             # low-order 64 bits of the fingerprint.
             sha1 = hashlib.sha1()
-            kmpis = self.keypkt.key_material.pubbytes()
+            kmpis = self.primarykey.key_material.pubbytes()
             bcde_len = int_to_bytes(6 + len(kmpis), 2)
 
             # a.1) 0x99 (1 octet)
@@ -435,9 +445,9 @@ class PGPKey(PGPBlock):
             # b) version number = 4 (1 octet);
             sha1.update(b'\x04')
             # c) timestamp of key creation (4 octets);
-            sha1.update(int_to_bytes(calendar.timegm(self.keypkt.key_creation.timetuple()), 4))
+            sha1.update(int_to_bytes(calendar.timegm(self.primarykey.key_creation.timetuple()), 4))
             # d) algorithm (1 octet): 17 = DSA (example);
-            sha1.update(self.keypkt.key_algorithm.__bytes__())
+            sha1.update(self.primarykey.key_algorithm.__bytes__())
             # e) Algorithm-specific fields.
             sha1.update(kmpis)
 
