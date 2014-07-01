@@ -7,9 +7,14 @@ import hashlib
 import math
 import sys
 
-from .fields import PacketField
-from .pftypes import HashAlgo, PFIntEnum, PubKeyAlgo, SymmetricKeyAlgo
-from ..util import bytes_to_int, int_to_bytes
+# from .fields import PacketField
+from .types import PacketField
+from ..types import HashAlgo
+from ..types import PFIntEnum
+from ..types import PubKeyAlgo
+from ..types import SymmetricKeyAlgo
+from ...util import bytes_to_int
+from ...util import int_to_bytes
 
 
 class MPIFields(object):

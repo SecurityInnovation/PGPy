@@ -2,10 +2,14 @@
 """
 from enum import IntEnum
 
-from ..errors import PGPError
-from .pftypes import PacketField
-from .subpackets import SubPacket
-from ..util import bytes_to_int, int_to_bytes
+from .types import PacketField
+
+from ..subpackets.signature import SigSubPacket
+from ..subpackets.userattribute import UASubPacket
+
+from ...errors import PGPError
+from ...util import bytes_to_int
+from ...util import int_to_bytes
 
 
 class Header(PacketField):
@@ -185,7 +189,9 @@ class Header(PacketField):
         return _bytes
 
 
-class SubPackets(PacketField):
+class SignatureSubPackets(PacketField):
+    SPType = SigSubPacket
+
     # property method to get the Issuer subpacket
     # realistically, there will only ever be one of these for a given packet
     @property
@@ -197,8 +203,7 @@ class SubPackets(PacketField):
         self.length = 0
         self.hashed = False
         self.subpackets = []
-
-        super(SubPackets, self).__init__(packet)
+        super(SignatureSubPackets, self).__init__(packet)
 
     def parse(self, packet):
         self.length = bytes_to_int(packet[0:2]) + 2
@@ -206,7 +211,7 @@ class SubPackets(PacketField):
 
         pos = 2
         while pos < self.length:
-            sp = SubPacket(packet[pos:])
+            sp = SigSubPacket(packet[pos:])
             self.subpackets.append(sp)
             pos += sp.length
             if 192 > sp.length:
@@ -223,5 +228,33 @@ class SubPackets(PacketField):
 
         for subpacket in self.subpackets:
             _bytes += subpacket.__bytes__()
+
+        return _bytes
+
+
+class UserAttributeSubPackets(PacketField):
+    def __init__(self, packet=None):
+        self.subpackets = []
+        super(UserAttributeSubPackets, self).__init__(packet)
+
+    def parse(self, packet):
+        pos = 0
+        while pos < len(packet):
+            sp = UASubPacket(packet[pos:])
+            self.subpackets.append(sp)
+            pos += sp.length
+            if 192 > sp.length:
+                pos += 1
+
+            elif 255 > sp.length >= 192:
+                pos += 2
+
+            else:
+                pos += 5
+
+    def __bytes__(self):
+        _bytes = b''
+        for sp in self.subpackets:
+            _bytes += sp.__bytes__()
 
         return _bytes
