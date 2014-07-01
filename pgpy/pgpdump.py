@@ -3,7 +3,12 @@
 import calendar
 from datetime import datetime
 
-from .packet import Header, PubKeyAlgo, String2Key, SubPacket
+from .packet.types import PubKeyAlgo
+
+from .packet.fields.fields import Header
+from .packet.fields.keyfields import String2Key
+from .packet.subpackets import SigSubPacket
+from .packet.subpackets import UASubPacket
 
 
 class PGPDumpFormat(object):
@@ -54,6 +59,9 @@ class PGPDumpFormat(object):
                 o += "\tUser ID - {userid}\n".format(
                     userid=pkt.data.decode()
                 )
+
+            if pkt.header.tag == Header.Tag.UserAttribute:
+                o += self.ua_subpkts(pkt)
 
             # because python 2.7 is stupid
             if bytes is str:
@@ -134,63 +142,89 @@ class PGPDumpFormat(object):
                     hashed="Hashed " if st.hashed else "",
                     spname=str(sub.type),
                     spid=sub.type.value,
-                    splen=sub.length - 2
+                    splen=sub.length - 1
                 )
 
-                if sub.type == SubPacket.Type.SigCreationTime:
+                if sub.type == SigSubPacket.Type.SigCreationTime:
                     o += "\t\tTime - {date}\n".format(
                         date=sub.payload.strftime("%a %b %e %H:%M:%S UTC %Y")
                     )
 
-                if sub.type == SubPacket.Type.KeyExpirationTime:
+                if sub.type == SigSubPacket.Type.KeyExpirationTime:
                     rt = datetime.utcfromtimestamp(self.keycreation + sub.payload)
                     o += "\t\tTime - {date}\n".format(
                         date=rt.strftime("%a %b %e %H:%M:%S UTC %Y")
                     )
 
-                if sub.type == SubPacket.Type.Issuer:
+                if sub.type == SigSubPacket.Type.Issuer:
                     o += "\t\tKey ID - 0x{keyid}\n".format(keyid=sub.payload.decode())
 
-                if sub.type == SubPacket.Type.KeyFlags:
+                if sub.type == SigSubPacket.Type.KeyFlags:
                     for flag in sub.payload:
                         o += "\t\tFlag - {flag}\n".format(flag=str(flag))
 
-                if sub.type == SubPacket.Type.PreferredSymmetricAlgorithms:
+                if sub.type == SigSubPacket.Type.PreferredSymmetricAlgorithms:
                     for alg in sub.payload:
                         o += "\t\tSym alg - {alg}(sym {algn})\n".format(
                             alg=str(alg),
                             algn=alg.value
                         )
 
-                if sub.type == SubPacket.Type.PreferredHashAlgorithms:
+                if sub.type == SigSubPacket.Type.PreferredHashAlgorithms:
                     for alg in sub.payload:
                         o += "\t\tHash alg - {alg}(hash {algn})\n".format(
                             alg=str(alg),
                             algn=alg.value
                         )
 
-                if sub.type == SubPacket.Type.PreferredCompressionAlgorithms:
+                if sub.type == SigSubPacket.Type.PreferredCompressionAlgorithms:
                     for alg in sub.payload:
                         o += "\t\tComp alg - {alg}(comp {algn})\n".format(
                             alg=str(alg),
                             algn=alg.value
                         )
 
-                if sub.type == SubPacket.Type.KeyServerPreferences:
+                if sub.type == SigSubPacket.Type.KeyServerPreferences:
                     for pref in sub.payload:
                         o += "\t\tFlag - {flag}\n".format(flag=str(pref))
 
-                if sub.type == SubPacket.Type.Features:
+                if sub.type == SigSubPacket.Type.Features:
                     for feature in sub.payload:
                         o += "\t\tFlag - {flag}\n".format(flag=str(feature))
 
-                if sub.type == SubPacket.Type.Revocable:
+                if sub.type == SigSubPacket.Type.Revocable:
                     o += "\t\tRevocable - {rev}\n".format(
                         rev="Yes" if sub.payload else "No"
                     )
 
-                if sub.type == SubPacket.Type.PolicyURL:
+                if sub.type == SigSubPacket.Type.PolicyURL:
                     o += "\t\tURL - {url}\n".format(url=sub.payload.decode())
+
+                if sub.type == SigSubPacket.Type.PrimaryUserID:
+                    o += "\t\tPrimary - {flag}\n".format(flag="Yes" if sub.payload else "No")
+
+                if sub.type == SigSubPacket.Type.EmbeddedSignature:
+                    o += self.signature_fields(sub.payload)
+
+        return o
+
+    def ua_subpkts(self, pkt):
+        o = ""
+        for spkt in pkt.subpackets.subpackets:
+            o += "\tSub: {spname}(sub {spnum})({spsize} bytes)\n".format(
+                spname=spkt.name,
+                spnum=spkt.type.value,
+                spsize=spkt.length - 1
+            )
+
+            if spkt.type == UASubPacket.Type.Image:
+                o += "\t\tImage encoding - {enc}(enc {encn})\n" \
+                     "\t\tImage data({idl} bytes)\n".format(
+                    enc=spkt.encoding.name,
+                    encn=spkt.encoding.value,
+                    idl=len(spkt.payload)
+                )
+
         return o
 
     def string2key_fields(self, pkt):
