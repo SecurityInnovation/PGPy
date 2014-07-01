@@ -4,10 +4,17 @@ import calendar
 from datetime import datetime
 from enum import Enum
 
-from .fields import Header, SubPackets
-from .keyfields import MPIFields, String2Key
-from .pftypes import HashAlgo, PFIntEnum, PubKeyAlgo
-from ..util import bytes_to_int, int_to_bytes
+from .types import HashAlgo
+from .types import PFIntEnum
+from .types import PubKeyAlgo
+from ..util import bytes_to_int
+from ..util import int_to_bytes
+
+from .fields.fields import Header
+from .fields.fields import SignatureSubPackets
+from .fields.fields import UserAttributeSubPackets
+from .fields.keyfields import MPIFields
+from .fields.keyfields import String2Key
 
 
 class PGPPacketClass(Enum):
@@ -103,8 +110,50 @@ class Packet(object):
 
 
 class Signature(Packet):
+    """
+    The body of a version 4 Signature packet contains:
+
+     - One-octet version number (4).
+
+     - One-octet signature type.
+
+     - One-octet public-key algorithm.
+
+     - One-octet hash algorithm.
+
+     - Two-octet scalar octet count for following hashed subpacket data.
+       Note that this is the length in octets of all of the hashed
+       subpackets; a pointer incremented by this number will skip over
+       the hashed subpackets.
+
+     - Hashed subpacket data set (zero or more subpackets).
+
+     - Two-octet scalar octet count for the following unhashed subpacket
+       data.  Note that this is the length in octets of all of the
+       unhashed subpackets; a pointer incremented by this number will
+       skip over the unhashed subpackets.
+
+     - Unhashed subpacket data set (zero or more subpackets).
+
+     - Two-octet field holding the left 16 bits of the signed hash
+       value.
+
+     - One or more multiprecision integers comprising the signature.
+       This portion is algorithm specific, as described above.
+
+    The concatenation of the data being signed and the signature data
+    from the version number through the hashed subpacket data (inclusive)
+    is hashed.  The resulting hash value is what is signed.  The left 16
+    bits of the hash are included in the Signature packet to provide a
+    quick test to reject some invalid signatures.
+
+    There are two fields consisting of Signature subpackets.  The first
+    field is hashed with the rest of the signature data, while the second
+    is unhashed.  The second set of subpackets is not cryptographically
+    protected by the signature and should include only advisory
+    information.
+    """
     class Version(PFIntEnum):
-        ##TODO: parse v3 packets
         v4 = 4
 
     class Type(PFIntEnum):
@@ -125,25 +174,25 @@ class Signature(Packet):
         ThirdParty_Confirmation = 0x50
 
         def __str__(self):
-            if self == Signature.Type.BinaryDocument:
-                return "Signature of a binary document"
+            types = {'BinaryDocument': "Signature of a binary document",
+                     'CanonicalDocument': "Signature of a canonical text document",
+                     'Standalone': "Standalone signature",
+                     'Generic_UserID_Pubkey': "Generic certification of a User ID and Public Key packet",
+                     'Persona_UserID_Pubkey': "Persona certification of a User ID and Public-Key packet",
+                     'Casual_UserID_Pubkey': "Casual certification of a User ID and Public-Key packet",
+                     'Positive_UserID_Pubkey': "Positive certification of a User ID and Public Key packet",
+                     'Subkey_Binding': "Subkey Binding Signature",
+                     'PrimaryKey_Binding': "Primary Key Binding Signature",
+                     'DirectlyOnKey': "Signature directly on a key",
+                     'KeyRevocation': "Key revocation signature",
+                     'SubkeyRevocation': "Subkey revocation signature",
+                     'CertRevocation': "Certification revocation signature",
+                     'Timestamp': "Timestamp signature",
+                     'ThirdParty_Confirmation': "Third-Party Confirmation signature"}
 
-            if self == Signature.Type.CanonicalDocument:
-                return "Signature of a canonical text document"
+            if self.name in types.keys():
+                return types[self.name]
 
-            if self == Signature.Type.Generic_UserID_Pubkey:
-                return "Generic certification of a User ID and Public Key packet"
-
-            if self == Signature.Type.Positive_UserID_Pubkey:
-                return "Positive certification of a User ID and Public Key packet"
-
-            if self == Signature.Type.Subkey_Binding:
-                return "Subkey Binding Signature"
-
-            if self == Signature.Type.CertRevocation:
-                return "Certification revocation signature"
-
-            ##TODO: more of these
             raise NotImplementedError(self.name)  # pragma: no cover
 
     name = "Signature Packet"
@@ -153,9 +202,9 @@ class Signature(Packet):
         self.type = Signature.Type.BinaryDocument  # default for new Signature packets
         self.key_algorithm = PubKeyAlgo.RSAEncryptOrSign  # default for new Signature packets
         self.hash_algorithm = 0
-        self.hashed_subpackets = SubPackets()
+        self.hashed_subpackets = SignatureSubPackets()
         self.hashed_subpackets.hashed = True
-        self.unhashed_subpackets = SubPackets()
+        self.unhashed_subpackets = SignatureSubPackets()
         self.hash2 = b''
         self.signature = MPIFields()
 
@@ -190,7 +239,6 @@ class Signature(Packet):
         _bytes += self.unhashed_subpackets.__bytes__()
         _bytes += self.hash2
         _bytes += self.signature.sigbytes()
-
         return _bytes
 
 
@@ -367,21 +415,53 @@ class Trust(Packet):
 
 
 class UserAttribute(Packet):
+    """
+    5.12.  User Attribute Packet (Tag 17)
+
+    The User Attribute packet is a variation of the User ID packet.  It
+    is capable of storing more types of data than the User ID packet,
+    which is limited to text.  Like the User ID packet, a User Attribute
+    packet may be certified by the key owner ("self-signed") or any other
+    key owner who cares to certify it.  Except as noted, a User Attribute
+    packet may be used anywhere that a User ID packet may be used.
+
+    While User Attribute packets are not a required part of the OpenPGP
+    standard, implementations SHOULD provide at least enough
+    compatibility to properly handle a certification signature on the
+    User Attribute packet.  A simple way to do this is by treating the
+    User Attribute packet as a User ID packet with opaque contents, but
+    an implementation may use any method desired.
+
+    The User Attribute packet is made up of one or more attribute
+    subpackets.  Each subpacket consists of a subpacket header and a
+    body.  The header consists of:
+
+     - the subpacket length (1, 2, or 5 octets)
+
+     - the subpacket type (1 octet)
+
+    and is followed by the subpacket specific data.
+
+    The only currently defined subpacket type is 1, signifying an image.
+    An implementation SHOULD ignore any subpacket of a type that it does
+    not recognize.  Subpacket types 100 through 110 are reserved for
+    private or experimental use.
+    """
     name = "User Attribute Packet"
 
     def __init__(self):
-        self.contents = ""
+        self.subpackets = UserAttributeSubPackets()
 
     def parse(self, packet):
         ##TODO: these are a separate set of subpackets from the usual subpackets
         ##      defined as User Attribute Subpackets. There is only one currently defined in the standard
         ##      but we should treat it the same way for later extensibility
         ##      for now, let's just store it, though
-        self.contents = packet
+        # self.contents = packet
+        self.subpackets.parse(packet)
 
     def __bytes__(self):
         _bytes = b''
         _bytes += self.header.__bytes__()
-        _bytes += self.contents
-
+        _bytes += self.subpackets.__bytes__()
         return _bytes
