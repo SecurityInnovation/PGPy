@@ -7,6 +7,7 @@ from ..types import PFIntEnum
 from ...util import bytes_to_int
 from ...util import int_to_bytes
 
+
 class UASubPacket(SubPacket):
     class Type(SubPacket.Type):
         Image = 0x01
@@ -89,7 +90,7 @@ class Image(UASubPacket):
             _bytes += struct.pack('<h', 16)
             _bytes += int_to_bytes(self.version)
             _bytes += int_to_bytes(self.encoding)
-            _bytes += b'\x00'*12
+            _bytes += b'\x00' * 12
 
         _bytes += self.payload
         return _bytes

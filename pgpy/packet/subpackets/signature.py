@@ -278,6 +278,7 @@ class EmbeddedSignature(SigSubPacket):
 
     class FakeHeader(object):
         tag = None
+
         def __bytes__(self):
             return b''
 

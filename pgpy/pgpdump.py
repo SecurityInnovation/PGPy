@@ -220,10 +220,10 @@ class PGPDumpFormat(object):
             if spkt.type == UASubPacket.Type.Image:
                 o += "\t\tImage encoding - {enc}(enc {encn})\n" \
                      "\t\tImage data({idl} bytes)\n".format(
-                    enc=spkt.encoding.name,
-                    encn=spkt.encoding.value,
-                    idl=len(spkt.payload)
-                )
+                         enc=spkt.encoding.name,
+                         encn=spkt.encoding.value,
+                         idl=len(spkt.payload)
+                     )
 
         return o
 

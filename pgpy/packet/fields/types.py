@@ -1,6 +1,7 @@
 """ packetfield.py
 """
 
+
 class PacketField(object):
     def __init__(self, packet=None):
         if packet is not None:
