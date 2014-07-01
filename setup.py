@@ -58,5 +58,7 @@ setup(
     packages = [
         "pgpy",
         "pgpy.packet",
+        "pgpy.packet.fields",
+        "pgpy.packet.subpackets"
     ],
 )
