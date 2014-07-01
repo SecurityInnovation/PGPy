@@ -37,12 +37,13 @@ def pytest_generate_tests(metafunc):
     if 'keyid' in metafunc.fixturenames:
         args['keyid'] = [ gpg_getfingerprint('-'.join(list(k))) for k in
                           itertools.product(['TestDSA', 'TestRSA'],
-                                            ['1024', '2048', '3072', 'EncCAST5SHA1-1024'])
-                        ]
+                                            ['1024', '2048', '3072'])
+                         ] + [gpg_getfingerprint('TestRSA-EncCAST5SHA1-1024')]
 
         ids = [ '-'.join(list(k))
                 for k in itertools.product(['dsa', 'rsa'],
-                                           ['1024', '2048', '3072', 'cast5-1024']) ]
+                                           ['1024', '2048', '3072'])
+               ] + ['rsa-cast5-1024']
 
     if 'sigf' in metafunc.fixturenames:
         args['sigf'] = TestFiles.signatures
