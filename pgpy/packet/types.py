@@ -23,16 +23,13 @@ class PubKeyAlgo(PFIntEnum):
     DSA = 0x11
 
     def __str__(self):
-        if self == PubKeyAlgo.RSAEncryptOrSign:
-            return "RSA Encrypt or Sign"
+        algos = {'RSAEncryptOrSign': "RSA Encrypt or Sign",
+                 'ElGamal': "ElGamal Encrypt-Only",
+                 'DSA': "DSA Digital Signature Algorithm"}
 
-        if self == PubKeyAlgo.ElGamal:
-            return "ElGamal Encrypt-Only"
+        if self.name in algos.keys():
+            return algos[self.name]
 
-        if self == PubKeyAlgo.DSA:
-            return "DSA Digital Signature Algorithm"
-
-        ##TODO: do the rest of these
         raise NotImplementedError(self.name)  # pragma: no cover
 
 
@@ -140,17 +137,13 @@ class CompressionAlgo(PFIntEnum):
     BZ2 = 0x03
 
     def __str__(self):
-        if self == CompressionAlgo.Uncompressed:
-            return "Uncompressed"
+        algos = {'Uncompressed': "Uncompressed",
+                 'ZIP': "ZIP <RFC1951>",
+                 'ZLIB': "ZLIB <RFC1950>",
+                 'BZ2': "BZip2"}
 
-        if self == CompressionAlgo.ZIP:
-            return "ZIP <RFC1951>"
-
-        if self == CompressionAlgo.ZLIB:
-            return "ZLIB <RFC1950>"
-
-        if self == CompressionAlgo.BZ2:
-            return "BZip2"
+        if self.name in algos.keys():
+            return algos[self.name]
 
         raise NotImplementedError(self.name)  # pragma: no cover
 
@@ -191,18 +184,3 @@ class HashAlgo(PFIntEnum):
 
     def __str__(self):
         return self.name
-
-
-class PacketField(object):
-    def __init__(self, packet=None):
-        if packet is not None:
-            self.parse(packet)
-
-    def parse(self, packet):
-        """
-        :param packet: raw packet bytes
-        """
-        raise NotImplementedError()  # pragma: no cover
-
-    def __bytes__(self):
-        raise NotImplementedError()  # pragma: no cover
