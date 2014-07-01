@@ -1,6 +1,6 @@
 """ util.py
 
-utility functions for debutils.pgp
+utility functions for PGPY
 """
 import binascii
 import math
