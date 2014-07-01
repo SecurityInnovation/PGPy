@@ -65,16 +65,12 @@ class TestFiles(object):
         f = file.split('/')[-1]
 
         if f[:4] == "Test":
-            if f[-8:] == '.key':
-                return 'sec-{alg}-{bitlen}'.format(
-                    alg=f.split('-')[1][3:].lower() if 'Enc' in f else f.split('-')[0][4:].lower(),
-                    bitlen=f.split('-')[-1][:4]
-                )
+            if f[:9] == "TestMulti":
+                return "multi"
 
             else:
-                return '{kalg}{encalg}-{bitlen}'.format(
-                    kalg=f.split('-')[0][4:].lower(),
-                    encalg='' if 'Enc' not in f else '-' + f.split('-')[1][3:].lower(),
+                return '{alg}-{bitlen}'.format(
+                    alg=f.split('-')[1].lower() if 'Enc' in f else f.split('-')[0][4:].lower(),
                     bitlen=f.split('-')[-1][:4]
                 )
 

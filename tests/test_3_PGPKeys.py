@@ -4,7 +4,7 @@ import re
 from pgpy.errors import PGPOpenSSLCipherNotSupported
 from pgpy.pgp import pgpload, PGPKey
 from pgpy.pgpdump import PGPDumpFormat
-from pgpy.packet.fields import Header
+from pgpy.packet.fields.fields import Header
 
 from conftest import TestFiles
 
@@ -47,6 +47,7 @@ class TestPGPKey:
         assert str(key) == key.bytes.decode()
 
     def test_bytes(self, key):
+        assert len(key.__bytes__()) == len(key.data)
         assert key.__bytes__() == key.data
 
     def test_decrypt_keymaterial(self, enc_key):

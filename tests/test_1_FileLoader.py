@@ -20,7 +20,7 @@ except requests.exceptions.ConnectionError:
 @pytest.fixture(
     params=[
         None,
-        pytest.mark.skipif(skipurls, "http://www.dancewithgrenades.com/robots.txt", reason="No Internet"),
+        pytest.mark.skipif(skipurls, "http://www.robotstxt.org/robotstxt.html", reason="No Internet"),
         pytest.mark.skipif(skipurls, "https://www.google.com/robots.txt", reason="No Internet"),
         "tests/testdata/unsigned_message",
         "tests/testdata/sym_to_unsigned_message",
