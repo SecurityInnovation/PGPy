@@ -32,7 +32,18 @@ def pytest_generate_tests(metafunc):
             ' '.join([ fp_rsa1024[i:i+4] if i != 16 else fp_rsa1024[i:i+4] + ' ' for i in range(0, 40, 4)])
         ]
 
-        ids = ["half-key id", "key id", "fp-no-spaces", "fingerprint"]
+        ids = ["half-key id", "key id", "fp-con", "fp"]
+
+    if 'subkeysel' in metafunc.fixturenames:
+        ##TODO: get this from the TestMulti key on disk instead of being hardcoded
+        args['subkeysel'] = [
+            "8067DD07",
+            "1971F7B88067DD07",
+            "34712A9D7106DF340EE4E3AA1971F7B88067DD07",
+            "3471 2A9D 7106 DF34 0EE4  E3AA 1971 F7B8 8067 DD07",
+        ]
+
+        ids = ["subkey half-id", "subkey id", "subkey fp-con", "subkey fp"]
 
     if 'keyid' in metafunc.fixturenames:
         args['keyid'] = [ gpg_getfingerprint('-'.join(list(k))) for k in
@@ -67,7 +78,13 @@ class TestPGPKeyring(object):
 
     def test_key_selection(self, keyring, keysel):
         with keyring.key(keysel):
+            assert not keyring.using_subkey
             assert keyring.using == gpg_getfingerprint('TestRSA-1024').replace(' ', '')
+
+    def test_subkey_selection(self, keyring, subkeysel):
+        with keyring.key(subkeysel):
+            assert keyring.using_subkey
+            assert keyring.using == "3471 2A9D 7106 DF34 0EE4  E3AA 1971 F7B8 8067 DD07"
 
     def test_sign(self, request, keyring, keyid, gpg_verify):
         # is this likely to fail?
@@ -107,9 +124,3 @@ class TestPGPKeyring(object):
 
         with keyring.key():
             assert keyring.verify('tests/testdata/' + sigsub, 'tests/testdata/' + sigf)
-
-    ##TODO: unmark this when the test is implemented
-    @pytest.mark.xfail
-    def test_verify_inline(self, keyring):
-        with keyring.key():
-            keyring.verify("tests/testdata/inline_signed_message.asc", None)

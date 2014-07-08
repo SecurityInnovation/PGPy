@@ -31,15 +31,15 @@ class TestPGPKey:
         assert key.crc == key.crc24()
 
     def test_keyid(self, key):
-        spkt = [pkt.unhashed_subpackets for pkt in key.packets if pkt.header.tag == Header.Tag.Signature][0]
+        spkt = [ pkt.unhashed_subpackets for pkt in key.packets if pkt.header.tag == Header.Tag.Signature ][0]
 
-        assert key.keyid == spkt.issuer.payload.decode()
+        assert key.primarykey.keyid == spkt.issuer.payload.decode()
 
     def test_fingerprint(self, key, gpg_fingerprint):
-        kfp = [ key.fingerprint[i:(i + 4)] for i in range(0, len(key.fingerprint), 4)]
+        kfp = [ key.primarykey.fingerprint[i:(i + 4)] for i in range(0, len(key.primarykey.fingerprint), 4) ]
         kfp[4] += ' '
         kfp = ' '.join(kfp)
-        fp = gpg_fingerprint(key.keyid)
+        fp = gpg_fingerprint(key.primarykey.keyid)
 
         assert kfp == re.search(r'Key fingerprint = ([0-9A-F ]*)', fp).group(1)
 
