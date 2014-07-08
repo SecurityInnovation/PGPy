@@ -1,6 +1,8 @@
 """ packet.py
 """
 import calendar
+import hashlib
+
 from datetime import datetime
 from enum import Enum
 
@@ -51,11 +53,18 @@ class PGPPacketClass(Enum):
             if self == PGPPacketClass.Signature:
                 return Signature
 
-            if self in [PGPPacketClass.PubKey, PGPPacketClass.PubSubKey]:
+            # if self in [PGPPacketClass.PubKey, PGPPacketClass.PubSubKey]:
+            if self == PGPPacketClass.PubKey:
                 return PubKey
 
-            if self in [PGPPacketClass.PrivKey, PGPPacketClass.PrivSubKey]:
+            if self == PGPPacketClass.PubSubKey:
+                return PubSubKey
+
+            if self == PGPPacketClass.PrivKey:
                 return PrivKey
+
+            if self == PGPPacketClass.PrivSubKey:
+                return PrivSubKey
 
             if self == PGPPacketClass.Trust:
                 return Trust
@@ -242,29 +251,58 @@ class Signature(Packet):
         return _bytes
 
 
-class PubKey(Packet):
+
+class KeyPacket(Packet):
     class Version(PFIntEnum):
-        ##TODO: parse v3 packets
         v4 = 4
 
-    name = "Public Key Packet"
+    @property
+    def fingerprint(self):
+        if self._fp is None:
+            # We have not yet computed the fingerprint, so we'll have to do that now.
+            # Here is the RFC 4880 section on computing v4 fingerprints:
+            #
+            # A V4 fingerprint is the 160-bit SHA-1 hash of the octet 0x99,
+            # followed by the two-octet packet length, followed by the entire
+            # Public-Key packet starting with the version field.  The Key ID is the
+            # low-order 64 bits of the fingerprint.
+            sha1 = hashlib.sha1()
+            bcde_len = int_to_bytes(6 + len(self.key_material.pubbytes()), 2)
+
+            # a.1) 0x99 (1 octet)
+            sha1.update(b'\x99')
+            # a.2 high-order length octet
+            sha1.update(bcde_len[:1])
+            # a.3 low-order length octet
+            sha1.update(bcde_len[-1:])
+            # b) version number = 4 (1 octet);
+            sha1.update(b'\x04')
+            # c) timestamp of key creation (4 octets);
+            sha1.update(int_to_bytes(calendar.timegm(self.key_creation.timetuple()), 4))
+            # d) algorithm (1 octet): 17 = DSA (example);
+            sha1.update(self.key_algorithm.__bytes__())
+            # e) Algorithm-specific fields.
+            sha1.update(self.key_material.pubbytes())
+
+            # now store the digest
+            self._fp = sha1.hexdigest().upper()
+
+        return self._fp
+
+    @property
+    def keyid(self):
+        return self.fingerprint[-16:]
 
     def __init__(self):
-        # Tag 6 Public-Key signature packets and Tag 14 Public-Subkey packets share the same format
-        self.is_subkey = False
-        self.secret = False
-        self.fp = None
+        self._fp = None
 
-        self.version = PubKey.Version.v4  # default for new PubKey packets
-        self.key_creation = datetime.utcnow()  # default for new PubKey packets
-        self.key_algorithm = PubKeyAlgo.RSAEncryptOrSign  # default for new PubKey packets
+        self.version = PubKey.Version.v4  # default for new Key packets
+        self.key_creation = datetime.utcnow()
+        self.key_algorithm = PubKeyAlgo.RSAEncryptOrSign
         self.key_material = MPIFields()
 
     def parse(self, packet):
-        if self.header.tag.is_subkey:
-            self.is_subkey = True
-            self.name = 'Public Subkey Packet'
-
+        # all keys have the public component, at least
         self.version = PubKey.Version(bytes_to_int(packet[:1]))
         self.key_creation = datetime.utcfromtimestamp(bytes_to_int(packet[1:5]))
         self.key_algorithm = PubKeyAlgo(bytes_to_int(packet[5:6]))
@@ -281,53 +319,28 @@ class PubKey(Packet):
         return _bytes
 
 
-class UserID(Packet):
-    name = "User ID Packet"
+class PubKey(KeyPacket):
+    # Tag 6
+    name = 'Public Key Packet'
+
+
+class PubSubKey(PubKey):
+    # Tag 14
+    name = 'Public Subkey Packet'
+
+
+class PrivKey(KeyPacket):
+    # Tag 5
+    name = 'Secret Key Packet'
 
     def __init__(self):
-        self.data = b''
-
-    def parse(self, packet):
-        self.data = packet
-
-    def __bytes__(self):
-        _bytes = b''
-        _bytes += self.header.__bytes__()
-        _bytes += self.data
-
-        return _bytes
-
-
-class PrivKey(Packet):
-    class Version(PFIntEnum):
-        ##TODO: parse v3 packets
-        v4 = 4
-
-    name = "Secret Key Packet"
-
-    def __init__(self):
-        # Tag 5 Secret-Key packets and Tag 7 Secret-Subkey packets share the same format
-        self.is_subkey = False
-        self.secret = True
-        self.fp = None
-
-        self.version = PrivKey.Version.v4  # default for new PrivKey packets
-        self.key_creation = datetime.utcnow()  # default for new PrivKey packets
-        self.key_algorithm = PubKeyAlgo.RSAEncryptOrSign  # default for new PrivKey packets
-        self.key_material = MPIFields()
+        super(PrivKey, self).__init__()
         self.stokey = String2Key()
         self.enc_seckey_material = b''
         self.checksum = b''
 
     def parse(self, packet):
-        if self.header.tag.is_subkey:
-            self.is_subkey = True
-            self.name = 'Secret Subkey Packet'
-
-        self.version = PrivKey.Version(bytes_to_int(packet[:1]))
-        self.key_creation = datetime.utcfromtimestamp(bytes_to_int(packet[1:5]))
-        self.key_algorithm = PubKeyAlgo(bytes_to_int(packet[5:6]))
-        self.key_material.parse(packet[6:], self.header.tag, self.key_algorithm)
+        super(PrivKey, self).parse(packet)
         pos = 6 + len(self.key_material.pubbytes())
 
         self.stokey.parse(packet[pos:])
@@ -349,18 +362,33 @@ class PrivKey(Packet):
             self.checksum = packet[pos:]
 
     def __bytes__(self):
-        _bytes = b''
-        _bytes += self.header.__bytes__()
-        _bytes += self.version.__bytes__()
-        _bytes += int_to_bytes(calendar.timegm(self.key_creation.timetuple()), 4)
-        _bytes += self.key_algorithm.__bytes__()
-        _bytes += self.key_material.pubbytes()
+        _bytes = super(PrivKey, self).__bytes__()
         _bytes += self.stokey.__bytes__()
         if self.stokey.id == 0:
             _bytes += self.key_material.privbytes()
         else:
             _bytes += self.enc_seckey_material
         _bytes += self.checksum
+        return _bytes
+
+
+class PrivSubKey(PrivKey):
+    name = 'Secret Subkey Packet'
+
+
+class UserID(Packet):
+    name = "User ID Packet"
+
+    def __init__(self):
+        self.data = b''
+
+    def parse(self, packet):
+        self.data = packet
+
+    def __bytes__(self):
+        _bytes = b''
+        _bytes += self.header.__bytes__()
+        _bytes += self.data
 
         return _bytes
 
