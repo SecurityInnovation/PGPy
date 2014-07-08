@@ -27,8 +27,9 @@ function gpg_get_name () {
 }
 
 function gpg_get_fingerprint () {
+    # return primary key fingerprint(s)
     # $1 - optional - "pub", "sec", "both"; default = "both"
-    # $2 - optional - keyid, fingerprint, etc
+    # $2 - optional - keyid, fingerprint, userid, etc
     case $1 in
         "pub" )
             k=$($GPG --with-colons --list-public-keys --fingerprint $2)
@@ -57,22 +58,36 @@ function gpg_get_fingerprint () {
     )
 }
 
-# # the TestRSA key signature
-# RSA_KEY=$( $GPG --list-secret-keys | 
-#     sed -e 'N;/^[A-Za-z0-9\-\_ \.\/]*\n\-*$/d' | 
-#     awk 'BEGIN {RS = "";} $5 == "TestRSAKey" { split($2, a, "/"); print a[2]; }' )
+function gpg_get_subkey_fingerprint () {
+    # return subkey fingerprint(s)
+    # $1 - optional - "pub", "sec", "both"; default = "both"
+    # $2 - optional - keyid, fingerprint, userid, etc
 
-# # the TestDSA key signature
-# DSA_KEY=$( $GPG --list-secret-keys | 
-#     sed -e 'N;/^[A-Za-z0-9\-\_ \.\/]*\n\-*$/d' | 
-#     awk 'BEGIN {RS = "";} $5 == "TestDSAKey" { split($2, a, "/"); print a[2]; }' )
+    case $1 in
+        "pub" )
+            k=$($GPG --with-colons --list-public-keys --fingerprint $2)
+            ;;
+        "sec" )
+            k=$($GPG --with-colons --list-secret-keys --fingerprint $2)
+            ;;
+        "both"|"" )
+            k=$($GPG --with-colons --list-public-keys --fingerprint $2; $GPG --with-colons --list-secret-keys --fingerprint $2)
+    esac
 
-# # the TestDSAandElGamal key signature
-# DSA_E_KEY=$( $GPG --list-secret-keys | 
-#     sed -e 'N;/^[A-Za-z0-9\-\_ \.\/]*\n\-*$/d' | 
-#     awk 'BEGIN {RS = "";} $5 == "TestDSAandElGamalKey" { split($2, a, "/"); print a[2]; }' )
+    echo $(
+        /usr/bin/awk '
+        BEGIN {
+            FS = ":"
+            fps = ""
+        }
+        /^sub/ || /^ssb/ {
+            if (match(fps, $5) == 0 {
+                fps = fps " " $5
+            }
+        }
+        END {
+            print fps
+        }' <( echo "${k}" )
+    )
+}
 
-# # the TestRSASignOnly key signature
-# RSA_SIGN_ONLY_KEY=$( $GPG --list-secret-keys | 
-#     sed -e 'N;/^[A-Za-z0-9\-\_ \.\/]*\n\-*$/d' | 
-#     awk 'BEGIN {RS = "";} $5 == "TestRSASignOnlyKey" { split($2, a, "/"); print a[2]; }' )
