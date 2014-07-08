@@ -12,6 +12,8 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, modes
 
 from .packet.packets import Packet
+from .packet.packets import PubKey, PubSubKey
+from .packet.packets import PrivKey, PrivSubKey
 from .packet.packets import Signature
 from .packet.types import HashAlgo
 from .packet.types import PubKeyAlgo
@@ -383,28 +385,26 @@ class PGPSignature(PGPBlock):
 
 class PGPKey(PGPBlock):
     @property
-    def primarykey(self):
-        return self.packets[0]
-
-    @property
     def keypkts(self):
-        return [ packet for packet in self.packets if hasattr(packet, "key_material") ]
+        return [ packet for packet in self.packets if
+                 any([isinstance(packet, PubKey),
+                      isinstance(packet, PubSubKey),
+                      isinstance(packet, PrivKey),
+                      isinstance(packet, PrivSubKey)]) ]
 
     @property
-    def secret(self):
-        return self.primarykey.secret
+    def primarykey(self):
+        return [ packet for packet in self.packets if any([isinstance(packet, PubKey), isinstance(packet, PrivKey)]) ][0]
+
+    @property
+    def private(self):
+        if any([isinstance(self.primarykey, PrivKey), isinstance(self.primarykey, PrivSubKey)]):
+            return True
+        return False
 
     @property
     def encrypted(self):
         return False if self.primarykey.stokey.id == 0 else True
-
-    @property
-    def fp(self):
-        return self.primarykey.fp
-
-    @fp.setter
-    def fp(self, value):
-        self.primarykey.fp = value
 
     @property
     def type(self):
@@ -421,44 +421,6 @@ class PGPKey(PGPBlock):
     @type.setter
     def type(self, value):
         self._type = value
-
-    @property
-    def fingerprint(self):
-        if self.fp is None:
-            # We have not yet computed the fingerprint, so we'll have to do that now.
-            # Here is the RFC 4880 section on computing v4 fingerprints:
-            #
-            # A V4 fingerprint is the 160-bit SHA-1 hash of the octet 0x99,
-            # followed by the two-octet packet length, followed by the entire
-            # Public-Key packet starting with the version field.  The Key ID is the
-            # low-order 64 bits of the fingerprint.
-            sha1 = hashlib.sha1()
-            kmpis = self.primarykey.key_material.pubbytes()
-            bcde_len = int_to_bytes(6 + len(kmpis), 2)
-
-            # a.1) 0x99 (1 octet)
-            sha1.update(b'\x99')
-            # a.2 high-order length octet
-            sha1.update(bcde_len[:1])
-            # a.3 low-order length octet
-            sha1.update(bcde_len[-1:])
-            # b) version number = 4 (1 octet);
-            sha1.update(b'\x04')
-            # c) timestamp of key creation (4 octets);
-            sha1.update(int_to_bytes(calendar.timegm(self.primarykey.key_creation.timetuple()), 4))
-            # d) algorithm (1 octet): 17 = DSA (example);
-            sha1.update(self.primarykey.key_algorithm.__bytes__())
-            # e) Algorithm-specific fields.
-            sha1.update(kmpis)
-
-            # now store the digest
-            self.fp = sha1.hexdigest().upper()
-
-        return self.fp
-
-    @property
-    def keyid(self):
-        return self.fingerprint[-16:]
 
     def __init__(self, keyb):
         self._type = None

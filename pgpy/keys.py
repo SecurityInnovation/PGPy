@@ -61,10 +61,10 @@ class PGPKeyPair(object):
     @property
     def fingerprint(self):
         if self.pubkey is not None:
-            return self.pubkey.fp
+            return self.pubkey.primarykey.fingerprint
 
         if self.privkey is not None:
-            return self.privkey.fp
+            return self.privkey.primarykey.fingerprint
 
         raise PGPError("No key is loaded into this key pair!")  # pragma: no cover
 
@@ -80,7 +80,7 @@ class PGPKeyPair(object):
         if type(key) is not PGPKey:
             raise TypeError("Expected: PGPKey")  # pragma: no cover
 
-        if key.secret:
+        if key.private:
             self.privkey = key
 
         else:
@@ -108,23 +108,31 @@ class PGPKeyring(object):
             return [ pkt for kp in self.keys for pkt in kp.packets if kp.keyid == self.using ]
 
     @property
+    def primarykeyfingerprints(self):
+        return [ kp.fingerprint for kp in self.keys ]
+
+    @property
+    def keyfingerprints(self):
+        return [ kp.fingerprint for k in self.keys for ks in k.keys for kp in ks.keypkts ]
+
+    @property
     def keyids(self):
         return [ kfp[-16:] for kfp in self.keyfingerprints ]
 
     @property
-    def keyfingerprints(self):
-        return [ kp.fingerprint for kp in self.keys ]
-
-    @property
     @managed(selection_required=True)
     def selected(self):
-        ki = self.keyfingerprints.index(self.using)
+        ##TODO: if using subkey
+        if not self.using_subkey:
+            ki = self.primarykeyfingerprints.index(self.using)
+
         return self.keys[ki]
 
     def __init__(self, keys=None):
         self.keys = []
 
         self.using = None
+        self.using_subkey = False
         self.ctx = False
 
         if keys is not None:
@@ -152,14 +160,14 @@ class PGPKeyring(object):
             kb = pgpload(key)
 
             for k in kb:
-                if k.fingerprint not in self.keyfingerprints:
+                if k.primarykey.fingerprint not in self.keyfingerprints:
                     kp = PGPKeyPair()
                     kp.add(k)
                     self.keys.append(kp)
                     del kp
 
                 else:
-                    kpi = self.keyfingerprints.index(k.fingerprint)
+                    kpi = self.primarykeyfingerprints.index(k.primarykey.fingerprint)
                     self.keys[kpi].add(k)
 
     @contextlib.contextmanager
@@ -183,8 +191,17 @@ class PGPKeyring(object):
         """
         if fp is not None:
             fp = fp.replace(' ', '')
+            # keyfps is a dict with the following format:
+            # { selector: primarykey_fingerprint }
+            # the selector can be among the following:
+            # - [x] 8-digit half-length key-id of primary key
+            # - [x] 16-digit key-id of primary key
+            # - [x] 40-digit fingerprint, with or without spaces, of primary key
+            # - [ ] any of the above for subkeys
+            # - [ ] User ID
             keyfps = {}
 
+            ##TODO: add subkeys to these dict keys
             # half-key-id
             if len(fp) == 8:
                 keyfps = {kp.fingerprint[-8:]: kp.fingerprint for kp in self.keys}
@@ -216,6 +233,7 @@ class PGPKeyring(object):
             for dekey in [ kp.privkey for kp in self.keys if kp.privkey is not None and kp.privkey.encrypted ]:
                 dekey.undecrypt_keymaterial()
             self.using = None
+            self.using_subkey = False
             self.ctx = False
 
     @managed(selection_required=True, privonly=True)
