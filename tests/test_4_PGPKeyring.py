@@ -70,21 +70,19 @@ def pytest_generate_tests(metafunc):
 
 class TestPGPKeyring(object):
     def test_pgpdump(self, keyring, pgpdump):
-        pko = '\n'.join([ '\n'.join(PGPDumpFormat(kp.pubkey).out) for kp in keyring.keys if kp.pubkey is not None]) + '\n'
-        sko = '\n'.join([ '\n'.join(PGPDumpFormat(kp.privkey).out) for kp in keyring.keys if kp.privkey is not None]) + '\n'
+        pko = '\n'.join([ '\n'.join(PGPDumpFormat(pubkey).out) for pubkey in keyring._keys.__pubkeys__ ]) + '\n'
+        sko = '\n'.join([ '\n'.join(PGPDumpFormat(pubkey).out) for pubkey in keyring._keys.__privkeys__ ]) + '\n'
 
         assert pko == pgpdump('testkeys.gpg')
         assert sko == pgpdump('testkeys.sec.gpg')
 
     def test_key_selection(self, keyring, keysel):
         with keyring.key(keysel):
-            assert not keyring.using_subkey
-            assert keyring.using == gpg_getfingerprint('TestRSA-1024').replace(' ', '')
+            assert keyring.using == gpg_getfingerprint('TestRSA-1024')
 
     def test_subkey_selection(self, keyring, subkeysel):
         with keyring.key(subkeysel):
-            assert keyring.using_subkey
-            assert keyring.using == "3471 2A9D 7106 DF34 0EE4  E3AA 1971 F7B8 8067 DD07"
+            assert keyring.using == "5086 AA4B 3E8F 170C E427  DCE4 B524 74A7 0AAF 5717"
 
     def test_sign(self, request, keyring, keyid, gpg_verify):
         # is this likely to fail?

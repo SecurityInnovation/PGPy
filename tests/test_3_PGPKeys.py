@@ -52,7 +52,7 @@ class TestPGPKey:
 
     def test_decrypt_keymaterial(self, enc_key):
         try:
-            enc_key.decrypt_keymaterial("QwertyUiop")
+            enc_key.primarykey.decrypt_keymaterial("QwertyUiop")
 
         except PGPOpenSSLCipherNotSupported:
             pytest.xfail("OpenSSL was not compiled with support for this symmetric cipher in CFB mode")
