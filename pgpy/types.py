@@ -80,20 +80,16 @@ class KeyCollection(collections.MutableMapping):
             return str.__new__(cls, content)
 
         def __eq__(self, other):
-            valid_types = [KeyCollection._Fingerprint, KeyCollection._KeyID, KeyCollection._ShortID]
+            other = str(other).replace(' ', '')
 
-            if type(other) is str:
-                for t in valid_types:
-                    try:
-                        return hash(self) == hash(t(other))
+            if self.replace(' ', '') == other:
+                return True
 
-                    except ValueError:
-                        pass
+            if self.keyid == other:
+                return True
 
-                return False
-
-            if any(isinstance(other, t) for t in valid_types):
-                return hash(self) == hash(other)
+            if self.shortid == other:
+                return True
 
             return False
 
@@ -111,7 +107,7 @@ class KeyCollection(collections.MutableMapping):
 
         def __eq__(self, other):
             # case-insensitive matching
-            return hash(self) == hash(KeyCollection._KeyID(other))
+            return hash(self) == hash(str(other))
 
         def __hash__(self):
             return hash(str(self))
@@ -127,7 +123,7 @@ class KeyCollection(collections.MutableMapping):
 
         def __eq__(self, other):
             # case-insensitive matching
-            return hash(self) == hash(KeyCollection._ShortID(other))
+            return hash(self) == hash(str(other))
 
         def __hash__(self):
             return hash(str(self))
