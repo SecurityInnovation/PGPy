@@ -3,14 +3,10 @@
 import base64
 import calendar
 import collections
-import hashlib
 import re
 from datetime import datetime
 
-from cryptography.exceptions import UnsupportedAlgorithm
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.ciphers import Cipher, modes
-
+from .packet.packets import KeyPacket
 from .packet.packets import Packet
 from .packet.packets import PubKey, PubSubKey
 from .packet.packets import PrivKey, PrivSubKey
@@ -22,8 +18,6 @@ from .packet.fields.fields import Header
 
 from ._author import __version__
 from .errors import PGPError
-from .errors import PGPKeyDecryptionError
-from .errors import PGPOpenSSLCipherNotSupported
 from .fileloader import FileLoader
 from .reg import ASCII_BLOCK, Magic
 from .util import bytes_to_int, int_to_bytes
@@ -386,31 +380,25 @@ class PGPSignature(PGPBlock):
 class PGPKey(PGPBlock):
     @property
     def keypkts(self):
-        return [ packet for packet in self.packets if
-                 any([isinstance(packet, PubKey),
-                      isinstance(packet, PubSubKey),
-                      isinstance(packet, PrivKey),
-                      isinstance(packet, PrivSubKey)]) ]
+        return [ packet for packet in self.packets if isinstance(packet, KeyPacket) ]
 
     @property
     def primarykey(self):
-        return [ packet for packet in self.packets if any([isinstance(packet, PubKey), isinstance(packet, PrivKey)]) ][0]
+        return [ packet for packet in self.packets if type(packet) in [PubKey, PrivKey] ][0]
 
     @property
     def private(self):
-        if any([isinstance(self.primarykey, PrivKey), isinstance(self.primarykey, PrivSubKey)]):
-            return True
-        return False
+        return isinstance(self.primarykey, PrivKey)
 
-    @property
-    def encrypted(self):
-        return False if self.primarykey.stokey.id == 0 else True
+    # @property
+    # def encrypted(self):
+    #     return False if self.primarykey.stokey.id == 0 else True
 
     @property
     def type(self):
         ##TODO: this feels a bit hacky
         if self._type is None and len(self.packets) > 0:
-            if self.secret:
+            if self.private:
                 self._type = Magic.PrivKey
 
             else:
@@ -425,47 +413,3 @@ class PGPKey(PGPBlock):
     def __init__(self, keyb):
         self._type = None
         super(PGPKey, self).__init__(keyb)
-
-    def encrypt_keymaterial(self, passphrase):
-        ##TODO: encrypt secret key material that is not yet encrypted
-        ##TODO: generate String2Key specifier for newly encrypted data
-        pass
-
-    def decrypt_keymaterial(self, passphrase):
-        if not self.encrypted:
-            return  # pragma: no cover
-
-        # Encryption/decryption of the secret data is done in CFB mode using
-        # the key created from the passphrase and the Initial Vector from the
-        # packet.  A different mode is used with V3 keys (which are only RSA)
-        # than with other key formats.  (...)
-        #
-        # With V4 keys, a simpler method is used.  All secret MPI values are
-        # encrypted in CFB mode, including the MPI bitcount prefix.
-
-        for pkt in self.keypkts:
-            # derive a key from our passphrase. If the passphrase is correct, this will be the right one...
-            sessionkey = pkt.stokey.derive_key(passphrase)
-
-            # attempt to decrypt this packet!
-            cipher = Cipher(pkt.stokey.alg.decalg(sessionkey), modes.CFB(pkt.stokey.iv), backend=default_backend())
-            try:
-                decryptor = cipher.decryptor()
-
-            except UnsupportedAlgorithm as e:
-                raise PGPOpenSSLCipherNotSupported(str(e))
-
-            pt = decryptor.update(pkt.enc_seckey_material) + decryptor.finalize()
-
-            # check the hash to see if we decrypted successfully or not
-            if pkt.stokey.id == 254:
-                if not pt[-20:] == hashlib.new('sha1', pt[:-20]).digest():
-                    raise PGPKeyDecryptionError("Passphrase was incorrect!")
-
-                # parse decrypted key material into pkt.key_material
-                pkt.key_material.parse(pt[:-20], pkt.header.tag, pkt.key_algorithm, sec=True)
-                pkt.checksum = pt[-20:]
-
-    def undecrypt_keymaterial(self):
-        for pkt in [ k for k in self.keypkts if not k.key_material.privempty ]:
-            pkt.key_material.reset()

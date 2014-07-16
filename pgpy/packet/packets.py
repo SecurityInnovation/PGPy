@@ -6,17 +6,23 @@ import hashlib
 from datetime import datetime
 from enum import Enum
 
-from .types import HashAlgo
-from .types import PFIntEnum
-from .types import PubKeyAlgo
-from ..util import bytes_to_int
-from ..util import int_to_bytes
+from cryptography.exceptions import UnsupportedAlgorithm
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.ciphers import Cipher, modes
 
 from .fields.fields import Header
 from .fields.fields import SignatureSubPackets
 from .fields.fields import UserAttributeSubPackets
 from .fields.keyfields import MPIFields
 from .fields.keyfields import String2Key
+from .types import HashAlgo
+from .types import PFIntEnum
+from .types import PubKeyAlgo
+
+from ..errors import PGPKeyDecryptionError
+from ..errors import PGPOpenSSLCipherNotSupported
+from ..util import bytes_to_int
+from ..util import int_to_bytes
 
 
 class PGPPacketClass(Enum):
@@ -333,6 +339,10 @@ class PrivKey(KeyPacket):
     # Tag 5
     name = 'Secret Key Packet'
 
+    @property
+    def encrypted(self):
+        return not self.stokey.id == 0
+
     def __init__(self):
         super(PrivKey, self).__init__()
         self.stokey = String2Key()
@@ -371,6 +381,49 @@ class PrivKey(KeyPacket):
         _bytes += self.checksum
         return _bytes
 
+    def encrypt_keymaterial(self, passphrase):
+        ##TODO: encrypt secret key material that is not yet encrypted
+        ##TODO: generate String2Key specifier for newly encrypted data
+        pass
+
+    def decrypt_keymaterial(self, passphrase):
+        if not self.encrypted:
+            return  # pragma: no cover
+
+        # Encryption/decryption of the secret data is done in CFB mode using
+        # the key created from the passphrase and the Initial Vector from the
+        # packet.  A different mode is used with V3 keys (which are only RSA)
+        # than with other key formats.  (...)
+        #
+        # With V4 keys, a simpler method is used.  All secret MPI values are
+        # encrypted in CFB mode, including the MPI bitcount prefix.
+
+        # derive a key from our passphrase. If the passphrase is correct, this will be the right one...
+        sessionkey = self.stokey.derive_key(passphrase)
+
+        # attempt to decrypt this key!
+        cipher = Cipher(self.stokey.alg.decalg(sessionkey), modes.CFB(self.stokey.iv), backend=default_backend())
+        try:
+            decryptor = cipher.decryptor()
+
+        except UnsupportedAlgorithm as e:
+            raise PGPOpenSSLCipherNotSupported(str(e))
+
+        pt = decryptor.update(self.enc_seckey_material) + decryptor.finalize()
+
+        # check the hash to see if we decrypted successfully or not
+        if self.stokey.id == 254:
+            if not pt[-20:] == hashlib.new('sha1', pt[:-20]).digest():
+                raise PGPKeyDecryptionError("Passphrase was incorrect!")
+
+            # parse decrypted key material into self.key_material
+            self.key_material.parse(pt[:-20], self.header.tag, self.key_algorithm, sec=True)
+            self.checksum = pt[-20:]
+
+    def undecrypt_keymaterial(self):
+        if self.encrypted and not self.key_material.privempty:
+            self.key_material.reset()
+            self.checksum = b''
 
 class PrivSubKey(PrivKey):
     name = 'Secret Subkey Packet'
