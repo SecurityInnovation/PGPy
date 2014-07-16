@@ -257,7 +257,6 @@ class Signature(Packet):
         return _bytes
 
 
-
 class KeyPacket(Packet):
     class Version(PFIntEnum):
         v4 = 4
@@ -424,6 +423,7 @@ class PrivKey(KeyPacket):
         if self.encrypted and not self.key_material.privempty:
             self.key_material.reset()
             self.checksum = b''
+
 
 class PrivSubKey(PrivKey):
     name = 'Secret Subkey Packet'

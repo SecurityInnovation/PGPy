@@ -56,6 +56,7 @@ class Managed(object):
 # just an alias; nothing to see here
 managed = Managed
 
+
 class PGPKeyring(object):
     """
     PGPKeyring objects represent in-memory keyrings.

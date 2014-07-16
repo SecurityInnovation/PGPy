@@ -8,8 +8,8 @@ from datetime import datetime
 
 from .packet.packets import KeyPacket
 from .packet.packets import Packet
-from .packet.packets import PubKey, PubSubKey
-from .packet.packets import PrivKey, PrivSubKey
+from .packet.packets import PubKey
+from .packet.packets import PrivKey
 from .packet.packets import Signature
 from .packet.types import HashAlgo
 from .packet.types import PubKeyAlgo
