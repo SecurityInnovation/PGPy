@@ -35,7 +35,7 @@ def pytest_configure(config):
     # display the working directory and the OpenSSL version
     print("Working Directory: " + os.getcwd())
     print("Using OpenSSL " + str(openssl_ver))
-    print()
+    print("")
 
 
 # and set __all__
