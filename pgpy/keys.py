@@ -326,7 +326,11 @@ class PGPKeyring(object):
 
         """
         ##TODO: type-checking
-        sig = pgpload(signature)[0]
+        if not isinstance(signature, PGPSignature):
+            sig = pgpload(signature)[0]
+        else:
+            sig = signature
+
         sigdata = sig.hashdata(subject)
 
         sigv = SignatureVerification()
