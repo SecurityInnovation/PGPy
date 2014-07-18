@@ -25,6 +25,7 @@ from pgpy.packet.types import PubKeyAlgo
 from conftest import openssl_ver
 from fixtures import gpg_verify, gpg_getfingerprint
 
+
 class TestIssue56(object):
     def createsigdoc(self):
         # our test document
@@ -52,6 +53,7 @@ class TestIssue56(object):
     def gensig(self, request, keyring):
         self.createsigdoc()
         key = request.param
+
         # generate a signature and return it
         with keyring.key(key):
             sig = keyring.sign("testdoc_bug_56.txt")
@@ -62,16 +64,16 @@ class TestIssue56(object):
         return sig
 
     def test_1_verify_memory(self, keyring, gensig):
-        if openssl_ver < LooseVersion("1.0.0") and gensig.sigpkt.key_algorithm.name == "DSA":
-            pytest.skip("Requires OpenSSL >= 1.0.1")
-
         with keyring.key():
-            assert keyring.verify("testdoc_bug_56.txt", gensig)
+            try:
+                assert keyring.verify("testdoc_bug_56.txt", gensig)
+
+            except AssertionError:
+                import shutil
+                shutil.copyfile(gensig.path, gensig.path + "_")
+                raise
 
     def test_2_verify_disk(self, keyring, gensig):
-        if openssl_ver < LooseVersion("1.0.0") and gensig.sigpkt.key_algorithm.name == "DSA":
-            pytest.skip("Requires OpenSSL >= 1.0.1")
-
         with keyring.key():
             assert keyring.verify("testdoc_bug_56.txt", gensig.path)
 
