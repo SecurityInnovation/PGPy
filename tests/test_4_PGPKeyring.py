@@ -5,6 +5,7 @@ from distutils.version import LooseVersion
 import pytest
 
 import pgpy
+from pgpy.pgp import PGPKey
 from pgpy.pgpdump import PGPDumpFormat
 from pgpy.errors import PGPError, PGPKeyDecryptionError
 
@@ -45,6 +46,22 @@ def pytest_generate_tests(metafunc):
 
         ids = ["subkey half-id", "subkey id", "subkey fp-con", "subkey fp"]
 
+    if 'invkeysel' in metafunc.fixturenames:
+        args['invkeysel'] = [ 'DEADBEEF',
+                          'CAFEBABE',
+                          '1DEE7EFFF55B51578F0E40AB127AB47A',
+                          '0'*40,
+                          gpg_getfingerprint('TestRSA-1024')[1:] ]
+        ids = ['deadbeef', 'cafebabe', '16-byte', '40-null', 'truncated']
+
+    if 'export' in metafunc.fixturenames:
+        args['export'] = [ {'pub': True, 'priv': False},
+                           {'pub': False, 'priv': True},
+                           {'pub': True, 'priv': True},
+                           {'pub': False, 'priv': True}]
+
+        ids = ['pub', 'priv', 'both', 'none']
+
     if 'keyid' in metafunc.fixturenames:
         args['keyid'] = [ gpg_getfingerprint('-'.join(list(k))) for k in
                           itertools.product(['TestDSA', 'TestRSA'],
@@ -55,14 +72,6 @@ def pytest_generate_tests(metafunc):
                 for k in itertools.product(['dsa', 'rsa'],
                                            ['1024', '2048', '3072'])
                ] + ['rsa-cast5-1024']
-
-    if 'invkeysel' in metafunc.fixturenames:
-        args['invkeysel'] = [ 'DEADBEEF',
-                          'CAFEBABE',
-                          '1DEE7EFFF55B51578F0E40AB127AB47A',
-                          '0'*40,
-                          gpg_getfingerprint('TestRSA-1024')[1:] ]
-        ids = ['deadbeef', 'cafebabe', '16-byte', '40-null', 'truncated']
 
     if 'sigf' in metafunc.fixturenames:
         args['sigf'] = TestFiles.signatures
@@ -96,6 +105,25 @@ class TestPGPKeyring(object):
         with pytest.raises(PGPError):
             with keyring.key(invkeysel):
                 pass
+
+    def test_export(self, keyring, export):
+        with keyring.key(gpg_getfingerprint('TestRSA-1024')):
+            k = keyring.export_key(**export)
+
+
+        if not export['pub']:
+            assert k.pubkey is None
+
+        if not export['priv']:
+            assert k.privkey is None
+
+        if export['pub']:
+            assert k.pubkey is not None
+            assert isinstance(k.pubkey, PGPKey)
+
+        if export['priv']:
+            assert k.privkey is not None
+            assert isinstance(k.privkey, PGPKey)
 
     def test_sign(self, request, keyring, keyid, gpg_verify):
         # is this likely to fail?
