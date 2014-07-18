@@ -68,3 +68,11 @@ PGPy objects
 
         :type: str, None
         The local path of this signature, if set. Defaults to ``None`` for new signatures.
+
+
+:py:class:`~pgpy.pgp.PGPKey`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: PGPKey()
+    :noindex:
+    :members:
