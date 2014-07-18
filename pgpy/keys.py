@@ -268,7 +268,8 @@ class PGPKeyring(object):
         s = signer.finalize()
 
         if self.selected.privkey.key_algorithm == PubKeyAlgo.RSAEncryptOrSign:
-            sf = int_to_bytes(bytes_to_int(s).bit_length(), 2) + s
+            siglen = int_to_bytes(bytes_to_int(s).bit_length(), 2)
+            sf = siglen + s[-1 * ((bytes_to_int(siglen) + 7) // 8):]
             sig.packets[0].signature.parse(sf, sig.packets[0].header.tag, sig.packets[0].key_algorithm)
 
         elif self.selected.privkey.key_algorithm == PubKeyAlgo.DSA:
@@ -325,7 +326,7 @@ class PGPKeyring(object):
             :py:obj:`~pgpy.signature.SignatureVerification`
 
         """
-        ##TODO: type-checking
+        ##TODO: more type-checking
         if not isinstance(signature, PGPSignature):
             sig = pgpload(signature)[0]
         else:
@@ -369,6 +370,13 @@ class PGPKeyring(object):
                 # signature
                 s = sig.sigpkt.signature.md_mod_n['bytes']
 
+                # when a signature is generated, it is the same number of bits long as the key that generated it
+                # However, PGP discards null octets at the start of the signature field, counting bits starting from
+                # the most significant non-zero bit.
+                # So, we may need to zero-pad the signature to the right length for Cryptography/OpenSSL
+                while ((pubkey.key_material.n['bitlen'] + 7) // 8) > len(s):
+                    s = b'\x00' + s
+
                 # public key object and verifier
                 pk = rsa.RSAPublicKey(e, n)
                 verifier = pk.verifier(s, padding.PKCS1v15(), sig.sigpkt.hash_algorithm.hasher, default_backend())
@@ -399,10 +407,12 @@ class PGPKeyring(object):
 
             try:
                 verifier.verify()
-                sigv._verified = True
 
             except InvalidSignature:
                 # signature verification failed; nothing more to do.
                 pass
+
+            else:
+                sigv._verified = True
 
         return sigv
