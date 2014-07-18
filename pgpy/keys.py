@@ -70,6 +70,14 @@ class PGPKeyring(object):
     """
 
     @property
+    def __pubkeys__(self):
+        return self._keys.__pubkeys__
+
+    @property
+    def __privkeys__(self):
+        return self._keys.__privkeys__
+
+    @property
     @managed(selection_required=True)
     def selected(self):
         return self._keys[self.using] if self.using else None
@@ -97,7 +105,6 @@ class PGPKeyring(object):
             Can also accept a list of any of the above types, or combination therein.
         :type keys:
             str, bytes, file-like object, list
-
         """
         ##TODO: raise error if unable to load keys from a given input
         # create one or more PGPKey objects in self.keys
@@ -114,7 +121,7 @@ class PGPKeyring(object):
     @contextlib.contextmanager
     def key(self, fp=None):
         """
-        Context manager method. Select a key to use in the context managed block:
+        Context manager method. Select a key to use in the context managed block::
 
             k = pgpy.PGPKeyring([os.environ['HOME'] + '/.gnupg/pubring.gpg', os.environ['HOME'] + '/.gnupg/secring.gpg'])
             with k.key('DEADBEEF'):
@@ -154,6 +161,30 @@ class PGPKeyring(object):
 
             self.using = None
             self.ctx = False
+
+    @managed(selection_required=True)
+    def export_key(self, pub=True, priv=False):
+        """
+        Export the selected PGP Key(s) of the type(s) requested.
+        If a subkey is selected, the entire key block that it belongs to is exported.
+
+        Example::
+
+            k = pgpy.PGPKeyring([os.environ['HOME'] + '/.gnupg/pubring.gpg', os.environ['HOME'] + '/.gnupg/secring.gpg'])
+            with k.key("0FF1CECAFED00D"):
+                with open("office_cafe_dude.asc", 'w') as keyfile:
+                    keyfile.write(str(k.export_key().pubkey))
+
+        :param bool pub=True: Export public key
+        :param bool priv=False: Export private key
+        :return:
+            A namedtuple with two attributes: pubkey and privkey.
+            The attribute(s), if requested and loaded, will be of type :py:obj:`~pgpy.pgp.PGPKey`
+            If one of the two types is not requested, or the requested type is not loaded, that attribute will be None.
+        """
+
+        return KeyCollection.KeyPair(pubkey=self._keys.get_pgpkey(self.using).pubkey if pub else None,
+                                     privkey=self._keys.get_pgpkey(self.using).privkey if priv else None)
 
     @managed(selection_required=True, priv_required=True)
     def unlock(self, passphrase):
@@ -368,7 +399,7 @@ class PGPKeyring(object):
                 # signature
                 s = sig.sigpkt.signature.md_mod_n['bytes']
 
-                # when a signature is generated, it is the same number of bits long as the key that generated it
+                # when a signature is generated, it is thesame number of bits long as the key that generated it
                 # However, PGP discards null octets at the start of the signature field, counting bits starting from
                 # the most significant non-zero bit.
                 # So, we may need to zero-pad the signature to the right length for Cryptography/OpenSSL
