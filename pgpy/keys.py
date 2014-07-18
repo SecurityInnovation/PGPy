@@ -266,8 +266,8 @@ class PGPKeyring(object):
         s = signer.finalize()
 
         if self.selected.privkey.key_algorithm == PubKeyAlgo.RSAEncryptOrSign:
-            siglen = int_to_bytes(bytes_to_int(s).bit_length(), 2)
-            sf = siglen + s[-1 * ((bytes_to_int(siglen) + 7) // 8):]
+            siglen = bytes_to_int(s).bit_length()
+            sf = int_to_bytes(siglen, 2) + s[-1 * ((siglen + 7) // 8):]  # truncate leading nul bytes with math
             sig.packets[0].signature.parse(sf, sig.packets[0].header.tag, sig.packets[0].key_algorithm)
 
         elif self.selected.privkey.key_algorithm == PubKeyAlgo.DSA:
