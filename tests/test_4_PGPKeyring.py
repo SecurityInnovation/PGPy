@@ -30,10 +30,11 @@ def pytest_generate_tests(metafunc):
             fp_rsa1024[-8:],
             fp_rsa1024[-16:],
             fp_rsa1024,
-            ' '.join([ fp_rsa1024[i:i+4] if i != 16 else fp_rsa1024[i:i+4] + ' ' for i in range(0, 40, 4)])
+            ' '.join([ fp_rsa1024[i:i+4] if i != 16 else fp_rsa1024[i:i+4] + ' ' for i in range(0, 40, 4)]),
+            'TestRSA-1024'
         ]
 
-        ids = ["half-key id", "key id", "fp-con", "fp"]
+        ids = ["half-key id", "key id", "fp-con", "fp", "username"]
 
     if 'subkeysel' in metafunc.fixturenames:
         ##TODO: get this from the TestMulti key on disk instead of being hardcoded
