@@ -56,6 +56,14 @@ def pytest_generate_tests(metafunc):
                                            ['1024', '2048', '3072'])
                ] + ['rsa-cast5-1024']
 
+    if 'invkeysel' in metafunc.fixturenames:
+        args['invkeysel'] = [ 'DEADBEEF',
+                          'CAFEBABE',
+                          '1DEE7EFFF55B51578F0E40AB127AB47A',
+                          '0'*40,
+                          gpg_getfingerprint('TestRSA-1024')[1:] ]
+        ids = ['deadbeef', 'cafebabe', '16-byte', '40-null', 'truncated']
+
     if 'sigf' in metafunc.fixturenames:
         args['sigf'] = TestFiles.signatures
         args['sigsub'] = TestFiles.sigsubjects
@@ -83,6 +91,11 @@ class TestPGPKeyring(object):
     def test_subkey_selection(self, keyring, subkeysel):
         with keyring.key(subkeysel):
             assert keyring.using == "5086 AA4B 3E8F 170C E427  DCE4 B524 74A7 0AAF 5717"
+
+    def test_invalid_selection(self, keyring, invkeysel):
+        with pytest.raises(PGPError):
+            with keyring.key(invkeysel):
+                pass
 
     def test_sign(self, request, keyring, keyid, gpg_verify):
         # is this likely to fail?
