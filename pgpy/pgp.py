@@ -390,10 +390,6 @@ class PGPKey(PGPBlock):
     def private(self):
         return isinstance(self.primarykey, PrivKey)
 
-    # @property
-    # def encrypted(self):
-    #     return False if self.primarykey.stokey.id == 0 else True
-
     @property
     def type(self):
         ##TODO: this feels a bit hacky

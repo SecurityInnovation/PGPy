@@ -75,8 +75,6 @@ class PGPKeyring(object):
         return self._keys[self.using] if self.using else None
 
     def __init__(self, keys=None):
-        # self._keys = {}  # fingerprint: KeyPair
-        # self._mapaliases = {}  # alias: fingerprint
         self._keys = KeyCollection()
 
         self.using = None
@@ -120,7 +118,7 @@ class PGPKeyring(object):
 
             k = pgpy.PGPKeyring([os.environ['HOME'] + '/.gnupg/pubring.gpg', os.environ['HOME'] + '/.gnupg/secring.gpg'])
             with k.key('DEADBEEF'):
-                # do things with that key here
+            # do things with that key here
 
         :param str id:
             Specify a Key ID to use. This can be:
@@ -130,10 +128,10 @@ class PGPKeyring(object):
                 - User ID Name
                 - User ID Email
                 - User ID Comment
+
             Specifying no key (or None) is acceptable for signature verification.
         :raises:
             :py:exc:`~pgpy.errors.PGPError` is raised if the key specified is not loaded.
-
         """
         if fp is not None:
             if fp in self._keys:

@@ -16,6 +16,10 @@ Exceptions can be referenced by importing ``pgpy.errors``.
     :noindex:
     :members:
 
+.. autoexception:: PGPOpenSSLCipherNotSupported
+    :noindex:
+    :members:
+
 Objects
 -------
 
@@ -30,10 +34,10 @@ PGPy objects
     :noindex:
     :members:
 
-:py:class:`~pgpy.signature.SignatureVerification`
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+:py:class:`~pgpy.types.SignatureVerification`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. py:module:: pgpy.signature
+.. py:module:: pgpy.types
 
 .. autoclass:: SignatureVerification
     :noindex:
@@ -64,18 +68,3 @@ PGPy objects
 
         :type: str, None
         The local path of this signature, if set. Defaults to ``None`` for new signatures.
-
-
-:py:class:`~pgpy.pgp.PGPKey`
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. autoclass:: PGPKey()
-    :noindex:
-    :members:
-
-    .. py:attribute:: PGPKey.keyid
-        :noindex:
-
-        :type: str
-        This is the 16 hex digit id of this key
-

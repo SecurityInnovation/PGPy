@@ -59,7 +59,7 @@ provides that context management::
         sig.write()
 
         # You can verify the signature using the public key half of the same key:
-        if pubsec.verify("path/to/document", str(sig)):
+        if pubsec.verify("path/to/document", sig):
             print("Signature in memory verified!")
 
         # or use the signature you just wrote to disk
@@ -78,4 +78,4 @@ provides that context management::
         sigv = pubsec.verify("http://us.archive.ubuntu.com/ubuntu/dists/precise/Release",
                              "http://us.archive.ubuntu.com/ubuntu/dists/precise/Release.gpg")
         if sigv:
-            print("Signature was verified using {key}".format(key=sigv.key.keyid))
+            print("Signature was successfully verified using {key}".format(key=sigv.key.fingerprint))

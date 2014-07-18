@@ -24,7 +24,7 @@ class SignatureVerification(object):
         """
         self.key = None
         """
-        The :py:class:`~pgpy.pgp.PGPKey` (if available) that was used to verify the signature
+        The key (if available) that was used to verify the signature
         """
         self.subject = None
         """

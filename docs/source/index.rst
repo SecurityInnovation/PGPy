@@ -14,6 +14,7 @@ Contents:
    using_pgpy
    api
    progress
+   changelog
 
 .. include:: using_pgpy.rst
 
