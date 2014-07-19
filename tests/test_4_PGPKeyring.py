@@ -18,8 +18,8 @@ def pytest_generate_tests(metafunc):
     ids = []
 
     if 'keyring' in metafunc.fixturenames:
-        args['keyring'] = itertools.repeat(pgpy.PGPKeyring(["tests/testdata/testkeys.gpg",
-                                                            "tests/testdata/testkeys.sec.gpg"]))
+        args['keyring'] = itertools.repeat(pgpy.PGPKeyring("tests/testdata/testkeys.gpg",
+                                                           "tests/testdata/testkeys.sec.gpg"))
     # if 'key' in metafunc.fixturenames:
     #     args['key'] = TestFiles.keys
     #     ids = TestFiles.ids(TestFiles.keys)

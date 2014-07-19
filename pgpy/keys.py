@@ -14,6 +14,7 @@ from .packet.types import PubKeyAlgo
 
 from .errors import PGPError
 from .pgp import pgpload
+from .pgp import PGPKey
 from .pgp import PGPSignature
 from .types import KeyCollection
 from .types import SignatureVerification
@@ -24,7 +25,7 @@ from .util import modinv
 
 
 class Managed(object):
-    def __init__(self, selection_required=False, pub_required=False, priv_required=False, ):
+    def __init__(self, selection_required=False, pub_required=False, priv_required=False):
         self.required = selection_required
         self.pub_required = pub_required
         self.priv_required = priv_required
@@ -86,14 +87,13 @@ class PGPKeyring(object):
     def selected(self):
         return self._keys[self.using] if self.using else None
 
-    def __init__(self, keys=None):
+    def __init__(self, *args, keys=None):
         self._keys = KeyCollection()
 
         self.using = None
         self.ctx = False
 
-        if keys is not None:
-            self.load(keys)
+        self.load(list(args) + [keys])
 
     def __bytes__(self):
         # return all the public key bytes, followed by the private key bytes
@@ -102,7 +102,7 @@ class PGPKeyring(object):
         _b += b''.join(key.__bytes__() for key in self._keys.__privkeys__)
         return _b
 
-    def load(self, keys):
+    def load(self, *args, keys=None):
         """
         :param keys:
             Accepts a path, URL, file-like object, or byte-string containing ASCII or binary encoded PGP/GPG keys.
@@ -110,17 +110,26 @@ class PGPKeyring(object):
         :type keys:
             str, bytes, file-like object, list
         """
-        ##TODO: raise error if unable to load keys from a given input
-        # create one or more PGPKey objects in self.keys
-        if type(keys) is not list:
-            keys = [keys]
+        # recurse inputs as this is expected to be sometimes non-uniform
+        def _load_keys(input):
+            if type(input) is list:
+                for item in input:
+                    _load_keys(item)
 
-        for key in keys:
-            # load the key (or keys) using PGPLoad
-            kb = pgpload(key)
+            elif input is None:
+                return
 
-            for k in kb:
-                self._keys.add(k)
+            else:
+                # try to load
+                kb = pgpload(input)
+
+                for k in kb:
+                    if not isinstance(k, PGPKey):
+                        raise PGPError("Expected: PGPKey")
+
+                    self._keys.add(k)
+
+        _load_keys(list(args) + [keys])
 
     @contextlib.contextmanager
     def key(self, fp=None):
@@ -362,6 +371,7 @@ class PGPKeyring(object):
         ##TODO: more type-checking
         if not isinstance(signature, PGPSignature):
             sig = pgpload(signature)[0]
+
         else:
             sig = signature
 
