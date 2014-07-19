@@ -72,7 +72,7 @@ class FileLoader(object):
 
             # this may be a file path, then
             # does the path already exist?
-            elif os.path.exists(lfile):
+            elif os.path.exists(lfile) and os.path.isfile(lfile):
                 self.path = os.path.realpath(lfile)
 
                 with open(lfile, 'rb') as lf:
