@@ -62,11 +62,9 @@ class PGPKeyring(object):
     """
     PGPKeyring objects represent in-memory keyrings.
 
-    :param keys:
-        Accepts None, a path, URL, file-like object, or byte-string containing ASCII or binary encoded PGP/GPG keys.
-        Can also accept a list of any of the above types, or combination therein.
-    :type keys:
-        str, bytes, file-like object, list, None
+    .. seealso::
+
+        :py:meth:`~pgpy.PGPKeyring.load` for parameters
 
     """
 
@@ -104,11 +102,68 @@ class PGPKeyring(object):
 
     def load(self, *args, keys=None):
         """
-        :param keys:
-            Accepts a path, URL, file-like object, or byte-string containing ASCII or binary encoded PGP/GPG keys.
-            Can also accept a list of any of the above types, or combination therein.
+        :param \*args: Zero or more of the following:
+
+                * ``None``
+                * a valid path
+                * a valid URL
+                * a file-like object
+                * a byte-string containing ASCII or binary encoded PGP/GPG keys.
+                * a list comprised of any combination of the above
+
+        :type \*args:
+            ``str``, ``bytes``, file-like-object, ``list``, ``None``
+
+        :param keys=None:
+            .. deprecated:: 0.2.0
+               The keyword argument "keys" has been deprecated in favor of ``*args``, which provides identical
+               functionality
+
         :type keys:
-            str, bytes, file-like object, list
+            ``str``, ``bytes``, file-like object, ``list``, ``None``
+
+        .. note::
+
+                The type for each argument is determined using the following methodology:
+
+                    1. ``None`` is ignored
+
+                    2. If the object has a ``read()`` method:
+
+                        - it is considered to be file-like
+                        - the ``read()`` method is invoked
+                        - the output of that is converted to ``bytes`` and that is then parsed
+
+                    3. If the object is of type ``str``:
+
+                        - It is considered to be a local file path if it:
+
+                            - appears to be a relative or absolute path
+                            - does not contain any non-printable or newline (\\n) characters
+                            - the path exists and is a file
+
+                        - It is loaded directly if it contains a valid ASCII PGP KEY BLOCK
+
+                    4. If the object is of type ``bytes``:
+
+                        - It is loaded directly if it contains:
+
+                            - a valid ASCII PGP KEY BLOCK
+                            - a valid binary PGP Key blob
+
+        :raises:
+            If one or more of the inputs is an invalid path:
+
+             - :py:exc:`FileNotFoundError` if Python >= 3.3
+
+             - :py:exc:`IOError` if Python <= 3.2
+
+        :raises:
+            :py:exc:`TypeError` if the input type cannot be determined by the file loader
+
+        :raises:
+            :py:exc:`~pgpy.exc.PGPError` if one or more keys being loaded was not a PGP key.
+
         """
         # recurse inputs as this is expected to be sometimes non-uniform
         def _load_keys(input):
@@ -138,7 +193,11 @@ class PGPKeyring(object):
 
             k = pgpy.PGPKeyring([os.environ['HOME'] + '/.gnupg/pubring.gpg', os.environ['HOME'] + '/.gnupg/secring.gpg'])
             with k.key('DEADBEEF'):
-            # do things with that key here
+                # do things with that key here
+                ...
+
+        .. versionadded:: 0.2.0
+           subkeys can now be selected by fingerprint or ID
 
         :param str id:
             Specify a Key ID to use. This can be:
@@ -149,9 +208,11 @@ class PGPKeyring(object):
                 - User ID Email
                 - User ID Comment
 
-            Specifying no key (or None) is acceptable for signature verification.
+            Specifying no key (or ``None``) is acceptable for signature verification.
+
         :raises:
             :py:exc:`~pgpy.errors.PGPError` is raised if the key specified is not loaded.
+
         """
         if fp is not None:
             if fp in self._keys:
@@ -178,6 +239,8 @@ class PGPKeyring(object):
     @managed(selection_required=True)
     def export_key(self, pub=True, priv=False):
         """
+        .. versionadded:: 0.2.0
+
         Export the selected PGP Key(s) of the type(s) requested.
         If a subkey is selected, the entire key block that it belongs to is exported.
 
@@ -193,7 +256,8 @@ class PGPKeyring(object):
         :return:
             A namedtuple with two attributes: pubkey and privkey.
             The attribute(s), if requested and loaded, will be of type :py:obj:`~pgpy.pgp.PGPKey`
-            If one of the two types is not requested, or the requested type is not loaded, that attribute will be None.
+            If one of the two types is not requested, or the requested type is not loaded, that attribute will be ``None``.
+
         """
 
         return KeyCollection.KeyPair(pubkey=self._keys.get_pgpkey(self.using).pubkey if pub else None,
@@ -209,12 +273,21 @@ class PGPKeyring(object):
                 k.unlock('Dead Beef')
                 # now that the private key is unlocked, use it for things
 
+        .. versionadded: 0.2.0
+           Subkeys can now be unlocked
+
         :param str passphrase:
             The passphrase used to decrypt the encrypted private key material.
+
         :raises:
             :py:exc:`~pgpy.errors.PGPError` if the key specified is not encrypted
+
         :raises:
             :py:exc:`~pgpy.errors.PGPKeyDecryptionError` if the passphrase was incorrect
+
+        :raises:
+            :py:exc:`~pgpy.errors.PGPOpenSSLCipherNotSupported` if the OpenSSL currently installed does not support
+            the symmetric key cipher required to decrypt the selected secret key material.
 
         """
         # we shouldn't try this if the key isn't encrypted
@@ -238,13 +311,46 @@ class PGPKeyring(object):
         :param subject:
             Accepts a path, URL, file-like object, or byte-string containing the thing you would like to sign
         :type subject:
-            str, bytes, file-like object
+            ``str``, ``bytes``, file-like object
+
+        .. note::
+
+            The ``subject`` parameter functions identically to arguments supplied to :py:meth:`~pgpy.PGPKeyring.load`
+            except for how it deals with `bytes` or a `str` with the following considerations:
+
+                - If the ``str`` does not appear to be a path, it is used as-is
+                - ``bytes`` input is used directly
+
+        .. note::
+
+            This is generally most useful if the subject is a path to a file on disk, or an object representing
+            a file on disk. A signature cannot be verified later if the document it signed no longer exists or is not
+            accessible to the application verifying that signature.
+
+        .. note::
+
+            As of PGPy v0.2.0, only detached signatures of binary documents can be generated
+
+        .. note::
+
+            As of PGPy v0.2.0, the default hashing function used by the signer is SHA256, and this cannot yet be changed.
+            The ability to select the hashing function to be used is planned for a future release.
+
+        .. warning::
+
+            As of PGPy v0.2.0, :py:obj:`~pgpy.PGPKeyring` does not yet respect key usage flags.
+            This is currently planned for the next release.
+
+        .. seealso::
+
+            :py:meth:`pgpy.PGPKeyring.load`
+
         :return:
             newly created signature of the specified document.
         :rtype:
             :py:obj:`~pgpy.pgp.PGPSignature`
         :raises:
-            :py:exc:`NotImplementedError` if the selected key is not an RSA key
+            :py:exc:`NotImplementedError` if the selected key is not an RSA or DSA key
 
         """
         # if the key material was encrypted, did we decrypt it yet?
@@ -254,6 +360,8 @@ class PGPKeyring(object):
         ##TODO: if the selected key is a primary key and does not have the signing flag set,
         ##      but one or more of its subkeys does, reselect the first eligible subkey
         ##TODO: if the selected key or subkey does not have the signing flag set, raise an error
+
+        ##TODO: type-check subject
 
         # alright, we have a key selected at this point, let's load it into cryptography
         if self.selected.privkey.key_algorithm == PubKeyAlgo.RSAEncryptOrSign:
@@ -352,20 +460,23 @@ class PGPKeyring(object):
             with k.key():
                 sv = k.verify('path/to/an/unsigned/document', 'path/to/signature')
                 if sv:
-                    print('Signature verified with {key}'.format(key=sv.key.keyid)
+                    print('Signature verified with {key}'.format(sv.key.fingerprint))
 
         :param subject:
-            Accepts a path, URL, file-like object, or byte-string containing the thing you would like to verify
+            See :py:meth:`~pgpy.PGPKeyring.sign`
+
         :type subject:
-            str, bytes, file-like object
+            ``str``, ``bytes``, file-like object
+
         :param signature:
-            Accepts a path, URL, file-like object, or byte-string containing the signature of the thing you would like to verify
+            Accepts a path, URL, file-like object, byte-string, or :py:obj:`~pgpy.pgp.PGPSignature`
+            containing the signature of the document you would like to verify.
+
         :type signature:
-            str, bytes, file-like object
-        :return:
-            indicating whether or not the signature verified.
-        :rtype:
-            :py:obj:`~pgpy.signature.SignatureVerification`
+            ``str``, ``bytes``, file-like object, :py:obj:`~pgpy.pgp.PGPSignature`
+
+        :return: :py:obj:`~pgpy.types.SignatureVerification` object indicating whether or not the signature verified.
+
 
         """
         ##TODO: more type-checking

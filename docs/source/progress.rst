@@ -39,7 +39,7 @@ PGPy currently provides the following RFC 4880 compliance and functionality:
 +---+                     +---------+---------+------------+--------------+--------------+
 | x |                     | 13      | User ID Packet                                     |
 +---+                     +---------+---------+------------+--------------+--------------+
-|   |                     | 17      | User Attribute Packet                              |
+| x |                     | 17      | User Attribute Packet                              |
 +---+                     +---------+---------+------------+--------------+--------------+
 |   |                     | 18      | Sym. Enc. & Integrity Protected Data Packet        |
 +---+                     +---------+---------+------------+--------------+--------------+
