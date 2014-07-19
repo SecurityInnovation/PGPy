@@ -78,6 +78,10 @@ class PGPKeyring(object):
         return self._keys.__privkeys__
 
     @property
+    def __fingerprints__(self):
+        return self._keys.__fingerprints__
+
+    @property
     @managed(selection_required=True)
     def selected(self):
         return self._keys[self.using] if self.using else None
