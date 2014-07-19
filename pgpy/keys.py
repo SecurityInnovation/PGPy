@@ -85,13 +85,13 @@ class PGPKeyring(object):
     def selected(self):
         return self._keys[self.using] if self.using else None
 
-    def __init__(self, *args, keys=None):
+    def __init__(self, *args):
         self._keys = KeyCollection()
 
         self.using = None
         self.ctx = False
 
-        self.load(list(args) + [keys])
+        self.load(*args)
 
     def __bytes__(self):
         # return all the public key bytes, followed by the private key bytes
@@ -100,7 +100,7 @@ class PGPKeyring(object):
         _b += b''.join(key.__bytes__() for key in self._keys.__privkeys__)
         return _b
 
-    def load(self, *args, keys=None):
+    def load(self, *args):
         """
         :param \*args: Zero or more of the following:
 
@@ -113,14 +113,6 @@ class PGPKeyring(object):
 
         :type \*args:
             ``str``, ``bytes``, file-like-object, ``list``, ``None``
-
-        :param keys=None:
-            .. deprecated:: 0.2.0
-               The keyword argument "keys" has been deprecated in favor of ``*args``, which provides identical
-               functionality
-
-        :type keys:
-            ``str``, ``bytes``, file-like object, ``list``, ``None``
 
         .. note::
 
@@ -184,7 +176,7 @@ class PGPKeyring(object):
 
                     self._keys.add(k)
 
-        _load_keys(list(args) + [keys])
+        _load_keys(list(args))
 
     @contextlib.contextmanager
     def key(self, fp=None):
