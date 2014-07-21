@@ -48,7 +48,7 @@ provides that context management::
     with pubsec.key("DEADBEEF"):
         # You can sign things by specifying a private key.
         # If the key is protected, you may need to unlock it first, otherwise, :py:meth:`PGPKeyring.sign` will raise an exception
-        if pubsec.selected_privkey.encrypted:
+        if pubsec.selected.privkey.encrypted:
             pubsec.unlock("C0rrectPassphr@se")
 
         # now sign your document. This can be a path, URL, file-like object, string, or bytes.
