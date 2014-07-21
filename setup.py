@@ -51,7 +51,7 @@ setup(
 
     # urls
     url              = "https://github.com/Commod0re/PGPy",
-    download_url     = "https://github.com/Commod0re/PGPy/archive/{pgpy_ver}.tar.gz".format(pgpy_ver=_author.__license__),
+    download_url     = "https://github.com/Commod0re/PGPy/archive/{pgpy_ver}.tar.gz".format(pgpy_ver=_author.__version__),
     # bugtrack_url     = "https://github.com/Commod0re/PGPy/issues",
 
     # package hierarchy
