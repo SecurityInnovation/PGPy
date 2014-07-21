@@ -1,26 +1,29 @@
 """ pgp.py
 """
-import re
-import collections
 import base64
-import hashlib
 import calendar
-
+import collections
+import re
 from datetime import datetime
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.backends import default_backend
 
-from .fileloader import FileLoader
-from .reg import *
-from .util import bytes_to_int, int_to_bytes
-from .packet import PGPPacket, SymmetricKeyAlgo, PubKeyAlgo, HashAlgo
+from .packet.packets import KeyPacket
+from .packet.packets import Packet
+from .packet.packets import PubKey
+from .packet.packets import PrivKey
 from .packet.packets import Signature
-from .packet.fields import Header
-from .errors import PGPError, PGPKeyDecryptionError
+from .packet.types import HashAlgo
+from .packet.types import PubKeyAlgo
+
+from .packet.fields.fields import Header
+
 from ._author import __version__
+from .errors import PGPError
+from .reg import ASCII_BLOCK, Magic
+from .types import FileLoader
+from .util import bytes_to_int, int_to_bytes
 
 
-def PGPLoad(pgpbytes):
+def pgpload(pgpbytes):
     # load pgpbytes regardless of type, first
     f = FileLoader(pgpbytes)
 
@@ -42,6 +45,7 @@ def PGPLoad(pgpbytes):
                 c = PGPSignature
 
             p = c(block.group(0).encode())
+            p.path = f.path
             b.append(p)
 
     # try to load binary instead
@@ -49,7 +53,7 @@ def PGPLoad(pgpbytes):
         block = PGPBlock(pgpbytes)
 
         # is this a signature?
-        if block.packets[0].header.tag == Header.Tag.Signature:
+        if block.packets[0].header.tag.is_signature:
             b.append(PGPSignature(pgpbytes))
             block.packets = []
 
@@ -60,7 +64,7 @@ def PGPLoad(pgpbytes):
             if i == len(block.packets) - 1:
                 pktblock = block.packets[bpos:]
 
-                if pktblock[0].header.tag in [Header.Tag.PubKey, Header.Tag.PrivKey]:
+                if pktblock[0].header.tag.is_key and not pktblock[0].header.tag.is_subkey:
                     bl = PGPKey(None)
 
                 bl.packets = pktblock
@@ -70,10 +74,11 @@ def PGPLoad(pgpbytes):
 
             # a public or private key (not subkey) indicates the start of a new block,
             # so load the previous block into a new object
-            if i != bpos and pkt.header.tag in [Header.Tag.PubKey, Header.Tag.PrivKey]:
+            if i != bpos and pkt.header.tag.is_key and not pkt.header.tag.is_subkey:
                 pktblock = block.packets[bpos:i]
                 bl = PGPKey(None)
                 bl.packets = pktblock
+
                 b.append(bl)
                 bpos = i
                 continue
@@ -102,6 +107,7 @@ class PGPBlock(FileLoader):
 
         # data fields
         self.ascii_headers = collections.OrderedDict()
+        self.ascii_headers['Version'] = 'PGPy v' + __version__  # Default value
         self.data = b''
         self.crc = 0
         self.packets = []
@@ -166,8 +172,8 @@ class PGPBlock(FileLoader):
         if self.data != b'':
             pos = 0
             while pos < len(self.data):
-                self.packets.append(PGPPacket(self.data[pos:]))
-                pos += len(self.packets[-1].__bytes__())
+                self.packets.append(Packet(self.data[pos:]))
+                pos += len(self.packets[-1].header.__bytes__()) + self.packets[-1].header.length
 
     def crc24(self):
         # CRC24 computation, as described in the RFC 4880 section on Radix-64 Conversions
@@ -178,9 +184,8 @@ class PGPBlock(FileLoader):
         # by using the generator 0x864CFB and an initialization of 0xB704CE.
         # The accumulation is done on the data before it is converted to
         # radix-64, rather than on the converted data.
-        ##TODO: if self.data == b'', work on the output of self.__bytes__() instead
         if self.data == b'':
-            return None  # pragma: no cover
+            self.data = self.__bytes__()
 
         crc = self.crc24_init
         sig = [ ord(i) for i in self.data ] if type(self.data) is str else self.data
@@ -274,23 +279,12 @@ class PGPSignature(PGPBlock):
     def new(cls, keyid,
             sigtype=Signature.Type.BinaryDocument,
             alg=PubKeyAlgo.RSAEncryptOrSign,
-            hashalg=HashAlgo.SHA512):
+            hashalg=HashAlgo.SHA256):
         # create a new signature
         newsig = PGPSignature(None)
 
-        # create new ASCII headers
-        newsig.ascii_headers['Version'] = 'PGPy v' + __version__
-
-        # create a new header
-        ##TODO: this should be moved to Packet, probably
-        newheader = Header()
-        newheader.always_1 = 1
-        newheader.tag = Header.Tag.Signature
-
         # create a new signature packet
-        newsig.packets = [Signature(None)]
-        newsig.sigpkt.header = newheader
-        newsig.sigpkt.version = Signature.Version.v4
+        newsig.packets = [Packet(ptype=Header.Tag.Signature)]
         newsig.sigpkt.type = sigtype
         newsig.sigpkt.key_algorithm = alg
         newsig.sigpkt.hash_algorithm = hashalg
@@ -385,112 +379,33 @@ class PGPSignature(PGPBlock):
 
 class PGPKey(PGPBlock):
     @property
-    def keypkt(self):
-        return self.packets[0]
-
-    @property
     def keypkts(self):
-        return [ packet for packet in self.packets if
-                 hasattr(packet, "key_material") or
-                 hasattr(packet, "seckey_material") ]
+        return [ packet for packet in self.packets if isinstance(packet, KeyPacket) ]
 
     @property
-    def secret(self):
-        return self.keypkt.secret
+    def primarykey(self):
+        return [ packet for packet in self.packets if type(packet) in [PubKey, PrivKey] ][0]
 
     @property
-    def encrypted(self):
-        return False if self.keypkt.stokey.id == 0 else True
+    def private(self):
+        return isinstance(self.primarykey, PrivKey)
 
     @property
-    def fp(self):
-        return self.keypkt.fp
+    def type(self):
+        ##TODO: this feels a bit hacky
+        if self._type is None and len(self.packets) > 0:
+            if self.private:
+                self._type = Magic.PrivKey
 
-    @fp.setter
-    def fp(self, value):
-        self.keypkt.fp = value
+            else:
+                self._type = Magic.PubKey
 
-    @property
-    def fingerprint(self):
-        if self.fp is None:
-            # We have not yet computed the fingerprint, so we'll have to do that now.
-            # Here is the RFC 4880 section on computing v4 fingerprints:
-            #
-            # A V4 fingerprint is the 160-bit SHA-1 hash of the octet 0x99,
-            # followed by the two-octet packet length, followed by the entire
-            # Public-Key packet starting with the version field.  The Key ID is the
-            # low-order 64 bits of the fingerprint.
-            sha1 = hashlib.sha1()
-            kmpis = self.keypkt.key_material.__bytes__()
-            bcde_len = int_to_bytes(6 + len(kmpis), 2)
+        return self._type
 
-            # a.1) 0x99 (1 octet)
-            sha1.update(b'\x99')
-            # a.2 high-order length octet
-            sha1.update(bcde_len[:1])
-            # a.3 low-order length octet
-            sha1.update(bcde_len[-1:])
-            # b) version number = 4 (1 octet);
-            sha1.update(b'\x04')
-            # c) timestamp of key creation (4 octets);
-            sha1.update(int_to_bytes(calendar.timegm(self.keypkt.key_creation.timetuple()), 4))
-            # d) algorithm (1 octet): 17 = DSA (example);
-            sha1.update(self.keypkt.key_algorithm.__bytes__())
-            # e) Algorithm-specific fields.
-            sha1.update(kmpis)
-
-            # now store the digest
-            self.fp = sha1.hexdigest().upper()
-
-        return self.fp
-
-    @property
-    def keyid(self):
-        return self.fingerprint[-16:]
+    @type.setter
+    def type(self, value):
+        self._type = value
 
     def __init__(self, keyb):
+        self._type = None
         super(PGPKey, self).__init__(keyb)
-
-    def encrypt_keymaterial(self, passphrase):
-        ##TODO: encrypt secret key material that is not yet encrypted
-        ##TODO: generate String2Key specifier for newly encrypted data
-        pass
-
-    def decrypt_keymaterial(self, passphrase):
-        if not self.encrypted:
-            return  # pragma: no cover
-
-        # Encryption/decryption of the secret data is done in CFB mode using
-        # the key created from the passphrase and the Initial Vector from the
-        # packet.  A different mode is used with V3 keys (which are only RSA)
-        # than with other key formats.  (...)
-        #
-        # With V4 keys, a simpler method is used.  All secret MPI values are
-        # encrypted in CFB mode, including the MPI bitcount prefix.
-
-        for pkt in self.keypkts:
-            # derive a key from our passphrase. If the passphrase is correct, this will be the right one...
-            sessionkey = pkt.stokey.derive_key(passphrase)
-
-            # instantiate the correct algorithm with the correct keylength
-            if pkt.stokey.alg == SymmetricKeyAlgo.CAST5:
-                alg = algorithms.CAST5(sessionkey)
-
-            # attempt to decrypt this packet!
-            cipher = Cipher(alg, modes.CFB(pkt.stokey.iv), backend=default_backend())
-            decryptor = cipher.decryptor()
-
-            pt = decryptor.update(pkt.enc_seckey_material) + decryptor.finalize()
-
-            # check the hash to see if we decrypted successfully or not
-            if pkt.stokey.id == 254:
-                if not pt[-20:] == hashlib.new('sha1', pt[:-20]).digest():
-                    raise PGPKeyDecryptionError("Passphrase was incorrect!")
-
-                # parse decrypted key material into pkt.seckey_material
-                pkt.seckey_material.parse(pt[:-20], pkt.header.tag, pkt.key_algorithm, sec=True)
-                pkt.checksum = pt[-20:]
-
-    def undecrypt_keymaterial(self):
-        for pkt in self.keypkts:
-            pkt.seckey_material.reset()

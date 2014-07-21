@@ -39,7 +39,7 @@ PGPy currently provides the following RFC 4880 compliance and functionality:
 +---+                     +---------+---------+------------+--------------+--------------+
 | x |                     | 13      | User ID Packet                                     |
 +---+                     +---------+---------+------------+--------------+--------------+
-|   |                     | 17      | User Attribute Packet                              |
+| x |                     | 17      | User Attribute Packet                              |
 +---+                     +---------+---------+------------+--------------+--------------+
 |   |                     | 18      | Sym. Enc. & Integrity Protected Data Packet        |
 +---+                     +---------+---------+------------+--------------+--------------+
@@ -69,11 +69,11 @@ PGPy currently provides the following RFC 4880 compliance and functionality:
 +---+                     +                   +            +--------------+--------------+
 |   |                     |                   |            | ElGamal                     |
 +---+                     +--------+----------+------------+--------------+--------------+
-|   |                     | Symmetric-Key     | IDEA       | Encrypt      | Key Material |
+|   |                     | Symmetric-Key     | IDEA*      | Encrypt      | Key Material |
 +---+                     +                   +            +              +--------------+
 |   |                     |                   |            |              | Messages     |
 +---+                     +                   +            +--------------+--------------+
-|   |                     |                   |            | Decrypt      | Key Material |
+| x |                     |                   |            | Decrypt      | Key Material |
 +---+                     +                   +            +              +--------------+
 |   |                     |                   |            |              | Messages     |
 +---+                     +                   +------------+--------------+--------------+
@@ -81,7 +81,7 @@ PGPy currently provides the following RFC 4880 compliance and functionality:
 +---+                     +                   +            +              +--------------+
 |   |                     |                   |            |              | Messages     |
 +---+                     +                   +            +--------------+--------------+
-|   |                     |                   |            | Decrypt      | Key Material |
+| x |                     |                   |            | Decrypt      | Key Material |
 +---+                     +                   +            +              +--------------+
 |   |                     |                   |            |              | Messages     |
 +---+                     +                   +------------+--------------+--------------+
@@ -89,7 +89,7 @@ PGPy currently provides the following RFC 4880 compliance and functionality:
 +---+                     +                   +            +              +--------------+
 |   |                     |                   |            |              | Messages     |
 +---+                     +                   +            +--------------+--------------+
-|   |                     |                   |            | Decrypt      | Key Material |
+| x |                     |                   |            | Decrypt      | Key Material |
 +---+                     +                   +            +              +--------------+
 |   |                     |                   |            |              | Messages     |
 +---+                     +                   +------------+--------------+--------------+
@@ -97,7 +97,7 @@ PGPy currently provides the following RFC 4880 compliance and functionality:
 +---+                     +                   +            +              +--------------+
 |   |                     |                   |            |              | Messages     |
 +---+                     +                   +            +--------------+--------------+
-|   |                     |                   |            | Decrypt      | Key Material |
+| x |                     |                   |            | Decrypt      | Key Material |
 +---+                     +                   +            +              +--------------+
 |   |                     |                   |            |              | Messages     |
 +---+                     +                   +------------+--------------+--------------+
@@ -105,7 +105,7 @@ PGPy currently provides the following RFC 4880 compliance and functionality:
 +---+                     +                   +            +              +--------------+
 |   |                     |                   |            |              | Messages     |
 +---+                     +                   +            +--------------+--------------+
-|   |                     |                   |            | Decrypt      | Key Material |
+| x |                     |                   |            | Decrypt      | Key Material |
 +---+                     +                   +            +              +--------------+
 |   |                     |                   |            |              | Messages     |
 +---+                     +                   +------------+--------------+--------------+
@@ -114,6 +114,14 @@ PGPy currently provides the following RFC 4880 compliance and functionality:
 |   |                     |                   |            |              | Messages     |
 +---+                     +                   +            +--------------+--------------+
 |   |                     |                   |            | Decrypt      | Key Material |
++---+                     +                   +            +              +--------------+
+|   |                     |                   |            |              | Messages     |
++---+                     +                   +------------+--------------+--------------+
+|   |                     |                   | Camellia*  | Encrypt      | Key Material |
++---+                     +                   +            +              +--------------+
+|   |                     |                   |            |              | Messages     |
++---+                     +                   +            +--------------+--------------+
+| x |                     |                   |            | Decrypt      | Key Material |
 +---+                     +                   +            +              +--------------+
 |   |                     |                   |            |              | Messages     |
 +---+                     +--------+----------+------------+--------------+--------------+
@@ -129,15 +137,19 @@ PGPy currently provides the following RFC 4880 compliance and functionality:
 +---+                     +                   +            +--------------+--------------+
 | x |                     |                   |            | Verify                      |
 +---+                     +                   +------------+--------------+--------------+
-|   |                     |                   | DSA        | Encrypt      | Key Material |
+| x |                     |                   | DSA**      | Sign                        |
++---+                     +                   +            +--------------+--------------+
+| x |                     |                   |            | Verify                      |
++---+                     +                   +------------+--------------+--------------+
+|   |                     |                   | ElGamal    | Encrypt      | Key Material |
 +---+                     +                   +            +              +--------------+
 |   |                     |                   |            |              | Messages     |
 +---+                     +                   +            +--------------+--------------+
 |   |                     |                   |            | Decrypt      | Key Material |
 +---+                     +                   +            +              +--------------+
 |   |                     |                   |            |              | Messages     |
-+---+                     +                   +            +--------------+--------------+
-|   |                     |                   |            | Sign                        |
-+---+                     +                   +            +--------------+--------------+
-|   |                     |                   |            | Verify                      |
 +---+---------------------+--------+----------+------------+--------------+--------------+
+
+* if the installed OpenSSL was compiled with support for it
+
+** combination of DSA p sizes > 1024 bits depends on the version of OpenSSL being used

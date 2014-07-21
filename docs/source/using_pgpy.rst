@@ -33,7 +33,7 @@ and additional keys can be loaded as you go::
 
     pubsec = pgpy.PGPKeyring(["/home/user/.gnupg/pubring.gpg", "/home/user/.gnupg/secring.gpg"])
     pubsec.load("path/to/another/key")
-    pubsec.load(["another/pubring.gpg", "anther/secring.gpg"])
+    pubsec.load(["another/pubring.gpg", "another/secring.gpg"])
 
 
 PGPKeyring also accepts URLs, file-like objects, strings, and byte strings.
@@ -48,7 +48,7 @@ provides that context management::
     with pubsec.key("DEADBEEF"):
         # You can sign things by specifying a private key.
         # If the key is protected, you may need to unlock it first, otherwise, :py:meth:`PGPKeyring.sign` will raise an exception
-        if pubsec.selected_privkey.encrypted:
+        if pubsec.selected.privkey.encrypted:
             pubsec.unlock("C0rrectPassphr@se")
 
         # now sign your document. This can be a path, URL, file-like object, string, or bytes.
@@ -59,7 +59,7 @@ provides that context management::
         sig.write()
 
         # You can verify the signature using the public key half of the same key:
-        if pubsec.verify("path/to/document", str(sig)):
+        if pubsec.verify("path/to/document", sig):
             print("Signature in memory verified!")
 
         # or use the signature you just wrote to disk
@@ -78,4 +78,4 @@ provides that context management::
         sigv = pubsec.verify("http://us.archive.ubuntu.com/ubuntu/dists/precise/Release",
                              "http://us.archive.ubuntu.com/ubuntu/dists/precise/Release.gpg")
         if sigv:
-            print("Signature was verified using {key}".format(key=sigv.key.keyid))
+            print("Signature was successfully verified using {key}".format(key=sigv.key.fingerprint))

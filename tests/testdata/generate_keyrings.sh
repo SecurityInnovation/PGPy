@@ -9,7 +9,7 @@ for kfile in pubkeys/*.key; do
     echo ""
 done
 
-for skfile in seckeys/*.sec.key; do
+for skfile in seckeys/*.key; do
     echo "importing secret key(s) from ${skfile} ..."
     $GPG --allow-secret-key-import --import "${skfile}"
     echo ""

@@ -9,11 +9,12 @@ compliant implementation of the specification.
 Contents:
 
 .. toctree::
-   :maxdepth: 2
+    :maxdepth: 2
 
-   using_pgpy
-   api
-   progress
+    using_pgpy
+    API <api/index>
+    progress
+    changelog
 
 .. include:: using_pgpy.rst
 

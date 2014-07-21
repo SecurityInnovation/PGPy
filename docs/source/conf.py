@@ -36,6 +36,7 @@ from pgpy._author import __version__
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.autosummary',
     'sphinx.ext.todo',
     # 'sphinx.ext.doctest',
     # 'sphinx.ext.coverage',
@@ -106,6 +107,9 @@ pygments_style = 'sphinx'
 # If true, keep warnings as "system message" paragraphs in the built documents.
 #keep_warnings = False
 
+# -- Options for ext.autosummary ------------------------------------------
+
+numpydoc_show_class_members = False
 
 # -- Options for HTML output ----------------------------------------------
 

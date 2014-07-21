@@ -12,6 +12,11 @@ class PGPKeyDecryptionError(Exception):
     pass
 
 
+class PGPOpenSSLCipherNotSupported(Exception):
+    """Raised when OpenSSL does not support the requested cipher"""
+    pass
+
+
 class WontImplementError(NotImplementedError):
     """Raised when something that is not implemented, will not be implemented"""
     pass

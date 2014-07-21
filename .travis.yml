@@ -4,24 +4,41 @@ python:
   - "3.3"
   - "3.2"
   - "2.7"
-# install pgpdump - it's needed for testing
-before_install:
- - sudo apt-get update -qq
- - sudo apt-get install gnupg pgpdump -qq
-# command to install dependencies
+env:
+  matrix:
+    # test all versions against OpenSSL 0.9.8
+    - OPENSSL=0.9.8
+    # test all versions against OpenSSL 1.0.0
+    - OPENSSL=1.0.1
+matrix:
+  include:
+    # add a pep8 test
+    - python: 3.4
+      env: TOXENV=pep8
+    # add a test of setup.py using python 3.4
+    - python: 3.4
+      env: TOXENV=setup
+    # add a setup.py test using python 2.7
+    - python: 2.7
+      env: TOXENV=setup27
+  allow_failures:
+    - env: TOXENV=pep8
+# install requirements
 install:
- - pip install -r requirements.txt
- - pip install -r requirements-test.txt
- - pip install python-coveralls
- - pip install .
-# run pep8 against the project with some errors disabled
+  # add the lucid repo for if we need OpenSSL 0.9.8
+  - sudo add-apt-repository "deb http://archive.ubuntu.com/ubuntu/ lucid main"
+  # make sure gnupg, pgpdump, and the requested version of OpenSSL are installed
+  - sudo apt-get update
+  - sudo apt-get install -y gnupg pgpdump
+  - if [[ "${OPENSSL}" == "0.9.8" ]]; then sudo apt-get install -y --force-yes libssl-dev/lucid; fi
+  # install coveralls
+  - pip install tox python-coveralls
+# set TOXENV if it isn't yet
 before_script:
- - pep8 --ignore=E201,E202,E501,E265,E221,E251 setup.py
- - pep8 --ignore=E201,E202,E501,E265 pgpy
-
+  - if [[ -z "$TOXENV" ]]; then export TOXENV=py${TRAVIS_PYTHON_VERSION//.}; fi
 # use setup.py to invoke testing via coveralls
 script:
-  PYTHONPATH=. py.test -vv --cov pgpy --cov-report term-missing tests/
-# and report coverage to coveralls
+ - tox
+# and report coverage to coveralls, but only if this was a pytest run
 after_success:
-  coveralls
+  if [[ "${TOXENV}" == "py"* ]]; then coveralls; fi
