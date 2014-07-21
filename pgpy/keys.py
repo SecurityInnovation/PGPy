@@ -206,6 +206,10 @@ class PGPKeyring(object):
             :py:exc:`~pgpy.errors.PGPError` is raised if the key specified is not loaded.
 
         """
+        # store the current state
+        _ctx = self.ctx
+        _using = self.using
+
         if fp is not None:
             if fp in self._keys:
                 self.using = self._keys.index(fp)
@@ -225,8 +229,9 @@ class PGPKeyring(object):
             for dekey in [ dekey for key in self._keys.__privkeys__ for dekey in key.keypkts ]:
                 dekey.undecrypt_keymaterial()
 
-            self.using = None
-            self.ctx = False
+            # now restore the previous state
+            self.ctx = _ctx
+            self.using = _using
 
     @managed(selection_required=True)
     def export_key(self, pub=True, priv=False):
