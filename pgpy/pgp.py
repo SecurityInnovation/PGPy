@@ -18,8 +18,8 @@ from .packet.fields.fields import Header
 
 from ._author import __version__
 from .errors import PGPError
-from .fileloader import FileLoader
 from .reg import ASCII_BLOCK, Magic
+from .types import FileLoader
 from .util import bytes_to_int, int_to_bytes
 
 

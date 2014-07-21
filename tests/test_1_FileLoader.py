@@ -3,7 +3,7 @@ import os.path
 import pytest
 import requests
 
-from pgpy.fileloader import FileLoader
+from pgpy.types import FileLoader
 
 try:
     e = FileNotFoundError
