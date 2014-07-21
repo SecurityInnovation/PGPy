@@ -22,7 +22,7 @@ Features
 
 Currently, PGPy can load keys and signatures of all kinds in both ASCII armored and binary formats.
 
-It can sign and verify RSA signatures only, at the moment.
+It can create and verify RSA and DSA signatures, at the moment.
 
 Installation
 ------------
