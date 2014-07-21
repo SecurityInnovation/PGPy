@@ -8,6 +8,8 @@ Changelog
 v0.2.0
 ======
 
+Starting with v0.2.0, PGPy is now using the BSD 3-Clause license. v0.1.0 used the MIT license.
+
 New Features
 ------------
 
