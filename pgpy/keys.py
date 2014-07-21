@@ -222,7 +222,7 @@ class PGPKeyring(object):
         # trap exceptions raised while in the context managed state momentarily so cleanup is ensured
         # even when an exception is raised
         try:
-            yield
+            yield self
 
         finally:
             # destroy all decrypted secret key material here (if any) if it was encrypted when loaded
