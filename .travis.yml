@@ -12,15 +12,17 @@ env:
     - OPENSSL=1.0.1
 matrix:
   include:
-    # add a pep8 test for python 2.7
-    - python: 2.7
-      env: TOXENV=pep8
-    # add a py3pep8 test for python 3.x
+    # add a pep8 test
     - python: 3.4
-      env: TOXENV=py3pep8
+      env: TOXENV=pep8
+    # add a test of setup.py using python 3.4
+    - python: 3.4
+      env: TOXENV=setup
+    # add a setup.py test using python 2.7
+    - python: 2.7
+      env: TOXENV=setup27
   allow_failures:
     - env: TOXENV=pep8
-    - env: TOXENV=py3pep8
 # install requirements
 install:
   # add the lucid repo for if we need OpenSSL 0.9.8
@@ -37,6 +39,6 @@ before_script:
 # use setup.py to invoke testing via coveralls
 script:
  - tox
-# and report coverage to coveralls
+# and report coverage to coveralls, but only if this was a pytest run
 after_success:
-  coveralls
+  if [[ "${TOXENV}" == "py"* ]]; then coveralls; fi
