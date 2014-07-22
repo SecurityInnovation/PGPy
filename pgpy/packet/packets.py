@@ -1,5 +1,6 @@
 """ packet.py
 """
+import abc
 import calendar
 import hashlib
 
@@ -21,6 +22,9 @@ from .types import PubKeyAlgo
 
 from ..errors import PGPKeyDecryptionError
 from ..errors import PGPOpenSSLCipherNotSupported
+
+from ..types import PGPObject
+
 from ..util import bytes_to_int
 from ..util import int_to_bytes
 
@@ -83,45 +87,59 @@ class PGPPacketClass(Enum):
 
             raise NotImplementedError(self)  # pragma: no cover
 
+class Packet(PGPObject):
+    __metaclass__ = abc.ABCMeta
 
-class Packet(object):
-    name = ""
+    @abc.abstractproperty
+    def name(self):
+        """Packet name"""
+        return ""
 
-    def __init__(self, packet=None, ptype=None):
-        # __init__ on Packet is now a "factory" of sorts
-        #   - if `packet` is None, this is to be a shiny new packet created by PGPy
-        #     of type `type`
-        #   - if `packet` is not None, this is an existing packet to be parsed
-        #     `type` is ignored
-        #
-        # packet will be None if we're creating a new packet from scratch
+    def __init__(self):
+        super(Packet, self).__init__()
         self.header = Header()
 
-        if packet is None and ptype is not None:
-            self.header.tag = ptype
-            self.__class__ = PGPPacketClass(ptype).subclass
-            self.__class__.__init__(self)
-
-        # we're parsing an existing packet
-        if packet is not None:
-            # parse header, then change into our subclass
-            self.header.parse(packet)
-            self.__class__ = PGPPacketClass(self.header.tag).subclass
-            self.__class__.__init__(self)
-
-            # get the current packet length from the header, then parse it
-            start = len(self.header.__bytes__())
-            end = start + self.header.length
-            self.parse(packet[start:end])
-
     def parse(self, packet):
-        raise NotImplementedError(self.header.tag.name)  # pragma: no cover
-
-    def __bytes__(self):
-        raise NotImplementedError(self.header.tag.name)  # pragma: no cover
-
-    def pgpdump_out(self):
-        raise NotImplementedError(self.header.tag.name)  # pragma: no cover
+        self.header.parse(packet)
+        return packet[len(self.header.__bytes__()):]
+# class Packet(object):
+#     name = ""
+#
+#     def __init__(self, packet=None, ptype=None):
+#         # __init__ on Packet is now a "factory" of sorts
+#         #   - if `packet` is None, this is to be a shiny new packet created by PGPy
+#         #     of type `type`
+#         #   - if `packet` is not None, this is an existing packet to be parsed
+#         #     `type` is ignored
+#         #
+#         # packet will be None if we're creating a new packet from scratch
+#         self.header = Header()
+#
+#         if packet is None and ptype is not None:
+#             self.header.tag = ptype
+#             self.__class__ = PGPPacketClass(ptype).subclass
+#             self.__class__.__init__(self)
+#
+#         # we're parsing an existing packet
+#         if packet is not None:
+#             # parse header, then change into our subclass
+#             self.header.parse(packet)
+#             self.__class__ = PGPPacketClass(self.header.tag).subclass
+#             self.__class__.__init__(self)
+#
+#             # get the current packet length from the header, then parse it
+#             start = len(self.header.__bytes__())
+#             end = start + self.header.length
+#             self.parse(packet[start:end])
+#
+#     def parse(self, packet):
+#         raise NotImplementedError(self.header.tag.name)  # pragma: no cover
+#
+#     def __bytes__(self):
+#         raise NotImplementedError(self.header.tag.name)  # pragma: no cover
+#
+#     def pgpdump_out(self):
+#         raise NotImplementedError(self.header.tag.name)  # pragma: no cover
 
 
 class Signature(Packet):
@@ -189,30 +207,33 @@ class Signature(Packet):
         ThirdParty_Confirmation = 0x50
 
         def __str__(self):
-            types = {'BinaryDocument': "Signature of a binary document",
-                     'CanonicalDocument': "Signature of a canonical text document",
-                     'Standalone': "Standalone signature",
-                     'Generic_UserID_Pubkey': "Generic certification of a User ID and Public Key packet",
-                     'Persona_UserID_Pubkey': "Persona certification of a User ID and Public-Key packet",
-                     'Casual_UserID_Pubkey': "Casual certification of a User ID and Public-Key packet",
-                     'Positive_UserID_Pubkey': "Positive certification of a User ID and Public Key packet",
-                     'Subkey_Binding': "Subkey Binding Signature",
-                     'PrimaryKey_Binding': "Primary Key Binding Signature",
-                     'DirectlyOnKey': "Signature directly on a key",
-                     'KeyRevocation': "Key revocation signature",
-                     'SubkeyRevocation': "Subkey revocation signature",
-                     'CertRevocation': "Certification revocation signature",
-                     'Timestamp': "Timestamp signature",
-                     'ThirdParty_Confirmation': "Third-Party Confirmation signature"}
+            types = {self.BinaryDocument: "Signature of a binary document",
+                     self.CanonicalDocument: "Signature of a canonical text document",
+                     self.Standalone: "Standalone signature",
+                     self.Generic_UserID_Pubkey: "Generic certification of a User ID and Public Key packet",
+                     self.Persona_UserID_Pubkey: "Persona certification of a User ID and Public-Key packet",
+                     self.Casual_UserID_Pubkey: "Casual certification of a User ID and Public-Key packet",
+                     self.Positive_UserID_Pubkey: "Positive certification of a User ID and Public Key packet",
+                     self.Subkey_Binding: "Subkey Binding Signature",
+                     self.PrimaryKey_Binding: "Primary Key Binding Signature",
+                     self.DirectlyOnKey: "Signature directly on a key",
+                     self.KeyRevocation: "Key revocation signature",
+                     self.SubkeyRevocation: "Subkey revocation signature",
+                     self.CertRevocation: "Certification revocation signature",
+                     self.Timestamp: "Timestamp signature",
+                     self.ThirdParty_Confirmation: "Third-Party Confirmation signature"}
 
-            if self.name in types.keys():
-                return types[self.name]
+            if self in types:
+                return types[self]
 
             raise NotImplementedError(self.name)  # pragma: no cover
 
-    name = "Signature Packet"
+    @property
+    def name(self):
+        return "Signature Packet"
 
     def __init__(self):
+        super(Signature, self).__init__()
         self.version = Signature.Version.v4  # default for new Signature packets
         self.type = Signature.Type.BinaryDocument  # default for new Signature packets
         self.key_algorithm = PubKeyAlgo.RSAEncryptOrSign  # default for new Signature packets
@@ -224,6 +245,8 @@ class Signature(Packet):
         self.signature = MPIFields()
 
     def parse(self, packet):
+        packet = super(Signature, self).parse(packet)
+
         self.version = Signature.Version(bytes_to_int(packet[:1]))
         self.type = Signature.Type(bytes_to_int(packet[1:2]))
         self.key_algorithm = PubKeyAlgo(bytes_to_int(packet[2:3]))
@@ -263,6 +286,8 @@ class KeyPacket(Packet):
 
     @property
     def fingerprint(self):
+        ##TODO: use _Fingerprint which is currently defined in pgpy.keys.KeyCollection
+        ##      but will be moved to pgpy.types
         if self._fp is None:
             # We have not yet computed the fingerprint, so we'll have to do that now.
             # Here is the RFC 4880 section on computing v4 fingerprints:
@@ -294,14 +319,10 @@ class KeyPacket(Packet):
 
         return self._fp
 
-    @property
-    def keyid(self):
-        return self.fingerprint[-16:]
-
     def __init__(self):
         self._fp = None
 
-        self.version = PubKey.Version.v4  # default for new Key packets
+        self.version = KeyPacket.Version.v4  # default for new Key packets
         self.key_creation = datetime.utcnow()
         self.key_algorithm = PubKeyAlgo.RSAEncryptOrSign
         self.key_material = MPIFields()
@@ -324,32 +345,23 @@ class KeyPacket(Packet):
         return _bytes
 
 
-class PubKey(KeyPacket):
-    # Tag 6
-    name = 'Public Key Packet'
+class Public(KeyPacket):
+    pass
 
 
-class PubSubKey(PubKey):
-    # Tag 14
-    name = 'Public Subkey Packet'
-
-
-class PrivKey(KeyPacket):
-    # Tag 5
-    name = 'Secret Key Packet'
-
+class Private(KeyPacket):
     @property
     def encrypted(self):
         return not self.stokey.id == 0
 
     def __init__(self):
-        super(PrivKey, self).__init__()
+        super(Private, self).__init__()
         self.stokey = String2Key()
         self.enc_seckey_material = b''
         self.checksum = b''
 
     def parse(self, packet):
-        super(PrivKey, self).parse(packet)
+        super(Private, self).parse(packet)
         pos = 6 + len(self.key_material.pubbytes())
 
         self.stokey.parse(packet[pos:])
@@ -371,7 +383,7 @@ class PrivKey(KeyPacket):
             self.checksum = packet[pos:]
 
     def __bytes__(self):
-        _bytes = super(PrivKey, self).__bytes__()
+        _bytes = super(Private, self).__bytes__()
         _bytes += self.stokey.__bytes__()
         if self.stokey.id == 0:
             _bytes += self.key_material.privbytes()
@@ -425,7 +437,30 @@ class PrivKey(KeyPacket):
             self.checksum = b''
 
 
-class PrivSubKey(PrivKey):
+class Primary(KeyPacket):
+    pass
+
+
+class Sub(KeyPacket):
+    pass
+
+
+class PubKey(Primary, Public):
+    # Tag 6
+    name = 'Public Key Packet'
+
+
+class PubSubKey(Sub, Public):
+    # Tag 14
+    name = 'Public Subkey Packet'
+
+
+class PrivKey(Primary, Private):
+    # Tag 5
+    name = 'Secret Key Packet'
+
+
+class PrivSubKey(Sub, Private):
     name = 'Secret Subkey Packet'
 
 
