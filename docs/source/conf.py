@@ -107,6 +107,12 @@ pygments_style = 'sphinx'
 # If true, keep warnings as "system message" paragraphs in the built documents.
 #keep_warnings = False
 
+# -- Options for ext.autodoc ----------------------------------------------
+
+autoclass_content = 'init'
+autodoc_member_order = 'groupwise'
+autodoc_default_flags = ['members']
+
 # -- Options for ext.autosummary ------------------------------------------
 
 numpydoc_show_class_members = False
