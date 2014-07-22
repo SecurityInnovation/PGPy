@@ -8,7 +8,9 @@ from ._author import __version__
 from .errors import PGPError
 from .errors import PGPKeyDecryptionError
 from .errors import PGPOpenSSLCipherNotSupported
+
 from .keys import PGPKeyring
+from .keys import PGPKey
 
 __all__ = [__author__,
            __copyright__,
@@ -17,4 +19,5 @@ __all__ = [__author__,
            PGPError,
            PGPKeyDecryptionError,
            PGPOpenSSLCipherNotSupported,
+           PGPKey,
            PGPKeyring]
