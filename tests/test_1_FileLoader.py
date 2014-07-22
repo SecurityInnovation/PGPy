@@ -3,12 +3,7 @@ import os.path
 import pytest
 import requests
 
-from pgpy.types import FileLoader
-
-try:
-    e = FileNotFoundError
-except NameError:
-    e = IOError
+from pgpy.types import FileLoader, e
 
 skipurls = False
 try:
@@ -47,20 +42,21 @@ def load(request):
 
 class TestFileLoader:
     def test_load(self, load, request):
-        f = FileLoader(load)
+        f = FileLoader.load(load)
+        assert type(f) is bytes
 
-        if request.node._genid in ['path', 'symlink', 'newfile']:
-            assert f.path == os.path.realpath(load)
-
-        elif request.node._genid == 'fileobj':
-            assert f.path == os.path.realpath(load.name)
-
-        else:
-            assert f.path is None
+        # if request.node._genid in ['path', 'symlink', 'newfile']:
+        #     assert f.path == os.path.realpath(load)
+        #
+        # elif request.node._genid == 'fileobj':
+        #     assert f.path == os.path.realpath(load.name)
+        #
+        # else:
+        #     assert f.path is None
 
     @pytest.mark.parametrize("fload", ["/this/path/is/not/valid",
                                        pytest.mark.skipif(skipurls, "http://www.google.com/404", reason="No Internet")],
                              ids=["invalid-path", "invalid-url"])
     def test_load_fail(self, fload):
         with pytest.raises(e):
-            FileLoader(fload)
+            FileLoader.load(fload)
