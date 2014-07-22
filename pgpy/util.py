@@ -3,7 +3,39 @@
 utility functions for PGPY
 """
 import binascii
+import itertools
 import math
+import os
+import re
+
+
+def is_ascii(text):
+    if type(text) is not bytes:
+        raise ValueError("Expected: bytes")
+
+    try:
+        text.decode()
+
+    except UnicodeDecodeError:
+        return False
+
+    else:
+        return True
+
+
+def is_path(ppath):
+    if type(ppath) is not str:
+        return False
+
+    win_badchars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
+    badchars = itertools.chain(range(0, 32), range(127, 256), win_badchars if os.name == 'nt' else [])
+
+    checkchars = re.match('\A[^' + ''.join([ chr(c) for c in badchars ]) + ']+\Z', ppath, flags=re.ASCII)
+
+    if checkchars is not None:
+        return True
+
+    return False
 
 
 def bytes_to_int(b):
