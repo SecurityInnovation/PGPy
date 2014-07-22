@@ -12,20 +12,161 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import dsa, padding, rsa
 
-from .packet.packets import PrivKey
-from .packet.packets import PubKey
+from .packet.packets import KeyPacket
+from .packet.packets import Public
+from .packet.packets import Primary
+from .packet.packets import Private
+from .packet.packets import Sub
+
+# from .packet.packets import PrivKey
+# from .packet.packets import PubKey
+
 from .packet.packets import UserID
 from .packet.types import PubKeyAlgo
 
 from .errors import PGPError
-from .pgp import pgpload
-from .pgp import PGPKey
+# from .pgp import pgpload
+from .pgp import PGPObject
 from .pgp import PGPSignature
 from .types import SignatureVerification
 from .util import asn1_seqint_to_tuple
 from .util import bytes_to_int
 from .util import int_to_bytes
 from .util import modinv
+
+
+# class PGPKeys(PGPObject):
+#     ##TODO: all of this
+#     def __init__(self, keyb):
+#         """
+#         TODO: Docstring for PGPKeys
+#
+#         This will hold one or more PGPKey objects
+#         Including a primary key, and one or more subkeys
+#
+#         :param keyb:
+#         :return:
+#         """
+#         super(PGPKeys, self).__init__(keyb)
+
+
+class PGPKey(PGPObject):
+    # @property
+    # def keypkts(self):
+    #     return [ packet for packet in self.packets if isinstance(packet, KeyPacket) ]
+
+    @property
+    def primarykey(self):
+        """
+        Reference to the primary key if this is a subkey
+        ?? if this is already a primary key
+        """
+        # return [ packet for packet in self.packets if type(packet) in [PubKey, PrivKey] ][0]
+        raise NotImplementedError()
+
+    @property
+    def primary(self):
+        """
+        True if this is a primary key
+        False if this is a subkey
+        """
+        return isinstance(self._keypkt, Primary)
+
+    @property
+    def sub(self):
+        """
+        True if this is a subkey
+        False if this is a primary key
+        """
+        return isinstance(self._keypkt, Sub)
+
+    @property
+    def public(self):
+        """
+        True if this is a public key
+        False if this is a private key
+        """
+        return isinstance(self._keypkt, Public)
+
+    @property
+    def private(self):
+        """
+        True if this is a private key
+        False if this is a public key
+        """
+        return isinstance(self._keypkt, Private)
+
+    @property
+    def type(self):
+        if isinstance(self._keypkt, Public):
+            return Magic.PubKey
+
+        if isinstance(self._keypkt, Private):
+            return Magic.PrivKey
+
+        raise ValueError("Key packet not expected type: {}".format(type(self._keypkt)))
+
+    @classmethod
+    def new(cls):
+        """
+        Generate a new key
+        """
+        raise NotImplementedError()
+
+    def __init__(self, keyb):
+        self._keypkt = None
+        self._userids = []
+        self._attrs = []
+        self._keysigs = []
+
+        super(PGPKey, self).__init__(keyb)
+
+    def lock(self, passphrase, s2k=None):
+        """
+        Encrypt the secret key material if it is not already encrypted.
+        """
+        ##TODO: this should fail if this PGPKey is not a private key
+        ##TODO: this should fail if the secret key material is already encrypted
+        ##TODO: s2k should default to the strongest method available (which is currently Iterated)
+        raise NotImplementedError()
+
+    def unlock(self, passphrase):
+        """
+        Decrypt the secret key material if it is encrypted
+        """
+        raise NotImplementedError()
+
+    def sign(self, subject, hash=None, inline=False, sigtype=None):
+        """
+        Sign a subject with this key.
+        """
+        ##TODO: if hash is None, default to using the strongest hash in this key's preference flags
+        ##TODO: implement inline signing
+        ##TODO: implement signing things other than binary documents
+        ##TODO: sigtype should default to the binary signature type specifier rather than None
+        raise NotImplementedError()
+
+    def verify(self, subject, signature):
+        """
+        Verify a subject using this key.
+        """
+        if not isinstance(signature, PGPSignature):
+            signature = pgpload(signature)[0]
+
+        if not isinstance(signature, PGPSignature):
+            raise ValueError("signature must be a signature!")
+
+    def encrypt(self):
+        """
+        Encrypt something
+        """
+        raise NotImplementedError()
+
+    def decrypt(self):
+        """
+        Decrypt something
+        """
+        raise NotImplementedError()
 
 
 class Managed(object):
