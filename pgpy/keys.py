@@ -13,15 +13,19 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import dsa, padding, rsa
 
 from .packet.packets import KeyPacket
+from .packet.packets import Packet
 from .packet.packets import Public
 from .packet.packets import Primary
 from .packet.packets import Private
+from .packet.packets import Signature
 from .packet.packets import Sub
 
-# from .packet.packets import PrivKey
-# from .packet.packets import PubKey
+from .packet.packets import PrivKey
+from .packet.packets import PubKey
 
+from .packet.packets import UserAttribute
 from .packet.packets import UserID
+
 from .packet.types import PubKeyAlgo
 
 from .errors import PGPError
@@ -35,34 +39,69 @@ from .util import int_to_bytes
 from .util import modinv
 
 
-# class PGPKeys(PGPObject):
-#     ##TODO: all of this
-#     def __init__(self, keyb):
-#         """
-#         TODO: Docstring for PGPKeys
-#
-#         This will hold one or more PGPKey objects
-#         Including a primary key, and one or more subkeys
-#
-#         :param keyb:
-#         :return:
-#         """
-#         super(PGPKeys, self).__init__(keyb)
+class PGPKeyBlock(PGPObject):
+    @property
+    def magic(self):
+        return self._keys[0].magic if len(self._keys) > 0 else "? KEY BLOCK"
 
+    def __init__(self):
+        super(PGPKeyBlock, self).__init__()
+        self._keys = []
+        self._userids = []
+        self._signatures = []
+
+    def parse(self, data):
+        packets = []
+
+        while data != b'':
+            packets.append(Packet.load_packet(data))
+
+            lplen = packets[-1].header.length + len(packets[-1].header.__bytes__())
+            oplen = len(packets[-1].__bytes__())
+
+            # debugging
+            if oplen != lplen:
+                packets[-1].__bytes__()
+                raise PGPError("__bytes__ chain {} for {}".format("incomplete" if oplen < lplen else "incorrect",
+                                                                  packets[-1].__class__))
+
+            if packets[-1].__bytes__() != data[:lplen]:
+                packets[-1].__bytes__()
+                raise PGPError("__bytes__ chain incorrect for {}".format(packets[-1].__class__))
+
+            data = data[len(packets[-1].__bytes__()):]
+
+        for p in packets:
+            if isinstance(p, KeyPacket):
+                k = PGPKey()
+                k._keypkt = p
+                self._keys.append(k)
+
+            if isinstance(p, UserID):
+                self._userids.append(p)
+
+            if isinstance(p, Signature):
+                self._signatures.append(p)
+
+    def __bytes__(self):
+        raise NotImplementedError()
+
+    def __pgpdump__(self):
+        raise NotImplementedError()
 
 class PGPKey(PGPObject):
     # @property
     # def keypkts(self):
     #     return [ packet for packet in self.packets if isinstance(packet, KeyPacket) ]
 
-    @property
-    def primarykey(self):
-        """
-        Reference to the primary key if this is a subkey
-        ?? if this is already a primary key
-        """
-        # return [ packet for packet in self.packets if type(packet) in [PubKey, PrivKey] ][0]
-        raise NotImplementedError()
+    # @property
+    # def primarykey(self):
+    #     """
+    #     Reference to the primary key if this is a subkey
+    #     ?? if this is already a primary key
+    #     """
+    #     # return [ packet for packet in self.packets if type(packet) in [PubKey, PrivKey] ][0]
+    #     raise NotImplementedError()
 
     @property
     def primary(self):
@@ -97,29 +136,32 @@ class PGPKey(PGPObject):
         return isinstance(self._keypkt, Private)
 
     @property
-    def type(self):
-        if isinstance(self._keypkt, Public):
-            return Magic.PubKey
-
-        if isinstance(self._keypkt, Private):
-            return Magic.PrivKey
-
-        raise ValueError("Key packet not expected type: {}".format(type(self._keypkt)))
+    def magic(self):
+        return "{} KEY BLOCK".format("PRIVATE" if self.private else \
+                                     "PUBLIC" if self.public else "?")
 
     @classmethod
     def new(cls):
-        """
-        Generate a new key
-        """
+        ##TODO: generate a new key
         raise NotImplementedError()
 
-    def __init__(self, keyb):
+    def __init__(self):
+        super(PGPKey, self).__init__()
+
         self._keypkt = None
         self._userids = []
         self._attrs = []
         self._keysigs = []
 
-        super(PGPKey, self).__init__(keyb)
+    def parse(self, data):
+        ##TODO: load the next key in data and return the leftovers
+        raise NotImplementedError()
+
+    def __bytes__(self):
+        raise NotImplementedError()
+
+    def __pgpdump__(self):
+        raise NotImplementedError()
 
     def lock(self, passphrase, s2k=None):
         """

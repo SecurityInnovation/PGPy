@@ -45,14 +45,11 @@ class TestFileLoader:
         f = FileLoader.load(load)
         assert type(f) is bytes
 
-        # if request.node._genid in ['path', 'symlink', 'newfile']:
-        #     assert f.path == os.path.realpath(load)
-        #
-        # elif request.node._genid == 'fileobj':
-        #     assert f.path == os.path.realpath(load.name)
-        #
-        # else:
-        #     assert f.path is None
+        if request.node._genid in ["None", "newfile"]:
+            assert f == b''
+
+        else:
+            assert f != b''
 
     @pytest.mark.parametrize("fload", ["/this/path/is/not/valid",
                                        pytest.mark.skipif(skipurls, "http://www.google.com/404", reason="No Internet")],

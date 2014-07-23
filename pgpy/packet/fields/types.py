@@ -1,17 +1,20 @@
 """ packetfield.py
 """
 
+import abc
 
-class PacketField(object):
-    def __init__(self, packet=None):
-        if packet is not None:
-            self.parse(packet)
 
-    def parse(self, packet):
-        """
-        :param packet: raw packet bytes
-        """
-        raise NotImplementedError()  # pragma: no cover
+class PacketField(object, metaclass=abc.ABCMeta):
+    __metaclass__ = abc.ABCMeta
 
-    def __bytes__(self):
-        raise NotImplementedError()  # pragma: no cover
+    @abc.abstractmethod
+    def parse(self, packet):  # pragma: no cover
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def __bytes__(self):  # pragma: no cover
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def __pgpdump__(self):  # pragma: no cover
+        raise NotImplementedError

@@ -8,6 +8,7 @@ import math
 import sys
 
 # from .fields import PacketField
+from .fields import Header
 from .types import PacketField
 from ..types import HashAlgo
 from ..types import PFIntEnum
@@ -30,49 +31,53 @@ class MPIFields(object):
     def __init__(self):
         self.fields = collections.OrderedDict()
 
-    def parse(self, packet, pktype, alg, sec=False):
+    def parse(self, packet, pkt, sec=False):
+        ##TODO: change this to work more like like subpackets
         # determine fields
-        if alg == PubKeyAlgo.RSAEncryptOrSign:
+        if pkt.key_algorithm == PubKeyAlgo.RSAEncryptOrSign:
             self.__class__ = RSAMPI
 
-        if alg == PubKeyAlgo.DSA:
+        if pkt.key_algorithm == PubKeyAlgo.DSA:
             self.__class__ = DSAMPI
 
-        if alg == PubKeyAlgo.ElGamal:
+        if pkt.key_algorithm == PubKeyAlgo.ElGamal:
             self.__class__ = ElGMPI
 
-        # if our class hasn't changed, then something went wrong
         if self.__class__ == MPIFields:
-            raise NotImplementedError(alg.name)
+            raise NotImplementedError(pkt.key_algorithm)
 
         # determine how many fields we need to parse
         fields = []
-        if pktype.is_signature:
+
+        from ..packets import Signature
+        if isinstance(pkt, Signature):
             fields = self.sigfields
 
-        if pktype.is_key and not sec:
+        from ..packets import KeyPacket
+        from ..packets import Private
+        if isinstance(pkt, KeyPacket) and not sec:
             fields = self.pubfields
 
-        if pktype.is_privkey and sec:
+        if isinstance(pkt, Private) and sec:
             fields = self.privfields
 
         # if fields is 0, we got something wrong, or this type isn't taken into account yet
         if len(fields) == 0:
-            raise NotImplementedError(pktype)
+            raise NotImplementedError(pkt.__class__)
 
         # now parse!
-        pos = 0
+        # pos = 0
         for field in fields:
-            bitlen = bytes_to_int(packet[pos:(pos + 2)])
-            pos += 2
+            bitlen = bytes_to_int(packet[:2])
+            packet = packet[2:]
 
             bytelen = (bitlen + 7) // 8
-            mend = pos + bytelen
 
             getattr(self, field)['bitlen'] = bitlen
-            getattr(self, field)['bytes'] = packet[pos:mend]
+            getattr(self, field)['bytes'] = packet[:bytelen]
+            packet = packet[bytelen:]
 
-            pos = mend
+        return packet
 
     def sigbytes(self):
         _bytes = b''
@@ -237,7 +242,8 @@ class String2Key(PacketField):
 
             raise NotImplementedError(self.name)  # pragma: no cover
 
-    def __init__(self, packet=None):
+    def __init__(self):
+        super(String2Key, self).__init__()
         self.id = 0
         self.alg = SymmetricKeyAlgo.Plaintext
         self.type = String2Key.Type.Simple
@@ -247,28 +253,35 @@ class String2Key(PacketField):
         self.count = None
         self.iv = b''
 
-        super(String2Key, self).__init__(packet)
-
     def parse(self, packet):
         self.id = bytes_to_int(packet[:1])
-        pos = 1
+        packet = packet[1:]
+
         if self.id in [254, 255]:
-            self.alg = SymmetricKeyAlgo(bytes_to_int(packet[1:2]))
-            self.type = String2Key.Type(bytes_to_int(packet[2:3]))
-            self.hash = HashAlgo(bytes_to_int(packet[3:4]))
-            pos = 4
+            self.alg = SymmetricKeyAlgo(bytes_to_int(packet[:1]))
+            packet = packet[1:]
+
+            self.type = String2Key.Type(bytes_to_int(packet[:1]))
+            packet = packet[1:]
+
+            self.hash = HashAlgo(bytes_to_int(packet[:1]))
+            packet = packet[1:]
 
             if self.type in [String2Key.Type.Salted, String2Key.Type.Iterated]:
-                self.salt = packet[4:12]
-                pos = 12
+                self.salt = packet[:8]
+                packet = packet[8:]
 
             if self.type == String2Key.Type.Iterated:
-                self.c = bytes_to_int(packet[12:13])
+                self.c = bytes_to_int(packet[:1])
+                packet = packet[1:]
+
                 self.count = (16 + (self.c & 15)) << ((self.c >> 4) + 6)
-                pos = 13
 
         if self.id != 0:
-            self.iv = packet[pos:(pos + int(self.alg.block_size / 8))]
+            self.iv = packet[:(self.alg.block_size // 8)]
+            packet = packet[(self.alg.block_size // 8):]
+
+        return packet
 
     def derive_key(self, passphrase):
         # we use the fields stored here along with the RFC 4880 String-to-Key usage description
@@ -329,3 +342,6 @@ class String2Key(PacketField):
             _bytes += self.iv
 
         return _bytes
+
+    def __pgpdump__(self):
+        raise NotImplementedError()

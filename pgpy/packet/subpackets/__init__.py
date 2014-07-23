@@ -1,5 +1,5 @@
-from .signature import SigSubPacket
+from .signature import SignatureSubPacket
 from .userattribute import UASubPacket
 
-__all__ = [SigSubPacket,
+__all__ = [SignatureSubPacket,
            UASubPacket]

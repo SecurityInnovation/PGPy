@@ -5,7 +5,9 @@ from distutils.version import LooseVersion
 import pytest
 
 import pgpy
-from pgpy.pgp import PGPKey
+
+from pgpy import PGPKey
+
 from pgpy.pgpdump import PGPDumpFormat
 from pgpy.errors import PGPError, PGPKeyDecryptionError
 

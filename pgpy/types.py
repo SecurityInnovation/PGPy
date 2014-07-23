@@ -34,7 +34,7 @@ except NameError:  # pragma: no cover
 #         return self.name
 
 
-class FileLoader(object):
+class FileLoader(object, metaclass=abc.ABCMeta):
     __metaclass__ = abc.ABCMeta
 
     @property
@@ -119,7 +119,7 @@ class FileLoader(object):
             fp.write(self.__bytes__() if binary else str(self))
 
 
-class PGPObject(FileLoader):
+class PGPObject(FileLoader, metaclass=abc.ABCMeta):
     __metaclass__ = abc.ABCMeta
 
     __crc24_init = 0x0B704CE
@@ -180,7 +180,7 @@ class PGPObject(FileLoader):
 
     @classmethod
     def load(cls, data):
-        new = cls.new()
+        new = cls()
 
         d = {'magic': None, 'headers': None, 'body': None, 'crc': None}
 
@@ -194,9 +194,10 @@ class PGPObject(FileLoader):
             d['body'] = super(PGPObject, cls).load(data)
 
         finally:
+            ##TODO: this doesn't work for PGPKey since its magic value is indeterminate until the packet is parsed
             # check magic
-            if d['magic'] != new.magic:
-                raise PGPError("Wrong type of data. Got: {}; Expected: {}".format(d['magic'], new.magic))
+            # if d['magic'] != new.magic:
+            #     raise PGPError("Wrong type of data. Got: {}; Expected: {}".format(d['magic'], new.magic))
 
             # check the CRC24
             if d['crc'] != new.crc24(d['body']):

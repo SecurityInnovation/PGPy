@@ -9,20 +9,42 @@ from ...util import int_to_bytes
 
 
 class UASubPacket(SubPacket):
-    class Type(SubPacket.Type):
-        Image = 0x01
+    pass
+    # class Type(PFIntEnum):
+    #     Image = 0x01
+    #
+    #     @property
+    #     def subclass(self):
+    #         classes = {'Image': Image}
+    #
+    #         if classes[self.name] is not None:
+    #             return classes[self.name]
+    #
+    #         raise NotImplementedError(self.name)  # pragma: no cover
+    #
+    #     def __str__(self):
+    #         return self.subclass.name
 
-        @property
-        def subclass(self):
-            classes = {'Image': Image}
+class OpaqueSubPacket(UASubPacket):
+    id = None
 
-            if classes[self.name] is not None:
-                return classes[self.name]
+    def __init__(self):
+        super(OpaqueSubPacket, self).__init__()
+        self.payload = b''
 
-            raise NotImplementedError(self.name)  # pragma: no cover
+    def parse(self, packet):
+        packet = super(OpaqueSubPacket, self).parse(packet)
+        self.payload = packet[:self.length - 1]
 
-        def __str__(self):
-            return self.subclass.name
+        return packet[self.length - 1:]
+
+    def __bytes__(self):
+        _bytes = super(OpaqueSubPacket, self).__bytes__()
+        _bytes += self.payload
+        return _bytes
+
+    def __pgpdump__(self):
+        raise NotImplementedError()
 
 
 class Image(UASubPacket):
@@ -67,18 +89,27 @@ class Image(UASubPacket):
 
     name = 'image attribute'
 
-    def __init__(self, packet):
+    id = 0x01
+
+    def __init__(self):
+        super(Image, self).__init__()
         self.version = Image.Version.v1
         self.encoding = Image.Encoding.JPEG
-
-        super(Image, self).__init__(packet)
+        self.payload = b''
 
     def parse(self, packet):
+        packet = super(Image, self).parse(packet)
+
         hlen = struct.unpack('<h', packet[:2])[0]
-        self.version = Image.Version(bytes_to_int(packet[2:3]))
-        self.encoding = Image.Encoding(bytes_to_int(packet[3:4]))
-        pos = hlen
-        self.payload = packet[pos:]
+        packet = packet[2:]
+
+        self.version = Image.Version(bytes_to_int(packet[:1]))
+        packet = packet[1:]
+
+        self.encoding = Image.Encoding(bytes_to_int(packet[:1]))
+        packet = packet[(hlen - 3):]
+
+        self.payload = packet[:(self.length - hlen) - 1]
 
     def __bytes__(self):
         _bytes = super(Image, self).__bytes__()
@@ -94,3 +125,6 @@ class Image(UASubPacket):
 
         _bytes += self.payload
         return _bytes
+
+    def __pgpdump__(self):
+        raise NotImplementedError()

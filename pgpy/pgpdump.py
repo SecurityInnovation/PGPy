@@ -7,7 +7,7 @@ from .packet.types import PubKeyAlgo
 
 from .packet.fields.fields import Header
 from .packet.fields.keyfields import String2Key
-from .packet.subpackets import SigSubPacket
+from .packet.subpackets import SignatureSubPacket
 from .packet.subpackets import UASubPacket
 
 
@@ -145,65 +145,65 @@ class PGPDumpFormat(object):
                     splen=sub.length - 1
                 )
 
-                if sub.type == SigSubPacket.Type.SigCreationTime:
+                if sub.type == SignatureSubPacket.Type.SigCreationTime:
                     o += "\t\tTime - {date}\n".format(
                         date=sub.payload.strftime("%a %b %e %H:%M:%S UTC %Y")
                     )
 
-                if sub.type == SigSubPacket.Type.KeyExpirationTime:
+                if sub.type == SignatureSubPacket.Type.KeyExpirationTime:
                     rt = datetime.utcfromtimestamp(self.keycreation + sub.payload)
                     o += "\t\tTime - {date}\n".format(
                         date=rt.strftime("%a %b %e %H:%M:%S UTC %Y")
                     )
 
-                if sub.type == SigSubPacket.Type.Issuer:
+                if sub.type == SignatureSubPacket.Type.Issuer:
                     o += "\t\tKey ID - 0x{keyid}\n".format(keyid=sub.payload.decode())
 
-                if sub.type == SigSubPacket.Type.KeyFlags:
+                if sub.type == SignatureSubPacket.Type.KeyFlags:
                     for flag in sub.payload:
                         o += "\t\tFlag - {flag}\n".format(flag=str(flag))
 
-                if sub.type == SigSubPacket.Type.PreferredSymmetricAlgorithms:
+                if sub.type == SignatureSubPacket.Type.PreferredSymmetricAlgorithms:
                     for alg in sub.payload:
                         o += "\t\tSym alg - {alg}(sym {algn})\n".format(
                             alg=str(alg),
                             algn=alg.value
                         )
 
-                if sub.type == SigSubPacket.Type.PreferredHashAlgorithms:
+                if sub.type == SignatureSubPacket.Type.PreferredHashAlgorithms:
                     for alg in sub.payload:
                         o += "\t\tHash alg - {alg}(hash {algn})\n".format(
                             alg=str(alg),
                             algn=alg.value
                         )
 
-                if sub.type == SigSubPacket.Type.PreferredCompressionAlgorithms:
+                if sub.type == SignatureSubPacket.Type.PreferredCompressionAlgorithms:
                     for alg in sub.payload:
                         o += "\t\tComp alg - {alg}(comp {algn})\n".format(
                             alg=str(alg),
                             algn=alg.value
                         )
 
-                if sub.type == SigSubPacket.Type.KeyServerPreferences:
+                if sub.type == SignatureSubPacket.Type.KeyServerPreferences:
                     for pref in sub.payload:
                         o += "\t\tFlag - {flag}\n".format(flag=str(pref))
 
-                if sub.type == SigSubPacket.Type.Features:
+                if sub.type == SignatureSubPacket.Type.Features:
                     for feature in sub.payload:
                         o += "\t\tFlag - {flag}\n".format(flag=str(feature))
 
-                if sub.type == SigSubPacket.Type.Revocable:
+                if sub.type == SignatureSubPacket.Type.Revocable:
                     o += "\t\tRevocable - {rev}\n".format(
                         rev="Yes" if sub.payload else "No"
                     )
 
-                if sub.type == SigSubPacket.Type.PolicyURL:
+                if sub.type == SignatureSubPacket.Type.PolicyURL:
                     o += "\t\tURL - {url}\n".format(url=sub.payload.decode())
 
-                if sub.type == SigSubPacket.Type.PrimaryUserID:
+                if sub.type == SignatureSubPacket.Type.PrimaryUserID:
                     o += "\t\tPrimary - {flag}\n".format(flag="Yes" if sub.payload else "No")
 
-                if sub.type == SigSubPacket.Type.EmbeddedSignature:
+                if sub.type == SignatureSubPacket.Type.EmbeddedSignature:
                     o += self.signature_fields(sub.payload)
 
         return o

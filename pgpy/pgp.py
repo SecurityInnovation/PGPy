@@ -135,6 +135,9 @@ class PGPSignature(PGPObject):
     def __bytes__(self):
         return self.signature.__bytes__()
 
+    def __pgpdump__(self):
+        raise NotImplementedError()
+
     def hashdata(self, subject):
         # from the Computing Signatures section of RFC 4880 (http://tools.ietf.org/html/rfc4880#section-5.2.4)
         #

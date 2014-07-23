@@ -31,7 +31,7 @@ from ..util import int_to_bytes
 
 class PGPPacketClass(Enum):
         # tag support list
-        # [x] 0  - Reserved (Illegal Value)
+        # [ ] 0  - Reserved (Illegal Value)
         # [ ] 1  - Public-Key Encrypted Session Key Packet
         # [x] 2  - Signature Packet
         Signature = Header.Tag.Signature
@@ -60,35 +60,35 @@ class PGPPacketClass(Enum):
 
         @property
         def subclass(self):
-            if self == PGPPacketClass.Signature:
-                return Signature
+            classes = {PGPPacketClass.Signature: Signature,
+                       PGPPacketClass.PubKey: PubKey,
+                       PGPPacketClass.PubSubKey: PubSubKey,
+                       PGPPacketClass.PrivKey: PrivKey,
+                       PGPPacketClass.PrivSubKey: PrivSubKey,
+                       PGPPacketClass.Trust: Trust,
+                       PGPPacketClass.UserID: UserID,
+                       PGPPacketClass.UserAttribute: UserAttribute}
 
-            # if self in [PGPPacketClass.PubKey, PGPPacketClass.PubSubKey]:
-            if self == PGPPacketClass.PubKey:
-                return PubKey
+            if self in classes:
+                return classes[self]
 
-            if self == PGPPacketClass.PubSubKey:
-                return PubSubKey
+            # the requested packet type is not directly supported
+            # so we'll treat it as opaque and move along
+            return OpaquePacket
 
-            if self == PGPPacketClass.PrivKey:
-                return PrivKey
-
-            if self == PGPPacketClass.PrivSubKey:
-                return PrivSubKey
-
-            if self == PGPPacketClass.Trust:
-                return Trust
-
-            if self == PGPPacketClass.UserID:
-                return UserID
-
-            if self == PGPPacketClass.UserAttribute:
-                return UserAttribute
-
-            raise NotImplementedError(self)  # pragma: no cover
 
 class Packet(PGPObject):
     __metaclass__ = abc.ABCMeta
+
+    @staticmethod
+    def load_packet(packet):
+        h = Header()
+        h.parse(packet)
+
+        newpkt = PGPPacketClass(h.tag).subclass()
+        newpkt.parse(packet)
+
+        return newpkt
 
     @abc.abstractproperty
     def name(self):
@@ -100,8 +100,9 @@ class Packet(PGPObject):
         self.header = Header()
 
     def parse(self, packet):
-        self.header.parse(packet)
-        return packet[len(self.header.__bytes__()):]
+        packet = self.header.parse(packet)
+        return packet
+        # return packet[len(self.header.__bytes__()):]
 # class Packet(object):
 #     name = ""
 #
@@ -140,6 +141,18 @@ class Packet(PGPObject):
 #
 #     def pgpdump_out(self):
 #         raise NotImplementedError(self.header.tag.name)  # pragma: no cover
+
+
+class OpaquePacket(Packet):
+    def __init__(self):
+        super(OpaquePacket, self).__init__()
+        self._data = b''
+
+    def parse(self, packet):
+        self._data = super(OpaquePacket, self).parse(packet)
+
+    def __bytes__(self):
+        return self.header.__bytes__() + self._data
 
 
 class Signature(Packet):
@@ -232,6 +245,10 @@ class Signature(Packet):
     def name(self):
         return "Signature Packet"
 
+    @property
+    def magic(self):
+        return "SIGNATURE"
+
     def __init__(self):
         super(Signature, self).__init__()
         self.version = Signature.Version.v4  # default for new Signature packets
@@ -248,23 +265,31 @@ class Signature(Packet):
         packet = super(Signature, self).parse(packet)
 
         self.version = Signature.Version(bytes_to_int(packet[:1]))
-        self.type = Signature.Type(bytes_to_int(packet[1:2]))
-        self.key_algorithm = PubKeyAlgo(bytes_to_int(packet[2:3]))
-        self.hash_algorithm = HashAlgo(bytes_to_int(packet[3:4]))
+        packet = packet[1:]
+
+        self.type = Signature.Type(bytes_to_int(packet[:1]))
+        packet = packet[1:]
+
+        self.key_algorithm = PubKeyAlgo(bytes_to_int(packet[:1]))
+        packet = packet[1:]
+
+        self.hash_algorithm = HashAlgo(bytes_to_int(packet[:1]))
+        packet = packet[1:]
 
         # subpackets
-        self.hashed_subpackets.parse(packet[4:])
-        pos = 4 + self.hashed_subpackets.length
+        packet = self.hashed_subpackets.parse(packet)
 
-        self.unhashed_subpackets.parse(packet[pos:])
-        pos += self.unhashed_subpackets.length
+        packet = self.unhashed_subpackets.parse(packet)
 
         # hash2
-        self.hash2 = packet[pos:pos + 2]
-        pos += 2
+        self.hash2 = packet[:2]
+        packet = packet[2:]
 
         # algorithm-specific integer(s)
-        self.signature.parse(packet[pos:], self.header.tag, self.key_algorithm)
+        packet = self.signature.parse(packet, self)
+        # packet = self.signature.parse(packet, self.header.tag, self.key_algorithm)
+
+        return packet
 
     def __bytes__(self):
         _bytes = b''
@@ -278,6 +303,9 @@ class Signature(Packet):
         _bytes += self.hash2
         _bytes += self.signature.sigbytes()
         return _bytes
+
+    def __pgpdump__(self):
+        raise NotImplementedError()
 
 
 class KeyPacket(Packet):
@@ -320,6 +348,7 @@ class KeyPacket(Packet):
         return self._fp
 
     def __init__(self):
+        super(KeyPacket, self).__init__()
         self._fp = None
 
         self.version = KeyPacket.Version.v4  # default for new Key packets
@@ -328,11 +357,20 @@ class KeyPacket(Packet):
         self.key_material = MPIFields()
 
     def parse(self, packet):
+        packet = super(KeyPacket, self).parse(packet)
+
         # all keys have the public component, at least
         self.version = PubKey.Version(bytes_to_int(packet[:1]))
-        self.key_creation = datetime.utcfromtimestamp(bytes_to_int(packet[1:5]))
-        self.key_algorithm = PubKeyAlgo(bytes_to_int(packet[5:6]))
-        self.key_material.parse(packet[6:], self.header.tag, self.key_algorithm)
+        packet = packet[1:]
+
+        self.key_creation = datetime.utcfromtimestamp(bytes_to_int(packet[:4]))
+        packet = packet[4:]
+
+        self.key_algorithm = PubKeyAlgo(bytes_to_int(packet[:1]))
+        packet = packet[1:]
+
+        packet = self.key_material.parse(packet, self)
+        return packet
 
     def __bytes__(self):
         _bytes = b''
@@ -341,7 +379,6 @@ class KeyPacket(Packet):
         _bytes += int_to_bytes(calendar.timegm(self.key_creation.timetuple()), 4)
         _bytes += self.key_algorithm.__bytes__()
         _bytes += self.key_material.pubbytes()
-
         return _bytes
 
 
@@ -361,26 +398,28 @@ class Private(KeyPacket):
         self.checksum = b''
 
     def parse(self, packet):
-        super(Private, self).parse(packet)
-        pos = 6 + len(self.key_material.pubbytes())
-
-        self.stokey.parse(packet[pos:])
-        pos += len(self.stokey.__bytes__())
+        # can't use super here, or it traverses the inheritance tree weirdly
+        packet = KeyPacket.parse(self, packet)
+        packet = self.stokey.parse(packet)
 
         # secret key material is not encrypted
         if self.stokey.id == 0:
-            self.key_material.parse(packet[pos:], self.header.tag, self.key_algorithm, sec=True)
-            pos += len(self.key_material.privbytes())
+            packet = self.key_material.parse(packet, self, sec=True)
 
         # secret key material is encrypted
         else:
-            mend = -2
+            mend = (self.header.length - (len(self.__bytes__()) - len(self.header.__bytes__()))) -  2
             if self.stokey.id == 254:
-                mend = len(packet)
-            self.enc_seckey_material = packet[pos:mend]
+                mend += 2
+
+            self.enc_seckey_material = packet[:mend]
+            packet = packet[mend:]
 
         if self.stokey.id in [0, 255]:
-            self.checksum = packet[pos:]
+            self.checksum = packet[:2]
+            packet = packet[2:]
+
+        return packet
 
     def __bytes__(self):
         _bytes = super(Private, self).__bytes__()
@@ -449,29 +488,59 @@ class PubKey(Primary, Public):
     # Tag 6
     name = 'Public Key Packet'
 
+    @property
+    def magic(self):
+        return "PUBLIC KEY PACKET"
+
+    def __pgpdump__(self):
+        raise NotImplementedError()
+
 
 class PubSubKey(Sub, Public):
     # Tag 14
     name = 'Public Subkey Packet'
+
+    magic = PubKey.magic
+
+    def __pgpdump__(self):
+        raise NotImplementedError()
 
 
 class PrivKey(Primary, Private):
     # Tag 5
     name = 'Secret Key Packet'
 
+    @property
+    def magic(self):
+        return "PRIVATE KEY PACKET"
+
+    def __pgpdump__(self):
+        raise NotImplementedError()
+
 
 class PrivSubKey(Sub, Private):
     name = 'Secret Subkey Packet'
 
+    magic = PrivKey.magic
+
+    def __pgpdump__(self):
+        raise NotImplementedError()
 
 class UserID(Packet):
     name = "User ID Packet"
 
+    @property
+    def magic(self):
+        raise NotImplementedError()
+
     def __init__(self):
+        super(UserID, self).__init__()
         self.data = b''
 
     def parse(self, packet):
-        self.data = packet
+        packet = super(UserID, self).parse(packet)
+        self.data = packet[:self.header.length]
+        return packet[self.header.length:]
 
     def __bytes__(self):
         _bytes = b''
@@ -479,6 +548,9 @@ class UserID(Packet):
         _bytes += self.data
 
         return _bytes
+
+    def __pgpdump__(self):
+        raise NotImplementedError()
 
 
 class Trust(Packet):
@@ -565,19 +637,27 @@ class UserAttribute(Packet):
     """
     name = "User Attribute Packet"
 
+    @property
+    def magic(self):
+        raise NotImplementedError()
+
     def __init__(self):
+        super(UserAttribute, self).__init__()
         self.subpackets = UserAttributeSubPackets()
 
     def parse(self, packet):
-        ##TODO: these are a separate set of subpackets from the usual subpackets
-        ##      defined as User Attribute Subpackets. There is only one currently defined in the standard
-        ##      but we should treat it the same way for later extensibility
-        ##      for now, let's just store it, though
-        # self.contents = packet
-        self.subpackets.parse(packet)
+        packet = super(UserAttribute, self).parse(packet)
+
+        while len(self.subpackets.__bytes__()) < self.header.length:
+            packet = self.subpackets.parse(packet)
+
+        return packet
 
     def __bytes__(self):
         _bytes = b''
         _bytes += self.header.__bytes__()
         _bytes += self.subpackets.__bytes__()
         return _bytes
+
+    def __pgpdump__(self):
+        raise NotImplementedError

@@ -4,7 +4,7 @@ from enum import IntEnum
 
 from .types import PacketField
 
-from ..subpackets.signature import SigSubPacket
+from ..subpackets.signature import SignatureSubPacket
 from ..subpackets.userattribute import UASubPacket
 
 from ...errors import PGPError
@@ -18,7 +18,7 @@ class Header(PacketField):
         new = 1
 
     class Tag(IntEnum):
-        ##TODO: implement the rest of these
+        ##TODO: add the rest of these
         Invalid = 0
         Signature = 2
         PrivKey = 5
@@ -29,33 +29,94 @@ class Header(PacketField):
         PubSubKey = 14
         UserAttribute = 17
 
-        @property
-        def is_signature(self):
-            return self == Header.Tag.Signature
+    class LengthType(IntEnum):
+        One = 0x0
+        Two = 0x1
+        Four = 0x2
+        Indeterminate = 0x3
 
-        @property
-        def is_key(self):
-            return self in [Header.Tag.PubKey, Header.Tag.PubSubKey, Header.Tag.PrivKey, Header.Tag.PrivSubKey]
+        def __len__(self):
+            lens = {Header.LengthType.One: 1,
+                    Header.LengthType.Two: 2,
+                    Header.LengthType.Four: 4,
+                    Header.LengthType.Indeterminate: 0}
 
-        @property
-        def is_privkey(self):
-            return self in [Header.Tag.PrivKey, Header.Tag.PrivSubKey]
+            return lens[self]
 
-        @property
-        def is_subkey(self):
-            return self in [Header.Tag.PubSubKey, Header.Tag.PrivSubKey]
+    @property
+    def aways_1(self):
+        return self._tag >> 7
 
-    def __init__(self, packet=None):
-        self.always_1 = 1
-        self.format = Header.Format.new
-        self.tag = Header.Tag.Invalid
-        self.length_type = 0
-        ##TODO: length should also be computable from the rest of the packet
-        #       this means we'll probably need to store a reference to the Packet object
-        #       to which this Header instance belongs
-        self.length = 0
+    @property
+    def format(self):
+        return Header.Format((self._tag & 0x40) >> 6)
 
-        super(Header, self).__init__(packet)
+    @property
+    def tag(self):
+        ##TODO: check if the tag matches the parent packet; if not, set it appropriately
+        if self.format == Header.Format.old:
+            return Header.Tag((self._tag & 0x3C) >> 2)
+
+        if self.format == Header.Format.new:
+            return Header.Tag(self._tag & 0x3F)
+
+    @tag.setter
+    def tag(self, value):
+        ##TODO: set tag values when not parsing
+        if type(value) is int:
+            if (value >> 7) != 1:
+                raise PGPError("Malformed tag!")
+
+            self._tag = value
+
+            if self.tag == Header.Tag.Invalid:
+                raise PGPError("Invalid tag!")
+
+    @property
+    def length_type(self):
+        if self.format == Header.Format.old:
+            ##TODO: calculate length type based on calculated length
+            if self._parent is None:
+                return Header.LengthType(self._tag & 0x03)
+        return None
+
+    @property
+    def length(self):
+        if self._parent is None:
+            return self._length
+
+        ##TODO: calculate length from the parent packet
+        return 0
+
+    @length.setter
+    def length(self, value):
+        # sanity checking
+        if value < 0:
+            raise ValueError(value)
+
+        if self.format == Header.Format.old:
+            lt = self.length_type
+
+            if lt == Header.LengthType.One and value > 0xFF:
+                raise ValueError(value)
+
+            if lt == Header.LengthType.Two and value > 0xFFFF:
+                raise ValueError(value)
+
+            if lt == Header.LengthType.Four and value > 0xFFFFFF:
+                raise ValueError(value)
+
+        self._length = value
+
+    def __init__(self):
+        # 0x80 sets the first bit to 1 for the always_1 field
+        # 0x40 is format identifier new
+        # 0x80 + 0x40 = 0xC0
+        self._tag = 0xC0
+
+        # self._length_type = 0
+        self._length = 0
+        self._parent = None
 
     def parse(self, packet):
         """
@@ -95,162 +156,121 @@ class Header(PacketField):
 
         :param packet: raw packet bytes
         """
-        # parse the tag
-        tag = bytes_to_int(packet[:1])
 
-        self.always_1 = tag >> 7
-        if self.always_1 != 1:
-            raise PGPError("Malformed tag!")  # pragma: no cover
+        # parse the full tag, including length_type if this is an old-format packet header
+        self.tag = bytes_to_int(packet[:1])
+        packet = packet[1:]
 
-        self.format = Header.Format((tag >> 6) & 1)
-
-        # determine the tag and packet length
-        # old style packet header
         if self.format == Header.Format.old:
-            self.tag = Header.Tag((tag >> 2) & 0xF)
-            self.length_type = tag & 0x3
+            self.length = bytes_to_int(packet[:len(self.length_type)])
+            packet = packet[len(self.length_type):]
 
-            if self.length_type == 0:
-                packet = packet[:2]
-
-            elif self.length_type == 1:
-                packet = packet[:3]
-
-            elif self.length_type == 2:
-                packet = packet[:6]
-
-            else:
-                packet = packet[:1]
-
-            # if the length is provided, parse it
-            if len(packet) > 1:
-                self.length = bytes_to_int(packet[1:])
-
-        # new style packet header
-        else:
-            self.tag = Header.Tag(tag & 0x3F)
+        if self.format == Header.Format.new:
+            fo = bytes_to_int(packet[:1])
 
             # 1 octet length
-            if bytes_to_int(packet[1:2]) < 191:
-                self.length = bytes_to_int(packet[1:2])
+            if fo < 191:
+                self.length = bytes_to_int(packet[:1])
+                packet = packet[1:]
 
             # 2 octet length
-            elif 223 > bytes_to_int(packet[1:2]) > 191:
-                # ((num - (192 << 8)) & 0xFF00) + ((num & 0xFF) + 192)
-                elen = bytes_to_int(packet[1:3])
-                self.length = ((elen - (192 << 8)) & 0xFF00) + ((elen & 0xFF) + 192)
+            elif 223 > fo > 191:
+                self.length = bytes_to_int(packet[:2])
+                packet = packet[2:]
 
             # 5 octet length
-            elif bytes_to_int(packet[1:2]) == 255:
-                self.length = bytes_to_int(packet[2:6])
+            elif fo == 255:
+                self.length = bytes_to_int(packet[1:5])
+                packet = packet[5:]
 
             else:
                 raise PGPError("Malformed length!")
 
-        # make sure the Tag is valid
-        if self.tag == Header.Tag.Invalid:
-            raise PGPError("Invalid tag!")  # pragma: no cover
+        return packet
 
     def __bytes__(self):
         _bytes = b''
+        _bytes += int_to_bytes(self._tag)
 
-        # first byte is bitfields
-        fbyte = self.always_1 << 7
-        fbyte += self.format << 6
-
+        # old header format
         if self.format == Header.Format.old:
-            fbyte += self.tag << 2
+            if self.length_type != Header.LengthType.Indeterminate:
+                _bytes += int_to_bytes(self.length)
 
-            # compute length_type if it isn't already provided
-            if self.length_type == 0:
-                while self.length >> (8 * (self.length_type + 1)) and self.length_type < 3:
-                    self.length_type += 1
-
-            fbyte += self.length_type
-
+        # new header format
         else:
-            fbyte += self.tag & 0x3F
-
-        _bytes += int_to_bytes(fbyte)
-
-        if self.format == Header.Format.old:
-            _bytes += int_to_bytes(self.length)
-
-        else:
+            # 1 octet length
             if self.length < 192:
                 _bytes += int_to_bytes(self.length)
 
+            # 2 octet length
             elif self.length < 8384:
-                _bytes += int_to_bytes(((self.length & 0xFF00) + (192 << 8)) + ((self.length & 0xFF) - 192))
+                _bytes += int_to_bytes(((self.length & 0xFF00) + (192 << 8)) + ((self.length & 0xFF) - 192), 2)
 
+            # 5 octet length
             else:
                 _bytes += b'\xFF' + int_to_bytes(self.length, 4)
 
         return _bytes
 
+    def __pgpdump__(self):
+        raise NotImplementedError()
+
 
 class SignatureSubPackets(PacketField):
-    SPType = SigSubPacket
-
-    # property method to get the Issuer subpacket
-    # realistically, there will only ever be one of these for a given packet
-    @property
-    def issuer(self):
-        nl = [ n.type.name for n in self.subpackets ]
-        return self.subpackets[nl.index("Issuer")]
-
-    def __init__(self, packet=None):
+    def __init__(self):
         self.length = 0
         self.hashed = False
         self.subpackets = []
-        super(SignatureSubPackets, self).__init__(packet)
 
     def parse(self, packet):
-        self.length = bytes_to_int(packet[0:2]) + 2
-        packet = packet[:self.length]
+        self.length = bytes_to_int(packet[0:2])
+        packet = packet[2:]
 
-        pos = 2
-        while pos < self.length:
-            sp = SigSubPacket(packet[pos:])
+        while sum([len(sp.__bytes__()) for sp in self.subpackets]) < self.length:
+            sp = SignatureSubPacket(packet)
             self.subpackets.append(sp)
-            pos += sp.length
-            if 192 > sp.length:
-                pos += 1
 
-            elif 255 > sp.length >= 192:
-                pos += 2
+            if sp.__class__.__name__ == "OpaqueSubPacket":
+                a=0
 
-            else:
-                pos += 5
+            llen = len(sp.__bytes__())
+            packet = packet[llen:]
+
+        return packet
+        # while pos < self.length:
+        #     sp = SigSubPacket(packet[pos:])
+        #     self.subpackets.append(sp)
+        #     pos += sp.length
+        #     if 192 > sp.length:
+        #         pos += 1
+        #
+        #     elif 255 > sp.length >= 192:
+        #         pos += 2
+        #
+        #     else:
+        #         pos += 5
 
     def __bytes__(self):
-        _bytes = int_to_bytes(self.length - 2, 2)
+        _bytes = int_to_bytes(self.length, 2)
 
         for subpacket in self.subpackets:
             _bytes += subpacket.__bytes__()
 
         return _bytes
 
+    def __pgpdump__(self):
+        raise NotImplementedError()
+
 
 class UserAttributeSubPackets(PacketField):
     def __init__(self, packet=None):
+        super(UserAttributeSubPackets, self).__init__()
         self.subpackets = []
-        super(UserAttributeSubPackets, self).__init__(packet)
 
     def parse(self, packet):
-        pos = 0
-        while pos < len(packet):
-            sp = UASubPacket(packet[pos:])
-            self.subpackets.append(sp)
-            pos += sp.length
-            if 192 > sp.length:
-                pos += 1
-
-            elif 255 > sp.length >= 192:
-                pos += 2
-
-            else:
-                pos += 5
+        self.subpackets.append(UASubPacket(packet))
+        return packet[len(self.subpackets[-1].__bytes__()):]
 
     def __bytes__(self):
         _bytes = b''
@@ -258,3 +278,6 @@ class UserAttributeSubPackets(PacketField):
             _bytes += sp.__bytes__()
 
         return _bytes
+
+    def __pgpdump__(self):
+        raise NotImplementedError()
