@@ -43,10 +43,10 @@ class SubPacket(PacketField):
             pos = 5
 
         packet = packet[:pos + self.length]
-        pos += 1
 
         # before parsing the type_id, check the critical bit
         type_id = bytes_to_int(packet[pos:(pos + 1)])
+        pos += 1
         if type_id & 0x80:
             self.critical = True
 
