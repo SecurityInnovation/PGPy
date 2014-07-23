@@ -21,6 +21,7 @@ class SubPacket(PacketField):
 
     def __init__(self, packet=None):
         self.length = 0
+        self.critical = False
         self.type = 0
         self.payload = bytes()
 
@@ -42,8 +43,16 @@ class SubPacket(PacketField):
             pos = 5
 
         packet = packet[:pos + self.length]
-        self.type = self.Type(bytes_to_int(packet[pos:(pos + 1)]))
         pos += 1
+
+        # before parsing the type_id, check the critical bit
+        type_id = bytes_to_int(packet[pos:(pos + 1)])
+        if type_id & 0x80:
+            self.critical = True
+
+        # now mask out the critical bit before trying to parse the subpacket type
+        type_id &= 0x7F
+        self.type = self.Type(type_id)
 
         # morph into a subpacket's subclass and call that class' parse
         self.__class__ = self.type.subclass
