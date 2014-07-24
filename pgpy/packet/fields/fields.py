@@ -237,15 +237,22 @@ class UserAttributeSubPackets(PacketField):
         while pos < len(packet):
             sp = UASubPacket(packet[pos:])
             self.subpackets.append(sp)
-            pos += sp.length
-            if 192 > sp.length:
+
+            # this guards against a malformed packet, which apparently can happen
+            # because I saw a UA SubPacket today that began b'\xff\x00\x00\x0bX'
+            # which is a 5 byte length but only comes out to 2904
+            # this will actually be fixed totally differently in 0.3.0
+            # because it returns unparsed bytes from *.parse()
+            if 192 > bytes_to_int(packet[:1]):
                 pos += 1
 
-            elif 255 > sp.length >= 192:
+            elif 255 > bytes_to_int(packet[:1]) >= 192:
                 pos += 2
 
             else:
                 pos += 5
+
+            pos += sp.length
 
     def __bytes__(self):
         _bytes = b''
