@@ -121,19 +121,20 @@ class Header(PacketField):
         # new style packet header
         else:
             self.tag = Header.Tag(tag & 0x3F)
+            fo = bytes_to_int(packet[1:2])
 
             # 1 octet length
-            if bytes_to_int(packet[1:2]) < 191:
+            if fo < 191:
                 self.length = bytes_to_int(packet[1:2])
 
             # 2 octet length
-            elif 223 > bytes_to_int(packet[1:2]) > 191:
+            elif 224 > fo > 191:
                 # ((num - (192 << 8)) & 0xFF00) + ((num & 0xFF) + 192)
                 elen = bytes_to_int(packet[1:3])
                 self.length = ((elen - (192 << 8)) & 0xFF00) + ((elen & 0xFF) + 192)
 
             # 5 octet length
-            elif bytes_to_int(packet[1:2]) == 255:
+            elif fo == 255:
                 self.length = bytes_to_int(packet[2:6])
 
             else:
