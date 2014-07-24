@@ -212,7 +212,7 @@ class SignatureSubPackets(PacketField):
             if 192 > sp.length:
                 pos += 1
 
-            elif 255 > sp.length >= 192:
+            elif 8384 > sp.length >= 192:
                 pos += 2
 
             else:
