@@ -167,13 +167,15 @@ class Header(PacketField):
         _bytes += int_to_bytes(fbyte)
 
         if self.format == Header.Format.old:
-            _bytes += int_to_bytes(self.length)
+            if self.length_type != 3:
+                _bytes += int_to_bytes(self.length, 1 if self.length_type == 0 else \
+                                                    2 if self.length_type == 1 else 5)
 
         else:
-            if self.length < 192:
+            if 192 > self.length:
                 _bytes += int_to_bytes(self.length)
 
-            elif self.length < 8384:
+            elif 8384 > self.length:
                 _bytes += int_to_bytes(((self.length & 0xFF00) + (192 << 8)) + ((self.length & 0xFF) - 192))
 
             else:
