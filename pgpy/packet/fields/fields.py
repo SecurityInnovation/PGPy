@@ -13,6 +13,8 @@ from ...util import int_to_bytes
 
 
 class Header(PacketField):
+    __slots__ = ['always_1', 'format', 'tag', 'length_type', 'length']
+
     class Format(IntEnum):
         old = 0
         new = 1
