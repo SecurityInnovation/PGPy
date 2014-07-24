@@ -232,7 +232,13 @@ class KeyCollection(collections.MutableMapping):
         if key not in self._aliases.values():
             # user ids
             for uid in [ pkt for pkt in value.packets if isinstance(pkt, UserID) ]:
-                uidm = re.match(r'^(?P<name>[^\(<]*)(?: \((?P<comment>.*)\))?(?: <(?P<email>.*)>)$', uid.data.decode()).groupdict()
+                # this new regex now always at least matches the name field
+                # and optionally matches a comment
+                # and optionally matches an email (which must always be last if it exists)
+                uid_reg = r'^(?P<name>[^\(<]*)' \
+                          r'( \()?(?(2)(?P<comment>.*)\))' \
+                          r'( <)?(?(4)(?P<email>.*)>)$'
+                uidm = re.match(uid_reg, uid.data.decode()).groupdict()
 
                 if uidm['name'] is not None:
                     self._aliases[KeyCollection._UserName(uidm['name'])] = key
