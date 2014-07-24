@@ -1,7 +1,6 @@
 """ subpacket.py
 """
 
-
 from ..fields.types import PacketField
 from ..types import PFIntEnum
 from ...util import bytes_to_int, int_to_bytes
@@ -52,15 +51,24 @@ class SubPacket(PacketField):
 
         # now mask out the critical bit before trying to parse the subpacket type
         type_id &= 0x7F
-        self.type = self.Type(type_id)
 
-        # morph into a subpacket's subclass and call that class' parse
-        self.__class__ = self.type.subclass
-        self.parse(packet[pos:])
+        try:
+            self.type = self.Type(type_id)
+
+        except ValueError:
+            self.type = type_id
+            self.__class__ = self.Type.opaque()
+
+        else:
+            # morph into a subpacket's subclass and call that class' parse
+            self.__class__ = self.type.subclass
+
+        finally:
+            self.parse(packet[pos:])
 
     def __bytes__(self):
         _bytes = b''
-        if self.length < 192:
+        if 192 > self.length:
             _bytes += int_to_bytes(self.length)
 
         elif 192 <= self.length < 8384:
