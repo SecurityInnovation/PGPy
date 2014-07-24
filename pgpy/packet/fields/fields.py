@@ -112,21 +112,11 @@ class Header(PacketField):
             self.tag = Header.Tag((tag >> 2) & 0xF)
             self.length_type = tag & 0x3
 
-            if self.length_type == 0:
-                packet = packet[:2]
-
-            elif self.length_type == 1:
-                packet = packet[:3]
-
-            elif self.length_type == 2:
-                packet = packet[:6]
-
-            else:
-                packet = packet[:1]
-
-            # if the length is provided, parse it
-            if len(packet) > 1:
-                self.length = bytes_to_int(packet[1:])
+            lt = {0: lambda: bytes_to_int(packet[1:2]),
+                  1: lambda: bytes_to_int(packet[1:3]),
+                  2: lambda: bytes_to_int(packet[1:6]),
+                  3: lambda: 0}[self.length_type]
+            self.length = lt()
 
         # new style packet header
         else:
