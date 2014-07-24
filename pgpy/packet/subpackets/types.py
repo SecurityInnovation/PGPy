@@ -77,5 +77,10 @@ class SubPacket(PacketField):
         else:
             _bytes += b'\xFF' + int_to_bytes(self.length, 4)
 
-        _bytes += self.type.__bytes__()
+        if type(self.type) is int:
+            _bytes += int_to_bytes(self.type)
+
+        else:
+            _bytes += self.type.__bytes__()
+
         return _bytes
