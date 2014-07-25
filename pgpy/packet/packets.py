@@ -292,7 +292,6 @@ class Signature(Packet):
             # algorithm-specific integer(s)
             self.signature.parse(packet[pos:], self.header.tag, self.key_algorithm)
 
-
     def __bytes__(self):
         _bytes = b''
 
