@@ -51,6 +51,10 @@ class SigSubPacket(SubPacket):
         SignatureTarget = 0x1F
         EmbeddedSignature = 0x20
 
+        @classmethod
+        def opaque(cls):
+            return Opaque
+
         @property
         def subclass(self):
             classes = {'SigCreationTime': SigCreationTime,
@@ -67,6 +71,7 @@ class SigSubPacket(SubPacket):
                        'PreferredHashAlgorithms': PreferredHashAlgorithm,
                        'PreferredCompressionAlgorithms': PreferredCompressionAlgorithm,
                        'KeyServerPreferences': KeyServerPreferences,
+                       'PreferredKeyServer': PreferredKeyServer,
                        'PrimaryUserID': PrimaryUserID,
                        'PolicyURL': PolicyURL,
                        'KeyFlags': KeyFlags,
@@ -78,7 +83,21 @@ class SigSubPacket(SubPacket):
             if classes[self.name] is not None:
                 return classes[self.name]
 
-            raise NotImplementedError(self.name)  # pragma: no cover
+            # new behavior: return Opaque instead of raising NotImplementedError for any subpacket that isn't
+            # yet supported
+            return Opaque
+
+
+class Opaque(SigSubPacket):
+    name = "unknown"
+
+    def parse(self, packet):
+        self.payload = packet
+
+    def __bytes__(self):
+        _bytes = super(Opaque, self).__bytes__()
+        _bytes += self.payload
+        return _bytes
 
 
 class SigCreationTime(SigSubPacket):
@@ -228,6 +247,18 @@ class KeyServerPreferences(PreferenceFlags):
             return flags[self.name]
 
     name = "key server preferences"
+
+
+class PreferredKeyServer(SigSubPacket):
+    name = "preferred key server"
+
+    def parse(self, packet):
+        self.payload = packet.decode()
+
+    def __bytes__(self):
+        _bytes = super(PreferredKeyServer, self).__bytes__()
+        _bytes += self.payload.encode()
+        return _bytes
 
 
 class KeyFlags(PreferenceFlags):

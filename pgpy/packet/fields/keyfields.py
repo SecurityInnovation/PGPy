@@ -38,10 +38,10 @@ class MPIFields(object):
         if alg == PubKeyAlgo.DSA:
             self.__class__ = DSAMPI
 
-        if alg == PubKeyAlgo.ElGamal:
+        if alg in [PubKeyAlgo.ElGamal, PubKeyAlgo.Reserved_FormerlyElg]:
             self.__class__ = ElGMPI
 
-        # if our class hasn't changed, then something went wrong
+        # if our class hasn't changed at this point, something went wrong
         if self.__class__ == MPIFields:
             raise NotImplementedError(alg.name)
 

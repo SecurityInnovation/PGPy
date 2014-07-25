@@ -13,6 +13,8 @@ from ...util import int_to_bytes
 
 
 class Header(PacketField):
+    __slots__ = ['always_1', 'format', 'tag', 'length_type', 'length']
+
     class Format(IntEnum):
         old = 0
         new = 1
@@ -110,38 +112,29 @@ class Header(PacketField):
             self.tag = Header.Tag((tag >> 2) & 0xF)
             self.length_type = tag & 0x3
 
-            if self.length_type == 0:
-                packet = packet[:2]
-
-            elif self.length_type == 1:
-                packet = packet[:3]
-
-            elif self.length_type == 2:
-                packet = packet[:6]
-
-            else:
-                packet = packet[:1]
-
-            # if the length is provided, parse it
-            if len(packet) > 1:
-                self.length = bytes_to_int(packet[1:])
+            lt = {0: lambda: bytes_to_int(packet[1:2]),
+                  1: lambda: bytes_to_int(packet[1:3]),
+                  2: lambda: bytes_to_int(packet[1:6]),
+                  3: lambda: 0}[self.length_type]
+            self.length = lt()
 
         # new style packet header
         else:
             self.tag = Header.Tag(tag & 0x3F)
+            fo = bytes_to_int(packet[1:2])
 
             # 1 octet length
-            if bytes_to_int(packet[1:2]) < 191:
+            if fo < 191:
                 self.length = bytes_to_int(packet[1:2])
 
             # 2 octet length
-            elif 223 > bytes_to_int(packet[1:2]) > 191:
+            elif 224 > fo > 191:
                 # ((num - (192 << 8)) & 0xFF00) + ((num & 0xFF) + 192)
                 elen = bytes_to_int(packet[1:3])
                 self.length = ((elen - (192 << 8)) & 0xFF00) + ((elen & 0xFF) + 192)
 
             # 5 octet length
-            elif bytes_to_int(packet[1:2]) == 255:
+            elif fo == 255:
                 self.length = bytes_to_int(packet[2:6])
 
             else:
@@ -174,13 +167,15 @@ class Header(PacketField):
         _bytes += int_to_bytes(fbyte)
 
         if self.format == Header.Format.old:
-            _bytes += int_to_bytes(self.length)
+            if self.length_type != 3:
+                _bytes += int_to_bytes(self.length, 1 if self.length_type == 0 else
+                                                    2 if self.length_type == 1 else 5)
 
         else:
-            if self.length < 192:
+            if 192 > self.length:
                 _bytes += int_to_bytes(self.length)
 
-            elif self.length < 8384:
+            elif 8384 > self.length:
                 _bytes += int_to_bytes(((self.length & 0xFF00) + (192 << 8)) + ((self.length & 0xFF) - 192))
 
             else:
@@ -217,7 +212,7 @@ class SignatureSubPackets(PacketField):
             if 192 > sp.length:
                 pos += 1
 
-            elif 255 > sp.length >= 192:
+            elif 8384 > sp.length >= 192:
                 pos += 2
 
             else:
@@ -242,15 +237,22 @@ class UserAttributeSubPackets(PacketField):
         while pos < len(packet):
             sp = UASubPacket(packet[pos:])
             self.subpackets.append(sp)
-            pos += sp.length
-            if 192 > sp.length:
+
+            # this guards against a malformed packet, which apparently can happen
+            # because I saw a UA SubPacket today that began b'\xff\x00\x00\x0bX'
+            # which is a 5 byte length but only comes out to 2904
+            # this will actually be fixed totally differently in 0.3.0
+            # because it returns unparsed bytes from *.parse()
+            if 192 > bytes_to_int(packet[:1]):
                 pos += 1
 
-            elif 255 > sp.length >= 192:
+            elif 255 > bytes_to_int(packet[:1]) >= 192:
                 pos += 2
 
             else:
                 pos += 5
+
+            pos += sp.length
 
     def __bytes__(self):
         _bytes = b''
