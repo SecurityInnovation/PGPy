@@ -26,7 +26,6 @@ from .util import bytes_to_int, int_to_bytes
 def pgpload(pgpbytes):
     # load pgpbytes regardless of type, first
     f = FileLoader(pgpbytes)
-
     b = []
 
     # now, are there any ASCII PGP blocks at all?
@@ -172,8 +171,9 @@ class PGPBlock(FileLoader):
         if self.data != b'':
             pos = 0
             while pos < len(self.data):
-                self.packets.append(Packet(self.data[pos:]))
-                pos += len(self.packets[-1].header.__bytes__()) + self.packets[-1].header.length
+                pkt = Packet(self.data[pos:])
+                pos += len(pkt.header.__bytes__()) + pkt.header.length
+                self.packets.append(pkt)
 
     def crc24(self):
         # CRC24 computation, as described in the RFC 4880 section on Radix-64 Conversions

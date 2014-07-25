@@ -21,11 +21,13 @@ class PubKeyAlgo(PFIntEnum):
     RSASign = 0x03
     ElGamal = 0x10
     DSA = 0x11
+    Reserved_FormerlyElg = 0x14
 
     def __str__(self):
         algos = {'RSAEncryptOrSign': "RSA Encrypt or Sign",
                  'ElGamal': "ElGamal Encrypt-Only",
-                 'DSA': "DSA Digital Signature Algorithm"}
+                 'DSA': "DSA Digital Signature Algorithm",
+                 'Reserved_FormerlyElg': "Reserved formerly ElGamal Encrypt or Sign"}
 
         if self.name in algos.keys():
             return algos[self.name]
@@ -153,6 +155,10 @@ class HashAlgo(PFIntEnum):
     MD5 = 0x01
     SHA1 = 0x02
     RIPEMD160 = 0x03
+    Reserved1 = 0x04
+    Reserved2 = 0x05
+    Reserved3 = 0x06
+    Reserved4 = 0x07
     SHA256 = 0x08
     SHA384 = 0x09
     SHA512 = 0x0A

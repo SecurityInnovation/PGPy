@@ -106,13 +106,47 @@ class Packet(object):
         if packet is not None:
             # parse header, then change into our subclass
             self.header.parse(packet)
-            self.__class__ = PGPPacketClass(self.header.tag).subclass
-            self.__class__.__init__(self)
-
-            # get the current packet length from the header, then parse it
             start = len(self.header.__bytes__())
             end = start + self.header.length
-            self.parse(packet[start:end])
+
+            try:
+                # get the subclass to be instantiated - will fall back if the packet is not supported
+                nc = PGPPacketClass(self.header.tag).subclass
+
+                # if the subclass is versioned and the packet looks like it's not version 4, also fall back
+                if hasattr(nc, "Version") and bytes_to_int(packet[start:(start + 1)]) != 4:
+                    raise ValueError()
+
+            except ValueError:
+                # fall back to Opaque
+                nc = Opaque
+
+            finally:
+                self.__class__ = nc
+                self.__init__()
+                self.parse(packet[start:end])
+
+            # try:
+            #     # try to set the class
+            #     self.__class__ = PGPPacketClass(self.header.tag).subclass
+            #
+            # except ValueError:
+            #     # fall back to Opaque if the packet type is unknown
+            #     self.__class__ = Opaque
+            #
+            # finally:
+            #     # run child class' __init__
+            #     self.__class__.__init__(self)
+            #
+            # try:
+            #     # try to parse
+            #     self.parse(packet[start:end])
+            #
+            # except ValueError:
+            #     # parsing failed; fall back to Opaque(Packet)
+            #     self.__class__ = Opaque
+            #     self.__class__.__init__(self)
+            #     self.parse(packet[start:end])
 
     def parse(self, packet):
         raise NotImplementedError(self.header.tag.name)  # pragma: no cover
@@ -122,6 +156,19 @@ class Packet(object):
 
     def pgpdump_out(self):
         raise NotImplementedError(self.header.tag.name)  # pragma: no cover
+
+
+class Opaque(Packet):
+    def __init__(self):
+        self.contents = b''
+
+    def parse(self, packet):
+        self.contents = packet
+
+    def __bytes__(self):
+        _bytes = self.header.__bytes__()
+        _bytes += self.contents
+        return _bytes
 
 
 class Signature(Packet):
@@ -225,35 +272,40 @@ class Signature(Packet):
 
     def parse(self, packet):
         self.version = Signature.Version(bytes_to_int(packet[:1]))
-        self.type = Signature.Type(bytes_to_int(packet[1:2]))
-        self.key_algorithm = PubKeyAlgo(bytes_to_int(packet[2:3]))
-        self.hash_algorithm = HashAlgo(bytes_to_int(packet[3:4]))
 
-        # subpackets
-        self.hashed_subpackets.parse(packet[4:])
-        pos = 4 + self.hashed_subpackets.length
+        if self.version == Signature.Version.v4:
+            self.type = Signature.Type(bytes_to_int(packet[1:2]))
+            self.key_algorithm = PubKeyAlgo(bytes_to_int(packet[2:3]))
+            self.hash_algorithm = HashAlgo(bytes_to_int(packet[3:4]))
 
-        self.unhashed_subpackets.parse(packet[pos:])
-        pos += self.unhashed_subpackets.length
+            # subpackets
+            self.hashed_subpackets.parse(packet[4:])
+            pos = 4 + self.hashed_subpackets.length
 
-        # hash2
-        self.hash2 = packet[pos:pos + 2]
-        pos += 2
+            self.unhashed_subpackets.parse(packet[pos:])
+            pos += self.unhashed_subpackets.length
 
-        # algorithm-specific integer(s)
-        self.signature.parse(packet[pos:], self.header.tag, self.key_algorithm)
+            # hash2
+            self.hash2 = packet[pos:pos + 2]
+            pos += 2
+
+            # algorithm-specific integer(s)
+            self.signature.parse(packet[pos:], self.header.tag, self.key_algorithm)
 
     def __bytes__(self):
         _bytes = b''
-        _bytes += self.header.__bytes__()
-        _bytes += self.version.__bytes__()
-        _bytes += self.type.__bytes__()
-        _bytes += self.key_algorithm.__bytes__()
-        _bytes += self.hash_algorithm.__bytes__()
-        _bytes += self.hashed_subpackets.__bytes__()
-        _bytes += self.unhashed_subpackets.__bytes__()
-        _bytes += self.hash2
-        _bytes += self.signature.sigbytes()
+
+        if self.version == Signature.Version.v4:
+            _bytes += self.header.__bytes__()
+            _bytes += self.version.__bytes__()
+            _bytes += self.type.__bytes__()
+            _bytes += self.key_algorithm.__bytes__()
+            _bytes += self.hash_algorithm.__bytes__()
+            _bytes += self.hashed_subpackets.__bytes__()
+            _bytes += self.unhashed_subpackets.__bytes__()
+            _bytes += self.hash2
+            _bytes += self.signature.sigbytes()
+
         return _bytes
 
 
@@ -309,9 +361,11 @@ class KeyPacket(Packet):
     def parse(self, packet):
         # all keys have the public component, at least
         self.version = PubKey.Version(bytes_to_int(packet[:1]))
-        self.key_creation = datetime.utcfromtimestamp(bytes_to_int(packet[1:5]))
-        self.key_algorithm = PubKeyAlgo(bytes_to_int(packet[5:6]))
-        self.key_material.parse(packet[6:], self.header.tag, self.key_algorithm)
+
+        if self.version == PubKey.Version.v4:
+            self.key_creation = datetime.utcfromtimestamp(bytes_to_int(packet[1:5]))
+            self.key_algorithm = PubKeyAlgo(bytes_to_int(packet[5:6]))
+            self.key_material.parse(packet[6:], self.header.tag, self.key_algorithm)
 
     def __bytes__(self):
         _bytes = b''
