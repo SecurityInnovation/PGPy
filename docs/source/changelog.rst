@@ -5,6 +5,33 @@
 Changelog
 *********
 
+v0.2.1
+======
+
+PGPy v0.2.1 is primarily a bugfix release.
+
+Bugs Fixed
+----------
+
+ * Critical bit on signature subpackets was being ignored, and when set, causing a ValueError to be raised when trying to parse it.
+   The critical bit is now being parsed and masked out correctly. (#81)
+ * No longer raises exceptions on unrecognized subpackets; instead, it now treats them as opaque.
+ * No longer raises exceptions on unrecognized packets; instead, it now treats them as opaque.
+   This also applies to signature and key packets with versions other than v4.
+ * Fixed an issue where a User ID packet that lacked both a comment and an email address was failing to be found by the uid regex in KeyCollection.
+ * Fixed an issue where an old-format packet header with a length_type set longer than needed was resulting in the packet getting truncated.
+ * Fixed an issue where parsing a subpacket with a 2-byte length was erroneously being parsed as a 5-byte length.
+ * Fixed an issue where parsing a subpacket with a 5-byte length where the value was < 8434 was causing an error
+ * Fixed an issue where a packet or subpacket reporting a value marked reserved in RFC 4880 would cause ValueError to be raised during parsing.
+ * Key material marked as public key algorithm 20 (Reserved - Formerly ElGamal Encrypt or Sign) is now parsed as ElGamal key material.
+ * Fixed an issue where parsing a new-format packet header length where the first octet was 223 was erroneously reported as being malformed.
+
+New Features
+------------
+ * Added support for parsing the 'Preferred Key Server' signature subpacket
+ * Added support for loading unsupported or unrecognized signature subpackets.
+ * Added support for loading unsupported or unrecognized packets.
+
 v0.2.0
 ======
 
