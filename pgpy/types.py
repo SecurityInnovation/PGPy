@@ -9,9 +9,10 @@ try:  # pragma: no cover
     e = FileNotFoundError
 except NameError:  # pragma: no cover
     e = IOError
-else:  # pragma: no cover
+try:  # pragma: no cover
+    basestring
+except NameError:  # pragma: no cover
     basestring = (str, bytes)
-
 
 
 class FileLoader(object):
