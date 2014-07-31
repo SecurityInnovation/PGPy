@@ -36,7 +36,7 @@ class PGPDump(object):
         self._pgpobj = obj
 
     def __str__(self):
-        return str(self._pgpobj)
+        return self._pgpobj.__pgpdump__()
 
 
 class FileLoader(object):
