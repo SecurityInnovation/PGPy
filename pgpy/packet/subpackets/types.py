@@ -5,11 +5,7 @@ import abc
 from ...decorators import TypedProperty
 from ...types import Dispatchable
 from ...types import Header as _Header
-from ...types import PGPObject
-# import enum
 
-# from ..fields.types import PacketField
-# from ...util import bytes_to_int, int_to_bytes
 
 class Header(_Header):
     __slots__ = ['_critical', '_typeid']
@@ -124,7 +120,7 @@ class Opaque(Signature, UserAttribute):
         return _bytes
 
     def __pgpdump__(self):
-        raise NotImplementedError()
+        return "Sub: unknown (sub {typeid:d})({length:d} bytes)\n".format(typeid=self.header.typeid, length=self.header.length)
 
     def parse(self, packet):
         super(Opaque, self).parse(packet)
