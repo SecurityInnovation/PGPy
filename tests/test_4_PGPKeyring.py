@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 import itertools
 import os
 from distutils.version import LooseVersion
@@ -144,7 +146,7 @@ class TestPGPKeyring(object):
 
                 # now try with the wrong password, but unicode
                 with pytest.raises(PGPKeyDecryptionError):
-                    keyring.unlock(u"Ma\u00F1ana!")
+                    keyring.unlock("Ma\u00F1ana!")
 
                 # and finally, unlock with the correct password
                 keyring.unlock("QwertyUiop")
@@ -162,8 +164,8 @@ class TestPGPKeyring(object):
         os.remove(sig.path)
 
     def test_sign_unicode(self, keyring, gpg_verify):
-        sigstr = u'Yo!\n' \
-                 u'See you ma\u00F1ana!'
+        sigstr = 'Yo!\n' \
+                 'See you ma\u00F1ana!'
 
         with keyring.key("TestRSA-1024"):
             sig = keyring.sign(sigstr)
