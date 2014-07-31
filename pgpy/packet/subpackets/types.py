@@ -47,9 +47,6 @@ class Header(_Header):
         _bytes += self.int_to_bytes((int(self.critical) << 7) + self.typeid)
         return _bytes
 
-    def __pgpdump__(self):
-        raise NotImplementedError()
-
 
 class SubPacket(Dispatchable, metaclass=abc.ABCMeta):  ##TODO: is this metaclass declaration necessary?
     __slots__ = ['header']
@@ -82,20 +79,6 @@ class Signature(SubPacket):
 class UserAttribute(SubPacket):
     __slots__ = []
     __typeid__ = -1
-    # class Type(PFIntEnum):
-    #     Image = 0x01
-    #
-    #     @property
-    #     def subclass(self):
-    #         classes = {'Image': Image}
-    #
-    #         if classes[self.name] is not None:
-    #             return classes[self.name]
-    #
-    #         raise NotImplementedError(self.name)  # pragma: no cover
-    #
-    #     def __str__(self):
-    #         return self.subclass.name
 
 
 class Opaque(Signature, UserAttribute):
@@ -118,9 +101,6 @@ class Opaque(Signature, UserAttribute):
         _bytes = super(Opaque, self).__bytes__()
         _bytes += self.payload
         return _bytes
-
-    def __pgpdump__(self):
-        return "Sub: unknown (sub {typeid:d})({length:d} bytes)\n".format(typeid=self.header.typeid, length=self.header.length)
 
     def parse(self, packet):
         super(Opaque, self).parse(packet)

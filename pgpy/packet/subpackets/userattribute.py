@@ -92,9 +92,6 @@ class Image(UserAttribute):
         _bytes += self.image
         return _bytes
 
-    def __pgpdump__(self):
-        raise NotImplementedError()
-
     def parse(self, packet):
         super(Image, self).parse(packet)
         _, self.version, self.iencoding, _, _, _= struct.unpack('<hbbiii', packet[:16])

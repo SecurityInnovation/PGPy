@@ -80,9 +80,6 @@ class Opaque(Packet):
         _bytes += self.payload
         return _bytes
 
-    def __pgpdump__(self):
-        raise NotImplementedError()
-
     def parse(self, packet):
         super(Opaque, self).parse(packet)
         self.payload = packet[:self.header.length]

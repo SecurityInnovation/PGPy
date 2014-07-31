@@ -28,17 +28,6 @@ except NameError:  # pragma: no cover
     e = IOError
 
 
-class PGPDump(object):
-    def __init__(self, obj):
-        if not isinstance(obj, PGPObject):
-            raise ValueError("Expected: A PGPObject")
-
-        self._pgpobj = obj
-
-    def __str__(self):
-        return self._pgpobj.__pgpdump__()
-
-
 class FileLoader(object):
 
     @property
@@ -253,10 +242,6 @@ class PGPObject(object, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def parse(self, packet):
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    def __pgpdump__(self):
         raise NotImplementedError()
 
     @abc.abstractmethod

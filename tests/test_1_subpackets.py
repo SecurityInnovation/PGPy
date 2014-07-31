@@ -7,6 +7,7 @@ import re
 
 
 # from pgpy.packet.subpackets.types import Signature
+
 from pgpy.packet.subpackets import Signature
 from pgpy.packet.subpackets import UserAttribute
 
@@ -74,6 +75,54 @@ _sspclasses = {
     0x1d: 'ReasonForRevocation',
     0x1e: 'Features',
     0x1f: 'Target',  ##TODO: obtain one of these
+    # 0x20: 'EmbeddedSignature' ##TODO: parse this, then uncomment
+    # 0x64-0x6e: Private or Experimental ##TODO: figure out how to parse the 0x65 packet I found
+}
+
+_sspdump = {
+    # 0x00: 'Opaque',
+    # 0x01: 'Opaque',
+    0x02: 'Sub: signature creation time(sub 2)(4 bytes)\n'
+          '\t\tTime - Wed Oct  1 15:47:31 UTC 2003\n',
+    0x03: 'Sub: signature expiration time(sub 3)(4 bytes)\n'
+          '\t\tTime - Thu Jan 15 00:00:00 UTC 1970\n',
+    # 0x04: 'ExportableCertification',
+    0x05: 'Sub: trust signature(sub 5)(2 bytes)\n'
+          '\t\tLevel - 01\n'
+          '\t\tAmount - 78\n',
+    0x06: 'Sub: regular expression(sub 6)(28 bytes)\n'
+          '\t\tRegex - <[^>]+[@.]liebenzell\.org>$\n',
+    0x07: 'Sub: revocable(sub 7)(1 bytes)\n'
+          '\t\tRevocable - No\n',
+    # 0x08: 'Opaque',
+    0x09: 'Sub: key expiration time(sub 9)(4 bytes)\n'
+          '\t\tTime - Fri Jan  1 00:00:00 UTC 1971\n',
+    # 0x0a: 'Opaque',
+    0x0b: 'Sub: preferred hash algorithms(sub 11)(4 bytes)\n'
+          '\t\tSym alg - AES with 128-bit key(sym 7)\n'
+          '\t\tSym alg - Twofish with 256-bit key(sym 10)\n'
+          '\t\tSym alg - CAST5(sym 3)\n'
+          '\t\tSym alg - Blowfish(sym 4)\n',
+    # 0x0c: 'RevocationKey',
+    # 0x0d: 'Opaque',
+    # 0x0e: 'Opaque',
+    # 0x0f: 'Opaque',
+    # 0x10: 'Issuer',
+    # 0x11: 'Opaque',
+    # 0x12: 'Opaque',
+    # 0x13: 'Opaque',
+    # 0x14: 'NotationData',
+    # 0x15: 'PreferredHashAlgorithms',
+    # 0x16: 'PreferredCompressionAlgorithms',
+    # 0x17: 'KeyServerPreferences',
+    # 0x18: 'PreferredKeyServer',
+    # 0x19: 'PrimaryUserID',
+    # 0x1a: 'Policy',
+    # 0x1b: 'KeyFlags',
+    # 0x1c: 'SignersUserID',
+    # 0x1d: 'ReasonForRevocation',
+    # 0x1e: 'Features',
+    # 0x1f: 'Target',  ##TODO: obtain one of these
     # 0x20: 'EmbeddedSignature' ##TODO: parse this, then uncomment
     # 0x64-0x6e: Private or Experimental ##TODO: figure out how to parse the 0x65 packet I found
 }

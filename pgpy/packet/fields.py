@@ -33,9 +33,6 @@ class Header(_Header):
     def __len__(self):
         return 1 + self.llen
 
-    def __pgpdump__(self):
-        raise NotImplementedError()
-
     def parse(self, packet):
         self._lenfmt = ((packet[0] & 0x40) >> 6)
         self.tag = packet[0]

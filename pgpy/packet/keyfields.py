@@ -342,6 +342,3 @@ class String2Key(PacketField):
             _bytes += self.iv
 
         return _bytes
-
-    def __pgpdump__(self):
-        raise NotImplementedError()
