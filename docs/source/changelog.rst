@@ -5,6 +5,15 @@
 Changelog
 *********
 
+v0.2.3
+======
+
+PGPy v0.2.3 is a bugfix release
+
+Bugs Fixed
+----------
+ * Fixed an issue where explicitly selecting a key and then trying to validate with it would erroneously raise an exception as though the wrong key were selected.
+
 v0.2.2
 ======
 

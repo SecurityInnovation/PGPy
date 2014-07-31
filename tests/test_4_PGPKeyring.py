@@ -51,10 +51,10 @@ def pytest_generate_tests(metafunc):
 
     if 'invkeysel' in metafunc.fixturenames:
         args['invkeysel'] = [ 'DEADBEEF',
-                          'CAFEBABE',
-                          '1DEE7EFFF55B51578F0E40AB127AB47A',
-                          '0'*40,
-                          gpg_getfingerprint('TestRSA-1024')[1:] ]
+                              'CAFEBABE',
+                              '1DEE7EFFF55B51578F0E40AB127AB47A',
+                              '0'*40,
+                              gpg_getfingerprint('TestRSA-1024')[1:] ]
         ids = ['deadbeef', 'cafebabe', '16-byte', '40-null', 'truncated']
 
     if 'export' in metafunc.fixturenames:
@@ -169,8 +169,6 @@ class TestPGPKeyring(object):
 
         with keyring.key("TestRSA-1024"):
             sig = keyring.sign(sigstr)
-
-        with keyring.key():
             keyring.verify(sigstr, sig)
 
         # now verify the signature
