@@ -751,7 +751,7 @@ class PGPKeyring(object):
             raise PGPError("Key {key} is not loaded!".format(key=self.using if self.using is not None else skeyid))
 
         # respect the selected key, even if it's not the one that was used to generate the signature to be verified
-        if self.using is not None and self.using != skeyid:
+        if self.using is not None and (not self.using == skeyid):
             raise PGPError("Wrong key selected")
 
         # if we get to this point, it should be safe to assume that the requested public key is loaded
