@@ -90,7 +90,7 @@ class FileLoader(object):
 
         # some other thing
         else:
-            raise TypeError(type(lfile) + "Not expected")  # pragma: no cover
+            raise TypeError(str(type(lfile)) + " Not expected")  # pragma: no cover
 
         # try to kick off the parser
         # this only works on properly implemented children of this type
