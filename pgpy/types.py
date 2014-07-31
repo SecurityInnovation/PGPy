@@ -37,7 +37,8 @@ class FileLoader(object):
 
         # needed for Python 3.2 shenanigans
         except UnicodeDecodeError:  # pragma: no cover
-            return False
+            if any(c in ppath.encode('latin-1') for c in badchars):
+                return False
 
         return True
 
