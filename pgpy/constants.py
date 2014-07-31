@@ -20,6 +20,15 @@ class SymmetricKeyAlgorithm(IntEnum):
     Camellia192 = 0x0C
     Camellia256 = 0x0D
 
+    @property
+    def __name__(self):
+        names = {'TripleDES': 'Triple-DES',}
+        names.update({ska.name: '{:s} with {:s}-bit key'.format(ska.name[:-3], ska.name[-3:])
+                      for ska in SymmetricKeyAlgorithm if ska.name[-3:] in ['128', '192', '256'] })
+        if self.name in names:
+            return names[self.name]
+        return self.name
+
 
 class PubKeyAlgorithm(IntEnum):
     Invalid = 0x00
