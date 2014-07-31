@@ -43,7 +43,7 @@ def pgpload(pgpbytes):
             if block.group(1) == "SIGNATURE":
                 c = PGPSignature
 
-            p = c(block.group(0).encode())
+            p = c(block.group(0).encode('ascii'))
             p.path = f.path
             b.append(p)
 
@@ -160,8 +160,8 @@ class PGPBlock(FileLoader):
             for key, val in [ (h[i], h[i + 1]) for i in range(0, len(h), 2) ]:
                 self.ascii_headers[key] = val
 
-            self.data = bytearray(base64.b64decode(k[2].replace('\n', '').encode()))
-            self.crc = bytes_to_int(base64.b64decode(k[3].encode()))
+            self.data = bytearray(base64.b64decode(k[2].replace('\n', '').encode('ascii')))
+            self.crc = bytes_to_int(base64.b64decode(k[3].encode('ascii')))
 
             # verify CRC
             if self.crc != self.crc24():
@@ -216,7 +216,7 @@ class PGPBlock(FileLoader):
         if self.type is None and re.search(r'-----BEGIN PGP ([A-Z ]*)-----', data,
                                            flags=re.MULTILINE | re.DOTALL) is None:
             self.bytes = b''
-            self.data = data.encode()
+            self.data = data.encode('ascii')
             return
 
         # find all ASCII armored PGP blocks
@@ -234,7 +234,7 @@ class PGPBlock(FileLoader):
             _bytes = b''
 
             for m in pgpiter:
-                _bytes += data[m.start():m.end()].encode()
+                _bytes += data[m.start():m.end()].encode('ascii')
 
             self.bytes = _bytes
             return
@@ -249,7 +249,7 @@ class PGPBlock(FileLoader):
                     self.type = _m
                     break
 
-            self.bytes = data[m.start():m.end()].encode()
+            self.bytes = data[m.start():m.end()].encode('ascii')
             return
 
         # return the block type that was requested
@@ -258,12 +258,12 @@ class PGPBlock(FileLoader):
 
             # specific type
             if re.match(Magic(self.type).value, block):
-                self.bytes = block.encode()
+                self.bytes = block.encode('ascii')
                 return
 
         # no ASCII blocks found :(
         self.bytes = b''
-        self.data = data.encode()
+        self.data = bytearray(data, 'utf_8') if type(data) is str else bytearray(data)
 
 
 class PGPSignature(PGPBlock):
@@ -340,7 +340,7 @@ class PGPSignature(PGPBlock):
         # After all this has been hashed in a single hash context, the
         # resulting hash field is used in the signature algorithm and placed
         # at the end of the Signature packet.
-        _data = b''
+        _data = bytearray()
         # h = hashlib.new(spkt.hash_algorithm.name)
 
         # if spkt.hash_algorithm == HashAlgo.SHA1:
@@ -373,7 +373,7 @@ class PGPSignature(PGPBlock):
         _data += b'\x04\xff'
         _data += int_to_bytes(hlen, 4)
 
-        return _data
+        return bytes(_data)
 
 
 class PGPKey(PGPBlock):
