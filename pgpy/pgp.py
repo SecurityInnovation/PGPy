@@ -9,7 +9,7 @@ from .packet.packets import Signature
 from .packet.types import HashAlgo
 from .packet.types import PubKeyAlgo
 
-from .packet.fields.fields import Header
+# from .packet.fields.fields import Header
 
 from .errors import PGPError
 from .types import FileLoader
