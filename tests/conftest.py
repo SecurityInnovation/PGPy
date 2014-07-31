@@ -1,3 +1,4 @@
+import functools
 import os
 import sys
 
@@ -25,7 +26,7 @@ if os.path.join(os.getcwd(), 'tests') not in sys.path:
     sys.path.insert(1, os.path.join(os.getcwd(), 'tests'))
 
 # now import stuff from fixtures so it can be imported by test modules
-from fixtures import TestFiles, gpg_getfingerprint, pgpdump, gpg_verify, gpg_fingerprint
+# from fixtures import TestFiles, gpg_getfingerprint, pgpdump, gpg_verify, gpg_fingerprint
 
 # pytest hooks
 # called after command line options have been parsed and all plugins and initial conftest files been loaded.
@@ -38,5 +39,23 @@ def pytest_configure(config):
     print("")
 
 
+class CWD_As(object):
+    def __init__(self, newwd):
+        if not os.path.exists(newwd):
+            raise FileNotFoundError(newwd)
+
+        self.oldwd = os.getcwd()
+        self.newwd = newwd
+
+    def __call__(self, func):
+        @functools.wraps(func)
+        def setcwd(*args, **kwargs):
+            os.chdir(self.newwd)
+            fo = func(*args, **kwargs)
+            os.chdir(self.oldwd)
+            return fo
+        return setcwd
+
+
 # and set __all__
-__all__ = [openssl_ver, TestFiles, gpg_getfingerprint, pgpdump, gpg_verify, gpg_fingerprint]
+# __all__ = [openssl_ver, TestFiles, gpg_getfingerprint, pgpdump, gpg_verify, gpg_fingerprint]
