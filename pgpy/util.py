@@ -2,16 +2,18 @@
 
 utility functions for PGPY
 """
-import binascii
 import itertools
-import math
 import os
 import re
 
 
 def is_ascii(text):
-    if type(text) is not bytes:
-        raise ValueError("Expected: bytes")
+    if not isinstance(text, (str, bytes, bytearray)):
+        raise ValueError("Expected: ASCII input of type str, bytes, or bytearray")
+
+    if isinstance(text, str):
+        #                      matches all printable ASCII characters
+        return bool(re.match(r'^[ -~\n]+$', text, flags=re.ASCII))
 
     try:
         text.decode()
@@ -37,16 +39,9 @@ def is_path(ppath):
 
     return False
 
-
-def bytes_to_int(b):
-    return int(binascii.hexlify(b), 16)
-
-
-def int_to_bytes(i, minlen=1):
-    plen = max(int(math.ceil(i.bit_length() / 8.0)) * 2, (minlen * 2))
-    hexstr = '{0:0{1}x}'.format(i, plen).encode()
-    return binascii.unhexlify(hexstr)
-
+##TODO: asn1_seqint_to_tuple needs to move
+bytes_to_int = lambda x: int.from_bytes(x, 'big')
+int_to_bytes = lambda x, y=1: x.to_bytes(y, 'big')
 
 def asn1_seqint_to_tuple(asn1block):
     # very limited asn1 decoder - only intended to decode a DER encoded sequence of integers
