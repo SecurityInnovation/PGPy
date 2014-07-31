@@ -27,6 +27,7 @@ except requests.exceptions.ConnectionError:
         open("tests/testdata/unsigned_message", 'rb'),
         open("tests/testdata/unsigned_message", 'rb').read(),
         open("tests/testdata/testkeys.gpg", 'rb').read(),
+        bytearray(open("tests/testdata/testkeys.gpg", 'rb').read()),
         "tests/testdata/newfile",
     ],
     ids=[
@@ -38,6 +39,7 @@ except requests.exceptions.ConnectionError:
         "fileobj",
         "unsigned-text-bytes",
         "gpg-keyring-bytes",
+        "gpg-keyring-bytearray",
         "newfile",
     ]
 )

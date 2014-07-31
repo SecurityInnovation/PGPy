@@ -43,7 +43,7 @@ def pgpload(pgpbytes):
             if block.group(1) == "SIGNATURE":
                 c = PGPSignature
 
-            p = c(block.group(0).encode())
+            p = c(block.group(0).encode('ascii'))
             p.path = f.path
             b.append(p)
 
@@ -160,8 +160,8 @@ class PGPBlock(FileLoader):
             for key, val in [ (h[i], h[i + 1]) for i in range(0, len(h), 2) ]:
                 self.ascii_headers[key] = val
 
-            self.data = base64.b64decode(k[2].replace('\n', '').encode())
-            self.crc = bytes_to_int(base64.b64decode(k[3].encode()))
+            self.data = bytearray(base64.b64decode(k[2].replace('\n', '').encode('ascii')))
+            self.crc = bytes_to_int(base64.b64decode(k[3].encode('ascii')))
 
             # verify CRC
             if self.crc != self.crc24():
@@ -169,10 +169,9 @@ class PGPBlock(FileLoader):
 
         # dump fields in all contained packets per RFC 4880, without using pgpdump
         if self.data != b'':
-            pos = 0
-            while pos < len(self.data):
-                pkt = Packet(self.data[pos:])
-                pos += len(pkt.header.__bytes__()) + pkt.header.length
+            while len(self.data) > 0:
+                pkt = Packet(self.data)
+                del self.data[:(len(pkt.header.__bytes__()) + pkt.header.length)]
                 self.packets.append(pkt)
 
     def crc24(self):
@@ -185,7 +184,7 @@ class PGPBlock(FileLoader):
         # The accumulation is done on the data before it is converted to
         # radix-64, rather than on the converted data.
         if self.data == b'':
-            self.data = self.__bytes__()
+            self.data = bytearray(self.__bytes__())
 
         crc = self.crc24_init
         sig = [ ord(i) for i in self.data ] if type(self.data) is str else self.data
@@ -210,14 +209,14 @@ class PGPBlock(FileLoader):
         # this is binary data; skip extracting the block and move on
         else:
             self.bytes = b''
-            self.data = data
+            self.data = bytearray(data)
             return
 
         # are there any ASCII armored PGP blocks present? if not, we may be dealing with binary data instead
         if self.type is None and re.search(r'-----BEGIN PGP ([A-Z ]*)-----', data,
                                            flags=re.MULTILINE | re.DOTALL) is None:
             self.bytes = b''
-            self.data = data.encode()
+            self.data = data.encode('ascii')
             return
 
         # find all ASCII armored PGP blocks
@@ -235,7 +234,7 @@ class PGPBlock(FileLoader):
             _bytes = b''
 
             for m in pgpiter:
-                _bytes += data[m.start():m.end()].encode()
+                _bytes += data[m.start():m.end()].encode('ascii')
 
             self.bytes = _bytes
             return
@@ -250,7 +249,7 @@ class PGPBlock(FileLoader):
                     self.type = _m
                     break
 
-            self.bytes = data[m.start():m.end()].encode()
+            self.bytes = data[m.start():m.end()].encode('ascii')
             return
 
         # return the block type that was requested
@@ -259,12 +258,12 @@ class PGPBlock(FileLoader):
 
             # specific type
             if re.match(Magic(self.type).value, block):
-                self.bytes = block.encode()
+                self.bytes = block.encode('ascii')
                 return
 
         # no ASCII blocks found :(
         self.bytes = b''
-        self.data = data.encode()
+        self.data = bytearray(data, 'utf_8') if type(data) is str else bytearray(data)
 
 
 class PGPSignature(PGPBlock):
@@ -341,7 +340,7 @@ class PGPSignature(PGPBlock):
         # After all this has been hashed in a single hash context, the
         # resulting hash field is used in the signature algorithm and placed
         # at the end of the Signature packet.
-        _data = b''
+        _data = bytearray()
         # h = hashlib.new(spkt.hash_algorithm.name)
 
         # if spkt.hash_algorithm == HashAlgo.SHA1:
@@ -374,7 +373,7 @@ class PGPSignature(PGPBlock):
         _data += b'\x04\xff'
         _data += int_to_bytes(hlen, 4)
 
-        return _data
+        return bytes(_data)
 
 
 class PGPKey(PGPBlock):

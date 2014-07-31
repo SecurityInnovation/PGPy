@@ -207,11 +207,11 @@ class Issuer(SigSubPacket):
     def parse(self, packet):
         # python 2.7
         if type(packet) is str:
-            self.payload = ''.join('{:02x}'.format(ord(c)) for c in packet).upper().encode()
+            self.payload = ''.join('{:02x}'.format(ord(c)) for c in packet).upper().encode('latin-1')
 
         # python 3.x
         else:
-            self.payload = ''.join('{:02x}'.format(c) for c in packet).upper().encode()
+            self.payload = ''.join('{:02x}'.format(c) for c in packet).upper().encode('latin-1')
 
     def __bytes__(self):
         _bytes = super(Issuer, self).__bytes__()
@@ -257,7 +257,7 @@ class PreferredKeyServer(SigSubPacket):
 
     def __bytes__(self):
         _bytes = super(PreferredKeyServer, self).__bytes__()
-        _bytes += self.payload.encode()
+        _bytes += self.payload.encode('latin-1')
         return _bytes
 
 
