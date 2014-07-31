@@ -784,7 +784,7 @@ class PGPKeyring(object):
 
                 # public key object and verifier
                 pk = rsa.RSAPublicKey(e, n)
-                verifier = pk.verifier(s, padding.PKCS1v15(), sig.sigpkt.hash_algorithm.hasher, default_backend())
+                verifier = pk.verifier(bytes(s), padding.PKCS1v15(), sig.sigpkt.hash_algorithm.hasher, default_backend())
 
             elif sig.sigpkt.key_algorithm == PubKeyAlgo.DSA:
                 # public key components
@@ -793,7 +793,7 @@ class PGPKeyring(object):
                 g = bytes_to_int(pubkey.key_material.g['bytes'])
                 y = bytes_to_int(pubkey.key_material.y['bytes'])
                 # signature
-                s = sig.sigpkt.signature.as_asn1_der
+                s = bytes(sig.sigpkt.signature.as_asn1_der)
 
                 # public key object
                 pk = dsa.DSAPublicKey(

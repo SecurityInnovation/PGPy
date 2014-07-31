@@ -14,17 +14,9 @@ from .packet.subpackets import UASubPacket
 class PGPDumpFormat(object):
     @staticmethod
     def bytefield(f):
-        o = ""
-
-        # python 2.7
-        if bytes is str:
-            o += ''.join('{:02x} '.format(ord(c)) for c in f)
-
-        # python 3.x
-        else:
-            o += ''.join('{:02x} '.format(c) for c in f)
-
-        return o
+        if not isinstance(f, bytearray):
+            f = bytearray(f)
+        return ''.join('{:02x} '.format(c) for c in f)
 
     def __init__(self, pktobj):
         self.out = []
@@ -125,10 +117,7 @@ class PGPDumpFormat(object):
             o += "\tEncrypted SHA1 hash\n"
 
         if pkt.stokey.id in [0, 255]:
-            if bytes is str:
-                chksum = ''.join('{:02x} '.format(ord(c)) for c in pkt.checksum)
-            else:
-                chksum = ''.join('{:02x} '.format(c) for c in pkt.checksum)
+            chksum = self.bytefield(pkt.checksum)
             o += "\tChecksum - {chksum}\n".format(chksum=chksum)
 
         return o
@@ -246,11 +235,7 @@ class PGPDumpFormat(object):
             )
 
             if pkt.stokey.type in [String2Key.Type.Salted, String2Key.Type.Iterated]:
-                if bytes is str:
-                    saltbytes = ''.join('{:02x} '.format(ord(c)) for c in pkt.stokey.salt)
-                else:
-                    saltbytes = ''.join('{:02x} '.format(c) for c in pkt.stokey.salt)
-                o += "\t\tSalt - {saltbytes}\n".format(saltbytes=saltbytes)
+                o += "\t\tSalt - {saltbytes}\n".format(saltbytes=self.bytefield(pkt.stokey.salt))
 
             if pkt.stokey.type == String2Key.Type.Iterated:
                 o += "\t\tCount - {count}(coded count {c})\n".format(
@@ -259,12 +244,7 @@ class PGPDumpFormat(object):
                 )
 
         if pkt.stokey.id != 0:
-            if bytes is str:
-                ivbytes = ''.join('{:02x} '.format(ord(c)) for c in pkt.stokey.iv)
-            else:
-                ivbytes = ''.join('{:02x} '.format(c) for c in pkt.stokey.iv)
-
-            o += "\tIV - {ivbytes}\n".format(ivbytes=ivbytes)
+            o += "\tIV - {ivbytes}\n".format(ivbytes=self.bytefield(pkt.stokey.iv))
 
         return o
 

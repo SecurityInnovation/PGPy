@@ -4,16 +4,21 @@ import os
 
 import requests
 
+# Python 2.7 hacks
 try:  # pragma: no cover
     e = FileNotFoundError
 except NameError:  # pragma: no cover
     e = IOError
+try:  # pragma: no cover
+    basestring
+except NameError:  # pragma: no cover
+    basestring = (str, bytes)
 
 
 class FileLoader(object):
     @staticmethod
     def is_path(ppath):
-        if bytes is not str and type(ppath) is bytes:
+        if (bytes is not str and type(ppath) is bytes) or type(ppath) is bytearray:
             return False
 
         # this should be adequate most of the time
@@ -25,8 +30,14 @@ class FileLoader(object):
         if os.name == "nt":
             badchars += ['<', '>', ':', '"', '/', '\\', '|', '?', '*']  # pragma: no cover
 
-        if any(c in ppath for c in badchars):
-            return False  # pragma: no cover
+        try:
+            if any(c in ppath for c in badchars):
+                return False  # pragma: no cover
+
+        # needed for Python 3.2 shenanigans
+        except UnicodeDecodeError:  # pragma: no cover
+            if any(c in ppath.encode('latin-1') for c in badchars):
+                return False
 
         return True
 
@@ -85,12 +96,22 @@ class FileLoader(object):
                 raise e(lfile)
 
         # we have been passed the contents of a file that were read elsewhere
-        elif type(lfile) in [str, bytes]:
-            self.bytes = lfile.encode() if (bytes is not str and type(lfile) is str) else lfile
+        elif isinstance(lfile, basestring):
+            try:
+                self.bytes = bytearray(lfile, 'latin-1') if hasattr(lfile, 'encode') else bytearray(lfile)
+
+            # this is because Python 2.7 is stupid about unicode
+            # if a str contains bytes that cannot be expressed in ASCII, it must be 'decoded' to unicode first
+            # and then encoded to 'latin-1'
+            except UnicodeDecodeError:
+                self.bytes = bytearray(lfile.decode('latin-1'), 'latin-1')
+
+        elif isinstance(lfile, bytearray):
+            self.bytes = lfile
 
         # some other thing
         else:
-            raise TypeError(type(lfile) + "Not expected")  # pragma: no cover
+            raise TypeError(str(type(lfile)) + " Not expected")  # pragma: no cover
 
         # try to kick off the parser
         # this only works on properly implemented children of this type

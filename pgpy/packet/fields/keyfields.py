@@ -286,7 +286,7 @@ class String2Key(PacketField):
 
         # Simple S2K
         hsalt = b''
-        hpass = passphrase.encode()
+        hpass = bytearray(passphrase, 'utf_8')
 
         # Salted S2K (or Iterated)
         if self.type in [String2Key.Type.Salted, String2Key.Type.Iterated]:
