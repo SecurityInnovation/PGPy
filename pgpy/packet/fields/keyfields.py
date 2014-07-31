@@ -70,7 +70,7 @@ class MPIFields(object):
             mend = pos + bytelen
 
             getattr(self, field)['bitlen'] = bitlen
-            getattr(self, field)['bytes'] = bytes(packet[pos:mend])
+            getattr(self, field)['bytes'] = packet[pos:mend]
 
             pos = mend
 
@@ -268,7 +268,7 @@ class String2Key(PacketField):
                 pos = 13
 
         if self.id != 0:
-            self.iv = bytes(packet[pos:(pos + int(self.alg.block_size / 8))])
+            self.iv = packet[pos:(pos + int(self.alg.block_size / 8))]
 
     def derive_key(self, passphrase):
         # we use the fields stored here along with the RFC 4880 String-to-Key usage description

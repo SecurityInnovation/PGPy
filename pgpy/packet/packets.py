@@ -419,7 +419,7 @@ class PrivKey(KeyPacket):
             mend = -2
             if self.stokey.id == 254:
                 mend = len(packet)
-            self.enc_seckey_material = bytes(packet[pos:mend])
+            self.enc_seckey_material = packet[pos:mend]
 
         if self.stokey.id in [0, 255]:
             self.checksum = packet[pos:]
@@ -455,14 +455,14 @@ class PrivKey(KeyPacket):
         sessionkey = self.stokey.derive_key(passphrase)
 
         # attempt to decrypt this key!
-        cipher = Cipher(self.stokey.alg.decalg(sessionkey), modes.CFB(self.stokey.iv), backend=default_backend())
+        cipher = Cipher(self.stokey.alg.decalg(sessionkey), modes.CFB(bytes(self.stokey.iv)), backend=default_backend())
         try:
             decryptor = cipher.decryptor()
 
         except UnsupportedAlgorithm as e:
             raise PGPOpenSSLCipherNotSupported(str(e))
 
-        pt = decryptor.update(self.enc_seckey_material) + decryptor.finalize()
+        pt = decryptor.update(bytes(self.enc_seckey_material)) + decryptor.finalize()
 
         # check the hash to see if we decrypted successfully or not
         if self.stokey.id == 254:
