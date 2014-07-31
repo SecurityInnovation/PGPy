@@ -1,7 +1,6 @@
 """ types.py
 """
 import os
-import re
 
 import requests
 
