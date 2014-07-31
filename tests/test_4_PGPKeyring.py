@@ -142,6 +142,10 @@ class TestPGPKeyring(object):
                 with pytest.raises(PGPKeyDecryptionError):
                     keyring.unlock("TheWrongPassword")
 
+                # now try with the wrong password, but unicode
+                with pytest.raises(PGPKeyDecryptionError):
+                    keyring.unlock(u"Ma\u00F1ana!")
+
                 # and finally, unlock with the correct password
                 keyring.unlock("QwertyUiop")
 
@@ -156,6 +160,25 @@ class TestPGPKeyring(object):
 
         # and finally, clean up after ourselves
         os.remove(sig.path)
+
+    def test_sign_unicode(self, keyring, gpg_verify):
+        sigstr = u'Yo!\n' \
+                 u'See you ma\u00F1ana!'
+
+        with keyring.key("TestRSA-1024"):
+            sig = keyring.sign(sigstr)
+
+        with keyring.key():
+            keyring.verify(sigstr, sig)
+
+        # now verify the signature
+        sig.path = 'tests/testdata/unicode.asc'
+        sig.write()
+        with open('tests/testdata/unicode', 'wb') as s:
+            s.write(sigstr.encode('latin-1'))
+        assert 'Good signature from' in gpg_verify('unicode', 'unicode.asc')
+        os.remove('tests/testdata/unicode.asc')
+        os.remove('tests/testdata/unicode')
 
     def test_verify(self, keyring, sigf, sigsub):
         # is this likely to fail?
