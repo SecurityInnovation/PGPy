@@ -1,6 +1,7 @@
 """ types.py
 """
 import os
+import re
 
 import requests
 
@@ -30,8 +31,13 @@ class FileLoader(object):
         if os.name == "nt":
             badchars += ['<', '>', ':', '"', '/', '\\', '|', '?', '*']  # pragma: no cover
 
-        if any(c in ppath for c in badchars):
-            return False  # pragma: no cover
+        try:
+            if any(c in ppath for c in badchars):
+                return False  # pragma: no cover
+
+        # needed for Python 3.2 shenanigans
+        except UnicodeDecodeError:  # pragma: no cover
+            return False
 
         return True
 
