@@ -1,161 +1,132 @@
 """ subpacket.py
 """
 import abc
-import enum
 
-from ..fields.types import PacketField
-from ...util import bytes_to_int, int_to_bytes
+from ...decorators import TypedProperty
+from ...types import Dispatchable
+from ...types import Header as _Header
+from ...types import PGPObject
+# import enum
 
-class MetaSubPacket(abc.ABCMeta):
-    __metaclass__ = abc.ABCMeta
+# from ..fields.types import PacketField
+# from ...util import bytes_to_int, int_to_bytes
 
-    _registry = {}
+class Header(_Header):
+    __slots__ = ['_critical', '_typeid']
 
-    # @classmethod
-    # def delegate(meta, cls, id):
-    #     if cls.__name__ in meta.__registry:
-    #         if id in meta.__registry[cls.__name__]:
-    #             return meta.__registry[cls.__name__][id]
-    #
-    #     return False
+    @TypedProperty
+    def critical(self):
+        return self._critical
+    @critical.bool
+    def critical(self, val):
+        self._critical = val
+    @critical.bytearray
+    @critical.bytes
+    def critical(self, val):
+        self._critical = bool(self.bytes_to_int(val) & 0x80)
 
-    # def __new__(cls, name, bases, attrs):
-    #     new = super(SubPacket, cls).__new__(cls, name, bases, attrs)
-    #
-    #     # A direct subclass of SubPacket will be a factory for its subclasses
-    #     # Therefore, they are at the top level of the registry
-    #     if
-    @classmethod
-    def __prepare__(meta, name, bases):
-        # here, we'll register the root classes
+    @TypedProperty
+    def typeid(self):
+        return self._typeid
+    @typeid.bytearray
+    @typeid.bytes
+    def typeid(self, val):
+        self._typeid = (self.bytes_to_int(val) & 0x7F)
 
-        # SubPacket does not need to be registered, and should be skipped
-        # otherwise, the next check breaks
-        if name == "SubPacket":
-            pass
+    def parse(self, packet):
+        self.length = packet
+        del packet[:self.llen]
 
-        # However, direct subclasses of SubPacket are "root" nodes of the registry
-        # - they are the "generic" form of each specific type of subpacket.
-        elif SubPacket in bases:
-            meta._registry[name] = {}
+        self.critical = packet[:1]
+        self.typeid = packet[:1]
+        del packet[:1]
 
-        return dict()
+        return packet
 
-    def __new__(meta, name, bases, attrs):
-        new = super(MetaSubPacket, meta).__new__(meta, name, bases, attrs)
+    def __len__(self):
+        return self.llen + 1
 
-        # SubPacket is the ABC, so it doesn't get registered at all
-        if name == "SubPacket":
-            pass
+    def __bytes__(self):
+        _bytes = self.encode_length(self.length)
+        _bytes += self.int_to_bytes((int(self.critical) << 7) + self.typeid)
+        return _bytes
 
-        else:
-            # register to the ABC, which is SubPacket
-            meta.register(SubPacket, new)
-
-            # now, if it's not a root node of __registry, also register there
-            if name not in meta._registry:
-                # register subpackets of root nodes to __registry
-                for base in bases:
-                    if base.__name__ in meta._registry and new.id not in meta._registry[base.__name__]:
-                        meta._registry[base.__name__][new.id] = new
-
-        return new
-
-    # def __new__(cls, packet=None):
-    #     if packet is not None:
-    #         new = object.__new__(OpaqueSubPacket)
-    #         new.__init__()
-    #         new.parse(packet)
-    #
-    #         ncls = MetaSubPacket.delegate(SignatureSubPacket, new.id)
-    #
-    #         if ncls is not None:
-    #             new = object.__new__(ncls)
-    #             new.__init__()
-    #             new.parse(packet)
-    #
-    #     else:
-    #         new = object.__new__(cls)
-    #
-    #     return new
-    def __call__(cls, *args):
-        def _makeobj_parse(cls, *args):
-            obj = object.__new__(cls)
-            obj.__init__()
-
-            if len(args) > 0:
-                obj.parse(args[0])
-
-            return obj
-
-        if cls.__name__ in MetaSubPacket._registry:
-            obj = _makeobj_parse(MetaSubPacket._registry[cls.__name__][None], *args)
-
-            if obj.id is not None and obj.id in MetaSubPacket._registry[cls.__name__]:
-                nobj = _makeobj_parse(MetaSubPacket._registry[cls.__name__][obj.id], *args)
-                del obj
-                obj = nobj
-                del nobj
-
-        else:
-            obj = _makeobj_parse(cls, *args)
-
-        return obj
+    def __pgpdump__(self):
+        raise NotImplementedError()
 
 
-class SubPacket(PacketField, metaclass=MetaSubPacket):
-    __metaclass__ = MetaSubPacket
-
-    id = None
+class SubPacket(Dispatchable, metaclass=abc.ABCMeta):  ##TODO: is this metaclass declaration necessary?
+    __slots__ = ['header']
+    __headercls__ = Header
 
     def __init__(self):
         super(SubPacket, self).__init__()
-        self.length = 0
+        self.header = Header()
 
-    @abc.abstractmethod
-    def parse(self, packet):
-        fo = bytes_to_int(packet[:1])
-
-        if 192 > fo:
-            self.length = fo
-            packet = packet[1:]
-
-        elif 255 > fo >= 192:
-            elen = bytes_to_int(packet[:2])
-            self.length = ((elen - (192 << 8)) & 0xFF00) + ((elen & 0xFF) + 192)
-            packet = packet[2:]
-
-        else:
-            self.length = bytes_to_int(packet[1:5])
-            packet = packet[5:]
-
-        if self.id is None:
-            self.id = bytes_to_int(packet[:1])
-
-        return packet[1:]
-
-    @abc.abstractmethod
     def __bytes__(self):
-        _bytes = b''
-        # 1 octet length
-        if self.length < 192:
-            _bytes += int_to_bytes(self.length)
+        return self.header.__bytes__()
 
-        # 2 octet length
-        elif self.length < 8384:
-            _bytes += int_to_bytes(((self.length & 0xFF00) + (192 << 8)) + ((self.length & 0xFF) - 192), 2)
+    def __len__(self):
+        return (self.header.llen + self.header.length)
 
-        # 5 octet length
-        else:
-            _bytes += b'\xFF' + int_to_bytes(self.length, 4)
+    def __repr__(self):
+        return "<{} [0x{:02x}] at 0x{:x}>".format(self.__class__.__name__, self.header.typeid, id(self))
 
-        _bytes += int_to_bytes(self.id) if self.id is not None else b'\x00'
+    @abc.abstractmethod  # subclasses still need to specify this
+    def parse(self, packet):
+        if self.header._typeid == 0:
+            self.header.parse(packet)
 
+
+class Signature(SubPacket):
+    __slots__ = []
+    __typeid__ = -1
+
+
+class UserAttribute(SubPacket):
+    __slots__ = []
+    __typeid__ = -1
+    # class Type(PFIntEnum):
+    #     Image = 0x01
+    #
+    #     @property
+    #     def subclass(self):
+    #         classes = {'Image': Image}
+    #
+    #         if classes[self.name] is not None:
+    #             return classes[self.name]
+    #
+    #         raise NotImplementedError(self.name)  # pragma: no cover
+    #
+    #     def __str__(self):
+    #         return self.subclass.name
+
+
+class Opaque(Signature, UserAttribute):
+    __slots__ = ['_payload']
+    __typeid__ = None
+
+    @TypedProperty
+    def payload(self):
+        return self._payload
+    @payload.bytearray
+    @payload.bytes
+    def payload(self, val):
+        self._payload = val
+
+    def __init__(self):
+        super(Opaque, self).__init__()
+        self.payload = b''
+
+    def __bytes__(self):
+        _bytes = super(Opaque, self).__bytes__()
+        _bytes += self.payload
         return _bytes
 
+    def __pgpdump__(self):
+        raise NotImplementedError()
 
-class FlagEnum(enum.IntEnum):
-    ##TODO: implement this
-    ##      look at http://blog.jameskyle.org/2010/09/enum-masks-idiom-in-python
-    ##      for possible ideas
-    pass
+    def parse(self, packet):
+        super(Opaque, self).parse(packet)
+        self.payload = packet[:(self.header.length - 1)]
+        del packet[:(self.header.length - 1)]

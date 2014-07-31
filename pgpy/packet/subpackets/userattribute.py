@@ -2,52 +2,14 @@
 """
 import struct
 
-from .types import SubPacket
-from ..types import PFIntEnum
-from ...util import bytes_to_int
-from ...util import int_to_bytes
+from .types import UserAttribute
+
+from ...constants import ImageEncoding
+
+from ...decorators import TypedProperty
 
 
-class UASubPacket(SubPacket):
-    pass
-    # class Type(PFIntEnum):
-    #     Image = 0x01
-    #
-    #     @property
-    #     def subclass(self):
-    #         classes = {'Image': Image}
-    #
-    #         if classes[self.name] is not None:
-    #             return classes[self.name]
-    #
-    #         raise NotImplementedError(self.name)  # pragma: no cover
-    #
-    #     def __str__(self):
-    #         return self.subclass.name
-
-class OpaqueSubPacket(UASubPacket):
-    id = None
-
-    def __init__(self):
-        super(OpaqueSubPacket, self).__init__()
-        self.payload = b''
-
-    def parse(self, packet):
-        packet = super(OpaqueSubPacket, self).parse(packet)
-        self.payload = packet[:self.length - 1]
-
-        return packet[self.length - 1:]
-
-    def __bytes__(self):
-        _bytes = super(OpaqueSubPacket, self).__bytes__()
-        _bytes += self.payload
-        return _bytes
-
-    def __pgpdump__(self):
-        raise NotImplementedError()
-
-
-class Image(UASubPacket):
+class Image(UserAttribute):
     """
     5.12.1. The Image Attribute Subpacket
 
@@ -81,50 +43,61 @@ class Image(UASubPacket):
     version of the image header or if a specified encoding format value
     is not recognized.
     """
-    class Version(PFIntEnum):
-        v1 = 0x01
+    __slots__ = ['_version', '_iencoding', '_image']
+    __typeid__ = 0x01
 
-    class Encoding(PFIntEnum):
-        JPEG = 0x01
+    @TypedProperty
+    def version(self):
+        return self._version
+    @version.int
+    def version(self, val):
+        self._version = val
 
-    name = 'image attribute'
+    @TypedProperty
+    def iencoding(self):
+        return self._iencoding
+    @iencoding.ImageEncoding
+    def iencoding(self, val):
+        self._iencoding = val
+    @iencoding.int
+    def iencoding(self, val):
+        try:
+            self.iencoding = ImageEncoding(val)
 
-    id = 0x01
+        except ValueError:
+            self._iencoding = val
+
+    @TypedProperty
+    def image(self):
+        return self._image
+    @image.bytearray
+    @image.bytes
+    def image(self, val):
+        self._image = bytearray(val)
 
     def __init__(self):
         super(Image, self).__init__()
-        self.version = Image.Version.v1
-        self.encoding = Image.Encoding.JPEG
-        self.payload = b''
-
-    def parse(self, packet):
-        packet = super(Image, self).parse(packet)
-
-        hlen = struct.unpack('<h', packet[:2])[0]
-        packet = packet[2:]
-
-        self.version = Image.Version(bytes_to_int(packet[:1]))
-        packet = packet[1:]
-
-        self.encoding = Image.Encoding(bytes_to_int(packet[:1]))
-        packet = packet[(hlen - 3):]
-
-        self.payload = packet[:(self.length - hlen) - 1]
+        self.version = 1
+        self.iencoding = 1
+        self.image = bytearray(b'')
 
     def __bytes__(self):
         _bytes = super(Image, self).__bytes__()
 
-        # there is only v1
-        if self.version == Image.Version.v1:
-            # v1 image header length is always 16 bytes,
+        if self.version == 1:
+            # v1 image header length is always 16 bytes
             # and stored little-endian due to an 'historical accident'
-            _bytes += struct.pack('<h', 16)
-            _bytes += int_to_bytes(self.version)
-            _bytes += int_to_bytes(self.encoding)
-            _bytes += b'\x00' * 12
+            _bytes += struct.pack('<hbbiii', 16, self.version, self.iencoding, 0, 0, 0)
 
-        _bytes += self.payload
+        _bytes += self.image
         return _bytes
 
     def __pgpdump__(self):
         raise NotImplementedError()
+
+    def parse(self, packet):
+        super(Image, self).parse(packet)
+        _, self.version, self.iencoding, _, _, _= struct.unpack('<hbbiii', packet[:16])
+        del packet[:16]
+        self.image = packet[:(self.header.length - 17)]
+        del packet[:(self.header.length - 17)]
