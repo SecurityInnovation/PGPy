@@ -12,9 +12,12 @@ PGPy v0.2.2 is primarily a bugfix release.
 
 Bugs Fixed
 ----------
- * Switched the main parse loop to use a bytearray instead of slicing a bytes, resulting in a ~160x speedup in parsing large blocks of pasing. (#87)
  * Fixed a typo that would cause TypeError to be raised as bytecode was being generated (#85)
  * Fixed an issue where unicode input on Python 2.7 could result in unexpected UnicodeDecodeError exceptions being raised
+
+New Features
+------------
+ * Switched the main parse loop to use a bytearray instead of slicing a bytes, resulting in a ~160x speedup in parsing large blocks of pasing. (#87)
 
 v0.2.1
 ======
