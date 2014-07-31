@@ -4,6 +4,7 @@ python:
   - "3.3"
   - "3.2"
   - "2.7"
+  - "pypy"
 env:
   matrix:
     # test all versions against OpenSSL 0.9.8
@@ -23,6 +24,7 @@ matrix:
       env: TOXENV=setup27
   allow_failures:
     - env: TOXENV=pep8
+    - env: TOXENV=pypy
 # install requirements
 install:
   # add the lucid repo for if we need OpenSSL 0.9.8
