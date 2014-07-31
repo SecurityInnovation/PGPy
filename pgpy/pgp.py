@@ -160,7 +160,7 @@ class PGPBlock(FileLoader):
             for key, val in [ (h[i], h[i + 1]) for i in range(0, len(h), 2) ]:
                 self.ascii_headers[key] = val
 
-            self.data = base64.b64decode(k[2].replace('\n', '').encode())
+            self.data = bytearray(base64.b64decode(k[2].replace('\n', '').encode()))
             self.crc = bytes_to_int(base64.b64decode(k[3].encode()))
 
             # verify CRC
@@ -169,10 +169,9 @@ class PGPBlock(FileLoader):
 
         # dump fields in all contained packets per RFC 4880, without using pgpdump
         if self.data != b'':
-            pos = 0
-            while pos < len(self.data):
-                pkt = Packet(self.data[pos:])
-                pos += len(pkt.header.__bytes__()) + pkt.header.length
+            while len(self.data) > 0:
+                pkt = Packet(self.data)
+                del self.data[:(len(pkt.header.__bytes__()) + pkt.header.length)]
                 self.packets.append(pkt)
 
     def crc24(self):
@@ -185,7 +184,7 @@ class PGPBlock(FileLoader):
         # The accumulation is done on the data before it is converted to
         # radix-64, rather than on the converted data.
         if self.data == b'':
-            self.data = self.__bytes__()
+            self.data = bytearray(self.__bytes__())
 
         crc = self.crc24_init
         sig = [ ord(i) for i in self.data ] if type(self.data) is str else self.data
@@ -210,7 +209,7 @@ class PGPBlock(FileLoader):
         # this is binary data; skip extracting the block and move on
         else:
             self.bytes = b''
-            self.data = data
+            self.data = bytearray(data)
             return
 
         # are there any ASCII armored PGP blocks present? if not, we may be dealing with binary data instead

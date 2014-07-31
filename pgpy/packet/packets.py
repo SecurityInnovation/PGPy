@@ -419,7 +419,7 @@ class PrivKey(KeyPacket):
             mend = -2
             if self.stokey.id == 254:
                 mend = len(packet)
-            self.enc_seckey_material = packet[pos:mend]
+            self.enc_seckey_material = bytes(packet[pos:mend])
 
         if self.stokey.id in [0, 255]:
             self.checksum = packet[pos:]

@@ -5,6 +5,15 @@
 Changelog
 *********
 
+v0.2.2
+======
+
+PGPy v0.2.2 is primarily a bugfix release.
+
+Bugs Fixed
+----------
+ * Switched the main parse loop to use a bytearray instead of slicing a bytes, resulting in a ~160x speedup in parsing large blocks of pasing.
+
 v0.2.1
 ======
 
