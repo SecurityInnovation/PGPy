@@ -7,6 +7,7 @@ from .fields import Header
 from ..decorators import TypedProperty
 
 from ..types import Dispatchable
+from ..types import Field
 
 class Packet(Dispatchable):
     __typeid__ = -1
@@ -24,7 +25,7 @@ class Packet(Dispatchable):
         return len(self.header) + self.header.length
 
     def __repr__(self):
-        return "<{} [tag 0x{:02x} at 0x{:x}>".format(self.__class__.__name__, self.header.tag, id(self))
+        return "<{cls:s} [tag 0x{tag:02d}] at 0x{id:x}>".format(cls=self.__class__.__name__, tag=self.header.tag, id=id(self))
 
     @abc.abstractmethod
     def parse(self, packet):
@@ -44,10 +45,18 @@ class VersionedPacket(Packet):
     def version(self, val):
         self.version = self.bytes_to_int(val)
 
-
     def __init__(self):
-        super(VersionedPacket, self).__init__(self)
+        super(VersionedPacket, self).__init__()
         self.version = 4
+
+    def __bytes__(self):
+        _bytes = bytearray()
+        _bytes += super(VersionedPacket, self).__bytes__()
+        _bytes += self.int_to_bytes(self.version)
+        return bytes(_bytes)
+
+    def __repr__(self):
+        return "<{cls:s} [tag 0x{tag:02d}][v{ver:d}] at 0x{id:x}>".format(cls=self.__class__.__name__, tag=self.header.tag, ver=self.version, id=id(self))
 
     @abc.abstractmethod
     def parse(self, packet):
@@ -80,3 +89,19 @@ class Opaque(Packet):
         super(Opaque, self).parse(packet)
         self.payload = packet[:self.header.length]
         del packet[:self.header.length]
+
+
+class MPI(Field):
+    pass
+
+
+class Signature(MPI):
+    pass
+
+
+class PubKey(MPI):
+    pass
+
+
+class PrivKey(PubKey):
+    pass
