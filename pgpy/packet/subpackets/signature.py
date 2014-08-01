@@ -26,8 +26,6 @@ from ...types import Fingerprint
 
 
 class URI(Signature):
-    __slots__ = ['_uri']
-
     @TypedProperty
     def uri(self):
         return self._uri
@@ -55,7 +53,6 @@ class URI(Signature):
 
 
 class FlagList(Signature):
-    __slots__ = ['_flags']
     __flags__ = None
 
     @TypedProperty
@@ -98,7 +95,6 @@ class FlagList(Signature):
 
 
 class ByteFlag(Signature):
-    __slots__ = ['_flags']
     __flags__ = None
 
     @TypedProperty
@@ -137,8 +133,6 @@ class ByteFlag(Signature):
 
 
 class Boolean(Signature):
-    __slots__ = ['_bool']
-
     @TypedProperty
     def bool(self):
         return self._bool
@@ -183,7 +177,6 @@ class CreationTime(Signature):
 
     MUST be present in the hashed area.
    """
-    __slots__ = ['_created']
     __typeid__ = 0x02
 
     @TypedProperty
@@ -225,7 +218,6 @@ class SignatureExpirationTime(Signature):
     after the signature creation time that the signature expires.  If
     this is not present or has a value of zero, it never expires.
     """
-    __slots__ = ['_expires']
     __typeid__ = 0x03
 
     @TypedProperty
@@ -284,7 +276,6 @@ class ExportableCertification(Boolean):
     (for example, a key server).  Such implementations always trim local
     certifications from any key they handle.
     """
-    __slots__ = []
     __typeid__ = 0x04
 
 
@@ -307,7 +298,6 @@ class TrustSignature(Signature):
     greater indicate complete trust.  Implementations SHOULD emit values
     of 60 for partial trust and 120 for complete trust.
     """
-    __slots__ = ['_level', '_amount']
     __typeid__ = 0x05
 
     @TypedProperty
@@ -366,7 +356,6 @@ class RegularExpression(Signature):
     "almost public domain" regular expression [REGEX] package.  A
     description of the syntax is found in Section 8 below.
     """
-    __slots__ = ['_regex']
     __typeid__ = 0x06
 
     @TypedProperty
@@ -408,7 +397,6 @@ class Revocable(Boolean):
     signature for the life of his key.  If this packet is not present,
     the signature is revocable.
     """
-    __slots__ = []
     __typeid__ = 0x07
 
 
@@ -423,7 +411,6 @@ class KeyExpirationTime(SignatureExpirationTime):
     or has a value of zero, the key never expires.  This is found only on
     a self-signature.
     """
-    __slots__ = []
     __typeid__ = 0x09
 
 
@@ -440,7 +427,6 @@ class PreferredSymmetricAlgorithms(FlagList):
     Algorithm numbers are in Section 9.  This is only found on a self-
     signature.
     """
-    __slots__ = []
     __typeid__ = 0x0B
     __flags__ = SymmetricKeyAlgorithm
 
@@ -468,7 +454,6 @@ class RevocationKey(Signature):
     isolate this subpacket within a separate signature so that it is not
     combined with other subpackets that need to be exported.
     """
-    __slots__ = ['_keyclass', '_algorithm', '_fingerprint']
     __typeid__ = 0x0C
 
     @TypedProperty
@@ -540,7 +525,6 @@ class RevocationKey(Signature):
 
 
 class Issuer(Signature):
-    __slots__ = ['_issuer']
     __typeid__ = 0x10
 
     @TypedProperty
@@ -564,7 +548,6 @@ class Issuer(Signature):
 
 
 class NotationData(Signature):
-    __slots__ = ['_flags', '_name', '_value']
     __typeid__ = 0x14
 
     @TypedProperty
@@ -640,30 +623,25 @@ class NotationData(Signature):
 
 
 class PreferredHashAlgorithms(FlagList):
-    __slots__ = []
     __typeid__ = 0x15
     __flags__ = HashAlgorithm
 
 
 class PreferredCompressionAlgorithms(FlagList):
-    __slots__ = []
     __typeid__ = 0x16
     __flags__ = CompressionAlgorithm
 
 
 class KeyServerPreferences(FlagList):
-    __slots__ = []
     __typeid__ = 0x17
     __flags__ = _KeyServerPreferences
 
 
 class PreferredKeyServer(URI):
-    __slots__ = []
     __typeid__ = 0x18
 
 
 class PrimaryUserID(Signature):
-    __slots__ = ['_primary']
     __typeid__ = 0x19
 
     @TypedProperty
@@ -693,18 +671,15 @@ class PrimaryUserID(Signature):
 
 
 class Policy(URI):
-    __slots__ = []
     __typeid__ = 0x1a
 
 
 class KeyFlags(ByteFlag):
-    __slots__ = []
     __typeid__ = 0x1B
     __flags__ = _KeyFlags
 
 
 class SignersUserID(Signature):
-    __slots__ = ['_userid']
     __typeid__ = 0x1C
 
     @TypedProperty
@@ -734,7 +709,6 @@ class SignersUserID(Signature):
 
 
 class ReasonForRevocation(Signature):
-    __slots__ = ['_code', '_string']
     __typeid__ = 0x1D
 
     @TypedProperty
@@ -790,6 +764,5 @@ class Features(ByteFlag):
 
 class EmbeddedSignature(Signature):
     ##TODO: this, once packet.packets.Signature is reworked
-    # __slots__ = []
     # __typeid__ = 0x20
     pass

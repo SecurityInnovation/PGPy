@@ -5,8 +5,6 @@ from ..decorators import TypedProperty
 from ..types import Header as _Header
 
 class Header(_Header):
-    __slots__ = ['_tag']
-
     @TypedProperty
     def tag(self):
         return self._tag

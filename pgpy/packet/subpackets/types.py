@@ -8,8 +8,6 @@ from ...types import Header as _Header
 
 
 class Header(_Header):
-    __slots__ = ['_critical', '_typeid']
-
     @TypedProperty
     def critical(self):
         return self._critical
@@ -49,7 +47,6 @@ class Header(_Header):
 
 
 class SubPacket(Dispatchable, metaclass=abc.ABCMeta):  ##TODO: is this metaclass declaration necessary?
-    __slots__ = ['header']
     __headercls__ = Header
 
     def __init__(self):
@@ -72,17 +69,14 @@ class SubPacket(Dispatchable, metaclass=abc.ABCMeta):  ##TODO: is this metaclass
 
 
 class Signature(SubPacket):
-    __slots__ = []
     __typeid__ = -1
 
 
 class UserAttribute(SubPacket):
-    __slots__ = []
     __typeid__ = -1
 
 
 class Opaque(Signature, UserAttribute):
-    __slots__ = ['_payload']
     __typeid__ = None
 
     @TypedProperty

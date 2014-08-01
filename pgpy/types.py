@@ -29,7 +29,6 @@ except NameError:  # pragma: no cover
 
 
 class FileLoader(object):
-
     @property
     def path(self):
         return self._path
@@ -250,16 +249,12 @@ class PGPObject(object, metaclass=abc.ABCMeta):
 
 
 class Field(PGPObject):
-    __slots__ = []
-
     @abc.abstractmethod
     def __len__(self):
         return 0
 
 
 class Header(Field):
-    __slots__ = ['_len', '_lenfmt', '_llen']
-
     @staticmethod
     def encode_length(l, nhf=True, llen=1):
         def _new_length(l):

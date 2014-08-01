@@ -43,7 +43,6 @@ class Image(UserAttribute):
     version of the image header or if a specified encoding format value
     is not recognized.
     """
-    __slots__ = ['_version', '_iencoding', '_image']
     __typeid__ = 0x01
 
     @TypedProperty

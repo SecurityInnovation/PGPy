@@ -9,7 +9,6 @@ from ..decorators import TypedProperty
 from ..types import Dispatchable
 
 class Packet(Dispatchable):
-    __slots__ = ['header']
     __typeid__ = -1
     __headercls__ = Header
 
@@ -34,8 +33,6 @@ class Packet(Dispatchable):
 
 
 class VersionedPacket(Packet):
-    __slots__ = ['_version']
-
     @TypedProperty
     def version(self):
         return self._version
@@ -60,7 +57,6 @@ class VersionedPacket(Packet):
 
 
 class Opaque(Packet):
-    __slots__ = ['_payload']
     __typeid__ = None
 
     @TypedProperty
