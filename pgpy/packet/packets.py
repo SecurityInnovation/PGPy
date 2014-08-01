@@ -1,7 +1,126 @@
 """ packet.py
 """
+from .keyfields import RSASignature
+from .keyfields import DSASignature
+from .keyfields import ElGSignature
+
 from .types import Packet
 from .types import VersionedPacket
+
+from ..constants import HashAlgorithm
+from ..constants import PubKeyAlgorithm
+from ..constants import SignatureType
+
+from ..decorators import TypedProperty
+
+
+class Signature(VersionedPacket):
+    __typeid__ = 0x02
+
+    @TypedProperty
+    def sigtype(self):
+        return self._sigtype
+    @sigtype.SignatureType
+    def sigtype(self, val):
+        self._sigtype = val
+    @sigtype.int
+    def sigtype(self, val):
+        self.sigtype = SignatureType(val)
+
+    @TypedProperty
+    def pubalg(self):
+        return self._pubalg
+    @pubalg.PubKeyAlgorithm
+    def pubalg(self, val):
+        self._pubalg = val
+        if val in [PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.RSAEncrypt, PubKeyAlgorithm.RSASign]:
+            self.signature = RSASignature()
+
+        elif val == PubKeyAlgorithm.DSA:
+            self.signature = DSASignature()
+
+        elif val == PubKeyAlgorithm.ElGamal:
+            self.signature = ElGSignature
+
+    @pubalg.int
+    def pubalg(self, val):
+        self.pubalg = PubKeyAlgorithm(val)
+
+    @TypedProperty
+    def halg(self):
+        return self._halg
+    @halg.HashAlgorithm
+    def halg(self, val):
+        self._halg = val
+    @halg.int
+    def halg(self, val):
+        self.halg = HashAlgorithm(val)
+
+    @property
+    def signature(self):
+        return self._signature
+    @signature.setter
+    def signature(self, val):
+        self._signature = val
+
+    def __init__(self):
+        super(Signature, self).__init__()
+        # v4-only fields
+        self.subpackets = None
+
+        # v3-only fields
+        self.ctime = None
+        self.signer = None
+        self.lh = None
+
+        # v4 and v3 fields
+        self._sigtype = None
+        self._pubalg = None
+        self._halg = None
+        self.signature = None
+
+    def __bytes__(self):
+        _bytes = bytearray()
+        _bytes += super(Signature, self).__bytes__()
+
+        def v4(_bytes):
+            _bytes += self.int_to_bytes(self.sigtype)
+            _bytes += self.int_to_bytes(self.pubalg)
+            _bytes += self.int_to_bytes(self.halg)
+
+
+        vs = 'v{:1d}'.format(self.version)
+        if vs in locals() and callable(locals()[vs]):
+            locals()[vs](_bytes)
+            return bytes(_bytes)
+
+        else:
+            raise NotImplementedError()
+
+    def parse(self, packet):
+        super(Signature, self).parse(packet)
+
+        def v4(packet):
+            self.sigtype = packet[0]
+            del packet[0]
+
+            self.pubalg = packet[0]
+            del packet[0]
+
+            self.halg = packet[0]
+            del packet[0]
+
+            ##TODO: subpacketsssss
+            ##TODO: signature MPI
+            del packet[:self.header.length - 4]
+
+        vs = 'v{:1d}'.format(self.version)
+        if vs in locals() and callable(locals()[vs]):
+            locals()[vs](packet)
+
+        else:
+            del packet[:self.header.length - 1]
+
 # import abc
 # import calendar
 # import hashlib
