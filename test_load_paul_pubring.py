@@ -27,8 +27,6 @@ def _dospinner(pbar):
 pbar1 = ProgressBar(widgets=["Reading {} ({:,} bytes): ".format(pubring, os.path.getsize(pubring)), AnimatedMarker()])
 pbar2 = ProgressBar(widgets=["Unarmoring data: ", AnimatedMarker()])
 
-
-
 @asyncio.coroutine
 def _load_pubring(future):
     with open(pubring, 'r') as ppr:
@@ -81,7 +79,8 @@ pbar3.finish()
 print("\n\n")
 print('Parsed Packet Stats\n')
 
-pcnts = collections.Counter([c.__class__.__name__ for c in packets if not isinstance(c, pgpy.packet.Opaque)] +
+pcnts = collections.Counter(['{cls:s} v{v:d}'.format(cls=c.__class__.__name__, v=c.version) if hasattr(c, 'version') else c.__class__.__name__ 
+                             for c in packets if not isinstance(c, pgpy.packet.Opaque)] +
                             ['Opaque [{:02d}]'.format(c.header.tag) for c in packets if isinstance(c, pgpy.packet.Opaque)])
 
 ml = max(5, max([len(s) for s in pcnts.keys()]))

@@ -389,7 +389,8 @@ class MetaDispatchable(abc.ABCMeta):
                         and issubclass(ncls, rc) ]
 
                 for rc in rcl:
-                    MetaDispatchable._registry[(rc, ncls.__typeid__)] = ncls
+                    if (rc, ncls.__typeid__) not in MetaDispatchable._registry:
+                        MetaDispatchable._registry[(rc, ncls.__typeid__)] = ncls
 
         # finally, return the new class object
         return ncls
