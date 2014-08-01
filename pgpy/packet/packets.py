@@ -204,22 +204,6 @@ from .types import VersionedPacket
 #     class Version(PFIntEnum):
 #         v4 = 4
 #
-#     class Type(PFIntEnum):
-#         BinaryDocument = 0x00
-#         CanonicalDocument = 0x01
-#         Standalone = 0x02
-#         Generic_UserID_Pubkey = 0x10
-#         Persona_UserID_Pubkey = 0x11
-#         Casual_UserID_Pubkey = 0x12
-#         Positive_UserID_Pubkey = 0x13
-#         Subkey_Binding = 0x18
-#         PrimaryKey_Binding = 0x19
-#         DirectlyOnKey = 0x1F
-#         KeyRevocation = 0x20
-#         SubkeyRevocation = 0x28
-#         CertRevocation = 0x30
-#         Timestamp = 0x40
-#         ThirdParty_Confirmation = 0x50
 #
 #         def __str__(self):
 #             types = {self.BinaryDocument: "Signature of a binary document",
