@@ -24,7 +24,7 @@ matrix:
       env: TOXENV=setup27
   allow_failures:
     - env: TOXENV=pep8
-    - env: TOXENV=pypy
+    - python: "pypy"
 # install requirements
 install:
   # add the lucid repo for if we need OpenSSL 0.9.8
