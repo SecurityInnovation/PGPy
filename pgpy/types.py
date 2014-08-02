@@ -343,18 +343,17 @@ class MetaDispatchable(abc.ABCMeta):
     MetaDispatchable is a metaclass for objects that subclass Dispatchable
     """
 
+    _roots = set()
+    """
+    _roots is a set of all currently registered RootClass class objects
 
+    A RootClass is successfully registered if the following things are true:
+     - it inherits (directly or indirectly) from Dispatchable
+     - __typeid__ == -1
+    """
     _registry = {}
     """
     _registry is the Dispatchable class registry. It uses the following format:
-
-    { RootClass: RootClass }:
-        denotes a root class for a set of Dispatchable objects.
-        This is so "if RootClassName in MetaDispatchable._registry" works
-
-        A RootClass is successfully registered as such provided the following conditions are met:
-         - it inherits (directly or indirectly) from Dispatchable
-         - __typeid__ is -1
 
     { (RootClass, None): OpaqueClass }:
         denotes the default ("opaque") for a given RootClass.
@@ -370,75 +369,146 @@ class MetaDispatchable(abc.ABCMeta):
          - it inherits (directly or indirectly) from a RootClass
          - __typeid__ is a positive int
          - the given typeid is not already registered
+
+    { (RootClass, TypeID): VerSubClass }:
+        denotes that a given TypeID has multiple versions, and that this is class' subclasses handle those.
+        A VerSubClass is registered identically to a normal SubClass.
+
+    { (RootClass, TypeID, Ver): VerSubClass }:
+        denotes the class that handles the type given in TypeID and the version of that type given in Ver
+
+        a Versioned SubClass is successfully registered as such provided the following conditions are met:
+         - it inherits from a VerSubClass
+         - __ver__ > 0
+         - the given typeid/ver combination is not already registered
     """
 
     def __new__(mcls, name, bases, attrs):
         ncls = super(MetaDispatchable, mcls).__new__(mcls, name, bases, attrs)
 
-        if '__typeid__' in attrs and (not hasattr(ncls.__typeid__, '__isabstractmethod__')):
-            # this is a root class
-            if ncls.__typeid__ == -1:
-                MetaDispatchable._registry[ncls] = ncls
+        if not hasattr(ncls.__typeid__, '__isabstractmethod__'):
+            if ncls.__typeid__ == -1 and not issubclass(ncls, tuple(MetaDispatchable._roots)):
+                # this is a root class
+                MetaDispatchable._roots.add(ncls)
 
-            # this is likely a dispatch target class
-            else:
-                ##TODO: need to register classes to their ABC, if possible
+            elif issubclass(ncls, tuple(MetaDispatchable._roots)) and ncls.__typeid__ != -1:
+                for rcls in [ root for root in MetaDispatchable._roots if issubclass(ncls, root) ]:
+                    if (rcls, ncls.__typeid__) not in MetaDispatchable._registry:
+                        MetaDispatchable._registry[(rcls, ncls.__typeid__)] = ncls
 
-                rcl = [ rc for rc in MetaDispatchable._registry
-                        if (not isinstance(rc, tuple))
-                        and issubclass(ncls, rc) ]
-
-                for rc in rcl:
-                    if (rc, ncls.__typeid__) not in MetaDispatchable._registry:
-                        MetaDispatchable._registry[(rc, ncls.__typeid__)] = ncls
+                    if (ncls.__ver__ != None and ncls.__ver__ > 0 and
+                                (rcls, ncls.__typeid__, ncls.__ver__) not in MetaDispatchable._registry):
+                        MetaDispatchable._registry[(rcls, ncls.__typeid__, ncls.__ver__)] = ncls
 
         # finally, return the new class object
         return ncls
 
-    def __call__(cls, *args):
+    def __call__(cls, packet=None):
         def _makeobj(cls):
             obj = object.__new__(cls)
             obj.__init__()
             return obj
 
-        rcl = [ rc for rc in MetaDispatchable._registry
-                if (not isinstance(rc, tuple))
-                and issubclass(cls, rc) ]
+        if packet is not None:
+            if cls in MetaDispatchable._roots:
+                rcls = cls
 
-        if len(rcl) > 0 and len(args) > 0:
-            header = rcl[0].__headercls__()
-            header.parse(args[0])
+            elif issubclass(cls, tuple(MetaDispatchable._roots)):
+                rcls = [ root for root in MetaDispatchable._roots if issubclass(cls, root) ][0]
 
-            if (rcl[0], header.typeid) in MetaDispatchable._registry:
-                obj = _makeobj(MetaDispatchable._registry[(rcl[0], header.typeid)])
+            ##TODO: else raise an exception of some kind, but this should never happen
 
-            else:
-                obj = _makeobj(MetaDispatchable._registry[(rcl[0], None)])
+            header = rcls.__headercls__()
+            header.parse(packet)
 
+            ncls = None
+            if (rcls, header.typeid) in MetaDispatchable._registry:
+                ncls = MetaDispatchable._registry[(rcls, header.typeid)]
+
+                if ncls.__ver__ == 0:
+                    if header.__class__ != ncls.__headercls__:
+                        nh = ncls.__headercls__()
+                        nh.__dict__.update(header.__dict__)
+                        nh.parse(packet)
+                        header = nh
+
+                    if (rcls, header.typeid, header.version) in MetaDispatchable._registry:
+                        ncls = MetaDispatchable._registry[(rcls, header.typeid, header.version)]
+
+                    else:
+                        ncls = None
+
+
+            if ncls == None:
+                ncls = MetaDispatchable._registry[(rcls, None)]
+
+
+            obj = _makeobj(ncls)
             obj.header = header
-            obj.parse(args[0])
+            obj.parse(packet)
 
         else:
             obj = _makeobj(cls)
 
-            ##TODO: this whole method does not work here
-            ##      assigning memory after _makeobj means __init__ has already run and probably failed
-            ##      also, since these objects are not really meant to be instantiated on their own, it doesn't make sense
-            ##      to allocate memory for them like that
-            # if len(args) == 0:
-            #     b = bytearray(b'\x01\x00')
-            #     obj.header._bytes = lambda: memoryview(b).__enter__()
-            #     obj._bytes = lambda: memoryview().__enter__()[obj._offset:(obj._offset + obj.header._llen + obj.header.length)]
-
         return obj
+    #
+    # def __call__(cls, *args):
+    #     def _makeobj(cls):
+    #         obj = object.__new__(cls)
+    #         obj.__init__()
+    #         return obj
+    #
+    #     rcl = [ rc for rc in MetaDispatchable._registry
+    #             if (not isinstance(rc, tuple))
+    #             and issubclass(cls, rc) ]
+    #
+    #     if len(rcl) > 0 and len(args) > 0:
+    #         header = rcl[0].__headercls__()
+    #         header.parse(args[0])
+    #
+    #         if (rcl[0], header.typeid) in MetaDispatchable._registry:
+    #             obj = _makeobj(MetaDispatchable._registry[(rcl[0], header.typeid)])
+    #
+    #         else:
+    #             obj = _makeobj(MetaDispatchable._registry[(rcl[0], None)])
+    #
+    #         obj.header = header
+    #
+    #         try:
+    #             obj.parse(args[0])
+    #
+    #         except NotImplementedError:
+    #             obj = _makeobj(MetaDispatchable._registry[(rcl[0], None)])
+    #             obj.header = header
+    #             obj.parse(args[0])
+    #
+    #     else:
+    #         obj = _makeobj(cls)
+    #
+    #         ##TODO: this whole method does not work here
+    #         ##      assigning memory after _makeobj means __init__ has already run and probably failed
+    #         ##      also, since these objects are not really meant to be instantiated on their own, it doesn't make sense
+    #         ##      to allocate memory for them like that
+    #         # if len(args) == 0:
+    #         #     b = bytearray(b'\x01\x00')
+    #         #     obj.header._bytes = lambda: memoryview(b).__enter__()
+    #         #     obj._bytes = lambda: memoryview().__enter__()[obj._offset:(obj._offset + obj.header._llen + obj.header.length)]
+    #
+    #     return obj
 
 
 class Dispatchable(PGPObject, metaclass=MetaDispatchable):
     __metaclass__ = MetaDispatchable
 
     @abc.abstractproperty
+    def __headercls__(self):
+        return False
+
+    @abc.abstractproperty
     def __typeid__(self):
         return False
+
+    __ver__ = None
 
 
 class SignatureVerification(object):

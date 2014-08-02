@@ -16,6 +16,60 @@ from ..decorators import TypedProperty
 
 class Signature(VersionedPacket):
     __typeid__ = 0x02
+    __ver__ = 0
+
+
+class SignatureV4(Signature):
+    """
+    5.2.3.  Version 4 Signature Packet Format
+
+    The body of a version 4 Signature packet contains:
+
+     - One-octet version number (4).
+
+     - One-octet signature type.
+
+     - One-octet public-key algorithm.
+
+     - One-octet hash algorithm.
+
+     - Two-octet scalar octet count for following hashed subpacket data.
+       Note that this is the length in octets of all of the hashed
+       subpackets; a pointer incremented by this number will skip over
+       the hashed subpackets.
+
+     - Hashed subpacket data set (zero or more subpackets).
+
+     - Two-octet scalar octet count for the following unhashed subpacket
+       data.  Note that this is the length in octets of all of the
+       unhashed subpackets; a pointer incremented by this number will
+       skip over the unhashed subpackets.
+
+     - Unhashed subpacket data set (zero or more subpackets).
+
+     - Two-octet field holding the left 16 bits of the signed hash
+       value.
+
+     - One or more multiprecision integers comprising the signature.
+       This portion is algorithm specific, as described above.
+
+    The concatenation of the data being signed and the signature data
+    from the version number through the hashed subpacket data (inclusive)
+    is hashed.  The resulting hash value is what is signed.  The left 16
+    bits of the hash are included in the Signature packet to provide a
+    quick test to reject some invalid signatures.
+
+    There are two fields consisting of Signature subpackets.  The first
+    field is hashed with the rest of the signature data, while the second
+    is unhashed.  The second set of subpackets is not cryptographically
+    protected by the signature and should include only advisory
+    information.
+
+    The algorithms for converting the hash function result to a signature
+    are described in a section below.
+    """
+    __typeid__ = 0x02
+    __ver__ = 4
 
     @TypedProperty
     def sigtype(self):
@@ -54,7 +108,11 @@ class Signature(VersionedPacket):
         self._halg = val
     @halg.int
     def halg(self, val):
-        self.halg = HashAlgorithm(val)
+        try:
+            self.halg = HashAlgorithm(val)
+
+        except ValueError:
+            self._halg = val
 
     @property
     def signature(self):
@@ -65,61 +123,38 @@ class Signature(VersionedPacket):
 
     def __init__(self):
         super(Signature, self).__init__()
-        # v4-only fields
-        self.subpackets = None
-
-        # v3-only fields
-        self.ctime = None
-        self.signer = None
-        self.lh = None
-
-        # v4 and v3 fields
         self._sigtype = None
         self._pubalg = None
         self._halg = None
+        self.subpackets = None
         self.signature = None
 
     def __bytes__(self):
         _bytes = bytearray()
         _bytes += super(Signature, self).__bytes__()
+        _bytes += self.int_to_bytes(self.sigtype)
+        _bytes += self.int_to_bytes(self.pubalg)
+        _bytes += self.int_to_bytes(self.halg)
+        ##TODO: subpackets, signature
 
-        def v4(_bytes):
-            _bytes += self.int_to_bytes(self.sigtype)
-            _bytes += self.int_to_bytes(self.pubalg)
-            _bytes += self.int_to_bytes(self.halg)
 
-
-        vs = 'v{:1d}'.format(self.version)
-        if vs in locals() and callable(locals()[vs]):
-            locals()[vs](_bytes)
-            return bytes(_bytes)
-
-        else:
-            raise NotImplementedError()
+        return bytes(_bytes)
 
     def parse(self, packet):
         super(Signature, self).parse(packet)
+        self.sigtype = packet[0]
+        del packet[0]
 
-        def v4(packet):
-            self.sigtype = packet[0]
-            del packet[0]
+        self.pubalg = packet[0]
+        del packet[0]
 
-            self.pubalg = packet[0]
-            del packet[0]
+        self.halg = packet[0]
+        del packet[0]
 
-            self.halg = packet[0]
-            del packet[0]
+        ##TODO: subpacketsssss
+        ##TODO: signature MPI
+        del packet[:self.header.length - 4]
 
-            ##TODO: subpacketsssss
-            ##TODO: signature MPI
-            del packet[:self.header.length - 4]
-
-        vs = 'v{:1d}'.format(self.version)
-        if vs in locals() and callable(locals()[vs]):
-            locals()[vs](packet)
-
-        else:
-            del packet[:self.header.length - 1]
 
 # import abc
 # import calendar
@@ -277,49 +312,6 @@ class Signature(VersionedPacket):
 #
 #
 # class Signature(Packet):
-#     """
-#     The body of a version 4 Signature packet contains:
-#
-#      - One-octet version number (4).
-#
-#      - One-octet signature type.
-#
-#      - One-octet public-key algorithm.
-#
-#      - One-octet hash algorithm.
-#
-#      - Two-octet scalar octet count for following hashed subpacket data.
-#        Note that this is the length in octets of all of the hashed
-#        subpackets; a pointer incremented by this number will skip over
-#        the hashed subpackets.
-#
-#      - Hashed subpacket data set (zero or more subpackets).
-#
-#      - Two-octet scalar octet count for the following unhashed subpacket
-#        data.  Note that this is the length in octets of all of the
-#        unhashed subpackets; a pointer incremented by this number will
-#        skip over the unhashed subpackets.
-#
-#      - Unhashed subpacket data set (zero or more subpackets).
-#
-#      - Two-octet field holding the left 16 bits of the signed hash
-#        value.
-#
-#      - One or more multiprecision integers comprising the signature.
-#        This portion is algorithm specific, as described above.
-#
-#     The concatenation of the data being signed and the signature data
-#     from the version number through the hashed subpacket data (inclusive)
-#     is hashed.  The resulting hash value is what is signed.  The left 16
-#     bits of the hash are included in the Signature packet to provide a
-#     quick test to reject some invalid signatures.
-#
-#     There are two fields consisting of Signature subpackets.  The first
-#     field is hashed with the rest of the signature data, while the second
-#     is unhashed.  The second set of subpackets is not cryptographically
-#     protected by the signature and should include only advisory
-#     information.
-#     """
 #     class Version(PFIntEnum):
 #         v4 = 4
 #

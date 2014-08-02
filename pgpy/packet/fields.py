@@ -1,8 +1,11 @@
 """ fields.py
 """
+from collections import
 from ..decorators import TypedProperty
 
+from ..types import Field
 from ..types import Header as _Header
+
 
 class Header(_Header):
     @TypedProperty
@@ -37,9 +40,35 @@ class Header(_Header):
         if self._lenfmt == 0:
             self.llen = (packet[0] & 0x03)
         del packet[0]
+
         self.length = packet
         del packet[:self.llen]
 
+
+class VersionedHeader(Header):
+    @TypedProperty
+    def version(self):
+        return self._version
+    @version.int
+    def version(self, val):
+        self._version = val
+
+    def __init__(self):
+        super(VersionedHeader, self).__init__()
+        self.version = 0
+
+    def __bytes__(self):
+        _bytes = bytearray(super(VersionedHeader, self).__bytes__())
+        _bytes.append(self.version)
+        return bytes(_bytes)
+
+    def parse(self, packet):
+        if self.tag == 0:
+            super(VersionedHeader, self).parse(packet)
+
+        if self.version == 0:
+            self.version = packet[0]
+            del packet[0]
 
 
 # class Header(PacketField):
