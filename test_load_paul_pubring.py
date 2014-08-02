@@ -72,7 +72,12 @@ pb3w = [PacketCounter(packets), '|', Timer("%s"), '|', Percentage(), Bar()]
 
 pbar3 = ProgressBar(maxval=_mv, widgets=pb3w).start()
 while len(_b) > 0:
-    packets.append(Packet(_b))
+    olen = len(_b)
+    pkt = Packet(_b)
+    if (olen - len(_b)) != len(pkt.header) + pkt.header.length:
+        print("Incorrect number of bytes consumed. Got: {:,}. Expected: {:,}".format((olen - len(_b)), (len(pkt.header) + pkt.header.length)))
+        print("Bad packet was: {cls:s}, {id:d}, {ver:s}".format(cls=pkt.__class__.__name__, id=pkt.header.typeid, ver=str(pkt.header.version) if hasattr(pkt.header, 'version') else ''))
+    packets.append(pkt)
     pbar3.update(_mv - len(_b))
 pbar3.finish()
 
