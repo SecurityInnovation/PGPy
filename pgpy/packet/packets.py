@@ -1,9 +1,15 @@
 """ packet.py
 """
-from .fields import SubPackets
+import calendar
 
-from .keyfields import RSASignature
-from .keyfields import DSASignature
+from datetime import datetime
+
+from .fields import SubPackets
+from .fields import RSASignature
+from .fields import DSASignature
+from .fields import RSAPub
+from .fields import DSAPub
+from .fields import ElGPub
 
 from .types import Packet
 from .types import VersionedPacket
@@ -174,6 +180,73 @@ class PubKey(VersionedPacket):
 
 class PubKeyV4(PubKey):
     __ver__ = 4
+
+    @TypedProperty
+    def created(self):
+        return self._created
+    @created.datetime
+    def created(self, val):
+        self._created = val
+    @created.int
+    def created(self, val):
+        self.created = datetime.utcfromtimestamp(val)
+    @created.bytearray
+    @created.bytes
+    def created(self, val):
+        self.created = self.bytes_to_int(val)
+
+    @TypedProperty
+    def pkalg(self):
+        return self._pkalg
+    @pkalg.PubKeyAlgorithm
+    def pkalg(self, val):
+        self._pkalg = val
+
+        if val in [PubKeyAlgorithm.RSASign, PubKeyAlgorithm.RSAEncrypt, PubKeyAlgorithm.RSAEncryptOrSign]:
+            self.keymaterial = RSAPub()
+
+        elif val == PubKeyAlgorithm.DSA:
+            self.keymaterial = DSAPub()
+
+        elif val == PubKeyAlgorithm.ElGamal:
+            self.keymaterial = ElGPub()
+
+
+    @pkalg.int
+    def pkalg(self, val):
+        self.pkalg = PubKeyAlgorithm(val)
+
+    @property
+    def keymaterial(self):
+        return self._keymaterial
+    @keymaterial.setter
+    def keymaterial(self, val):
+        self._keymaterial = val
+
+    def __init__(self):
+        super(PubKeyV4, self).__init__()
+        self.created = datetime.utcnow()
+        self.pkalg = 0
+        self.keymaterial = None
+
+    def __bytes__(self):
+        _bytes = bytearray()
+        _bytes += super(PubKeyV4, self).__bytes__()
+        _bytes += self.int_to_bytes(calendar.timegm(self.created.timetuple()), 4)
+        _bytes += self.int_to_bytes(self.pkalg)
+        _bytes += self.keymaterial.__bytes__()
+        return bytes(_bytes)
+
+    def parse(self, packet):
+        super(PubKeyV4, self).parse(packet)
+
+        self.created = packet[:4]
+        del packet[:4]
+
+        self.pkalg = packet[0]
+        del packet[0]
+
+        self.keymaterial.parse(packet)
 
 
 class PrivSubKey(VersionedPacket):
