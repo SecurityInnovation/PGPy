@@ -149,11 +149,13 @@ class TestSignatureSubPackets(object):
         assert len(h) == len(bytes(h))
 
     def test_load(self, subpacket):
-        sp = Signature(bytearray(subpacket))
+        spb = subpacket[:]
+        sp = Signature(subpacket)
 
-        assert len(sp) == len(subpacket)
+        assert len(subpacket) == 0
+        assert len(sp) == len(spb)
         assert len(sp) == len(bytes(sp))
-        assert bytes(sp) == bytes(subpacket)
+        assert bytes(sp) == bytes(spb)
 
         if sp.header.typeid in _sspclasses:
             assert sp.__class__.__name__ == _sspclasses[sp.header.typeid]

@@ -18,27 +18,27 @@ def pytest_generate_tests(metafunc):
         for i, pf in enumerate(packetfiles):
             with open(pf, 'rb') as p:
                 p.readinto(argvals[i])
-        ids = [ re.split('\.', pf)[1] for pf in packetfiles]
+        ids = [ '_'.join(re.split('\.', pf)[1:]) for pf in packetfiles]
         metafunc.parametrize('packet', argvals, ids=ids, scope="class")
 
 _pclasses = {
-    # 0x01: '', ##TODO: name this
-    # 0x02: 'Signature', ##TODO: uncomment when class is turned back on
-    # 0x03: '', ##TODO: name this
-    # 0x04: '', ##TODO: name this
-    # 0x05: 'PrivKey', ##TODO: uncomment when class is turned back on
-    # 0x06: 'PubKey', ##TODO: uncomment when class is turned back on
-    # 0x07: 'PrivSubKey', ##TODO: uncomment when class is turned back on
-    # 0x08: 'CompressedData', ##TODO: uncomment when class is turned back on
-    # 0x09: '', ##TODO: name this
-    # 0x0A: '', ##TODO: name this
-    # 0x0B: 'LiteralData', ##TODO: uncomment when class is turned back on
-    # 0x0C: 'Trust', ##TODO: uncomment when class is turned back on
-    # 0x0D: 'UserID', ##TODO: uncomment when class is turned back on
-    # 0x0E: 'PubSubKey', ##TODO: uncomment when class is turned back on
-    # 0x11: 'UserAttribute', ##TODO: uncomment when class is turned back on
-    # 0x12: '', ##TODO: name this
-    # 0x13: '', ##TODO: name this
+    # 0x01: [''], ##TODO: name this
+    0x02: ['SignatureV4'],
+    # 0x03: [''], ##TODO: name this
+    # 0x04: [''], ##TODO: name this
+    # 0x05: ['PrivKeyV4'], ##TODO: uncomment when class is turned back on
+    # 0x06: ['PubKeyV4'], ##TODO: uncomment when class is turned back on
+    # 0x07: ['PrivSubKeyV4]', ##TODO: uncomment when class is turned back on
+    # 0x08: ['CompressedData'], ##TODO: uncomment when class is turned back on
+    # 0x09: [''], ##TODO: name this
+    # 0x0A: [''], ##TODO: name this
+    # 0x0B: ['LiteralData'], ##TODO: uncomment when class is written
+    # 0x0C: ['Trust'], ##TODO: uncomment when class is turned back on
+    # 0x0D: ['UserID'], ##TODO: uncomment when class is turned back on
+    # 0x0E: ['PubSubKey'], ##TODO: uncomment when class is turned back on
+    # 0x11: ['UserAttribute'], ##TODO: uncomment when class is turned back on
+    # 0x12: [''], ##TODO: name this
+    # 0x13: ['',] ##TODO: name this
 }
 
 class TestPacket(object):
@@ -65,12 +65,20 @@ class TestPacket(object):
         b = packet[:]
         p = Packet(packet)
 
+        # parsed all bytes
+        assert len(packet) == 0
+
+        # length is computed correctly
         assert p.header.length + len(p.header) == len(p)
         assert len(p) == len(bytes(b))
+        assert len(bytes(b)) == len(bytes(p))
+
+        # __bytes__ output is correct
         assert bytes(p) == bytes(b)
 
+        # instantiated class is what we expected
         if p.header.tag in _pclasses:
-            assert p.__class__.__name__ == _pclasses[p.header.tag]
+            assert p.__class__.__name__ in _pclasses[p.header.tag]
 
         else:
             assert isinstance(p, Opaque)
