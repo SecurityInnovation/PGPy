@@ -73,10 +73,18 @@ pb3w = [PacketCounter(packets), '|', Timer("%s"), '|', Percentage(), Bar()]
 pbar3 = ProgressBar(maxval=_mv, widgets=pb3w).start()
 while len(_b) > 0:
     olen = len(_b)
+    # try:
     pkt = Packet(_b)
-    if (olen - len(_b)) != len(pkt.header) + pkt.header.length:
-        print("Incorrect number of bytes consumed. Got: {:,}. Expected: {:,}".format((olen - len(_b)), (len(pkt.header) + pkt.header.length)))
-        print("Bad packet was: {cls:s}, {id:d}, {ver:s}".format(cls=pkt.__class__.__name__, id=pkt.header.typeid, ver=str(pkt.header.version) if hasattr(pkt.header, 'version') else ''))
+
+    # except:
+    #     print("\n\tSomething went wrong!")
+    #     print("\tBad packet followed packet #{:,d}".format(len(packets)))
+    #     raise
+
+    # if (olen - len(_b)) != len(pkt.header) + pkt.header.length:
+    #     print("Incorrect number of bytes consumed. Got: {:,}. Expected: {:,}".format((olen - len(_b)), (len(pkt.header) + pkt.header.length)))
+    #     print("Bad packet was: {cls:s}, {id:d}, {ver:s}".format(cls=pkt.__class__.__name__, id=pkt.header.typeid, ver=str(pkt.header.version) if hasattr(pkt.header, 'version') else ''))
+    #     print("loaded: " + str(len(packets)))
     packets.append(pkt)
     pbar3.update(_mv - len(_b))
 pbar3.finish()
@@ -86,7 +94,7 @@ print('Parsed Packet Stats\n')
 
 pcnts = collections.Counter(['{cls:s} v{v:d}'.format(cls=c.__class__.__name__, v=c.version) if hasattr(c, 'version') else c.__class__.__name__ 
                              for c in packets if not isinstance(c, pgpy.packet.Opaque)] +
-                            ['Opaque [{:02d}]'.format(c.header.tag) for c in packets if isinstance(c, pgpy.packet.Opaque)])
+                            ['Opaque [{:02d}]{:s}'.format(c.header.tag, '[v{:d}]'.format(c.header.version) if hasattr(c.header, 'version') else '') for c in packets if isinstance(c, pgpy.packet.Opaque)])
 
 ml = max(5, max([len(s) for s in pcnts.keys()]))
 mcl = max(5, max([len("{:,}".format(c)) for c in pcnts.values()]))
