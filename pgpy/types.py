@@ -130,14 +130,14 @@ class Exportable(FileLoader, metaclass=abc.ABCMeta):
         return b''
 
     def __str__(self):
-        payload = base64.b64encode(self.__bytes__()).decode()
+        payload = base64.b64encode(self.__bytes__()).decode('latin-1')
         payload = '\n'.join([ payload[i:(i + 64)] for i in range(0, len(payload), 64) ])
 
         return self.__armor_fmt.format(
             block_type=self.magic,
             headers=''.join([ '{key}: {val}\n'.format(key=key, val=val) for key, val in self.ascii_headers.items() ]),
             packet=payload,
-            crc=base64.b64encode(Header.int_to_bytes(self.crc24(), 3)).decode()
+            crc=base64.b64encode(Header.int_to_bytes(self.crc24(), 3)).decode('latin-1')
         )
 
     @staticmethod
@@ -153,7 +153,7 @@ class Exportable(FileLoader, metaclass=abc.ABCMeta):
             raise TypeError("Expected: ASCII")
 
         if isinstance(text, (bytes, bytearray)):
-            text = text.decode()
+            text = text.decode('latin-1')
 
         # the re.VERBOSE flag allows for:
         #  - whitespace is ignored except when in a character class or escaped
@@ -451,50 +451,6 @@ class MetaDispatchable(abc.ABCMeta):
             obj = _makeobj(cls)
 
         return obj
-    #
-    # def __call__(cls, *args):
-    #     def _makeobj(cls):
-    #         obj = object.__new__(cls)
-    #         obj.__init__()
-    #         return obj
-    #
-    #     rcl = [ rc for rc in MetaDispatchable._registry
-    #             if (not isinstance(rc, tuple))
-    #             and issubclass(cls, rc) ]
-    #
-    #     if len(rcl) > 0 and len(args) > 0:
-    #         header = rcl[0].__headercls__()
-    #         header.parse(args[0])
-    #
-    #         if (rcl[0], header.typeid) in MetaDispatchable._registry:
-    #             obj = _makeobj(MetaDispatchable._registry[(rcl[0], header.typeid)])
-    #
-    #         else:
-    #             obj = _makeobj(MetaDispatchable._registry[(rcl[0], None)])
-    #
-    #         obj.header = header
-    #
-    #         try:
-    #             obj.parse(args[0])
-    #
-    #         except NotImplementedError:
-    #             obj = _makeobj(MetaDispatchable._registry[(rcl[0], None)])
-    #             obj.header = header
-    #             obj.parse(args[0])
-    #
-    #     else:
-    #         obj = _makeobj(cls)
-    #
-    #         ##TODO: this whole method does not work here
-    #         ##      assigning memory after _makeobj means __init__ has already run and probably failed
-    #         ##      also, since these objects are not really meant to be instantiated on their own, it doesn't make sense
-    #         ##      to allocate memory for them like that
-    #         # if len(args) == 0:
-    #         #     b = bytearray(b'\x01\x00')
-    #         #     obj.header._bytes = lambda: memoryview(b).__enter__()
-    #         #     obj._bytes = lambda: memoryview().__enter__()[obj._offset:(obj._offset + obj.header._llen + obj.header.length)]
-    #
-    #     return obj
 
 
 class Dispatchable(PGPObject, metaclass=MetaDispatchable):

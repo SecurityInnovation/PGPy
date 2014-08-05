@@ -1,6 +1,12 @@
 """ fields.py
 """
-from collections import
+import collections
+import itertools
+import re
+
+from .subpackets import Signature
+from .subpackets import UserAttribute
+
 from ..decorators import TypedProperty
 
 from ..types import Field
@@ -35,6 +41,43 @@ class Header(_Header):
         return 1 + self.llen
 
     def parse(self, packet):
+        """
+        There are two formats for headers
+
+        old style
+        ---------
+
+        Old style headers can be 1, 2, 3, or 6 octets long and are composed of a Tag and a Length.
+        If the header length is 1 octet (length_type == 3), then there is no Length field.
+
+        new style
+        ---------
+
+        New style headers can be 2, 3, or 6 octets long and are also composed of a Tag and a Length.
+
+
+        Packet Tag
+        ----------
+
+        The packet tag is the first byte, comprising the following fields:
+
+        +-------------+----------+---------------+---+---+---+---+----------+----------+
+        | byte        | 1                                                              |
+        +-------------+----------+---------------+---+---+---+---+----------+----------+
+        | bit         | 7        | 6             | 5 | 4 | 3 | 2 | 1        | 0        |
+        +-------------+----------+---------------+---+---+---+---+----------+----------+
+        | old-style   | always 1 | packet format | packet tag    | length type         |
+        | description |          | 0 = old-style |               | 0 = 1 octet         |
+        |             |          | 1 = new-style |               | 1 = 2 octets        |
+        |             |          |               |               | 2 = 5 octets        |
+        |             |          |               |               | 3 = no length field |
+        +-------------+          +               +---------------+---------------------+
+        | new-style   |          |               | packet tag                          |
+        | description |          |               |                                     |
+        +-------------+----------+---------------+-------------------------------------+
+
+        :param packet: raw packet bytes
+        """
         self._lenfmt = ((packet[0] & 0x40) >> 6)
         self.tag = packet[0]
         if self._lenfmt == 0:
@@ -69,6 +112,107 @@ class VersionedHeader(Header):
         if self.version == 0:
             self.version = packet[0]
             del packet[0]
+
+
+class SubPackets(collections.MutableMapping, Field):
+    @TypedProperty
+    def hashed_len(self):
+        return self._hashed_len
+    @hashed_len.int
+    def hashed_len(self, val):
+        self._hashed_len = val
+    @hashed_len.bytearray
+    @hashed_len.bytes
+    def hashed_len(self, val):
+        self.hashed_len = self.bytes_to_int(val)
+
+    @TypedProperty
+    def unhashed_len(self):
+        return self._unhashed_len
+    @unhashed_len.int
+    def unhashed_len(self, val):
+        self._unhashed_len = val
+    @unhashed_len.bytearray
+    @unhashed_len.bytes
+    def unhashed_len(self, val):
+        self.unhashed_len = self.bytes_to_int(val)
+
+    def __init__(self):
+        self._hashed_len = 0
+        self._unhashed_len = 0
+        self.__hashed_sp = collections.OrderedDict()
+        self.__unhashed_sp = collections.OrderedDict()
+
+    def __bytes__(self):
+        _bytes = bytearray()
+        _bytes += self.int_to_bytes(self.hashed_len, 2)
+        for hsp in self.__hashed_sp.values():
+            _bytes += hsp.__bytes__()
+        _bytes += self.int_to_bytes(self.unhashed_len, 2)
+        for uhsp in self.__unhashed_sp.values():
+            _bytes += uhsp.__bytes__()
+        return bytes(_bytes)
+
+    def __len__(self):
+        return self.hashed_len + self.unhashed_len + 4
+
+    def __iter__(self):
+        for sp in itertools.chain(self.__hashed_sp, self.__unhashed_sp):
+            yield sp
+
+    def __setitem__(self, key, val):
+        # the key provided should always be the classname for the subpacket
+        # but, there can be multiple subpackets of the same type
+        # so, it should be stored in the format: [h_]<key>_<seqid>
+        # where:
+        #  - <key> is the classname of val
+        #  - <seqid> is a sequence id, starting at 0, for a given classname
+        if not re.match(r'^.*_[0-9]', key):
+            i = 0
+            while '{:s}_{:d}'.format(key, i) in self:
+                i += 1
+            key = '{:s}_{:d}'.format(key, i)
+
+        if key.startswith('h_'):
+            self.__hashed_sp[key[2:]] = val
+
+        else:
+            self.__unhashed_sp[key] = val
+
+    def __getitem__(self, key):
+        if not re.match(r'^.*_[0-9]', key):
+            if key.startswith('h_'):
+                return [v for k, v in self.__hashed_sp.items() if key[2:] in k]
+
+            else:
+                return [v for k, v in self.__unhashed_sp. items() if key in k]
+
+    def __delitem__(self, key):
+        ##TODO: this
+        pass
+
+    def __contains__(self, key):
+        return any([key in self.__hashed_sp, key in self.__unhashed_sp])
+
+    def parse(self, packet):
+        self.hashed_len = packet[:2]
+        del packet[:2]
+
+        p = 0
+        while p < self.hashed_len:
+            sp = Signature(packet)
+            p += len(sp)
+            self['h_' + sp.__class__.__name__] = sp
+
+        self.unhashed_len = packet[:2]
+        del packet[:2]
+
+        p = 0
+        while p < self.unhashed_len:
+            sp = Signature(packet)
+            p += len(sp)
+            self[sp.__class__.__name__] = sp
+
 
 
 # class Header(PacketField):
@@ -178,43 +322,7 @@ class VersionedHeader(Header):
 #         self._parent = None
 #
 #     def parse(self, packet):
-#         """
-#         There are two formats for headers
-#
-#         old style
-#         ---------
-#
-#         Old style headers can be 1, 2, 3, or 6 octets long and are composed of a Tag and a Length.
-#         If the header length is 1 octet (length_type == 3), then there is no Length field.
-#
-#         new style
-#         ---------
-#
-#         New style headers can be 2, 3, or 6 octets long and are also composed of a Tag and a Length.
-#
-#
-#         Packet Tag
-#         ----------
-#
-#         The packet tag is the first byte, comprising the following fields:
-#
-#         +-------------+----------+---------------+---+---+---+---+----------+----------+
-#         | byte        | 1                                                              |
-#         +-------------+----------+---------------+---+---+---+---+----------+----------+
-#         | bit         | 7        | 6             | 5 | 4 | 3 | 2 | 1        | 0        |
-#         +-------------+----------+---------------+---+---+---+---+----------+----------+
-#         | old-style   | always 1 | packet format | packet tag    | length type         |
-#         | description |          | 0 = old-style |               | 0 = 1 octet         |
-#         |             |          | 1 = new-style |               | 1 = 2 octets        |
-#         |             |          |               |               | 2 = 5 octets        |
-#         |             |          |               |               | 3 = no length field |
-#         +-------------+          +               +---------------+---------------------+
-#         | new-style   |          |               | packet tag                          |
-#         | description |          |               |                                     |
-#         +-------------+----------+---------------+-------------------------------------+
-#
-#         :param packet: raw packet bytes
-#         """
+
 #
 #         # parse the full tag, including length_type if this is an old-format packet header
 #         self.tag = bytes_to_int(packet[:1])
@@ -274,8 +382,6 @@ class VersionedHeader(Header):
 #
 #     def __pgpdump__(self):
 #         raise NotImplementedError()
-
-
 # class SignatureSubPackets(PacketField):
 #     def __init__(self):
 #         self.length = 0

@@ -51,6 +51,10 @@ class HashAlgorithm(IntEnum):
     MD5 = 0x01
     SHA1 = 0x02
     RIPEMD160 = 0x03
+    _reserved_1 = 0x04
+    _reserved_2 = 0x05
+    _reserved_3 = 0x06
+    _reserved_4 = 0x07
     SHA256 = 0x08
     SHA384 = 0x09
     SHA512 = 0x0A
@@ -88,6 +92,11 @@ class SignatureType(IntEnum):
     ThirdParty_Confirmation = 0x50
 
 
+class KeyServerPreferences(IntEnum):
+    Unknown = 0x00
+    NoModify = 0x80
+
+
 class KeyFlags(FlagEnum):
     Certify = 0x01
     Sign = 0x02
@@ -109,7 +118,3 @@ class RevocationKeyClass(FlagEnum):
 
 class NotationDataFlags(FlagEnum):
     HumanReadable = 0x80
-
-
-class KeyServerPreferences(FlagEnum):
-    NoModify = 0x80

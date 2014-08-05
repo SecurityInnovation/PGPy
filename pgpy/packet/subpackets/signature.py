@@ -35,7 +35,7 @@ class URI(Signature):
     @uri.bytearray
     @uri.bytes
     def uri(self, val):
-        self.uri = val.decode()
+        self.uri = val.decode('latin-1')
 
     def __init__(self):
         super(URI, self).__init__()
@@ -543,8 +543,8 @@ class Issuer(Signature):
 
     def parse(self, packet):
         super(Issuer, self).parse(packet)
-        self.issuer = packet[:(self.header.length - 1)]
-        del packet[:(self.header.length - 1)]
+        self.issuer = packet[:8]
+        del packet[:8]
 
 
 class NotationData(Signature):
@@ -576,7 +576,7 @@ class NotationData(Signature):
     @name.bytearray
     @name.bytes
     def name(self, val):
-        self.name = val.decode()
+        self.name = val.decode('latin-1')
 
     @TypedProperty
     def value(self):
@@ -588,7 +588,7 @@ class NotationData(Signature):
     @value.bytes
     def value(self, val):
         if NotationDataFlags.HumanReadable in self.flags:
-            self.value = val.decode()
+            self.value = val.decode('latin-1')
 
         else:
             self._value = val
@@ -691,7 +691,7 @@ class SignersUserID(Signature):
     @userid.bytearray
     @userid.bytes
     def userid(self, val):
-        self.userid = val.decode()
+        self.userid = val.decode('latin-1')
 
     def __init__(self):
         super(SignersUserID, self).__init__()
@@ -734,7 +734,7 @@ class ReasonForRevocation(Signature):
     @string.bytearray
     @string.bytes
     def string(self, val):
-        self.string = val.decode()
+        self.string = val.decode('latin-1')
 
     def __init__(self):
         super(ReasonForRevocation, self).__init__()
@@ -752,6 +752,7 @@ class ReasonForRevocation(Signature):
         self.code = packet[:1]
         del packet[:1]
         self.string = packet[:(self.header.length - 2)]
+        del packet[:(self.header.length - 2)]
 
 
 class Features(ByteFlag):

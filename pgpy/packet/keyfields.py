@@ -15,7 +15,7 @@ class RSASignature(Signature):
         return self._md_mod_n
     @md_mod_n.bytearray
     def md_mod_n(self, val):
-        self._md_mod_n = self.bytes_to_int(val)
+        self._md_mod_n = val
     @md_mod_n.int
     def md_mod_n(self, val):
         self.md_mod_n = bytearray(self.int_to_bytes(val))
@@ -90,54 +90,55 @@ class DSASignature(Signature):
         del packet[:sl]
 
 
-class ElGSignature(Signature):
-    @TypedProperty
-    def a(self):
-        return self._a
-    @a.bytearray
-    def a(self, val):
-        self._a = val
-    @a.int
-    def a(self, val):
-        self.a = bytearray(self.int_to_bytes(val))
-
-    @TypedProperty
-    def b(self):
-        return self._b
-    @b.bytearray
-    def b(self, val):
-        self._b = val
-    @b.int
-    def b(self, val):
-        self.b = bytearray(self.int_to_bytes(val))
-
-    def __init__(self):
-        # super(ElGSignature, self).__init__()
-        self.a = 0
-        self.b = 0
-
-    def __bytes__(self):
-        _bytes = bytearray()
-        _bytes += self.int_to_bytes(self.bytes_to_int(self.a).bit_length(), 2)
-        _bytes += self.a
-        _bytes += self.int_to_bytes(self.bytes_to_int(self.b).bit_length(), 2)
-        _bytes += self.b
-        return bytes(_bytes)
-
-    def __len__(self):
-        return len(self.a) + len(self.b) + 4
-
-    def parse(self, packet):
-        al = (self.bytes_to_int(packet[:2]) + 7) // 8
-        del packet[:2]
-
-        self.a = packet[:al]
-        del packet[:al]
-
-        bl = (self.bytes_to_int(packet[:2]) + 7) // 8
-        del packet[:2]
-        self.s = packet[:bl]
-        del packet[:bl]
+##TODO: not sure I even want to support this since it only showed up in an ancient signature
+# class ElGSignature(Signature):
+#     @TypedProperty
+#     def a(self):
+#         return self._a
+#     @a.bytearray
+#     def a(self, val):
+#         self._a = val
+#     @a.int
+#     def a(self, val):
+#         self.a = bytearray(self.int_to_bytes(val))
+#
+#     @TypedProperty
+#     def b(self):
+#         return self._b
+#     @b.bytearray
+#     def b(self, val):
+#         self._b = val
+#     @b.int
+#     def b(self, val):
+#         self.b = bytearray(self.int_to_bytes(val))
+#
+#     def __init__(self):
+#         # super(ElGSignature, self).__init__()
+#         self.a = 0
+#         self.b = 0
+#
+#     def __bytes__(self):
+#         _bytes = bytearray()
+#         _bytes += self.int_to_bytes(self.bytes_to_int(self.a).bit_length(), 2)
+#         _bytes += self.a
+#         _bytes += self.int_to_bytes(self.bytes_to_int(self.b).bit_length(), 2)
+#         _bytes += self.b
+#         return bytes(_bytes)
+#
+#     def __len__(self):
+#         return len(self.a) + len(self.b) + 4
+#
+#     def parse(self, packet):
+#         al = (self.bytes_to_int(packet[:2]) + 7) // 8
+#         del packet[:2]
+#
+#         self.a = packet[:al]
+#         del packet[:al]
+#
+#         bl = (self.bytes_to_int(packet[:2]) + 7) // 8
+#         del packet[:2]
+#         self.s = packet[:bl]
+#         del packet[:bl]
 
 
 # class MPIFields(object):

@@ -16,7 +16,7 @@ def is_ascii(text):
         return bool(re.match(r'^[ -~\n]+$', text, flags=re.ASCII))
 
     try:
-        text.decode()
+        text.decode('latin-1')
 
     except UnicodeDecodeError:
         return False
