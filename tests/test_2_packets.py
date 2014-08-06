@@ -1,5 +1,6 @@
 """ test parsing packets
 """
+from __future__ import unicode_literals
 import pytest
 
 from pgpy.errors import PGPKeyDecryptionError
@@ -53,28 +54,39 @@ class TestPacket(object):
         else:
             assert isinstance(p, Opaque)
 
-    def test_decrypt_enckey(self, ekpacket):
-        p = Packet(ekpacket)
+    def test_decrypt_enckey(self, ekpacket, ukpacket):
+        # parse the encrypted and decrypted version
+        ep = Packet(ekpacket)
+        up = Packet(ukpacket)
 
-        if p.pkalg == PubKeyAlgorithm.RSAEncryptOrSign:
-            assert p.secmaterial.d == bytearray()
-            assert p.secmaterial.p == bytearray()
-            assert p.secmaterial.q == bytearray()
-            assert p.secmaterial.u == bytearray()
+        # verify that we are comparing the same key
+        assert ep.fingerprint == up.fingerprint
 
-        if p.pkalg in [PubKeyAlgorithm.DSA, PubKeyAlgorithm.ElGamal]:
-            assert p.secmaterial.x == bytearray()
+        # verify that ep's secmaterial fields are empty
 
+        if ep.pkalg == PubKeyAlgorithm.RSAEncryptOrSign:
+            assert ep.secmaterial.d == bytearray()
+            assert ep.secmaterial.p == bytearray()
+            assert ep.secmaterial.q == bytearray()
+            assert ep.secmaterial.u == bytearray()
+        if ep.pkalg in [PubKeyAlgorithm.DSA, PubKeyAlgorithm.ElGamal]:
+            assert ep.secmaterial.x == bytearray()
+
+        # verify trying to unprotect using the wrong password doesn't work
+        # also try with a purposely unicode password
         with pytest.raises(PGPKeyDecryptionError):
-            p.unprotect("TheWrongPassword")
+            ep.unprotect("TheWrongPassword")
+            # Mañana
+            ep.unprotect("Ma\u00F1ana")
 
-        p.unprotect("QwertyUiop")
+        # now unprotect with the correct password
+        ep.unprotect("QwertyUiop")
 
-        if p.pkalg == PubKeyAlgorithm.RSAEncryptOrSign:
-            assert len(p.secmaterial.d) > 0
-            assert len(p.secmaterial.p) > 0
-            assert len(p.secmaterial.q) > 0
-            assert len(p.secmaterial.u) > 0
-
-        if p.pkalg in [PubKeyAlgorithm.DSA, PubKeyAlgorithm.ElGamal]:
-            assert len(p.secmaterial.x) > 0
+        # and verify that it matches the unencrypted version
+        if ep.pkalg == PubKeyAlgorithm.RSAEncryptOrSign:
+            assert ep.secmaterial.d == up.secmaterial.d
+            assert ep.secmaterial.p == up.secmaterial.p
+            assert ep.secmaterial.q == up.secmaterial.q
+            assert ep.secmaterial.u == up.secmaterial.u
+        if ep.pkalg in [PubKeyAlgorithm.DSA, PubKeyAlgorithm.ElGamal]:
+            assert ep.secmaterial.x == up.secmaterial.x

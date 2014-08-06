@@ -1,4 +1,4 @@
-""" test subpacket parsing
+""" test field parsing
 """
 import pytest
 
@@ -159,22 +159,14 @@ class TestUserAttributeSubPackets(object):
 
 
 class TestString2Key(object):
-    @pytest.mark.parametrize('b',
-        [ (bytearray(i) +
-           b'\xDE\xAD\xBE\xEF\xDE\xAD\xBE\xEF') # iv
-          for i in product(b'\xff',                                         # usage
-                           b'\x01\x02\x03\x04\x07\x08\x09\x0B\x0C\x0D',     # symmetric cipher algorithm
-                           b'\x00',                                         # specifier (simple)
-                           b'\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B') # hash algorithm
-        ])
-    def test_simple_string2key(self, b):
-        _b = b[:]
+    def test_simple_string2key(self, sis2k):
+        b = sis2k[:]
         s = String2Key()
-        s.parse(b)
+        s.parse(sis2k)
 
-        assert len(b) == 0
-        assert len(s) == len(_b)
-        assert bytes(s) == bytes(_b)
+        assert len(sis2k) == 0
+        assert len(s) == len(b)
+        assert bytes(s) == bytes(b)
 
         assert bool(s)
         assert s.halg in HashAlgorithm
@@ -182,24 +174,15 @@ class TestString2Key(object):
         assert s.specifier == String2KeyType.Simple
         assert s.iv == b'\xDE\xAD\xBE\xEF\xDE\xAD\xBE\xEF'
 
-    @pytest.mark.parametrize('b',
-        [ (bytearray(i) +
-           b'\xCA\xFE\xBA\xBE\xCA\xFE\xBA\xBE' + # salt
-           b'\xDE\xAD\xBE\xEF\xDE\xAD\xBE\xEF')  # iv
-          for i in product(b'\xff',                                         # usage
-                           b'\x01\x02\x03\x04\x07\x08\x09\x0B\x0C\x0D',     # symmetric cipher algorithm
-                           b'\x01',                                         # specifier (salted)
-                           b'\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B') # hash algorithm
 
-        ])
-    def test_salted_string2key(self, b):
-        _b = b[:]
+    def test_salted_string2key(self, sas2k):
+        b = sas2k[:]
         s = String2Key()
-        s.parse(b)
+        s.parse(sas2k)
 
-        assert len(b) == 0
-        assert len(s) == len(_b)
-        assert bytes(s) == bytes(_b)
+        assert len(sas2k) == 0
+        assert len(s) == len(b)
+        assert bytes(s) == bytes(b)
 
         assert bool(s)
         assert s.halg in HashAlgorithm
@@ -208,25 +191,14 @@ class TestString2Key(object):
         assert s.salt == b'\xCA\xFE\xBA\xBE\xCA\xFE\xBA\xBE'
         assert s.iv == b'\xDE\xAD\xBE\xEF\xDE\xAD\xBE\xEF'
 
-    @pytest.mark.parametrize('b',
-        [ (bytearray(i) +
-           b'\xCA\xFE\xBA\xBE\xCA\xFE\xBA\xBE' + # salt
-           b'\x10' +                             # count
-           b'\xDE\xAD\xBE\xEF\xDE\xAD\xBE\xEF')  # iv
-          for i in product(b'\xff',                                         # usage
-                           b'\x01\x02\x03\x04\x07\x08\x09\x0A\x0B\x0C\x0D', # symmetric cipher algorithm
-                           b'\x03',                                         # specifier (iterated)
-                           b'\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B') # hash algorithm
-
-        ])
-    def test_iterated_string2key(self, b):
-        _b = b[:]
+    def test_iterated_string2key(self, is2k):
+        b = is2k[:]
         s = String2Key()
-        s.parse(b)
+        s.parse(is2k)
 
-        assert len(b) == 0
-        assert len(s) == len(_b)
-        assert bytes(s) == bytes(_b)
+        assert len(is2k) == 0
+        assert len(s) == len(b)
+        assert bytes(s) == bytes(b)
 
         assert bool(s)
         assert s.halg in HashAlgorithm

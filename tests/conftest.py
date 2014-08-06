@@ -1,7 +1,10 @@
 import functools
+import keyword
 import os
 import re
 import sys
+
+from itertools import product
 
 from distutils.version import LooseVersion
 
@@ -33,7 +36,7 @@ if os.path.join(os.getcwd(), 'tests') not in sys.path:
 class CWD_As(object):
     def __init__(self, newwd):
         if not os.path.exists(newwd):
-            raise FileNotFoundError(newwd)
+            raise FileNotFoundError(newwd + " not found within " + os.getcwd())
 
         self.oldwd = os.getcwd()
         self.newwd = newwd
@@ -41,10 +44,21 @@ class CWD_As(object):
     def __call__(self, func):
         @functools.wraps(func)
         def setcwd(*args, **kwargs):
+            # set new working directory
             os.chdir(self.newwd)
-            fo = func(*args, **kwargs)
-            os.chdir(self.oldwd)
+
+            # fallback value
+            fo = None
+
+            try:
+                fo = func(*args, **kwargs)
+
+            finally:
+                # always return to self.oldwd even if there was a failure
+                os.chdir(self.oldwd)
+
             return fo
+
         return setcwd
 
 
@@ -60,8 +74,11 @@ def pytest_configure(config):
 
 
 def pytest_generate_tests(metafunc):
-    spdir = 'tests/testdata/subpackets/'
-    pdir = 'tests/testdata/packets/'
+    if not keyword.iskeyword('nonlocal'):
+        _outer = locals()
+
+    spdir = 'subpackets/'
+    pdir = 'packets/'
 
     params = []
     argvals = []
@@ -69,26 +86,19 @@ def pytest_generate_tests(metafunc):
 
     tdata = []
 
-    if 'spheader' in metafunc.fixturenames:
-        params = ['spheader']
-        argvals = [
-            # 1 byte length - 191
-            bytearray(b'\xbf'                 + b'\x00' + (b'\x00' * 190)),
-            # 2 byte length - 192
-            bytearray(b'\xc0\x00'             + b'\x00' + (b'\x00' * 191)),
-            # 2 byte length - 8383
-            bytearray(b'\xdf\xff'             + b'\x00' + (b'\x00' * 8382)),
-            # 5 byte length - 8384
-            bytearray(b'\xff\x00\x00 \xc0'    + b'\x00' + (b'\x00' * 0x8383)),
-            # 5 byte length - 65535
-            bytearray(b'\xff\x00\x00\xff\xff' + b'\x00' + (b'\x00' * 65534)),
-        ]
+    def pheader():
+        if keyword.iskeyword('nonlocal'):
+            nonlocal params
+            nonlocal argvals
+            nonlocal ids
 
-        ids = ['1_191', '2_192', '2_8383', '5_8384', '5_65535']
+        else:
+            params = _outer['params']
+            argvals = _outer['argvals']
+            ids = _outer['ids']
 
-    if 'pheader' in metafunc.fixturenames:
-        params = ['pheader']
-        argvals = [
+        params += ['pheader']
+        argvals += [[
             # new format
             # 1 byte length - 191
             bytearray(b'\xc2' + b'\xbf' +                 (b'\x00' * 191)),
@@ -105,36 +115,236 @@ def pytest_generate_tests(metafunc):
             bytearray(b'\x89' + b'\x01\x00' +             (b'\x00' * 256)),
             # 4 byte length - 65536
             bytearray(b'\x8a' + b'\x00\x01\x00\x00' +     (b'\x00' * 65536)),
-        ]
+        ]]
 
         ids = ['new_1_191', 'new_2_192', 'new_2_8383', 'new_5_8384',
                'old_1_255', 'old_2_256', 'old_4_65536']
 
+    def spheader():
+        if keyword.iskeyword('nonlocal'):
+            nonlocal params
+            nonlocal argvals
+            nonlocal ids
 
-    if 'sigsubpacket' in metafunc.fixturenames:
-        params = ['sigsubpacket']
-        tdata = sorted([ spdir + f for f in os.listdir(spdir) if f.startswith('signature') ])
+        else:
+            params = _outer['params']
+            argvals = _outer['argvals']
+            ids = _outer['ids']
 
-    if 'uasubpacket' in metafunc.fixturenames:
-        params = ['uasubpacket']
-        tdata = sorted([ spdir + f for f in os.listdir(spdir) if f.startswith('userattr') ])
+        params += ['spheader']
+        argvals += [[
+            # 1 byte length - 191
+            bytearray(b'\xbf'                 + b'\x00' + (b'\x00' * 190)),
+            # 2 byte length - 192
+            bytearray(b'\xc0\x00'             + b'\x00' + (b'\x00' * 191)),
+            # 2 byte length - 8383
+            bytearray(b'\xdf\xff'             + b'\x00' + (b'\x00' * 8382)),
+            # 5 byte length - 8384
+            bytearray(b'\xff\x00\x00 \xc0'    + b'\x00' + (b'\x00' * 0x8383)),
+            # 5 byte length - 65535
+            bytearray(b'\xff\x00\x00\xff\xff' + b'\x00' + (b'\x00' * 65534)),
+        ]]
 
-    if 'packet' in metafunc.fixturenames:
-        params = ['packet']
-        tdata = sorted([ pdir + f for f in os.listdir(pdir) ])
+        ids += ['1_191', '2_192', '2_8383', '5_8384', '5_65535']
 
-    if 'ekpacket' in metafunc.fixturenames:
-        params = ['ekpacket']
-        tdata = sorted([ pdir + f for f in os.listdir(pdir) if 'enc' in f ])
+    def sis2k():
+        if keyword.iskeyword('nonlocal'):
+            nonlocal params
+            nonlocal argvals
+            nonlocal ids
+
+        else:
+            params = _outer['params']
+            argvals = _outer['argvals']
+            ids = _outer['ids']
+
+        params += ['sis2k']
+        argvals += [[ (bytearray(i) +
+                      b'\xDE\xAD\xBE\xEF\xDE\xAD\xBE\xEF') # iv
+                      for i in product(b'\xff',                                         # usage
+                                       b'\x01\x02\x03\x04\x07\x08\x09\x0B\x0C\x0D',     # symmetric cipher algorithm
+                                       b'\x00',                                         # specifier (simple)
+                                       b'\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B') # hash algorithm
+                    ]]
+        ids = ['sis2k_' + str(i) for i in range(len(argvals[-1]))]
+
+    def sas2k():
+        if keyword.iskeyword('nonlocal'):
+            nonlocal params
+            nonlocal argvals
+            nonlocal ids
+
+        else:
+            params = _outer['params']
+            argvals = _outer['argvals']
+            ids = _outer['ids']
+
+        params += ['sas2k']
+        argvals += [[ (bytearray(i) +
+                      b'\xCA\xFE\xBA\xBE\xCA\xFE\xBA\xBE' + # salt
+                      b'\xDE\xAD\xBE\xEF\xDE\xAD\xBE\xEF')  # iv
+                      for i in product(b'\xff',                                         # usage
+                                       b'\x01\x02\x03\x04\x07\x08\x09\x0B\x0C\x0D',     # symmetric cipher algorithm
+                                       b'\x01',                                         # specifier (simple)
+                                       b'\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B') # hash algorithm
+                    ]]
+        ids = ['sis2k_' + str(i) for i in range(len(argvals[-1]))]
+
+    def is2k():
+        if keyword.iskeyword('nonlocal'):
+            nonlocal params
+            nonlocal argvals
+            nonlocal ids
+
+        else:
+            params = _outer['params']
+            argvals = _outer['argvals']
+            ids = _outer['ids']
+
+        params += ['is2k']
+        argvals += [[ (bytearray(i) +
+                       b'\xCA\xFE\xBA\xBE\xCA\xFE\xBA\xBE' + # salt
+                       b'\x10' +                             # count
+                       b'\xDE\xAD\xBE\xEF\xDE\xAD\xBE\xEF')  # iv
+                      for i in product(b'\xff',                                         # usage
+                                       b'\x01\x02\x03\x04\x07\x08\x09\x0B\x0C\x0D',     # symmetric cipher algorithm
+                                       b'\x03',                                         # specifier (simple)
+                                       b'\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B') # hash algorithm
+                    ]]
+        ids = ['is2k_' + str(i) for i in range(len(argvals[-1]))]
+
+    @CWD_As('tests/testdata')
+    def sigsubpacket():
+        if keyword.iskeyword('nonlocal'):
+            nonlocal params
+            nonlocal tdata
+            nonlocal spdir
+
+        else:
+            params = _outer['params']
+            tdata = _outer['tdata']
+
+        params += ['sigsubpacket']
+        tdata += [sorted([ spdir + f for f in os.listdir(spdir) if f.startswith('signature') ])]
+
+    @CWD_As('tests/testdata')
+    def uasubpacket():
+        if keyword.iskeyword('nonlocal'):
+            nonlocal params
+            nonlocal tdata
+            nonlocal spdir
+
+        else:
+            params = _outer['params']
+            tdata = _outer['tdata']
+
+        params += ['uasubpacket']
+        tdata += [sorted([ spdir + f for f in os.listdir(spdir) if f.startswith('userattr') ])]
+
+    @CWD_As('tests/testdata')
+    def packet():
+        if keyword.iskeyword('nonlocal'):
+            nonlocal params
+            nonlocal tdata
+            nonlocal pdir
+
+        else:
+            params = _outer['params']
+            tdata = _outer['tdata']
+
+        params += ['packet']
+        tdata += [sorted([ pdir + f for f in os.listdir(pdir) ])]
+
+    @CWD_As('tests/testdata')
+    def ekpacket():
+        if keyword.iskeyword('nonlocal'):
+            nonlocal params
+            nonlocal tdata
+            nonlocal pdir
+
+        else:
+            params = _outer['params']
+            tdata = _outer['tdata']
+
+        params += ['ekpacket']
+        tdata += [sorted([ pdir + f for f in os.listdir(pdir) if f.startswith('privkey.enc') ])]
+
+    @CWD_As('tests/testdata')
+    def ukpacket():
+        if keyword.iskeyword('nonlocal'):
+            nonlocal params
+            nonlocal tdata
+            nonlocal pdir
+
+        else:
+            params = _outer['params']
+            tdata = _outer['tdata']
+
+        params += ['ukpacket']
+        tdata += [sorted([ pdir + f for f in os.listdir(pdir) if f.startswith('privkey.unc') ])]
+
+    # run all inner functions that match fixturenames
+    # I organized it like this for easy code folding in PyCharm :)
+    for fn in metafunc.fixturenames:
+        if fn in locals():
+            locals()[fn]()
+
+    @CWD_As('tests/testdata')
+    def _loadbytearrays():
+        if keyword.iskeyword('nonlocal'):
+            nonlocal argvals
+            nonlocal tdata
+            nonlocal ids
+
+        else:
+            argvals = _outer['argvals']
+            ids = _outer['ids']
+            tdata = _outer['tdata']
+
+        # quick error checking
+        if len(set([len(stl) for stl in tdata])) > 1:
+            raise ValueError("All sublists of tdata must be the same length! "
+                             "param(s): " + ", ".join(params) +
+                             "; " + ", ".join([str(len(stl)) for stl in tdata]))
+
+        # zip sublists together
+        tdata = list(zip(*tdata))
+
+        argvals = []
+        for i, fa in enumerate(tdata):
+            at = []
+            for a, f in enumerate(fa):
+                _b = bytearray(os.path.getsize(f))
+                with open(f, 'rb') as fo:
+                    fo.readinto(_b)
+                at.append(_b)
+            argvals += [tuple(at)]
+
+        ids = [ '_'.join(re.split('\.', f[0])[1:]) for f in tdata ]
+
 
     if tdata != []:
-        argvals = [bytearray(os.path.getsize(sp)) for sp in tdata]
-
-        for i, spf in enumerate(tdata):
-            with open(spf, 'rb') as sp:
-                sp.readinto(argvals[i])
-
-        ids = [ '_'.join(re.split('\.', f)[1:]) for f in tdata ]
+        _loadbytearrays()
 
     if params != []:
-        metafunc.parametrize(','.join(params), argvals, ids=ids, scope="class")
+        para = ','.join(params)
+        al = set(len(a) for a in argvals)
+
+        # make sure argvals is a list of tuples if it isn't already
+        if not isinstance(argvals[0], tuple):
+            argvals = list(zip(*argvals))
+
+        # if there is only one param, it should actually just be a list of arguments
+        if len(params) == 1 and isinstance(argvals[0], tuple):
+            argvals = [i[0] for i in argvals]
+
+        # some error checking here with output that makes debugging easier
+        if len(al) > 1:
+            raise ValueError("All sublists of tdata must be the same length! param(s): " + para)
+
+        if len(argvals) != len(ids):
+            raise ValueError("length of ids not matched! param(s): {p:s}; {pl:d} vs {id:d}".format(p=para,
+                                                                                                   pl=len(argvals),
+                                                                                                   id=len(ids)))
+
+        metafunc.parametrize(para, argvals, ids=ids, scope="class")
