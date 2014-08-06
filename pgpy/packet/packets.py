@@ -1,6 +1,7 @@
 """ packet.py
 """
 import calendar
+import re
 
 from datetime import datetime
 
@@ -294,32 +295,57 @@ class PubSubKeyV4(PubSubKey, PubKeyV4):
     __ver__ = 4
 
 
-#
-# class UserID(Packet):
-#     name = "User ID Packet"
-#
-#     @property
-#     def magic(self):
-#         raise NotImplementedError()
-#
-#     def __init__(self):
-#         super(UserID, self).__init__()
-#         self.data = b''
-#
-#     def parse(self, packet):
-#         packet = super(UserID, self).parse(packet)
-#         self.data = packet[:self.header.length]
-#         return packet[self.header.length:]
-#
-#     def __bytes__(self):
-#         _bytes = b''
-#         _bytes += self.header.__bytes__()
-#         _bytes += self.data
-#
-#         return _bytes
-#
-#     def __pgpdump__(self):
-#         raise NotImplementedError()
+class UserID(Packet):
+    """
+    5.11.  User ID Packet (Tag 13)
+
+    A User ID packet consists of UTF-8 text that is intended to represent
+    the name and email address of the key holder.  By convention, it
+    includes an RFC 2822 [RFC2822] mail name-addr, but there are no
+    restrictions on its content.  The packet length in the header
+    specifies the length of the User ID.
+    """
+    __typeid__ = 0x0D
+
+    def __init__(self):
+        super(UserID, self).__init__()
+        self.name = ""
+        self.comment = ""
+        self.email = ""
+
+    def __bytes__(self):
+        _bytes = bytearray()
+        _bytes += super(UserID, self).__bytes__()
+        _bytes += "{name:s}{comment:s}{email:s}".format(
+            name=self.name,
+            comment=" ({comment:s})".format(comment=self.comment) if self.comment not in [None, ""] else "",
+            email=" <{email:s}>".format(email=self.email) if self.email not in [None, ""] else "").encode()
+        return bytes(_bytes)
+
+    def parse(self, packet):
+        super(UserID, self).parse(packet)
+
+        uid_text = packet[:self.header.length].decode('latin-1')
+        del packet[:self.header.length]
+
+        uid = re.match(r"""^
+                           # name should always match something
+                           (?P<name>[^\(<]*)
+                           # comment *optionally* matches text in parens following name
+                           # this should never come after email
+                           (\ \((?P<comment>[^\)]+)\))?
+                           # email *optionally* matches text in angle brackets following name or comment
+                           # this should never come before a comment, if comment exists,
+                           # but can immediately follow name if comment does not exist
+                           (\ <(?P<email>[^>]+)>)?
+                           $
+                        """, uid_text, flags=re.VERBOSE).groupdict()
+
+        self.name = uid['name']
+        self.comment = uid['comment']
+        self.email = uid['email']
+
+
 #
 #
 # class Trust(Packet):
