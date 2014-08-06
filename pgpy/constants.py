@@ -185,6 +185,7 @@ class RevocationKeyClass(FlagEnum):
 class NotationDataFlags(FlagEnum):
     HumanReadable = 0x80
 
+
 class TrustFlags(FlagEnum):
     Revoked = 0x20
     SubRevoked = 0x40
