@@ -25,7 +25,7 @@ _pclasses = {
     0x0C: ['Trust'],
     0x0D: ['UserID'],
     0x0E: ['PubSubKeyV4'],
-    # 0x11: ['UserAttribute'], ##TODO: uncomment when class is turned back on
+    0x11: ['UserAttribute'],
     # 0x12: [''], ##TODO: name this
     # 0x13: ['',] ##TODO: name this
 }

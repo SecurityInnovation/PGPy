@@ -8,7 +8,6 @@ import collections
 import hashlib
 import itertools
 import math
-import re
 
 from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.backends import default_backend
@@ -32,46 +31,20 @@ from ..types import Field
 
 
 class SubPackets(collections.MutableMapping, Field):
-    @TypedProperty
-    def hashed_len(self):
-        return self._hashed_len
-    @hashed_len.int
-    def hashed_len(self, val):
-        self._hashed_len = val
-    @hashed_len.bytearray
-    @hashed_len.bytes
-    def hashed_len(self, val):
-        self.hashed_len = self.bytes_to_int(val)
-
-    @TypedProperty
-    def unhashed_len(self):
-        return self._unhashed_len
-    @unhashed_len.int
-    def unhashed_len(self, val):
-        self._unhashed_len = val
-    @unhashed_len.bytearray
-    @unhashed_len.bytes
-    def unhashed_len(self, val):
-        self.unhashed_len = self.bytes_to_int(val)
-
     def __init__(self):
-        self._hashed_len = 0
-        self._unhashed_len = 0
-        self.__hashed_sp = collections.OrderedDict()
-        self.__unhashed_sp = collections.OrderedDict()
+        self._hashed_sp = collections.OrderedDict()
+        self._unhashed_sp = collections.OrderedDict()
 
     def __bytes__(self):
         _bytes = bytearray()
-        _bytes += self.int_to_bytes(self.hashed_len, 2)
-        for hsp in self.__hashed_sp.values():
-            _bytes += hsp.__bytes__()
-        _bytes += self.int_to_bytes(self.unhashed_len, 2)
-        for uhsp in self.__unhashed_sp.values():
-            _bytes += uhsp.__bytes__()
+        _bytes += self.int_to_bytes(sum(len(sp) for sp in self._hashed_sp.values()), 2)
+        _bytes += b''.join(hsp.__bytes__() for hsp in self._hashed_sp.values())
+        _bytes += self.int_to_bytes(sum(len(sp) for sp in self._unhashed_sp.values()), 2)
+        _bytes += b''.join(uhsp.__bytes__() for uhsp in self._unhashed_sp.values())
         return bytes(_bytes)
 
     def __len__(self):
-        return self.hashed_len + self.unhashed_len + 4
+        return sum(sp.header.length for sp in itertools.chain(self._hashed_sp.values(), self._unhashed_sp.values())) + 4
 
     def __iter__(self):
         for sp in itertools.chain(self.__hashed_sp, self.__unhashed_sp):
@@ -84,51 +57,71 @@ class SubPackets(collections.MutableMapping, Field):
         # where:
         #  - <key> is the classname of val
         #  - <seqid> is a sequence id, starting at 0, for a given classname
-        if not re.match(r'^.*_[0-9]', key):
+        if not isinstance(key, tuple):
             i = 0
-            while '{:s}_{:d}'.format(key, i) in self:
+            while (key, i) in self:
                 i += 1
-            key = '{:s}_{:d}'.format(key, i)
+            key = (key, i)
 
-        if key.startswith('h_'):
-            self.__hashed_sp[key[2:]] = val
+        if key[0].startswith('h_'):
+            self._hashed_sp[key] = val
 
         else:
-            self.__unhashed_sp[key] = val
+            self._unhashed_sp[key] = val
 
     def __getitem__(self, key):
-        if not re.match(r'^.*_[0-9]', key):
-            if key.startswith('h_'):
-                return [v for k, v in self.__hashed_sp.items() if key[2:] in k]
+        if isinstance(key, tuple):
+            return self._hashed_sp[key]
 
-            else:
-                return [v for k, v in self.__unhashed_sp. items() if key in k]
+        if key.startswith('h_'):
+            return [v for k, v in self._hashed_sp.items() if key == k[0]]
+
+        else:
+            return [v for k, v in self._unhashed_sp.items() if key == k[0]]
 
     def __delitem__(self, key):
         ##TODO: this
         pass
 
     def __contains__(self, key):
-        return any([key in self.__hashed_sp, key in self.__unhashed_sp])
+        return key in [dk[0] for dk in itertools.chain(self._hashed_sp.keys(), self._unhashed_sp.keys())]
 
     def parse(self, packet):
-        self.hashed_len = packet[:2]
+        hl = self.bytes_to_int(packet[:2])
         del packet[:2]
 
-        p = 0
-        while p < self.hashed_len:
+        while sum(len(sp) for sp in self._hashed_sp.values()) < hl:
             sp = SignatureSP(packet)
-            p += len(sp)
             self['h_' + sp.__class__.__name__] = sp
 
-        self.unhashed_len = packet[:2]
+        uhl = self.bytes_to_int(packet[:2])
         del packet[:2]
 
-        p = 0
-        while p < self.unhashed_len:
+        while sum(len(sp) for sp in self._unhashed_sp.values()) < uhl:
             sp = SignatureSP(packet)
-            p += len(sp)
             self[sp.__class__.__name__] = sp
+
+
+class UserAttributeSubPackets(SubPackets):
+    """
+    This is nearly the same as just the unhashed subpackets from above,
+    except that there isn't a length specifier. So, parse will only parse one packet,
+    appending that one packet to self.__unhashed_sp.
+    """
+    def __bytes__(self):
+        _bytes = bytearray()
+        _bytes += b''.join(uhsp.__bytes__() for uhsp in self._unhashed_sp.values())
+        return bytes(_bytes)
+
+    def __len__(self):
+        return sum(len(sp) for sp in self._unhashed_sp.values())
+
+    def parse(self, packet):
+        # parse just one packet and add it to the unhashed subpacket ordereddict
+        # I actually have yet to come across a User Attribute packet with more than one subpacket
+        # which makes sense, given that there is only one defined subpacket
+        sp = UserAttribute(packet)
+        self[sp.__class__.__name__] = sp
 
 
 class Signature(MPI):

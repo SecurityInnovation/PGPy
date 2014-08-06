@@ -13,8 +13,8 @@ from .fields import ElGPub
 from .fields import RSAPriv
 from .fields import RSAPub
 from .fields import RSASignature
-from .fields import String2Key
 from .fields import SubPackets
+from .fields import UserAttributeSubPackets
 
 from .types import Packet
 from .types import VersionedPacket
@@ -452,38 +452,22 @@ class UserAttribute(Packet):
     not recognize.  Subpacket types 100 through 110 are reserved for
     private or experimental use.
     """
+    __typeid__ = 0x11
 
     def __init__(self):
         super(UserAttribute, self).__init__()
-        self.subpackets = None ##TODO: set this
+        self.subpackets = UserAttributeSubPackets()
+
+    def __bytes__(self):
+        _bytes = bytearray()
+        _bytes += super(UserAttribute, self).__bytes__()
+        _bytes += self.subpackets.__bytes__()
+        return bytes(_bytes)
+
+    def parse(self, packet):
+        super(UserAttribute, self).parse(packet)
+        while len(self.subpackets) < self.header.length:
+            self.subpackets.parse(packet)
 
 # Placeholder for 0x12
 # Placeholder for 0x13
-
-# class UserAttribute(Packet):
-#     name = "User Attribute Packet"
-#
-#     @property
-#     def magic(self):
-#         raise NotImplementedError()
-#
-#     def __init__(self):
-#         super(UserAttribute, self).__init__()
-#         self.subpackets = UserAttributeSubPackets()
-#
-#     def parse(self, packet):
-#         packet = super(UserAttribute, self).parse(packet)
-#
-#         while len(self.subpackets.__bytes__()) < self.header.length:
-#             packet = self.subpackets.parse(packet)
-#
-#         return packet
-#
-#     def __bytes__(self):
-#         _bytes = b''
-#         _bytes += self.header.__bytes__()
-#         _bytes += self.subpackets.__bytes__()
-#         return _bytes
-#
-#     def __pgpdump__(self):
-#         raise NotImplementedError
