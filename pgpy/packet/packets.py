@@ -1,6 +1,8 @@
 """ packet.py
 """
+import abc
 import calendar
+import hashlib
 import re
 
 from datetime import datetime
@@ -26,6 +28,8 @@ from ..constants import TrustFlags
 from ..constants import TrustLevel
 
 from ..decorators import TypedProperty
+
+from ..types import Fingerprint
 
 
 # 0x01
@@ -187,6 +191,10 @@ class PubKey(VersionedPacket):
     __typeid__ = 0x06
     __ver__ = 0
 
+    @abc.abstractproperty
+    def fingerprint(self):
+        return ""
+
 
 class PubKeyV4(PubKey):
     __ver__ = 4
@@ -229,6 +237,32 @@ class PubKeyV4(PubKey):
     @pkalg.int
     def pkalg(self, val):
         self.pkalg = PubKeyAlgorithm(val)
+
+    @property
+    def fingerprint(self):
+        # A V4 fingerprint is the 160-bit SHA-1 hash of the octet 0x99,
+        # followed by the two-octet packet length, followed by the entire
+        # Public-Key packet starting with the version field.  The Key ID is the
+        # low-order 64 bits of the fingerprint.
+        fp = hashlib.new('sha1')
+        bcde_len = self.int_to_bytes(6 + len(self.pubmaterial.__bytes__()), 2)
+
+        # a.1) 0x99 (1 octet)
+        # a.2) high-order length octet
+        # a.3) low-order length octet
+        fp.update(b'\x99' + bcde_len[:1] + bcde_len[-1:])
+        # b) version number = 4 (1 octet);
+        fp.update(b'\x04')
+        # c) timestamp of key creation (4 octets);
+        fp.update(self.int_to_bytes(calendar.timegm(self.created.timetuple()), 4))
+        # d) algorithm (1 octet): 17 = DSA (example);
+        fp.update(self.int_to_bytes(self.pkalg))
+        # e) Algorithm-specific fields.
+        fp.update(self.pubmaterial.__bytes__())
+
+        # and return the digest
+        return Fingerprint(fp.hexdigest().upper())
+
 
     def __init__(self):
         super(PubKeyV4, self).__init__()
