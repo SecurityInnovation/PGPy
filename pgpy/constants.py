@@ -153,6 +153,16 @@ class String2KeyType(IntEnum):
     Iterated = 3
 
 
+class TrustLevel(IntEnum):
+    Unknown = 0
+    Expired = 1
+    Undefined = 2
+    Never = 3
+    Marginal = 4
+    Fully = 5
+    Ultiated = 6
+
+
 class KeyFlags(FlagEnum):
     Certify = 0x01
     Sign = 0x02
@@ -174,3 +184,9 @@ class RevocationKeyClass(FlagEnum):
 
 class NotationDataFlags(FlagEnum):
     HumanReadable = 0x80
+
+class TrustFlags(FlagEnum):
+    Revoked = 0x20
+    SubRevoked = 0x40
+    Disabled = 0x80
+    PendingCheck = 0x100

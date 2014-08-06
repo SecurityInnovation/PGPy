@@ -22,6 +22,8 @@ from .types import VersionedPacket
 from ..constants import HashAlgorithm
 from ..constants import PubKeyAlgorithm
 from ..constants import SignatureType
+from ..constants import TrustFlags
+from ..constants import TrustLevel
 
 from ..decorators import TypedProperty
 
@@ -295,6 +297,64 @@ class PubSubKeyV4(PubSubKey, PubKeyV4):
     __ver__ = 4
 
 
+class Trust(Packet):
+    """
+    5.10.  Trust Packet (Tag 12)
+
+    The Trust packet is used only within keyrings and is not normally
+    exported.  Trust packets contain data that record the user's
+    specifications of which key holders are trustworthy introducers,
+    along with other information that implementing software uses for
+    trust information.  The format of Trust packets is defined by a given
+    implementation.
+
+    Trust packets SHOULD NOT be emitted to output streams that are
+    transferred to other users, and they SHOULD be ignored on any input
+    other than local keyring files.
+    """
+    __typeid__ = 0x0C
+
+    @TypedProperty
+    def trustlevel(self):
+        return self._trustlevel
+    @trustlevel.TrustLevel
+    def trustlevel(self, val):
+        self._trustlevel = val
+    @trustlevel.int
+    def trustlevel(self, val):
+        self.trustlevel = TrustLevel(val & 0x0F)
+
+    @TypedProperty
+    def trustflags(self):
+        return self._trustflags
+    @trustflags.list
+    def trustflags(self, val):
+        self._trustflags = val
+    @trustflags.int
+    def trustflags(self, val):
+        self._trustflags = TrustFlags & val
+
+    def __init__(self):
+        super(Trust, self).__init__()
+        self.trustlevel = TrustLevel.Unknown
+        self.trustflags = []
+
+    def __bytes__(self):
+        _bytes = bytearray()
+        _bytes += super(Trust, self).__bytes__()
+        _bytes += self.int_to_bytes(self.trustlevel + sum(self.trustflags), 2)
+        return bytes(_bytes)
+
+    def parse(self, packet):
+        super(Trust, self).parse(packet)
+        # self.trustlevel = packet[0] & 0x1f
+        t = self.bytes_to_int(packet[:2])
+        del packet[:2]
+
+        self.trustlevel = t
+        self.flags = t
+
+
 class UserID(Packet):
     """
     5.11.  User ID Packet (Tag 13)
@@ -346,55 +406,7 @@ class UserID(Packet):
         self.email = uid['email']
 
 
-#
-#
-# class Trust(Packet):
-#     name = "Trust Packet"
-#
-#     class TrustLevel(PFIntEnum):
-#         # trust levels
-#         Unknown = 0
-#         Expired = 1
-#         Undefined = 2
-#         Never = 3
-#         Marginal = 4
-#         Fully = 5
-#         Ultimate = 6
-#
-#     class TrustFlags(PFIntEnum):
-#         Revoked = 32
-#         SubRevoked = 64
-#         Disabled = 128
-#         PendingCheck = 256
-#
-#     @property
-#     def trust(self):
-#         return int_to_bytes(self.trustlevel + sum(self.trustflags), 2)
-#
-#     def __init__(self):
-#         self.trustlevel = Trust.TrustLevel.Unknown
-#         self.trustflags = []
-#
-#     def parse(self, packet):
-#         # Trust packets contain data that record the user's
-#         # specifications of which key holders are trustworthy introducers,
-#         # along with other information that implementing software uses for
-#         # trust information.  The format of Trust packets is defined by a given
-#         # implementation.
-#         # self.trust = packet
-#
-#         # GPG Trust packet format - see https://github.com/Commod0re/PGPy/issues/14
-#         self.trustlevel = Trust.TrustLevel(bytes_to_int(packet) % 0xF)
-#         for tf in sorted(Trust.TrustFlags.__members__.values()):
-#             if bytes_to_int(packet) & tf.value:
-#                 self.trustflags.append(tf.value)
-#
-#     def __bytes__(self):
-#         _bytes = b''
-#         _bytes += self.header.__bytes__()
-#         _bytes += self.trust
-#
-#         return _bytes
+
 #
 #
 # class UserAttribute(Packet):
