@@ -28,6 +28,9 @@ from ..constants import TrustLevel
 from ..decorators import TypedProperty
 
 
+# 0x01
+
+
 class Signature(VersionedPacket):
     __typeid__ = 0x02
     __ver__ = 0
@@ -171,6 +174,10 @@ class SignatureV4(Signature):
         self.signature.parse(packet)
 
 
+# Placeholder for 0x03
+# Placeholder for 0x04
+
+
 class PrivKey(VersionedPacket):
     __typeid__ = 0x05
     __ver__ = 0
@@ -288,13 +295,10 @@ class PrivSubKeyV4(PrivSubKey, PrivKeyV4):
     __ver__ = 4
 
 
-class PubSubKey(VersionedPacket):
-    __typeid__ = 0x0E
-    __ver__ = 0
-
-
-class PubSubKeyV4(PubSubKey, PubKeyV4):
-    __ver__ = 4
+# Placeholder for 0x08
+# Placehlder for 0x09
+# Placeholder for 0x0A
+# Placeholder for 0x0B
 
 
 class Trust(Packet):
@@ -406,9 +410,19 @@ class UserID(Packet):
         self.email = uid['email']
 
 
+class PubSubKey(VersionedPacket):
+    __typeid__ = 0x0E
+    __ver__ = 0
 
-#
-#
+
+class PubSubKeyV4(PubSubKey, PubKeyV4):
+    __ver__ = 4
+
+
+# Placeholder for 0x11
+# Placeholder for 0x12
+# Placeholder for 0x13
+
 # class UserAttribute(Packet):
 #     """
 #     5.12.  User Attribute Packet (Tag 17)

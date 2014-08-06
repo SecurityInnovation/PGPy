@@ -2,9 +2,6 @@
 """
 import pytest
 
-import os
-import re
-
 from pgpy.errors import PGPKeyDecryptionError
 
 from pgpy.packet import Packet
@@ -12,26 +9,6 @@ from pgpy.packet import Opaque
 
 from pgpy.constants import PubKeyAlgorithm
 
-pdir = 'tests/testdata/packets/'
-
-def pytest_generate_tests(metafunc):
-    if 'packet' in metafunc.fixturenames:
-        packetfiles = sorted([ pdir + f for f in os.listdir(pdir) ])
-        argvals = [bytearray(os.path.getsize(p)) for p in packetfiles]
-        for i, pf in enumerate(packetfiles):
-            with open(pf, 'rb') as p:
-                p.readinto(argvals[i])
-        ids = [ '_'.join(re.split('\.', pf)[1:]) for pf in packetfiles]
-        metafunc.parametrize('packet', argvals, ids=ids, scope="class")
-
-    if 'ekpacket' in metafunc.fixturenames:
-        packetfiles = sorted([ pdir + f for f in os.listdir(pdir) if 'enc' in f ])
-        argvals = [bytearray(os.path.getsize(p)) for p in packetfiles]
-        for i, pf in enumerate(packetfiles):
-            with open(pf, 'rb') as p:
-                p.readinto(argvals[i])
-        ids = [ '_'.join(re.split('\.', pf)[1:]) for pf in packetfiles]
-        metafunc.parametrize('ekpacket', argvals, ids=ids, scope="class")
 
 _pclasses = {
     # 0x01: [''], ##TODO: name this

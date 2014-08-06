@@ -2,13 +2,9 @@
 """
 import pytest
 
-import os
-import re
-
 from itertools import product
 
 from pgpy.constants import HashAlgorithm
-from pgpy.constants import PubKeyAlgorithm
 from pgpy.constants import String2KeyType
 from pgpy.constants import SymmetricKeyAlgorithm
 
@@ -21,72 +17,24 @@ from pgpy.packet.subpackets import UserAttribute
 from pgpy.packet.subpackets.types import Header as HeaderSP
 from pgpy.packet.subpackets.types import Opaque as OpaqueSP
 
-spdir = 'tests/testdata/subpackets/'
-
-def pytest_generate_tests(metafunc):
-    tdata = []
-
-    if 'subpacket' in metafunc.fixturenames:
-        if metafunc.cls is TestSignatureSubPackets:
-            tdata = sorted([ spdir + f for f in os.listdir(spdir) if 'signature' in f ])
-
-        if metafunc.cls is TestUserAttributeSubPackets:
-            tdata = sorted([ spdir + f for f in os.listdir(spdir) if 'userattr' in f ])
-
-        # argvals = [ open(sp, 'rb').read() for sp in tdata ]
-        argvals = [bytearray(os.path.getsize(sp)) for sp in tdata]
-        for i, spf in enumerate(tdata):
-            with open(spf, 'rb') as sp:
-                sp.readinto(argvals[i])
-        ids = [ re.split('\.0x', sp)[1] for sp in tdata ]
-
-        metafunc.parametrize('subpacket', argvals, ids=ids, scope="class")
-
-
 
 class TestHeaders(object):
-    @pytest.mark.parametrize('b',
-        [ bytearray(b'\xbf'                 + b'\x00' + (b'\x00' * 190)),    # 1 byte length - 191
-          bytearray(b'\xc0\x00'             + b'\x00' + (b'\x00' * 191)),    # 2 byte length - 192
-          bytearray(b'\xdf\xff'             + b'\x00' + (b'\x00' * 8382)),   # 2 byte length - 8383
-          bytearray(b'\xff\x00\x00 \xc0'    + b'\x00' + (b'\x00' * 0x8383)), # 5 byte length - 8384
-          bytearray(b'\xff\x00\x00\xff\xff' + b'\x00' + (b'\x00' * 65534))   # 5 byte length - 65535
-        ])
-    def test_subpacket_header(self, b):
+    def test_subpacket_header(self, spheader):
         h = HeaderSP()
-        # h._bytes = lambda: memoryview(b).__enter__()[:h._len]
-        h.parse(b)
+        h.parse(spheader)
 
         assert 65537 > h.length > 1
         assert len(h) == len(bytes(h))
 
-    @pytest.mark.parametrize('b',
-        [ # new format
-          # 1 byte length - 191
-          bytearray(b'\xc2' + b'\xbf' +                 (b'\x00' * 191)),
-          # 2 byte length - 192
-          bytearray(b'\xc2' + b'\xc0\x00' +             (b'\x00' * 192)),
-          # 2 byte length - 8383
-          bytearray(b'\xc2' + b'\xdf\xff' +             (b'\x00' * 8383)),
-          # 5 byte length - 8384
-          bytearray(b'\xc2' + b'\xff\x00\x00 \xc0' +    (b'\x00' * 8384)),
-          # old format
-          # 1 byte length - 255
-          bytearray(b'\x88' + b'\xff' +                 (b'\x00' * 255)),
-          # 2 byte length - 256
-          bytearray(b'\x89' + b'\x01\x00' +             (b'\x00' * 256)),
-          # 4 byte length - 65536
-          bytearray(b'\x8a' + b'\x00\x01\x00\x00' +     (b'\x00' * 65536)),
-        ])
-    def test_packet_header(self, b):
-        _b = b[:]
+    def test_packet_header(self, pheader):
+        b = pheader[:]
         h = Header()
-        h.parse(b)
+        h.parse(pheader)
 
         assert h.tag == 0x02
-        assert h.length == len(b)
-        assert len(h) == len(_b) - len(b)
-        assert bytes(h) == _b[:len(h)]
+        assert h.length == len(pheader)
+        assert len(h) == len(b) - len(pheader)
+        assert bytes(h) == b[:len(h)]
 
 _sspclasses = {
     # 0x00: 'Opaque',
@@ -179,11 +127,11 @@ _uaspclasses = {
 
 
 class TestSignatureSubPackets(object):
-    def test_load(self, subpacket):
-        spb = subpacket[:]
-        sp = Signature(subpacket)
+    def test_load(self, sigsubpacket):
+        spb = sigsubpacket[:]
+        sp = Signature(sigsubpacket)
 
-        assert len(subpacket) == 0
+        assert len(sigsubpacket) == 0
         assert len(sp) == len(spb)
         assert len(sp) == len(bytes(sp))
         assert bytes(sp) == bytes(spb)
@@ -196,12 +144,12 @@ class TestSignatureSubPackets(object):
 
 
 class TestUserAttributeSubPackets(object):
-    def test_load(self, subpacket):
-        sp = UserAttribute(bytearray(subpacket))
+    def test_load(self, uasubpacket):
+        sp = UserAttribute(bytearray(uasubpacket))
 
-        assert len(sp) == len(subpacket)
+        assert len(sp) == len(uasubpacket)
         assert len(sp) == len(bytes(sp))
-        assert bytes(sp) == bytes(subpacket)
+        assert bytes(sp) == bytes(uasubpacket)
 
         if sp.header.typeid in _uaspclasses:
             assert sp.__class__.__name__ == _uaspclasses[sp.header.typeid]
