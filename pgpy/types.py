@@ -536,7 +536,7 @@ class Fingerprint(str):
 
     def __eq__(self, other):
         if isinstance(other, Fingerprint):
-            return self == other
+            return str(self) == str(other)
 
         if isinstance(other, (str, bytes, bytearray)):
             other = str(other).replace(' ', '')
