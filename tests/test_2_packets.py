@@ -5,21 +5,12 @@ import pytest
 import os
 import re
 
-from itertools import product
-
 from pgpy.errors import PGPKeyDecryptionError
 
 from pgpy.packet import Packet
 from pgpy.packet import Opaque
 
-
-from pgpy.constants import HashAlgorithm
 from pgpy.constants import PubKeyAlgorithm
-from pgpy.constants import String2KeyType
-from pgpy.constants import SymmetricKeyAlgorithm
-
-from pgpy.packet.types import Header
-from pgpy.packet.fields import String2Key
 
 pdir = 'tests/testdata/packets/'
 
@@ -63,111 +54,6 @@ _pclasses = {
 }
 
 class TestPacket(object):
-    @pytest.mark.parametrize('b',
-        [ # new format
-          # 1 byte length - 191
-          bytearray(b'\xc2' + b'\xbf' +                 (b'\x00' * 191)),
-          # 2 byte length - 192
-          bytearray(b'\xc2' + b'\xc0\x00' +             (b'\x00' * 192)),
-          # 2 byte length - 8383
-          bytearray(b'\xc2' + b'\xdf\xff' +             (b'\x00' * 8383)),
-          # 5 byte length - 8384
-          bytearray(b'\xc2' + b'\xff\x00\x00 \xc0' +    (b'\x00' * 8384)),
-          # old format
-          # 1 byte length - 255
-          bytearray(b'\x88' + b'\xff' +                 (b'\x00' * 255)),
-          # 2 byte length - 256
-          bytearray(b'\x89' + b'\x01\x00' +             (b'\x00' * 256)),
-          # 4 byte length - 65536
-          bytearray(b'\x8a' + b'\x00\x01\x00\x00' +     (b'\x00' * 65536)),
-        ])
-    def test_header(self, b):
-        _b = b[:]
-        h = Header()
-        h.parse(b)
-
-        assert h.tag == 0x02
-        assert h.length == len(b)
-        assert len(h) == len(_b) - len(b)
-        assert bytes(h) == _b[:len(h)]
-
-    @pytest.mark.parametrize('b',
-        [ (bytearray(i) +
-           b'\xDE\xAD\xBE\xEF\xDE\xAD\xBE\xEF') # iv
-          for i in product(b'\xff',                                         # usage
-                           b'\x01\x02\x03\x04\x07\x08\x09\x0B\x0C\x0D',     # symmetric cipher algorithm
-                           b'\x00',                                         # specifier (simple)
-                           b'\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B') # hash algorithm
-        ])
-    def test_simple_string2key(self, b):
-        _b = b[:]
-        s = String2Key()
-        s.parse(b)
-
-        assert len(b) == 0
-        assert len(s) == len(_b)
-        assert bytes(s) == bytes(_b)
-
-        assert bool(s)
-        assert s.halg in HashAlgorithm
-        assert s.encalg in SymmetricKeyAlgorithm
-        assert s.specifier == String2KeyType.Simple
-        assert s.iv == b'\xDE\xAD\xBE\xEF\xDE\xAD\xBE\xEF'
-
-    @pytest.mark.parametrize('b',
-        [ (bytearray(i) +
-           b'\xCA\xFE\xBA\xBE\xCA\xFE\xBA\xBE' + # salt
-           b'\xDE\xAD\xBE\xEF\xDE\xAD\xBE\xEF')  # iv
-          for i in product(b'\xff',                                         # usage
-                           b'\x01\x02\x03\x04\x07\x08\x09\x0B\x0C\x0D',     # symmetric cipher algorithm
-                           b'\x01',                                         # specifier (salted)
-                           b'\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B') # hash algorithm
-
-        ])
-    def test_salted_string2key(self, b):
-        _b = b[:]
-        s = String2Key()
-        s.parse(b)
-
-        assert len(b) == 0
-        assert len(s) == len(_b)
-        assert bytes(s) == bytes(_b)
-
-        assert bool(s)
-        assert s.halg in HashAlgorithm
-        assert s.encalg in SymmetricKeyAlgorithm
-        assert s.specifier == String2KeyType.Salted
-        assert s.salt == b'\xCA\xFE\xBA\xBE\xCA\xFE\xBA\xBE'
-        assert s.iv == b'\xDE\xAD\xBE\xEF\xDE\xAD\xBE\xEF'
-
-    @pytest.mark.parametrize('b',
-        [ (bytearray(i) +
-           b'\xCA\xFE\xBA\xBE\xCA\xFE\xBA\xBE' + # salt
-           b'\x10' +                             # count
-           b'\xDE\xAD\xBE\xEF\xDE\xAD\xBE\xEF')  # iv
-          for i in product(b'\xff',                                         # usage
-                           b'\x01\x02\x03\x04\x07\x08\x09\x0A\x0B\x0C\x0D', # symmetric cipher algorithm
-                           b'\x03',                                         # specifier (iterated)
-                           b'\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B') # hash algorithm
-
-        ])
-    def test_iterated_string2key(self, b):
-        _b = b[:]
-        s = String2Key()
-        s.parse(b)
-
-        assert len(b) == 0
-        assert len(s) == len(_b)
-        assert bytes(s) == bytes(_b)
-
-        assert bool(s)
-        assert s.halg in HashAlgorithm
-        assert s.encalg in SymmetricKeyAlgorithm
-        assert s.specifier == String2KeyType.Iterated
-        assert s.salt == b'\xCA\xFE\xBA\xBE\xCA\xFE\xBA\xBE'
-        assert s.count == 2048
-        assert s.iv == b'\xDE\xAD\xBE\xEF\xDE\xAD\xBE\xEF'
-
     def test_load(self, packet):
         b = packet[:]
         p = Packet(packet)
@@ -190,7 +76,7 @@ class TestPacket(object):
         else:
             assert isinstance(p, Opaque)
 
-    def test_decrypt(self, ekpacket):
+    def test_decrypt_enckey(self, ekpacket):
         p = Packet(ekpacket)
 
         if p.pkalg == PubKeyAlgorithm.RSAEncryptOrSign:
