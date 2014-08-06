@@ -62,7 +62,7 @@ def pytest_configure(config):
 def pytest_generate_tests(metafunc):
     spdir = 'tests/testdata/subpackets/'
     pdir = 'tests/testdata/packets/'
-    
+
     params = []
     argvals = []
     ids = []

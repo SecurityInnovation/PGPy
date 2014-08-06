@@ -419,43 +419,48 @@ class PubSubKeyV4(PubSubKey, PubKeyV4):
     __ver__ = 4
 
 
-# Placeholder for 0x11
+class UserAttribute(Packet):
+    """
+    5.12.  User Attribute Packet (Tag 17)
+
+    The User Attribute packet is a variation of the User ID packet.  It
+    is capable of storing more types of data than the User ID packet,
+    which is limited to text.  Like the User ID packet, a User Attribute
+    packet may be certified by the key owner ("self-signed") or any other
+    key owner who cares to certify it.  Except as noted, a User Attribute
+    packet may be used anywhere that a User ID packet may be used.
+
+    While User Attribute packets are not a required part of the OpenPGP
+    standard, implementations SHOULD provide at least enough
+    compatibility to properly handle a certification signature on the
+    User Attribute packet.  A simple way to do this is by treating the
+    User Attribute packet as a User ID packet with opaque contents, but
+    an implementation may use any method desired.
+
+    The User Attribute packet is made up of one or more attribute
+    subpackets.  Each subpacket consists of a subpacket header and a
+    body.  The header consists of:
+
+     - the subpacket length (1, 2, or 5 octets)
+
+     - the subpacket type (1 octet)
+
+    and is followed by the subpacket specific data.
+
+    The only currently defined subpacket type is 1, signifying an image.
+    An implementation SHOULD ignore any subpacket of a type that it does
+    not recognize.  Subpacket types 100 through 110 are reserved for
+    private or experimental use.
+    """
+
+    def __init__(self):
+        super(UserAttribute, self).__init__()
+        self.subpackets = None ##TODO: set this
+
 # Placeholder for 0x12
 # Placeholder for 0x13
 
 # class UserAttribute(Packet):
-#     """
-#     5.12.  User Attribute Packet (Tag 17)
-#
-#     The User Attribute packet is a variation of the User ID packet.  It
-#     is capable of storing more types of data than the User ID packet,
-#     which is limited to text.  Like the User ID packet, a User Attribute
-#     packet may be certified by the key owner ("self-signed") or any other
-#     key owner who cares to certify it.  Except as noted, a User Attribute
-#     packet may be used anywhere that a User ID packet may be used.
-#
-#     While User Attribute packets are not a required part of the OpenPGP
-#     standard, implementations SHOULD provide at least enough
-#     compatibility to properly handle a certification signature on the
-#     User Attribute packet.  A simple way to do this is by treating the
-#     User Attribute packet as a User ID packet with opaque contents, but
-#     an implementation may use any method desired.
-#
-#     The User Attribute packet is made up of one or more attribute
-#     subpackets.  Each subpacket consists of a subpacket header and a
-#     body.  The header consists of:
-#
-#      - the subpacket length (1, 2, or 5 octets)
-#
-#      - the subpacket type (1 octet)
-#
-#     and is followed by the subpacket specific data.
-#
-#     The only currently defined subpacket type is 1, signifying an image.
-#     An implementation SHOULD ignore any subpacket of a type that it does
-#     not recognize.  Subpacket types 100 through 110 are reserved for
-#     private or experimental use.
-#     """
 #     name = "User Attribute Packet"
 #
 #     @property
