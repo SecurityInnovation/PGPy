@@ -1,7 +1,11 @@
 """ constants.py
 """
+import hashlib
 
+from collections import namedtuple
 from enum import IntEnum
+
+from cryptography.hazmat.primitives.ciphers import algorithms
 
 from .types import FlagEnum
 
@@ -21,22 +25,59 @@ class SymmetricKeyAlgorithm(IntEnum):
     Camellia256 = 0x0D
 
     @property
-    def __name__(self):
-        names = {'TripleDES': 'Triple-DES',}
-        names.update({ska.name: '{:s} with {:s}-bit key'.format(ska.name[:-3], ska.name[-3:])
-                      for ska in SymmetricKeyAlgorithm if ska.name[-3:] in ['128', '192', '256'] })
-        if self.name in names:
-            return names[self.name]
-        return self.name
+    def cipher(self):
+        bs = {SymmetricKeyAlgorithm.IDEA: algorithms.IDEA,
+              SymmetricKeyAlgorithm.TripleDES: algorithms.TripleDES,
+              SymmetricKeyAlgorithm.CAST5: algorithms.CAST5,
+              SymmetricKeyAlgorithm.Blowfish: algorithms.Blowfish,
+              SymmetricKeyAlgorithm.AES128: algorithms.AES,
+              SymmetricKeyAlgorithm.AES192: algorithms.AES,
+              SymmetricKeyAlgorithm.AES256: algorithms.AES,
+              SymmetricKeyAlgorithm.Twofish256: namedtuple('Twofish256', ['block_size'])(block_size=128),
+              SymmetricKeyAlgorithm.Camellia128: algorithms.Camellia,
+              SymmetricKeyAlgorithm.Camellia192: algorithms.Camellia,
+              SymmetricKeyAlgorithm.Camellia256: algorithms.Camellia}
+
+        if self in bs:
+            return bs[self]
+
+        raise NotImplementedError(repr(self))
+
+    @property
+    def block_size(self):
+        return self.cipher.block_size
+
+    @property
+    def key_size(self):
+        ks = {SymmetricKeyAlgorithm.IDEA: 128,
+              SymmetricKeyAlgorithm.TripleDES: 192,
+              SymmetricKeyAlgorithm.CAST5: 128,
+              SymmetricKeyAlgorithm.Blowfish: 128,
+              SymmetricKeyAlgorithm.AES128: 128,
+              SymmetricKeyAlgorithm.AES192: 192,
+              SymmetricKeyAlgorithm.AES256: 256,
+              SymmetricKeyAlgorithm.Twofish256: 256,
+              SymmetricKeyAlgorithm.Camellia128: 128,
+              SymmetricKeyAlgorithm.Camellia192: 192,
+              SymmetricKeyAlgorithm.Camellia256: 256}
+
+        if self in ks:
+            return ks[self]
+
+        raise NotImplementedError(repr(self))
 
 
 class PubKeyAlgorithm(IntEnum):
     Invalid = 0x00
     RSAEncryptOrSign = 0x01
-    RSAEncrypt = 0x02
-    RSASign = 0x03
+    RSAEncrypt = 0x02  # deprecated
+    RSASign = 0x03     # deprecated
     ElGamal = 0x10
     DSA = 0x11
+    # EllipticCurve = 0x12
+    # ECDSA = 0x13
+    FormerlyElGamalEncryptOrSign = 0x14  # deprecated - do not generate
+    # DiffieHellman = 0x15  # X9.42
 
 
 class CompressionAlgorithm(IntEnum):
@@ -59,6 +100,14 @@ class HashAlgorithm(IntEnum):
     SHA384 = 0x09
     SHA512 = 0x0A
     SHA224 = 0x0B
+
+    @property
+    def hasher(self):
+        return hashlib.new(self.name)
+
+    @property
+    def digest_size(self):
+        return self.hasher.digest_size
 
 
 class RevocationReason(IntEnum):
@@ -95,6 +144,13 @@ class SignatureType(IntEnum):
 class KeyServerPreferences(IntEnum):
     Unknown = 0x00
     NoModify = 0x80
+
+
+class String2KeyType(IntEnum):
+    Simple = 0
+    Salted = 1
+    Reserved = 2
+    Iterated = 3
 
 
 class KeyFlags(FlagEnum):

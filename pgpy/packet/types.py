@@ -186,15 +186,3 @@ class MPI(Field):
         del packet[:fl]
 
         return mpi
-
-
-class Signature(MPI):
-    pass
-
-
-class PubKey(MPI):
-    pass
-
-
-class PrivKey(PubKey):
-    pass
