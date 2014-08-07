@@ -106,14 +106,14 @@ class FileLoader(object):
 class Exportable(FileLoader, metaclass=abc.ABCMeta):
     __metaclass__ = abc.ABCMeta
 
-    __crc24_init = 0x0B074CE
-    __crc24_poly = 0x1864CFB
+    __crc24_init__ = 0x0B704CE
+    __crc24_poly__ = 0x1864CFB
 
-    __armor_fmt = '-----BEGIN PGP {block_type}-----\n' \
-                  '{headers}\n' \
-                  '{packet}\n' \
-                  '={crc}\n' \
-                  '-----END PGP {block_type}-----\n'
+    __armor_fmt__ = '-----BEGIN PGP {block_type}-----\n' \
+                    '{headers}\n' \
+                    '{packet}\n' \
+                    '={crc}\n' \
+                    '-----END PGP {block_type}-----\n'
 
     @abc.abstractproperty
     def magic(self):
@@ -133,7 +133,7 @@ class Exportable(FileLoader, metaclass=abc.ABCMeta):
         payload = base64.b64encode(self.__bytes__()).decode('latin-1')
         payload = '\n'.join([ payload[i:(i + 64)] for i in range(0, len(payload), 64) ])
 
-        return self.__armor_fmt.format(
+        return self.__armor_fmt__.format(
             block_type=self.magic,
             headers=''.join([ '{key}: {val}\n'.format(key=key, val=val) for key, val in self.ascii_headers.items() ]),
             packet=payload,
@@ -202,16 +202,19 @@ class Exportable(FileLoader, metaclass=abc.ABCMeta):
         if data is None:
             data = self.__bytes__()
 
-        crc = self.__crc24_init
-        sig = [ ord(i) for i in data ] if type(data) is str else data
 
-        for loc in range(0, len(data)):
-            crc ^= sig[loc] << 16
+        crc = self.__crc24_init__
+        # sig = [ ord(i) for i in data ] if type(data) is str else data
+        # sig = bytearray()
+        sig = bytearray(data)
+
+        while len(sig) > 0:
+            crc ^= sig.pop(0) << 16
 
             for i in range(0, 8):
                 crc <<= 1
                 if crc & 0x1000000:
-                    crc ^= self.__crc24_poly
+                    crc ^= self.__crc24_poly__
 
         return crc & 0xFFFFFF
 
