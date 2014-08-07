@@ -1,7 +1,10 @@
+import pytest
+
 import functools
 import keyword
 import os
 import re
+import subprocess
 import sys
 
 from itertools import product
@@ -22,17 +25,23 @@ else:
 
 # make sure path is how we want it
 if os.getcwd() not in sys.path:
-    sys.path.insert(0, os.getcwd())
+   sys.path.insert(0, os.getcwd())
 else:
-    sys.path.insert(0, sys.path.pop(sys.path.index(os.getcwd())))
+   sys.path.insert(0, sys.path.pop(sys.path.index(os.getcwd())))
 
 if os.path.join(os.getcwd(), 'tests') not in sys.path:
-    sys.path.insert(1, os.path.join(os.getcwd(), 'tests'))
+   sys.path.insert(1, os.path.join(os.getcwd(), 'tests'))
 
 # now import stuff from fixtures so it can be imported by test modules
 # from fixtures import TestFiles, gpg_getfingerprint, pgpdump, gpg_verify, gpg_fingerprint
 
-# fixtures
+# utils and data for fixtures
+_gpg_args = ['/usr/bin/gpg',
+             '--no-default-keyring',
+             '--keyring', './testkeys.gpg',
+             '--secret-keyring', './testkeys.sec.gpg',
+             '--trustdb-name', './testkeys.trust']
+
 class CWD_As(object):
     def __init__(self, newwd):
         if not os.path.exists(newwd):
@@ -61,6 +70,25 @@ class CWD_As(object):
 
         return setcwd
 
+# fixtures
+@pytest.fixture()
+def gpg_verify():
+     @CWD_As('tests/testdata')
+     def _gpg_verify(gpg_subjpath, gpg_sigpath=None):
+         gpg_args = _gpg_args + ['-vv', '--verify']
+
+         if gpg_sigpath is not None:
+             gpg_args += [gpg_sigpath]
+         gpg_args += [gpg_subjpath]
+
+         try:
+             return subprocess.check_output(gpg_args, stderr=subprocess.STDOUT).decode()
+
+         except subprocess.CalledProcessError as e:
+             return "/usr/bin/gpg returned {ret}\n"\
+                    "===========================\n"\
+                    "{out}".format(ret=e.returncode, out=e.output.decode())
+     return _gpg_verify
 
 # pytest hooks
 # called after command line options have been parsed and all plugins and initial conftest files been loaded.
