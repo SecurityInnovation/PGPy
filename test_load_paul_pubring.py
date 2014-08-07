@@ -60,27 +60,34 @@ print("")
 packets = []
 _mv = len(_b)
 
-class PacketCounter(Widget):
-    def __init__(self, pktlist, format='{:,} pkts'):
+class BetterCounter(Widget):
+    def __init__(self, pktlist, format='{:,}'):
         self.pktlist = pktlist
         self.format = format
 
     def update(self, pbar):
         return self.format.format(len(self.pktlist))
 
-pb3w = [PacketCounter(packets), '|', Timer("%s"), '|', Percentage(), Bar()]
+
+pb3w = [BetterCounter(packets, '{:,} pkts'), '|', BetterCounter(_b, '{:,}B. rem'), '|', Timer("%s"), '|', Percentage(), Bar()]
 
 pbar3 = ProgressBar(maxval=_mv, widgets=pb3w).start()
 while len(_b) > 0:
     olen = len(_b)
-    # try:
     pkt = Packet(_b)
-
+    # if len(packets) == 10132:
+    #     a=0
+    # try:
+    #     pkt = Packet(_b)
+    #
     # except:
     #     print("\n\tSomething went wrong!")
     #     print("\tBad packet followed packet #{:,d}".format(len(packets)))
+    #     print("\tLast packet was: {:s} (tag {:d}) ({:,d} bytes)".format(packets[-1].__class__.__name__, packets[-1].header.tag, packets[-1].header.length))
+    #     print("\t{:,d} bytes left unparsed".format(len(_b)))
+    #     print("\tFailed packet consumed {:,d} bytes".format(olen - len(_b)))
     #     raise
-
+    #
     # if (olen - len(_b)) != len(pkt.header) + pkt.header.length:
     #     print("Incorrect number of bytes consumed. Got: {:,}. Expected: {:,}".format((olen - len(_b)), (len(pkt.header) + pkt.header.length)))
     #     print("Bad packet was: {cls:s}, {id:d}, {ver:s}".format(cls=pkt.__class__.__name__, id=pkt.header.typeid, ver=str(pkt.header.version) if hasattr(pkt.header, 'version') else ''))
