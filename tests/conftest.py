@@ -35,13 +35,6 @@ if os.path.join(os.getcwd(), 'tests') not in sys.path:
 # now import stuff from fixtures so it can be imported by test modules
 # from fixtures import TestFiles, gpg_getfingerprint, pgpdump, gpg_verify, gpg_fingerprint
 
-# utils and data for fixtures
-_gpg_args = ['/usr/bin/gpg',
-             '--no-default-keyring',
-             '--keyring', './testkeys.gpg',
-             '--secret-keyring', './testkeys.sec.gpg',
-             '--trustdb-name', './testkeys.trust']
-
 class CWD_As(object):
     def __init__(self, newwd):
         if not os.path.exists(newwd):
@@ -74,7 +67,10 @@ class CWD_As(object):
 @pytest.fixture()
 def gpg_verify():
      @CWD_As('tests/testdata')
-     def _gpg_verify(gpg_subjpath, gpg_sigpath=None):
+     def _gpg_verify(gpg_subjpath, gpg_sigpath=None, keyring='./testkeys.gpg'):
+         _gpg_args = ['/usr/bin/gpg',
+             '--no-default-keyring',
+             '--keyring', keyring]
          gpg_args = _gpg_args + ['-vv', '--verify']
 
          if gpg_sigpath is not None:

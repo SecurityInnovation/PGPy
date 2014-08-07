@@ -15,6 +15,7 @@ class TestRegressions(object):
         from pgpy.util import modinv
 
         from pgpy.packet.packets import PrivKeyV4
+        from pgpy.packet.packets import PubKeyV4
         from pgpy.packet.packets import SignatureV4
 
         from cryptography.hazmat.backends import default_backend
@@ -29,35 +30,50 @@ class TestRegressions(object):
         # and see if it fails to verify or not
 
         # this was the old seckeys/TestRSA-2048.key, but stripped down to just the PrivKey packet
-        sk = "-----BEGIN PGP PRIVATE KEY BLOCK-----\n" \
-             "Version: GnuPG/MacGPG2 v2.0.20 (Darwin)\n" \
-             "Comment: GPGTools - http://gpgtools.org\n" \
-             "\n" \
-             "lQOYBFOaNYoBCAC9FDOrASOxJoo3JhwCCln4wPy+A/UY1H0OYlc+MMolSwev2uDj\n" \
-             "nnwmt8ziNTjLuLEh3AnKjDWA9xvY5NW2ZkB6Edo6HQkquKLH7AkpLd82kiTWHdOw\n" \
-             "OH7OWQpz7z2z6e40wwHEduhyGcZ/Ja/A0+6GIb/2YFKlkwfnT92jtB94W//mL6wu\n" \
-             "LOkZMoU/CS/QatervzAf9VCemvAR9NI0UJc7Y0RC1B/1cBTQAUg70EhjnmJkqyYx\n" \
-             "yWqaXyfX10dsEX3+MyiP1kvUDfFwhdeL7E2H9sbFE5+MC9Eo99/Qezv3QoXzH2Tj\n" \
-             "bTun+QMVkbM92dj70KiExAJya9lSLZGCoOrDABEBAAEAB/0Xie/NaVoRqvbIWytf\n" \
-             "ylJyyEfOuhG7HRz9JkYD3TFqnMwgsEg7XhbI/9chuYwlZIv8vKF6wKNv4j4/wsFO\n" \
-             "W1gfOktnh7Iv9Nt4YHda0+ChhmZ6l4JWl7nwTh/Mg2te6LpkgXseA8r4BXhzih62\n" \
-             "tqD6ZtzjOxD0QaPZaqpw6l2D71fJ4KySAs+6tBHJCUK/b/8UGF1jYNwJFJqQw8fI\n" \
-             "kcui7x4XC3kn6Ucf8rHlc0JP1H7edg4ZD83kATvybprGfhWt+TIl2edNT6Q8xoeE\n" \
-             "Ypj/PNm6i5WTupo54ySlHWIo2yQxmF+4ZrupLb41EJVdXutVW8GT045SGWTyG9VY\n" \
-             "zP/1BADIr7xmSjLZ9WLibi9RtQvzHPg97KlaKy475H4QhxbWkKR9drj5bWMD30Zd\n" \
-             "AmD2fVJmbXBPCf0G0+wLh2X8OKptd7/oavRdafOvUbKNqTi2GFwV5CsjiTR65QCs\n" \
-             "zrediV8pVdDEVu8O0vW5L9RfomsH40e4fX3izwr3VI9xqF3+lwQA8TFyYrhge1/f\n" \
-             "f1iTgZM2e+GNMSPrYF2uYxZ4KBM5gW4IfFWhLoKT7G0T6LRUHka+0ruBi/eZ4nn2\n" \
-             "1pAm6chSiIkJmFU+T5pzfOG509JZuedP+7dO3SUCpi7hDncpEWHIaEeBJ7pmIL6G\n" \
-             "FQnTEV8mEA48Nloq+Py+c/I0D5xaprUD/3hCl7D58DkvvoIsLyyXrDHhmi68QZMU\n" \
-             "7TFqVEvo0J4kx19cmF27hXe+IEt42yQwaYTrS/KtKGywPvevQ8LEan5tUTIPnuks\n" \
-             "jILtgIIaMg2z/UJ7jqmjZbuoVVmqeaPTxl9thIgfmL9SlOzjwrX/9ZfKEvwaHXFr\n" \
-             "ocveTSSnWCzIReI=\n" \
-             "=7xdD\n" \
-             "-----END PGP PRIVATE KEY BLOCK-----\n"
+        sec = "-----BEGIN PGP PRIVATE KEY BLOCK-----\n" \
+              "Version: GnuPG/MacGPG2 v2.0.20 (Darwin)\n" \
+              "Comment: GPGTools - http://gpgtools.org\n" \
+              "\n" \
+              "lQOYBFOaNYoBCAC9FDOrASOxJoo3JhwCCln4wPy+A/UY1H0OYlc+MMolSwev2uDj\n" \
+              "nnwmt8ziNTjLuLEh3AnKjDWA9xvY5NW2ZkB6Edo6HQkquKLH7AkpLd82kiTWHdOw\n" \
+              "OH7OWQpz7z2z6e40wwHEduhyGcZ/Ja/A0+6GIb/2YFKlkwfnT92jtB94W//mL6wu\n" \
+              "LOkZMoU/CS/QatervzAf9VCemvAR9NI0UJc7Y0RC1B/1cBTQAUg70EhjnmJkqyYx\n" \
+              "yWqaXyfX10dsEX3+MyiP1kvUDfFwhdeL7E2H9sbFE5+MC9Eo99/Qezv3QoXzH2Tj\n" \
+              "bTun+QMVkbM92dj70KiExAJya9lSLZGCoOrDABEBAAEAB/0Xie/NaVoRqvbIWytf\n" \
+              "ylJyyEfOuhG7HRz9JkYD3TFqnMwgsEg7XhbI/9chuYwlZIv8vKF6wKNv4j4/wsFO\n" \
+              "W1gfOktnh7Iv9Nt4YHda0+ChhmZ6l4JWl7nwTh/Mg2te6LpkgXseA8r4BXhzih62\n" \
+              "tqD6ZtzjOxD0QaPZaqpw6l2D71fJ4KySAs+6tBHJCUK/b/8UGF1jYNwJFJqQw8fI\n" \
+              "kcui7x4XC3kn6Ucf8rHlc0JP1H7edg4ZD83kATvybprGfhWt+TIl2edNT6Q8xoeE\n" \
+              "Ypj/PNm6i5WTupo54ySlHWIo2yQxmF+4ZrupLb41EJVdXutVW8GT045SGWTyG9VY\n" \
+              "zP/1BADIr7xmSjLZ9WLibi9RtQvzHPg97KlaKy475H4QhxbWkKR9drj5bWMD30Zd\n" \
+              "AmD2fVJmbXBPCf0G0+wLh2X8OKptd7/oavRdafOvUbKNqTi2GFwV5CsjiTR65QCs\n" \
+              "zrediV8pVdDEVu8O0vW5L9RfomsH40e4fX3izwr3VI9xqF3+lwQA8TFyYrhge1/f\n" \
+              "f1iTgZM2e+GNMSPrYF2uYxZ4KBM5gW4IfFWhLoKT7G0T6LRUHka+0ruBi/eZ4nn2\n" \
+              "1pAm6chSiIkJmFU+T5pzfOG509JZuedP+7dO3SUCpi7hDncpEWHIaEeBJ7pmIL6G\n" \
+              "FQnTEV8mEA48Nloq+Py+c/I0D5xaprUD/3hCl7D58DkvvoIsLyyXrDHhmi68QZMU\n" \
+              "7TFqVEvo0J4kx19cmF27hXe+IEt42yQwaYTrS/KtKGywPvevQ8LEan5tUTIPnuks\n" \
+              "jILtgIIaMg2z/UJ7jqmjZbuoVVmqeaPTxl9thIgfmL9SlOzjwrX/9ZfKEvwaHXFr\n" \
+              "ocveTSSnWCzIReI=\n" \
+              "=7xdD\n" \
+              "-----END PGP PRIVATE KEY BLOCK-----\n"
+
+        pub = "-----BEGIN PGP PUBLIC KEY BLOCK-----\n" \
+              "Version: GnuPG/MacGPG2 v2.0.20 (Darwin)\n" \
+              "Comment: GPGTools - http://gpgtools.org\n" \
+              "\n" \
+              "mQENBFOaNYoBCAC9FDOrASOxJoo3JhwCCln4wPy+A/UY1H0OYlc+MMolSwev2uDj\n" \
+              "nnwmt8ziNTjLuLEh3AnKjDWA9xvY5NW2ZkB6Edo6HQkquKLH7AkpLd82kiTWHdOw\n" \
+              "OH7OWQpz7z2z6e40wwHEduhyGcZ/Ja/A0+6GIb/2YFKlkwfnT92jtB94W//mL6wu\n" \
+              "LOkZMoU/CS/QatervzAf9VCemvAR9NI0UJc7Y0RC1B/1cBTQAUg70EhjnmJkqyYx\n" \
+              "yWqaXyfX10dsEX3+MyiP1kvUDfFwhdeL7E2H9sbFE5+MC9Eo99/Qezv3QoXzH2Tj\n" \
+              "bTun+QMVkbM92dj70KiExAJya9lSLZGCoOrDABEBAAE=\n" \
+              "=FBhs\n" \
+              "-----END PGP PUBLIC KEY BLOCK-----\n"
 
         # load the key above
-        pk = PrivKeyV4(Exportable.ascii_unarmor(sk)['body'])
+        sk = PrivKeyV4(Exportable.ascii_unarmor(sec)['body'])
+        _pk = PubKeyV4(Exportable.ascii_unarmor(pub)['body'])
+
 
         sigsubject = b"Hello!I'm a test document.I'm going to get signed a bunch of times.KBYE!"
         hdata = b"Hello!I'm a test document.I'm going to get signed a bunch of times.KBYE!" \
@@ -85,9 +101,9 @@ class TestRegressions(object):
         sig.hleft = hashlib.new('sha512', hdata).digest()[:2]
 
         # now generate the signature MPI
-        p = pk.bytes_to_int(pk.secmaterial.p)
-        q = pk.bytes_to_int(pk.secmaterial.q)
-        d = pk.bytes_to_int(pk.secmaterial.d)
+        p = sk.bytes_to_int(sk.secmaterial.p)
+        q = sk.bytes_to_int(sk.secmaterial.q)
+        d = sk.bytes_to_int(sk.secmaterial.d)
         cpk = rsa.RSAPrivateKey(
             p=p,
             q=q,
@@ -95,8 +111,8 @@ class TestRegressions(object):
             dmp1=d % (p - 1),
             dmq1=d % (q - 1),
             iqmp=modinv(p, q),
-            public_exponent=pk.bytes_to_int(pk.pubmaterial.e),
-            modulus=pk.bytes_to_int(pk.pubmaterial.n)
+            public_exponent=sk.bytes_to_int(sk.pubmaterial.e),
+            modulus=sk.bytes_to_int(sk.pubmaterial.n)
         )
 
         signer = cpk.signer(padding.PKCS1v15(), hashes.SHA512(), default_backend())
@@ -127,15 +143,23 @@ class TestRegressions(object):
         esig.sig = sig
 
 
+        # write the subject
         with open('tests/testdata/subj', 'w') as sf:
             sf.write(sigsubject.decode('latin-1'))
             sf.flush()
 
+        # write the signature
         with open('tests/testdata/subj.asc', 'w') as sf:
             sf.write(str(esig))
             sf.flush()
 
-        assert 'Good signature from' in gpg_verify('subj', 'subj.asc')
+        # write the pubkey
+        with open('tests/testdata/pub.gpg', 'wb') as kr:
+            kr.write(bytes(_pk))
+            kr.flush()
+
+        assert 'Good signature from' in gpg_verify('subj', 'subj.asc', keyring='./pub.gpg')
 
         os.remove('tests/testdata/subj')
         os.remove('tests/testdata/subj.asc')
+        os.remove('tests/testdata/pub.gpg')

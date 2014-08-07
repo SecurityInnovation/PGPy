@@ -28,33 +28,15 @@ Needed Subpacket Examples
 
 Needed Packet Examples
 ----------------------
-* Public-Key Encrypted Session Key Packets (Tag 1)
-
 * Signature Packet (Tag 2):
-   - type 0x01 - Signature of a canonical text document
 
    - type 0x02 - Standalone signature
-
-   - type 0x19 - Primary key binding signature
-     Note: might already have this one as an embedded signature subpacket
 
    - type 0x40 - Timestamp signature
 
    - type 0x50 - Third-Party Confirmation signature
 
-* Symmetric-Key Encrypted Session Key Packets (Tag 3)
-
-* One-Pass Signature Packets (Tag 4)
-
-* Compressed Data Packet (Tag 8)
-
-* Symmetrically Encrypted Data Packet (Tag 9)
-
 * Marker Packet (Obsolete Literal Packet) (Tag 10)
-
-* Literal Data Packet (Tag 11)
-
-* Sym. Encrypted Integrity Protected Data Packet (Tag 18)
 
 * Modification Detection Code Packet (Tag 19)
 
