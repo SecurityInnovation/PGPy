@@ -57,3 +57,19 @@ Needed Packet Examples
 * Sym. Encrypted Integrity Protected Data Packet (Tag 18)
 
 * Modification Detection Code Packet (Tag 19)
+
+
+Needed ASCII-armored blocks
+---------------------------
+
+* MESSAGE
+
+* PUBLIC KEY BLOCK
+
+* SIGNATURE
+
+* SIGNED MESSAGE (this one does not have a tail)
+
+* ARMORED FILE (this is a gnupg extension; simply the contents of a file armored as though it were one or more PGP packets)
+
+* PRIVATE KEY BLOCK
