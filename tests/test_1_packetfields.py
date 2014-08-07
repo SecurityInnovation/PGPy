@@ -2,8 +2,6 @@
 """
 import pytest
 
-from itertools import product
-
 from pgpy.constants import HashAlgorithm
 from pgpy.constants import String2KeyType
 from pgpy.constants import SymmetricKeyAlgorithm
