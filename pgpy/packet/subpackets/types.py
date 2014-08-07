@@ -14,24 +14,29 @@ class Header(_Header):
     @critical.bool
     def critical(self, val):
         self._critical = val
-    @critical.bytearray
-    @critical.bytes
-    def critical(self, val):
-        self._critical = bool(self.bytes_to_int(val) & 0x80)
 
     @TypedProperty
     def typeid(self):
         return self._typeid
+    @typeid.int
+    def typeid(self, val):
+        self._typeid = val & 0x7f
     @typeid.bytearray
     @typeid.bytes
     def typeid(self, val):
-        self._typeid = (self.bytes_to_int(val) & 0x7F)
+        v = self.bytes_to_int(val)
+        self.typeid = v
+        self.critical = bool(v & 0x80)
+
+    def __init__(self):
+        super(Header, self).__init__()
+        self.typeid = b'\x00'
+        self.critical = False
 
     def parse(self, packet):
         self.length = packet
         del packet[:self.llen]
 
-        self.critical = packet[:1]
         self.typeid = packet[:1]
         del packet[:1]
 
@@ -52,6 +57,12 @@ class SubPacket(Dispatchable, metaclass=abc.ABCMeta):  ##TODO: is this metaclass
     def __init__(self):
         super(SubPacket, self).__init__()
         self.header = Header()
+
+        # if self.__typeid__ not in [-1, None]:
+        if (self.header.typeid == 0x00
+                and (not hasattr(self.__typeid__, '__abstractmethod__'))
+                and (not self.__typeid__ in [-1, None])):
+            self.header.typeid = self.__typeid__
 
     def __bytes__(self):
         return self.header.__bytes__()

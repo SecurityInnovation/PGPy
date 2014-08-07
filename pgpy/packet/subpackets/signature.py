@@ -2,10 +2,10 @@
 
 Signature SubPackets
 """
+import binascii
 import calendar
 
 from datetime import datetime
-from datetime import timedelta
 
 from .types import Signature
 
@@ -196,6 +196,7 @@ class CreationTime(Signature):
     def __init__(self):
         super(CreationTime, self).__init__()
         self.created = datetime.utcnow()
+        self.header.length = 5  # this subpacket's length is always 5 octets long
 
     def __bytes__(self):
         _bytes = super(CreationTime, self).__bytes__()
@@ -531,14 +532,13 @@ class Issuer(Signature):
     def issuer(self):
         return self._issuer
     @issuer.bytearray
-    @issuer.bytes
     def issuer(self, val):
-        ##TODO: parse this properly
-        self._issuer = val
+        self.header.length = len(val) + 1
+        self._issuer = binascii.hexlify(val).upper().decode('latin-1')
 
     def __bytes__(self):
         _bytes = super(Issuer, self).__bytes__()
-        _bytes += self._issuer
+        _bytes += binascii.unhexlify(self._issuer)
         return _bytes
 
     def parse(self, packet):
