@@ -87,6 +87,8 @@ def gpg_verify():
      return _gpg_verify
 
 # pytest hooks
+
+# pytest_configure
 # called after command line options have been parsed and all plugins and initial conftest files been loaded.
 def pytest_configure(config):
     assert os.path.basename(os.getcwd()) == 'PGPy'
@@ -97,6 +99,8 @@ def pytest_configure(config):
     print("")
 
 
+# pytest_generate_tests
+# called when each test method is collected to generate parametrizations
 def pytest_generate_tests(metafunc):
     if not keyword.iskeyword('nonlocal'):
         _outer = locals()
@@ -125,20 +129,20 @@ def pytest_generate_tests(metafunc):
         argvals += [[
             # new format
             # 1 byte length - 191
-            bytearray(b'\xc2' + b'\xbf' +                 (b'\x00' * 191)),
+            bytearray(b'\xc2' + b'\xbf' +                 (b'\x00' * 191)   + b'\xca\xfe\xba\xbe'),
             # 2 byte length - 192
-            bytearray(b'\xc2' + b'\xc0\x00' +             (b'\x00' * 192)),
+            bytearray(b'\xc2' + b'\xc0\x00' +             (b'\x00' * 192)   + b'\xca\xfe\xba\xbe'),
             # 2 byte length - 8383
-            bytearray(b'\xc2' + b'\xdf\xff' +             (b'\x00' * 8383)),
+            bytearray(b'\xc2' + b'\xdf\xff' +             (b'\x00' * 8383)  + b'\xca\xfe\xba\xbe'),
             # 5 byte length - 8384
-            bytearray(b'\xc2' + b'\xff\x00\x00 \xc0' +    (b'\x00' * 8384)),
+            bytearray(b'\xc2' + b'\xff\x00\x00 \xc0' +    (b'\x00' * 8384)  + b'\xca\xfe\xba\xbe'),
             # old format
             # 1 byte length - 255
-            bytearray(b'\x88' + b'\xff' +                 (b'\x00' * 255)),
+            bytearray(b'\x88' + b'\xff' +                 (b'\x00' * 255)   + b'\xca\xfe\xba\xbe'),
             # 2 byte length - 256
-            bytearray(b'\x89' + b'\x01\x00' +             (b'\x00' * 256)),
+            bytearray(b'\x89' + b'\x01\x00' +             (b'\x00' * 256)   + b'\xca\xfe\xba\xbe'),
             # 4 byte length - 65536
-            bytearray(b'\x8a' + b'\x00\x01\x00\x00' +     (b'\x00' * 65536)),
+            bytearray(b'\x8a' + b'\x00\x01\x00\x00' +     (b'\x00' * 65536) + b'\xca\xfe\xba\xbe'),
         ]]
 
         ids = ['new_1_191', 'new_2_192', 'new_2_8383', 'new_5_8384',
@@ -341,6 +345,9 @@ def pytest_generate_tests(metafunc):
                 _b = bytearray(os.path.getsize(f))
                 with open(f, 'rb') as fo:
                     fo.readinto(_b)
+
+                _b += b'\xca\xfe\xba\xbe'
+
                 at.append(_b)
             argvals += [tuple(at)]
 

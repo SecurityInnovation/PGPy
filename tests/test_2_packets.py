@@ -37,15 +37,16 @@ class TestPacket(object):
         p = Packet(packet)
 
         # parsed all bytes
-        assert len(packet) == 0
+        # assert len(packet) == 0
+        assert packet == b'\xca\xfe\xba\xbe'
 
         # length is computed correctly
         assert p.header.length + len(p.header) == len(p)
-        assert len(p) == len(b)
-        assert len(bytes(p)) == len(bytes(b))
+        assert len(p) == len(b) - 4
+        assert len(bytes(p)) == len(bytes(b)) - 4
 
         # __bytes__ output is correct
-        assert bytes(p) == bytes(b)
+        assert bytes(p) == bytes(b[:-4])
 
         # instantiated class is what we expected
         if p.header.tag in _pclasses:
