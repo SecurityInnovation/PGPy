@@ -117,8 +117,7 @@ class Packet(Dispatchable):
     __headercls__ = Header
 
     def __init__(self):
-        super(Packet, self).__init__()
-        self.header = Header()
+        self.header = self.__headercls__()
 
     @abc.abstractmethod
     def __bytes__(self):

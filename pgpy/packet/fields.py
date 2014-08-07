@@ -64,7 +64,7 @@ class SubPackets(collections.MutableMapping, Field):
             key = (key, i)
 
         if key[0].startswith('h_'):
-            self._hashed_sp[key] = val
+            self._hashed_sp[(key[0][2:], i)] = val
 
         else:
             self._unhashed_sp[key] = val
@@ -74,7 +74,7 @@ class SubPackets(collections.MutableMapping, Field):
             return self._hashed_sp[key]
 
         if key.startswith('h_'):
-            return [v for k, v in self._hashed_sp.items() if key == k[0]]
+            return [v for k, v in self._hashed_sp.items() if key[2:] == k[0]]
 
         else:
             return [v for k, v in self._unhashed_sp.items() if key == k[0]]
@@ -84,7 +84,8 @@ class SubPackets(collections.MutableMapping, Field):
         pass
 
     def __contains__(self, key):
-        return key in [dk[0] for dk in itertools.chain(self._hashed_sp.keys(), self._unhashed_sp.keys())]
+        return any([key in [dk[0][2:] for dk in self._hashed_sp.keys()],
+                    key in [dk[0] for dk in self._unhashed_sp.keys()]])
 
     def parse(self, packet):
         hl = self.bytes_to_int(packet[:2])

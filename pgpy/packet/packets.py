@@ -32,7 +32,7 @@ from ..decorators import TypedProperty
 from ..types import Fingerprint
 
 
-# 0x01
+# Placeholder for 0x01
 
 
 class Signature(VersionedPacket):
