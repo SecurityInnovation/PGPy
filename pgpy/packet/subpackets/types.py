@@ -35,12 +35,9 @@ class Header(_Header):
 
     def parse(self, packet):
         self.length = packet
-        del packet[:self.llen]
 
         self.typeid = packet[:1]
         del packet[:1]
-
-        return packet
 
     def __len__(self):
         return self.llen + 1

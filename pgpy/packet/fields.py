@@ -91,14 +91,19 @@ class SubPackets(collections.MutableMapping, Field):
         hl = self.bytes_to_int(packet[:2])
         del packet[:2]
 
-        while sum(len(sp) for sp in self._hashed_sp.values()) < hl:
+        # we do it this way because we can't ensure that subpacket headers are sized appropriately
+        # for their contents, but we can at least output that correctly
+        # so instead of tracking how many bytes we can now output, we track how many bytes have we parsed so far
+        plen = len(packet)
+        while plen - len(packet) < hl:
             sp = SignatureSP(packet)
             self['h_' + sp.__class__.__name__] = sp
 
         uhl = self.bytes_to_int(packet[:2])
         del packet[:2]
 
-        while sum(len(sp) for sp in self._unhashed_sp.values()) < uhl:
+        plen = len(packet)
+        while plen - len(packet) < uhl:
             sp = SignatureSP(packet)
             self[sp.__class__.__name__] = sp
 

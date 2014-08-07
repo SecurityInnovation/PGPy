@@ -426,22 +426,25 @@ class UserID(Packet):
         uid_text = packet[:self.header.length].decode('latin-1')
         del packet[:self.header.length]
 
-        uid = re.match(r"""^
-                           # name should always match something
-                           (?P<name>[^\(<]*)
-                           # comment *optionally* matches text in parens following name
-                           # this should never come after email
-                           (\ \((?P<comment>[^\)]+)\))?
-                           # email *optionally* matches text in angle brackets following name or comment
-                           # this should never come before a comment, if comment exists,
-                           # but can immediately follow name if comment does not exist
-                           (\ <(?P<email>[^>]+)>)?
-                           $
-                        """, uid_text, flags=re.VERBOSE).groupdict()
+        # came across a UID packet with no payload. If that happens, don't bother trying to parse anything!
+        if self.header.length > 0:
+            uid = re.match(r"""^
+                               # name should always match something
+                               (?P<name>.+?)
+                               # comment *optionally* matches text in parens following name
+                               # this should never come after email and must be followed immediately by
+                               # either the email field, or the end of the packet.
+                               (\ \((?P<comment>.+?)\)(?=( <|$)))?
+                               # email *optionally* matches text in angle brackets following name or comment
+                               # this should never come before a comment, if comment exists,
+                               # but can immediately follow name if comment does not exist
+                               (\ <(?P<email>.+)>)?
+                               $
+                            """, uid_text, flags=re.VERBOSE).groupdict()
 
-        self.name = uid['name']
-        self.comment = uid['comment']
-        self.email = uid['email']
+            self.name = uid['name']
+            self.comment = uid['comment']
+            self.email = uid['email']
 
 
 class PubSubKey(VersionedPacket):
@@ -500,7 +503,9 @@ class UserAttribute(Packet):
 
     def parse(self, packet):
         super(UserAttribute, self).parse(packet)
-        while len(self.subpackets) < self.header.length:
+
+        plen = len(packet)
+        while self.header.length > (plen - len(packet)):
             self.subpackets.parse(packet)
 
 # Placeholder for 0x12

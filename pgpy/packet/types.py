@@ -82,10 +82,11 @@ class Header(_Header):
             self.llen = (packet[0] & 0x03)
         del packet[0]
 
-        self.length = packet
-        del packet[:self.llen]
+        if (self._lenfmt == 0 and self.llen > 0) or self._lenfmt == 1:
+            self.length = packet
 
-        if self._lenfmt == 0 and self.llen == 0:
+        else:
+            # indeterminate packet length
             self.length = len(packet)
 
 

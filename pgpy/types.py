@@ -290,13 +290,16 @@ class Header(Field):
 
             if 192 > fo:
                 self._len = self.bytes_to_int(b[:1])
+                del b[:1]
 
             elif 224 > fo:  # >= 192 is implied
                 dlen = self.bytes_to_int(b[:2])
                 self._len = ((dlen - (192 << 8)) & 0xFF00) + ((dlen & 0xFF) + 192)
+                del b[:2]
 
             elif 255 == fo:
                 self._len = self.bytes_to_int(b[1:5])
+                del b[:5]
 
             else:
                 raise ValueError("Malformed length!")
@@ -304,6 +307,7 @@ class Header(Field):
         def _old_len(b):
             if self.llen > 0:
                 self._len = self.bytes_to_int(b[:self.llen])
+                del b[:self.llen]
 
             else:
                 self._len = 0
