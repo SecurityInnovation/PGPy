@@ -253,7 +253,7 @@ def pytest_generate_tests(metafunc):
             tdata = _outer['tdata']
 
         params += ['sigsubpacket']
-        tdata += [sorted([ spdir + f for f in os.listdir(spdir) if f.startswith('signature') ])]
+        tdata += [sorted([ spdir + f for f in os.listdir(spdir) if f.endswith('signature') ])]
 
     @CWD_As('tests/testdata')
     def uasubpacket():
@@ -267,7 +267,7 @@ def pytest_generate_tests(metafunc):
             tdata = _outer['tdata']
 
         params += ['uasubpacket']
-        tdata += [sorted([ spdir + f for f in os.listdir(spdir) if f.startswith('userattr') ])]
+        tdata += [sorted([ spdir + f for f in os.listdir(spdir) if f.endswith('userattr') ])]
 
     @CWD_As('tests/testdata')
     def packet():
@@ -295,7 +295,7 @@ def pytest_generate_tests(metafunc):
             tdata = _outer['tdata']
 
         params += ['ekpacket']
-        tdata += [sorted([ pdir + f for f in os.listdir(pdir) if f.startswith('privkey.enc') ])]
+        tdata += [sorted([ pdir + f for f in os.listdir(pdir) if f.startswith('05.v4.enc') ])]
 
     @CWD_As('tests/testdata')
     def ukpacket():
@@ -309,7 +309,7 @@ def pytest_generate_tests(metafunc):
             tdata = _outer['tdata']
 
         params += ['ukpacket']
-        tdata += [sorted([ pdir + f for f in os.listdir(pdir) if f.startswith('privkey.unc') ])]
+        tdata += [sorted([ pdir + f for f in os.listdir(pdir) if f.startswith('05.v4.unc') ])]
 
     # run all inner functions that match fixturenames
     # I organized it like this for easy code folding in PyCharm :)
@@ -351,7 +351,8 @@ def pytest_generate_tests(metafunc):
                 at.append(_b)
             argvals += [tuple(at)]
 
-        ids = [ '_'.join(re.split('\.', f[0])[1:]) for f in tdata ]
+        # ids = [ '_'.join(re.split('\.', f[0])[1:]) for f in tdata ]
+        ids = [ '_'.join(re.split('\.', f[0])[:-1]) for f in tdata ]
 
 
     if tdata != []:
