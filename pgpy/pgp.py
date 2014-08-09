@@ -1,5 +1,19 @@
-# """ pgp.py
-# """
+""" pgp.py
+
+this is where the armorable PGP block objects live
+"""
+from .types import Exportable
+from .types import PGPObject
+
+
+class PGPSignature(PGPObject, Exportable):
+    pass
+
+
+class PGPKey(PGPObject, Exportable):
+    pass
+
+
 # # import calendar
 # # import re
 # # from datetime import datetime
@@ -206,3 +220,176 @@
 #         _data += int_to_bytes(hlen, 4)
 #
 #         return _data
+#
+#
+# class PGPKeyBlock(PGPObject):
+#     @property
+#     def magic(self):
+#         return self._keys[0].magic if len(self._keys) > 0 else "? KEY BLOCK"
+#
+#     def __init__(self):
+#         super(PGPKeyBlock, self).__init__()
+#         self._keys = []
+#         self._userids = []
+#         self._signatures = []
+#
+#     def parse(self, data):
+#         packets = []
+#
+#         while data != b'':
+#             packets.append(Packet.load_packet(data))
+#
+#             lplen = packets[-1].header.length + len(packets[-1].header.__bytes__())
+#             oplen = len(packets[-1].__bytes__())
+#
+#             # debugging
+#             if oplen != lplen:
+#                 packets[-1].__bytes__()
+#                 raise PGPError("__bytes__ chain {} for {}".format("incomplete" if oplen < lplen else "incorrect",
+#                                                                   packets[-1].__class__))
+#
+#             if packets[-1].__bytes__() != data[:lplen]:
+#                 packets[-1].__bytes__()
+#                 raise PGPError("__bytes__ chain incorrect for {}".format(packets[-1].__class__))
+#
+#             data = data[len(packets[-1].__bytes__()):]
+#
+#         for p in packets:
+#             if isinstance(p, KeyPacket):
+#                 k = PGPKey()
+#                 k._keypkt = p
+#                 self._keys.append(k)
+#
+#             if isinstance(p, UserID):
+#                 self._userids.append(p)
+#
+#             if isinstance(p, Signature):
+#                 self._signatures.append(p)
+#
+#     def __bytes__(self):
+#         raise NotImplementedError()
+#
+#     def __pgpdump__(self):
+#         raise NotImplementedError()
+#
+#
+# class PGPKey(PGPObject):
+#     # @property
+#     # def keypkts(self):
+#     #     return [ packet for packet in self.packets if isinstance(packet, KeyPacket) ]
+#
+#     # @property
+#     # def primarykey(self):
+#     #     """
+#     #     Reference to the primary key if this is a subkey
+#     #     ?? if this is already a primary key
+#     #     """
+#     #     # return [ packet for packet in self.packets if type(packet) in [PubKey, PrivKey] ][0]
+#     #     raise NotImplementedError()
+#
+#     @property
+#     def primary(self):
+#         """
+#         True if this is a primary key
+#         False if this is a subkey
+#         """
+#         return isinstance(self._keypkt, Primary)
+#
+#     @property
+#     def sub(self):
+#         """
+#         True if this is a subkey
+#         False if this is a primary key
+#         """
+#         return isinstance(self._keypkt, Sub)
+#
+#     @property
+#     def public(self):
+#         """
+#         True if this is a public key
+#         False if this is a private key
+#         """
+#         return isinstance(self._keypkt, Public)
+#
+#     @property
+#     def private(self):
+#         """
+#         True if this is a private key
+#         False if this is a public key
+#         """
+#         return isinstance(self._keypkt, Private)
+#
+#     @property
+#     def magic(self):
+#         return "{} KEY BLOCK".format("PRIVATE" if self.private else \
+#                                      "PUBLIC" if self.public else "?")
+#
+#     @classmethod
+#     def new(cls):
+#         ##TODO: generate a new key
+#         raise NotImplementedError()
+#
+#     def __init__(self):
+#         super(PGPKey, self).__init__()
+#
+#         self._keypkt = None
+#         self._userids = []
+#         self._attrs = []
+#         self._keysigs = []
+#
+#     def parse(self, data):
+#         ##TODO: load the next key in data and return the leftovers
+#         raise NotImplementedError()
+#
+#     def __bytes__(self):
+#         raise NotImplementedError()
+#
+#     def __pgpdump__(self):
+#         raise NotImplementedError()
+#
+#     def lock(self, passphrase, s2k=None):
+#         """
+#         Encrypt the secret key material if it is not already encrypted.
+#         """
+#         ##TODO: this should fail if this PGPKey is not a private key
+#         ##TODO: this should fail if the secret key material is already encrypted
+#         ##TODO: s2k should default to the strongest method available (which is currently Iterated)
+#         raise NotImplementedError()
+#
+#     def unlock(self, passphrase):
+#         """
+#         Decrypt the secret key material if it is encrypted
+#         """
+#         raise NotImplementedError()
+#
+#     def sign(self, subject, hash=None, inline=False, sigtype=None):
+#         """
+#         Sign a subject with this key.
+#         """
+#         ##TODO: if hash is None, default to using the strongest hash in this key's preference flags
+#         ##TODO: implement inline signing
+#         ##TODO: implement signing things other than binary documents
+#         ##TODO: sigtype should default to the binary signature type specifier rather than None
+#         raise NotImplementedError()
+#
+#     def verify(self, subject, signature):
+#         """
+#         Verify a subject using this key.
+#         """
+#         if not isinstance(signature, PGPSignature):
+#             signature = pgpload(signature)[0]
+#
+#         if not isinstance(signature, PGPSignature):
+#             raise ValueError("signature must be a signature!")
+#
+#     def encrypt(self):
+#         """
+#         Encrypt something
+#         """
+#         raise NotImplementedError()
+#
+#     def decrypt(self):
+#         """
+#         Decrypt something
+#         """
+#         raise NotImplementedError()
