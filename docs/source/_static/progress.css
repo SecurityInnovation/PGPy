@@ -1,0 +1,54 @@
+.ui-progressbar {
+    position: relative;
+    height: 22px;
+
+    border-color: #1C4E63;
+}
+
+
+.ui-widget-header {
+    background: url('ui-bg_gloss-wave_55_5c9ccc_500x100.png') repeat-x scroll 50% 50% #246071;
+}
+
+.progress-label {
+    position: absolute;
+    left: 50%;
+    text-shadow: 1px 1px 0 #fff;
+}
+
+.prog-top-label,
+.prog-sec-label {
+    text-align: center !important;
+    vertical-align: bottom !important;
+    font-weight: bold;
+}
+.progtop,
+.prog-sec-label {
+    background-color: #EDE !important;
+
+}
+
+.progress tr {
+    height: 24px;
+}
+table.progress td,
+table.progress th {
+    padding-right: 0;
+}
+.progress tr.row-even td,
+.progress tr.row-odd td {
+    vertical-align: middle;
+}
+.progress tr.row-even td {
+    background-color: #e0e0e0;
+}
+.progress tr.row-odd td {
+    background-color: #f0f0f0;
+}
+
+
+.progress-checkbox {
+    text-align: right !important;
+    text-shadow: 2px 2px 1px #fff;
+}
+
