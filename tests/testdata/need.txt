@@ -33,25 +33,10 @@ Needed Packet Examples
    - type 0x02 - Standalone signature
 
    - type 0x40 - Timestamp signature
+     This one looks to be difficult to obtain as
 
    - type 0x50 - Third-Party Confirmation signature
 
 * Marker Packet (Obsolete Literal Packet) (Tag 10)
 
 * Modification Detection Code Packet (Tag 19)
-
-
-Needed ASCII-armored blocks
----------------------------
-
-* MESSAGE
-
-* PUBLIC KEY BLOCK
-
-* SIGNATURE
-
-* SIGNED MESSAGE (this one does not have a tail)
-
-* ARMORED FILE (this is a gnupg extension; simply the contents of a file armored as though it were one or more PGP packets)
-
-* PRIVATE KEY BLOCK
