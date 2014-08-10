@@ -89,7 +89,7 @@ class Image(UserAttribute):
             _bytes += struct.pack('<hbbiii', 16, self.version, self.iencoding, 0, 0, 0)
 
         _bytes += self.image
-        return _bytes
+        return bytes(_bytes)
 
     def parse(self, packet):
         super(Image, self).parse(packet)

@@ -126,9 +126,7 @@ class UserAttributeSubPackets(SubPackets):
     appending that one packet to self.__unhashed_sp.
     """
     def __bytes__(self):
-        _bytes = bytearray()
-        _bytes += b''.join(uhsp.__bytes__() for uhsp in self._unhashed_sp.values())
-        return bytes(_bytes)
+        return b''.join(uhsp.__bytes__() for uhsp in self._unhashed_sp.values())
 
     def __len__(self):
         return sum(len(sp) for sp in self._unhashed_sp.values())
@@ -420,7 +418,7 @@ class String2Key(Field):
         return bytes(_bytes)
 
     def __len__(self):
-        return len(bytes(self))
+        return len(self.__bytes__())
 
     def __bool__(self):
         return self.usage in [254, 255]
@@ -511,7 +509,7 @@ class PrivKey(PubKey):
         _bytes = bytearray()
         for n, i in enumerate(self):
             if n == pubitems:
-                _bytes += bytes(self.s2k)
+                _bytes += self.s2k.__bytes__()
 
                 if self.s2k:
                     _bytes += self.encbytes

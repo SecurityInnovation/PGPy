@@ -140,7 +140,7 @@ class TestRegressions(object):
 
         # write the pubkey
         with open('tests/testdata/pub.gpg', 'wb') as kr:
-            kr.write(bytes(_pk))
+            kr.write(_pk.__bytes__())
             kr.flush()
 
         assert 'Good signature from' in gpg_verify('subj', 'subj.asc', keyring='./pub.gpg')

@@ -22,7 +22,7 @@ class TestHeaders(object):
         h.parse(spheader)
 
         assert 65537 > h.length > 1
-        assert len(h) == len(bytes(h))
+        assert len(h) == len(h.__bytes__())
 
     def test_packet_header(self, pheader):
         b = pheader[:]
@@ -33,7 +33,7 @@ class TestHeaders(object):
         assert h.length == len(pheader) - 4
         assert pheader[h.length:] == b'\xca\xfe\xba\xbe'
         assert len(h) == len(b) - len(pheader)
-        assert bytes(h) == b[:len(h)]
+        assert h.__bytes__() == b[:len(h)]
 
 _sspclasses = {
     # 0x00: 'Opaque',
@@ -196,8 +196,8 @@ class TestSignatureSubPackets(object):
 
         assert sigsubpacket == b'\xca\xfe\xba\xbe'
         assert len(sp) == len(spb) - 4
-        assert len(sp) == len(bytes(sp))
-        assert bytes(sp) == bytes(spb[:-4])
+        assert len(sp) == len(sp.__bytes__())
+        assert sp.__bytes__() == bytes(spb[:-4])
 
         if sp.header.typeid in _sspclasses:
             assert sp.__class__.__name__ == _sspclasses[sp.header.typeid]
@@ -213,8 +213,8 @@ class TestUserAttributeSubPackets(object):
 
         assert uasubpacket == b'\xca\xfe\xba\xbe'
         assert len(sp) == len(spb) - 4
-        assert len(sp) == len(bytes(sp))
-        assert bytes(sp) == bytes(spb[:-4])
+        assert len(sp) == len(sp.__bytes__())
+        assert sp.__bytes__() == spb[:-4]
 
         if sp.header.typeid in _uaspclasses:
             assert sp.__class__.__name__ == _uaspclasses[sp.header.typeid]
@@ -231,7 +231,7 @@ class TestString2Key(object):
 
         assert len(sis2k) == 0
         assert len(s) == len(b)
-        assert bytes(s) == bytes(b)
+        assert s.__bytes__() == b
 
         assert bool(s)
         assert s.halg in HashAlgorithm
@@ -247,7 +247,7 @@ class TestString2Key(object):
 
         assert len(sas2k) == 0
         assert len(s) == len(b)
-        assert bytes(s) == bytes(b)
+        assert s.__bytes__() == b
 
         assert bool(s)
         assert s.halg in HashAlgorithm
@@ -263,7 +263,7 @@ class TestString2Key(object):
 
         assert len(is2k) == 0
         assert len(s) == len(b)
-        assert bytes(s) == bytes(b)
+        assert s.__bytes__() == b
 
         assert bool(s)
         assert s.halg in HashAlgorithm

@@ -45,10 +45,10 @@ class TestPacket(object):
         # length is computed correctly
         assert p.header.length + len(p.header) == len(p)
         assert len(p) == len(b) - 4
-        assert len(bytes(p)) == len(bytes(b)) - 4
+        assert len(p.__bytes__()) == len(b) - 4
 
         # __bytes__ output is correct
-        assert bytes(p) == bytes(b[:-4])
+        assert p.__bytes__() == b[:-4]
 
         # instantiated class is what we expected
 
@@ -88,7 +88,6 @@ class TestPacket(object):
         # also try with a purposely unicode password
         with pytest.raises(PGPKeyDecryptionError):
             ep.unprotect("TheWrongPassword")
-            # Mañana
             ep.unprotect("Ma\u00F1ana")
 
         # now unprotect with the correct password

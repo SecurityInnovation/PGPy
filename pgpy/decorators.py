@@ -19,6 +19,13 @@ class TypedProperty(property):
         if 'fset' + val.__class__.__name__ in self.__dict__:
             getattr(self, 'fset' + val.__class__.__name__)(obj, val)
 
+        # Python 2.7 shenanigans
+        elif bytes is str and val.__class__.__name__ in ['str', 'unicode']:
+            if 'fsetstr' in self.__dict__:
+                self.fsetstr(obj, str(val))
+            else:
+                self.fsetbytes(obj, val)
+
         else:
             super(TypedProperty, self).__set__(obj, val)
 

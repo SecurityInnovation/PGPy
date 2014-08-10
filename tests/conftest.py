@@ -115,7 +115,6 @@ def pytest_generate_tests(metafunc):
     params = []
     argvals = []
     ids = []
-
     tdata = []
 
     def pheader():
