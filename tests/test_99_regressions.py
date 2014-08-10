@@ -7,6 +7,7 @@ class TestRegressions(object):
     def test_reg_bug_56(self, gpg_verify):
         # some imports only used by this regression test
         import hashlib
+        import os
 
         from datetime import datetime
 
