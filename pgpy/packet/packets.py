@@ -220,32 +220,47 @@ class PubKeyV4(PubKey):
     def pkalg(self, val):
         self._pkalg = val
 
-        if val in [PubKeyAlgorithm.RSASign, PubKeyAlgorithm.RSAEncrypt, PubKeyAlgorithm.RSAEncryptOrSign]:
-            self.pubmaterial = RSAPub()
-            if hasattr(self, 'secmaterial'):
-                self.secmaterial = RSAPriv()
+        _c = {
+            # True means public
+            (True, PubKeyAlgorithm.RSAEncryptOrSign): RSAPub,
+            (True, PubKeyAlgorithm.RSAEncrypt): RSAPub,
+            (True, PubKeyAlgorithm.RSASign): RSAPub,
+            (True, PubKeyAlgorithm.DSA): DSAPub,
+            (True, PubKeyAlgorithm.ElGamal): ElGPub,
+            (True, PubKeyAlgorithm.FormerlyElGamalEncryptOrSign): ElGPub,
+            # False means private
+            (False, PubKeyAlgorithm.RSAEncryptOrSign): RSAPriv,
+            (False, PubKeyAlgorithm.RSAEncrypt): RSAPriv,
+            (False, PubKeyAlgorithm.RSASign): RSAPriv,
+            (False, PubKeyAlgorithm.DSA): DSAPriv,
+            (False, PubKeyAlgorithm.ElGamal): ElGPriv,
+            (False, PubKeyAlgorithm.FormerlyElGamalEncryptOrSign): ElGPriv,
+        }
 
-        elif val == PubKeyAlgorithm.DSA:
-            self.pubmaterial = DSAPub()
-            if hasattr(self, 'secmaterial'):
-                self.secmaterial = DSAPriv()
+        k = (self.public, self.pkalg)
 
-        elif val in [PubKeyAlgorithm.ElGamal, PubKeyAlgorithm.FormerlyElGamalEncryptOrSign]:
-            self.pubmaterial = ElGPub()
-            if hasattr(self, 'secmaterial'):
-                self.secmaterial = ElGPriv()
+        if k in _c:
+            self.keymaterial = _c[k]()
+
+        else:
+            self.keymaterial = None
     @pkalg.int
     def pkalg(self, val):
         self.pkalg = PubKeyAlgorithm(val)
 
     @property
+    def public(self):
+        return isinstance(self, PubKey) and not isinstance(self, PrivKey)
+
+    @property
     def fingerprint(self):
-        # A V4 fingerprint is the 160-bit SHA-1 hash of the octet 0x99,
-        # followed by the two-octet packet length, followed by the entire
-        # Public-Key packet starting with the version field.  The Key ID is the
+        # A V4 fingerprint is the 160-bit SHA-1 hash of the octet 0x99, followed by the two-octet packet length,
+        # followed by the entire Public-Key packet starting with the version field.  The Key ID is the
         # low-order 64 bits of the fingerprint.
         fp = hashlib.new('sha1')
-        bcde_len = self.int_to_bytes(6 + len(self.pubmaterial.__bytes__()), 2)
+
+        plen = self.keymaterial.publen()
+        bcde_len = self.int_to_bytes(6 + plen, 2)
 
         # a.1) 0x99 (1 octet)
         # a.2) high-order length octet
@@ -258,24 +273,22 @@ class PubKeyV4(PubKey):
         # d) algorithm (1 octet): 17 = DSA (example);
         fp.update(self.int_to_bytes(self.pkalg))
         # e) Algorithm-specific fields.
-        fp.update(self.pubmaterial.__bytes__())
+        fp.update(self.keymaterial.__bytes__()[:plen])
 
         # and return the digest
         return Fingerprint(fp.hexdigest().upper())
-
 
     def __init__(self):
         super(PubKeyV4, self).__init__()
         self.created = datetime.utcnow()
         self.pkalg = 0
-        self.pubmaterial = None
 
     def __bytes__(self):
         _bytes = bytearray()
         _bytes += super(PubKeyV4, self).__bytes__()
         _bytes += self.int_to_bytes(calendar.timegm(self.created.timetuple()), 4)
         _bytes += self.int_to_bytes(self.pkalg)
-        _bytes += self.pubmaterial.__bytes__()
+        _bytes += self.keymaterial.__bytes__()
         return bytes(_bytes)
 
     def parse(self, packet):
@@ -287,36 +300,17 @@ class PubKeyV4(PubKey):
         self.pkalg = packet[0]
         del packet[0]
 
-        self.pubmaterial.parse(packet)
+        # bound keymaterial to the remaining length of the packet
+        pend = self.header.length - 6
+        self.keymaterial.parse(packet[:pend])
+        del packet[:pend]
 
 
 class PrivKeyV4(PrivKey, PubKeyV4):
     __ver__ = 4
 
-    def __init__(self):
-        super(PrivKeyV4, self).__init__()
-        self.secmaterial = None
-
-    def __bytes__(self):
-        _bytes = bytearray()
-        _bytes += super(PrivKeyV4, self).__bytes__()
-        _bytes += self.secmaterial.__bytes__()
-
-        return bytes(_bytes)
-
-    def parse(self, packet):
-        super(PrivKeyV4, self).parse(packet)
-
-        pend = self.header.length - (6 + len(self.pubmaterial))
-        # temporary test
-        assert (1 + 4 + 1 + len(self.pubmaterial) + pend) == self.header.length
-
-        self.secmaterial.parse(packet[:pend])
-        # since packet[:pend] is a *copy* of the first `pend` bytes of packet, we have to delete the real thing, too
-        del packet[:pend]
-
     def unprotect(self, passphrase):
-        self.secmaterial.decrypt_keyblob(passphrase)
+        self.keymaterial.decrypt_keyblob(passphrase)
         del passphrase
 
 

@@ -7,21 +7,20 @@ class TestRegressions(object):
     def test_reg_bug_56(self, gpg_verify):
         # some imports only used by this regression test
         import hashlib
-        import os
 
         from datetime import datetime
 
         from pgpy.types import Exportable
-        from pgpy.util import modinv
 
         from pgpy.packet.packets import PrivKeyV4
         from pgpy.packet.packets import PubKeyV4
         from pgpy.packet.packets import SignatureV4
 
+        from pgpy.packet.types import MPI
+
         from cryptography.hazmat.backends import default_backend
         from cryptography.hazmat.primitives import hashes
-        from cryptography.hazmat.primitives.asymmetric import padding, rsa
-
+        from cryptography.hazmat.primitives.asymmetric import padding
 
         from pgpy.packet.subpackets.signature import CreationTime
         from pgpy.packet.subpackets.signature import Issuer
@@ -100,27 +99,12 @@ class TestRegressions(object):
         # hash2; should be 0x9f 0x02
         sig.hleft = hashlib.new('sha512', hdata).digest()[:2]
 
-        # now generate the signature MPI
-        p = sk.bytes_to_int(sk.secmaterial.p)
-        q = sk.bytes_to_int(sk.secmaterial.q)
-        d = sk.bytes_to_int(sk.secmaterial.d)
-        cpk = rsa.RSAPrivateKey(
-            p=p,
-            q=q,
-            private_exponent=d,
-            dmp1=d % (p - 1),
-            dmq1=d % (q - 1),
-            iqmp=modinv(p, q),
-            public_exponent=sk.bytes_to_int(sk.pubmaterial.e),
-            modulus=sk.bytes_to_int(sk.pubmaterial.n)
-        )
-
-        signer = cpk.signer(padding.PKCS1v15(), hashes.SHA512(), default_backend())
+        signer = sk.keymaterial.__privkey__().signer(padding.PKCS1v15(), hashes.SHA512(), default_backend())
         signer.update(hdata)
         s = signer.finalize()
 
         # add signature bytes to sig
-        sig.signature.md_mod_n = s
+        sig.signature.md_mod_n = MPI(sig.bytes_to_int(s))
 
         # update header length in sig
         sig.header.length += len(sig.__bytes__()[len(sig.header):])

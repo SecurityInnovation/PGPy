@@ -77,12 +77,12 @@ class TestPacket(object):
         # verify that ep's secmaterial fields are empty
 
         if ep.pkalg == PubKeyAlgorithm.RSAEncryptOrSign:
-            assert ep.secmaterial.d == bytearray()
-            assert ep.secmaterial.p == bytearray()
-            assert ep.secmaterial.q == bytearray()
-            assert ep.secmaterial.u == bytearray()
+            assert ep.keymaterial.d == 0
+            assert ep.keymaterial.p == 0
+            assert ep.keymaterial.q == 0
+            assert ep.keymaterial.u == 0
         if ep.pkalg in [PubKeyAlgorithm.DSA, PubKeyAlgorithm.ElGamal]:
-            assert ep.secmaterial.x == bytearray()
+            assert ep.keymaterial.x == 0
 
         # verify trying to unprotect using the wrong password doesn't work
         # also try with a purposely unicode password
@@ -96,9 +96,9 @@ class TestPacket(object):
 
         # and verify that it matches the unencrypted version
         if ep.pkalg == PubKeyAlgorithm.RSAEncryptOrSign:
-            assert ep.secmaterial.d == up.secmaterial.d
-            assert ep.secmaterial.p == up.secmaterial.p
-            assert ep.secmaterial.q == up.secmaterial.q
-            assert ep.secmaterial.u == up.secmaterial.u
+            assert ep.keymaterial.d == up.keymaterial.d
+            assert ep.keymaterial.p == up.keymaterial.p
+            assert ep.keymaterial.q == up.keymaterial.q
+            assert ep.keymaterial.u == up.keymaterial.u
         if ep.pkalg in [PubKeyAlgorithm.DSA, PubKeyAlgorithm.ElGamal]:
-            assert ep.secmaterial.x == up.secmaterial.x
+            assert ep.keymaterial.x == up.keymaterial.x

@@ -10,13 +10,20 @@ import itertools
 import math
 
 from cryptography.exceptions import UnsupportedAlgorithm
+
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.ciphers import Cipher, modes
+
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric import dsa
+
+from cryptography.hazmat.primitives.ciphers import Cipher
+from cryptography.hazmat.primitives.ciphers import modes
 
 from .subpackets import Signature as SignatureSP
 from .subpackets import UserAttribute
 
 from .types import MPI
+from .types import MPIs
 
 from ..constants import HashAlgorithm
 from ..constants import String2KeyType
@@ -28,6 +35,8 @@ from ..errors import PGPKeyDecryptionError
 from ..errors import PGPOpenSSLCipherNotSupported
 
 from ..types import Field
+
+from ..util import modinv
 
 
 class SubPackets(collections.MutableMapping, Field):
@@ -130,115 +139,109 @@ class UserAttributeSubPackets(SubPackets):
         self[sp.__class__.__name__] = sp
 
 
-class Signature(MPI):
-    pass
+class Signature(MPIs):
+    def __bytes__(self):
+        return b''.join(bytes(i) for i in self)
 
 
 class RSASignature(Signature):
     def __init__(self):
-        self.md_mod_n = bytearray()
+        self.md_mod_n = MPI(0)
 
-    def __bytes__(self):
-        _bytes = bytearray()
-        _bytes += self.encode_mpi(self.md_mod_n)
-        return _bytes
-
-    def __len__(self):
-        return len(self.md_mod_n) + 2
+    def __iter__(self):
+        yield self.md_mod_n
 
     def parse(self, packet):
-        self.md_mod_n = self.decode_mpi(packet)
+        self.md_mod_n = MPI(packet)
 
 
 class DSASignature(Signature):
     def __init__(self):
-        # super(DSASignature, self).__init__()
-        self.r = bytearray()
-        self.s = bytearray()
+        self.r = MPI(0)
+        self.s = MPI(0)
 
-    def __bytes__(self):
-        _bytes = bytearray()
-        _bytes += self.encode_mpi(self.r)
-        _bytes += self.encode_mpi(self.s)
-        return bytes(_bytes)
-
-    def __len__(self):
-        return len(self.r + self.s) + 4
+    def __iter__(self):
+        yield self.r
+        yield self.s
 
     def parse(self, packet):
-        self.r = self.decode_mpi(packet)
-        self.s = self.decode_mpi(packet)
+        self.r = MPI(packet)
+        self.s = MPI(packet)
 
 
-class PubKey(MPI):
-    pass
+class PubKey(MPIs):
+    @abc.abstractmethod
+    def __pubkey__(self):
+        return None
+
+    def __bytes__(self):
+        return b''.join(bytes(i) for i in self)
+
+    def publen(self):
+        return len(self)
 
 
 class RSAPub(PubKey):
     def __init__(self):
-        # super(RSAPub, self).__init__()
-        self.n = bytearray()
-        self.e = bytearray()
+        self.n = MPI(0)
+        self.e = MPI(0)
 
-    def __bytes__(self):
-        _bytes = bytearray()
-        _bytes += self.encode_mpi(self.n)
-        _bytes += self.encode_mpi(self.e)
-        return bytes(_bytes)
+    def __iter__(self):
+        yield self.n
+        yield self.e
 
-    def __len__(self):
-        return len(self.n + self.e) + 4
+    def __pubkey__(self):
+        return rsa.RSAPublicKey(public_exponent=self.e, modulus=self.n)
 
     def parse(self, packet):
-        self.n = self.decode_mpi(packet)
-        self.e = self.decode_mpi(packet)
+        self.n = MPI(packet)
+        self.e = MPI(packet)
 
 
 class DSAPub(PubKey):
     def __init__(self):
-        self.p = bytearray()
-        self.q = bytearray()
-        self.g = bytearray()
-        self.y = bytearray()
+        self.p = MPI(0)
+        self.q = MPI(0)
+        self.g = MPI(0)
+        self.y = MPI(0)
 
-    def __bytes__(self):
-        _bytes = bytearray()
-        _bytes += self.encode_mpi(self.p)
-        _bytes += self.encode_mpi(self.q)
-        _bytes += self.encode_mpi(self.g)
-        _bytes += self.encode_mpi(self.y)
-        return bytes(_bytes)
+    def __iter__(self):
+        yield self.p
+        yield self.q
+        yield self.g
+        yield self.y
 
-    def __len__(self):
-        return len(self.p + self.q + self.g + self.y) + 8
+    def __pubkey__(self):
+        return dsa.DSAPublicKey(modulus=self.p,
+                                subgroup_order=self.q,
+                                generator=self.g,
+                                y=self.y)
 
     def parse(self, packet):
-        self.p = self.decode_mpi(packet)
-        self.q = self.decode_mpi(packet)
-        self.g = self.decode_mpi(packet)
-        self.y = self.decode_mpi(packet)
+        self.p = MPI(packet)
+        self.q = MPI(packet)
+        self.g = MPI(packet)
+        self.y = MPI(packet)
 
 
 class ElGPub(PubKey):
     def __init__(self):
-        self.p = bytearray()
-        self.g = bytearray()
-        self.y = bytearray()
+        self.p = MPI(0)
+        self.g = MPI(0)
+        self.y = MPI(0)
 
-    def __bytes__(self):
-        _bytes = bytearray()
-        _bytes += self.encode_mpi(self.p)
-        _bytes += self.encode_mpi(self.g)
-        _bytes += self.encode_mpi(self.y)
-        return bytes(_bytes)
+    def __iter__(self):
+        yield self.p
+        yield self.g
+        yield self.y
 
-    def __len__(self):
-        return len(self.p + self.g + self.y) + 6
+    def __pubkey__(self):
+        raise NotImplementedError()
 
     def parse(self, packet):
-        self.p = self.decode_mpi(packet)
-        self.g = self.decode_mpi(packet)
-        self.y = self.decode_mpi(packet)
+        self.p = MPI(packet)
+        self.g = MPI(packet)
+        self.y = MPI(packet)
 
 
 class String2Key(Field):
@@ -499,11 +502,35 @@ class PrivKey(PubKey):
         self.chksum = 0
 
     def __bytes__(self):
+        # select the parent class that is a public key to iterate over the public key fields first
+        # and then
+        # pubc = [c for c in self.__class__.mro() if issubclass(c, PubKey) and not issubclass(c, PrivKey)][0]
+        pubitems = len(list(super(self.__class__, self).__iter__()))
         _bytes = bytearray()
-        _bytes += self.s2k.__bytes__()
-        if self.s2k:
-            _bytes += self.encbytes
+        for n, i in enumerate(self):
+            if n == pubitems:
+                _bytes += bytes(self.s2k)
+
+                if self.s2k:
+                    _bytes += self.encbytes
+                    break
+
+            _bytes += bytes(i)
+
+        if self.s2k.usage == 0:
+            _bytes += self.chksum
+
         return bytes(_bytes)
+
+    def __len__(self):
+        return super(PrivKey, self).__len__() + len(self.s2k)
+
+    @abc.abstractmethod
+    def __privkey__(self):
+        return None
+
+    def publen(self):
+        return sum(len(i) for i in super(self.__class__, self).__iter__())
 
     @abc.abstractmethod
     def decrypt_keyblob(self, passphrase):
@@ -549,40 +576,44 @@ class PrivKey(PubKey):
         return bytearray(pt)
 
 
-class RSAPriv(PrivKey):
+class RSAPriv(PrivKey, RSAPub):
     def __init__(self):
-        super(RSAPriv, self).__init__()
-        self.d = bytearray()
-        self.p = bytearray()
-        self.q = bytearray()
-        self.u = bytearray()
+        RSAPub.__init__(self)
+        PrivKey.__init__(self)
+        self.d = MPI(0)
+        self.p = MPI(0)
+        self.q = MPI(0)
+        self.u = MPI(0)
 
-    def __bytes__(self):
-        _bytes = bytearray()
-        _bytes += super(RSAPriv, self).__bytes__()
+    def __iter__(self):
+        for i in RSAPub.__iter__(self):
+            yield i
+        yield self.d
+        yield self.p
+        yield self.q
+        yield self.u
 
-        if not self.s2k:
-            _bytes += self.encode_mpi(self.d)
-            _bytes += self.encode_mpi(self.p)
-            _bytes += self.encode_mpi(self.q)
-            _bytes += self.encode_mpi(self.u)
-
-            if self.s2k.usage == 0:
-                _bytes += self.chksum
-
-        return bytes(_bytes)
-
-    def __len__(self):
-        return len(self.s2k) + len(self.d + self.p + self.q + self.u) + 8
+    def __privkey__(self):
+        return rsa.RSAPrivateKey(
+            p=self.p,
+            q=self.q,
+            private_exponent=self.d,
+            dmp1=self.d % (self.p - 1),
+            dmq1=self.d % (self.q - 1),
+            iqmp=modinv(self.p, self.q),
+            public_exponent=self.e,
+            modulus=self.n
+        )
 
     def parse(self, packet):
+        super(RSAPriv, self).parse(packet)
         self.s2k.parse(packet)
 
         if not self.s2k:
-            self.d = self.decode_mpi(packet)
-            self.p = self.decode_mpi(packet)
-            self.q = self.decode_mpi(packet)
-            self.u = self.decode_mpi(packet)
+            self.d = MPI(packet)
+            self.p = MPI(packet)
+            self.q = MPI(packet)
+            self.u = MPI(packet)
 
             if self.s2k.usage == 0:
                 self.chksum = packet[:2]
@@ -596,44 +627,42 @@ class RSAPriv(PrivKey):
         kb = super(RSAPriv, self).decrypt_keyblob(passphrase)
         del passphrase
 
-        self.d = self.decode_mpi(kb)
-        self.p = self.decode_mpi(kb)
-        self.q = self.decode_mpi(kb)
-        self.u = self.decode_mpi(kb)
+        self.d = MPI(kb)
+        self.p = MPI(kb)
+        self.q = MPI(kb)
+        self.u = MPI(kb)
 
         if self.s2k.usage in [254, 255]:
             self.chksum = kb
             del kb
 
 
-class DSAPriv(PrivKey):
+class DSAPriv(PrivKey, DSAPub):
     def __init__(self):
-        super(DSAPriv, self).__init__()
-        self.x = bytearray()
+        DSAPub.__init__(self)
+        PrivKey.__init__(self)
+        self.x = 0
 
-    def __bytes__(self):
-        _bytes = bytearray()
-        _bytes += super(DSAPriv, self).__bytes__()
+    def __iter__(self):
+        for i in DSAPub.__iter__(self):
+            yield i
+        yield self.x
 
-        if not self.s2k:
-            _bytes += self.encode_mpi(self.x)
-
-            if self.s2k.usage == 0:
-                _bytes += self.chksum
-
-        return bytes(_bytes)
-
-    def __len__(self):
-        return len(self.s2k) + len(self.encbytes) if self.s2k else len(self.x) + 2
+    def __privkey__(self):
+        return dsa.DSAPrivateKey(modulus=self.p,
+                                 subgroup_order=self.q,
+                                 generator=self.g,
+                                 x=self.x,
+                                 y=self.y)
 
     def parse(self, packet):
+        super(DSAPriv, self).parse(packet)
         self.s2k.parse(packet)
 
         if not self.s2k:
-            self.x = self.decode_mpi(packet)
+            self.x = MPI(packet)
 
         else:
-            ##TODO: this needs to be bounded to the length of the encrypted key material
             self.encbytes = packet
 
         if self.s2k.usage in [0, 255]:
@@ -644,12 +673,47 @@ class DSAPriv(PrivKey):
         kb = super(DSAPriv, self).decrypt_keyblob(passphrase)
         del passphrase
 
-        self.x = self.decode_mpi(kb)
+        self.x = MPI(kb)
 
         if self.s2k.usage in [254, 255]:
             self.chksum = kb
             del kb
 
 
-class ElGPriv(DSAPriv):
-    pass
+class ElGPriv(PrivKey, ElGPub):
+    def __init__(self):
+        ElGPub.__init__(self)
+        PrivKey.__init__(self)
+        self.x = MPI(0)
+
+    def __iter__(self):
+        for i in ElGPub.__iter__(self):
+            yield i
+        yield self.x
+
+    def __privkey__(self):
+        raise NotImplementedError()
+
+    def parse(self, packet):
+        super(ElGPriv, self).parse(packet)
+        self.s2k.parse(packet)
+
+        if not self.s2k:
+            self.x = MPI(packet)
+
+        else:
+            self.encbytes = packet
+
+        if self.s2k.usage in [0, 255]:
+            self.chksum = packet[:2]
+            del packet[:2]
+
+    def decrypt_keyblob(self, passphrase):
+        kb = super(ElGPriv, self).decrypt_keyblob(passphrase)
+        del passphrase
+
+        self.x = MPI(kb)
+
+        if self.s2k.usage in [254, 255]:
+            self.chksum = kb
+            del kb

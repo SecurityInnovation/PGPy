@@ -171,21 +171,37 @@ class Opaque(Packet):
         del packet[:self.header.length if not hasattr(self.header, 'version') else (self.header.length - 1)]
 
 
-class MPI(Field):
-    @staticmethod
-    def encode_mpi(d):
+class MPI(int):
+    def __new__(cls, num):
+        mpi = num
+        if isinstance(num, (bytes, bytearray)):
+            fl = ((MPIs.bytes_to_int(num[:2]) + 7) // 8)
+            del num[:2]
+
+            mpi = MPIs.bytes_to_int(num[:fl])
+            del num[:fl]
+
+        return super(MPI, cls).__new__(cls, mpi)
+
+    def byte_length(self):
+        return ((self.bit_length() + 7) // 8)
+
+    def __bytes__(self):
         _bytes = bytearray()
-        di = MPI.bytes_to_int(d)
-        _bytes += MPI.int_to_bytes(di.bit_length(), 2)
-        _bytes += MPI.int_to_bytes(di, ((di.bit_length() + 7) // 8))
-        return _bytes
+        _bytes += MPIs.int_to_bytes(self.bit_length(), 2)
+        _bytes += MPIs.int_to_bytes(self, self.byte_length())
+        return bytes(_bytes)
 
-    @staticmethod
-    def decode_mpi(packet):
-        fl = (MPI.bytes_to_int(packet[:2]) + 7) // 8
-        del packet[:2]
+    def __len__(self):
+        return self.byte_length() + 2
 
-        mpi = packet[:fl]
-        del packet[:fl]
 
-        return mpi
+class MPIs(Field):
+    # this differs from MPI in that its' subclasses hold/parse several MPI fields
+    # and, in the case of v4 private keys, also a String2Key specifier/information.
+    def __len__(self):
+        return sum(len(i) for i in self)
+
+    @abc.abstractmethod
+    def __iter__(self):
+        yield None
