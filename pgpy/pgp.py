@@ -11,7 +11,66 @@ class PGPSignature(PGPObject, Exportable):
 
 
 class PGPKey(PGPObject, Exportable):
-    pass
+    @property
+    def magic(self):
+        raise NotImplementedError()
+
+    @property
+    def fingerprint(self):
+        raise NotImplementedError()
+
+    @property
+    def usageflags(self):
+        raise NotImplementedError()
+
+    @property
+    def cipherprefs(self):
+        raise NotImplementedError()
+
+    @property
+    def hashprefs(self):
+        raise NotImplementedError()
+
+    @property
+    def compprefs(self):
+        raise NotImplementedError()
+
+    def __init__(self):
+        super(PGPKey, self).__init__()
+        self._key = None
+        self._children = {}
+        self._uids = []
+        self._uattrs = []
+        self._signatures = {}
+
+    def __bytes__(self):
+        raise NotImplementedError()
+
+    @classmethod
+    def generate(cls):
+        raise NotImplementedError()
+
+    def protect(self):
+        raise NotImplementedError()
+
+    def unprotect(self):
+        raise NotImplementedError()
+
+    def sign(self, subject, **kwargs):
+        prefs = {'inline': False}
+        raise NotImplementedError()
+
+    def verify(self, subject, signature=None, **kwargs):
+        raise NotImplementedError()
+
+    def encrypt(self):
+        raise NotImplementedError()
+
+    def decrypt(self):
+        raise NotImplementedError()
+
+    def parse(self, data):
+        raise NotImplementedError()
 
 
 # # import calendar
