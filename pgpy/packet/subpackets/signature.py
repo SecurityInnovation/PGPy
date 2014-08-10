@@ -538,7 +538,7 @@ class Issuer(Signature):
 
     def __bytes__(self):
         _bytes = super(Issuer, self).__bytes__()
-        _bytes += binascii.unhexlify(self._issuer)
+        _bytes += binascii.unhexlify(self._issuer.encode())
         return _bytes
 
     def parse(self, packet):

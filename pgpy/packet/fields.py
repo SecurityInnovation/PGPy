@@ -9,6 +9,8 @@ import hashlib
 import itertools
 import math
 
+import six
+
 from cryptography.exceptions import UnsupportedAlgorithm
 
 from cryptography.hazmat.backends import default_backend
@@ -141,7 +143,7 @@ class UserAttributeSubPackets(SubPackets):
 
 class Signature(MPIs):
     def __bytes__(self):
-        return b''.join(bytes(i) for i in self)
+        return b''.join(i.to_mpibytes() for i in self)
 
 
 class RSASignature(Signature):
@@ -175,7 +177,7 @@ class PubKey(MPIs):
         return None
 
     def __bytes__(self):
-        return b''.join(bytes(i) for i in self)
+        return b''.join(i.to_mpibytes() for i in self)
 
     def publen(self):
         return len(self)
@@ -515,7 +517,7 @@ class PrivKey(PubKey):
                     _bytes += self.encbytes
                     break
 
-            _bytes += bytes(i)
+            _bytes += i.to_mpibytes()
 
         if self.s2k.usage == 0:
             _bytes += self.chksum
@@ -558,7 +560,7 @@ class PrivKey(PubKey):
             decryptor = cipher.decryptor()
 
         except UnsupportedAlgorithm as e:
-            raise PGPOpenSSLCipherNotSupported from e
+            six.reraise(PGPOpenSSLCipherNotSupported, e)
 
         pt = decryptor.update(bytes(self.encbytes)) + decryptor.finalize()
 

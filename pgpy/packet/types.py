@@ -171,7 +171,14 @@ class Opaque(Packet):
         del packet[:self.header.length if not hasattr(self.header, 'version') else (self.header.length - 1)]
 
 
-class MPI(int):
+# Python 2.7 shenanigans
+try:  # pragma: no cover
+    long
+except NameError:
+    long = int
+
+
+class MPI(long):
     def __new__(cls, num):
         mpi = num
         if isinstance(num, (bytes, bytearray)):
@@ -186,11 +193,8 @@ class MPI(int):
     def byte_length(self):
         return ((self.bit_length() + 7) // 8)
 
-    def __bytes__(self):
-        _bytes = bytearray()
-        _bytes += MPIs.int_to_bytes(self.bit_length(), 2)
-        _bytes += MPIs.int_to_bytes(self, self.byte_length())
-        return bytes(_bytes)
+    def to_mpibytes(self):
+        return MPIs.int_to_bytes(self.bit_length(), 2) + MPIs.int_to_bytes(self, self.byte_length())
 
     def __len__(self):
         return self.byte_length() + 2

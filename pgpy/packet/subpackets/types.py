@@ -48,7 +48,7 @@ class Header(_Header):
         return _bytes
 
 
-class SubPacket(Dispatchable, metaclass=abc.ABCMeta):  ##TODO: is this metaclass declaration necessary?
+class SubPacket(Dispatchable):
     __headercls__ = Header
 
     def __init__(self):

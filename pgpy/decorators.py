@@ -67,6 +67,10 @@ class TypedProperty(property):
 
             return type(self)(self.fget, self.fset, self.fdel, self.__doc__, **cur_setters)
 
+        # this fixes some python 2.7/3.2 shenanigans
+        if item == '__isabstractmethod__':
+            raise AttributeError(item)
+
         if item in self.__dict__ or item in ['fset', 'fget', 'fdel', '__doc__']:
             return self.__dict__[item]
 

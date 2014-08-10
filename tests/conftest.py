@@ -102,8 +102,12 @@ def pytest_configure(config):
 # pytest_generate_tests
 # called when each test method is collected to generate parametrizations
 def pytest_generate_tests(metafunc):
-    if not keyword.iskeyword('nonlocal'):
-        _outer = locals()
+    global spdir
+    global pdir
+    global params
+    global argvals
+    global ids
+    global tdata
 
     spdir = 'subpackets/'
     pdir = 'packets/'
@@ -115,15 +119,10 @@ def pytest_generate_tests(metafunc):
     tdata = []
 
     def pheader():
-        if keyword.iskeyword('nonlocal'):
-            nonlocal params
-            nonlocal argvals
-            nonlocal ids
-
-        else:
-            params = _outer['params']
-            argvals = _outer['argvals']
-            ids = _outer['ids']
+        # in 3.x this can be 'nonlocal' but that causes syntax errors in 2.7
+        global params
+        global argvals
+        global ids
 
         params += ['pheader']
         argvals += [[
@@ -145,19 +144,13 @@ def pytest_generate_tests(metafunc):
             bytearray(b'\x8a' + b'\x00\x01\x00\x00' +     (b'\x00' * 65536) + b'\xca\xfe\xba\xbe'),
         ]]
 
-        ids = ['new_1_191', 'new_2_192', 'new_2_8383', 'new_5_8384',
+        ids += ['new_1_191', 'new_2_192', 'new_2_8383', 'new_5_8384',
                'old_1_255', 'old_2_256', 'old_4_65536']
 
     def spheader():
-        if keyword.iskeyword('nonlocal'):
-            nonlocal params
-            nonlocal argvals
-            nonlocal ids
-
-        else:
-            params = _outer['params']
-            argvals = _outer['argvals']
-            ids = _outer['ids']
+        global params
+        global argvals
+        global ids
 
         params += ['spheader']
         argvals += [[
@@ -176,15 +169,9 @@ def pytest_generate_tests(metafunc):
         ids += ['1_191', '2_192', '2_8383', '5_8384', '5_65535']
 
     def sis2k():
-        if keyword.iskeyword('nonlocal'):
-            nonlocal params
-            nonlocal argvals
-            nonlocal ids
-
-        else:
-            params = _outer['params']
-            argvals = _outer['argvals']
-            ids = _outer['ids']
+        global params
+        global argvals
+        global ids
 
         params += ['sis2k']
         argvals += [[ (bytearray(i) +
@@ -197,15 +184,9 @@ def pytest_generate_tests(metafunc):
         ids = ['sis2k_' + str(i) for i in range(len(argvals[-1]))]
 
     def sas2k():
-        if keyword.iskeyword('nonlocal'):
-            nonlocal params
-            nonlocal argvals
-            nonlocal ids
-
-        else:
-            params = _outer['params']
-            argvals = _outer['argvals']
-            ids = _outer['ids']
+        global params
+        global argvals
+        global ids
 
         params += ['sas2k']
         argvals += [[ (bytearray(i) +
@@ -216,18 +197,12 @@ def pytest_generate_tests(metafunc):
                                        b'\x01',                                         # specifier (simple)
                                        b'\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B') # hash algorithm
                     ]]
-        ids = ['sis2k_' + str(i) for i in range(len(argvals[-1]))]
+        ids += ['sis2k_' + str(i) for i in range(len(argvals[-1]))]
 
     def is2k():
-        if keyword.iskeyword('nonlocal'):
-            nonlocal params
-            nonlocal argvals
-            nonlocal ids
-
-        else:
-            params = _outer['params']
-            argvals = _outer['argvals']
-            ids = _outer['ids']
+        global params
+        global argvals
+        global ids
 
         params += ['is2k']
         argvals += [[ (bytearray(i) +
@@ -239,74 +214,50 @@ def pytest_generate_tests(metafunc):
                                        b'\x03',                                         # specifier (simple)
                                        b'\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B') # hash algorithm
                     ]]
-        ids = ['is2k_' + str(i) for i in range(len(argvals[-1]))]
+        ids += ['is2k_' + str(i) for i in range(len(argvals[-1]))]
 
     @CWD_As('tests/testdata')
     def sigsubpacket():
-        if keyword.iskeyword('nonlocal'):
-            nonlocal params
-            nonlocal tdata
-            nonlocal spdir
-
-        else:
-            params = _outer['params']
-            tdata = _outer['tdata']
+        global spdir
+        global params
+        global tdata
 
         params += ['sigsubpacket']
         tdata += [sorted([ spdir + f for f in os.listdir(spdir) if f.endswith('signature') ])]
 
     @CWD_As('tests/testdata')
     def uasubpacket():
-        if keyword.iskeyword('nonlocal'):
-            nonlocal params
-            nonlocal tdata
-            nonlocal spdir
-
-        else:
-            params = _outer['params']
-            tdata = _outer['tdata']
+        global spdir
+        global params
+        global tdata
 
         params += ['uasubpacket']
         tdata += [sorted([ spdir + f for f in os.listdir(spdir) if f.endswith('userattr') ])]
 
     @CWD_As('tests/testdata')
     def packet():
-        if keyword.iskeyword('nonlocal'):
-            nonlocal params
-            nonlocal tdata
-            nonlocal pdir
-
-        else:
-            params = _outer['params']
-            tdata = _outer['tdata']
+        global pdir
+        global params
+        global tdata
 
         params += ['packet']
         tdata += [sorted([ pdir + f for f in os.listdir(pdir) ])]
 
     @CWD_As('tests/testdata')
     def ekpacket():
-        if keyword.iskeyword('nonlocal'):
-            nonlocal params
-            nonlocal tdata
-            nonlocal pdir
-
-        else:
-            params = _outer['params']
-            tdata = _outer['tdata']
+        global pdir
+        global params
+        global tdata
+        global pdir
 
         params += ['ekpacket']
         tdata += [sorted([ pdir + f for f in os.listdir(pdir) if f.startswith('05.v4.enc') ])]
 
     @CWD_As('tests/testdata')
     def ukpacket():
-        if keyword.iskeyword('nonlocal'):
-            nonlocal params
-            nonlocal tdata
-            nonlocal pdir
-
-        else:
-            params = _outer['params']
-            tdata = _outer['tdata']
+        global pdir
+        global params
+        global tdata
 
         params += ['ukpacket']
         tdata += [sorted([ pdir + f for f in os.listdir(pdir) if f.startswith('05.v4.unc') ])]
@@ -319,15 +270,9 @@ def pytest_generate_tests(metafunc):
 
     @CWD_As('tests/testdata')
     def _loadbytearrays():
-        if keyword.iskeyword('nonlocal'):
-            nonlocal argvals
-            nonlocal tdata
-            nonlocal ids
-
-        else:
-            argvals = _outer['argvals']
-            ids = _outer['ids']
-            tdata = _outer['tdata']
+        global argvals
+        global tdata
+        global ids
 
         # quick error checking
         if len(set([len(stl) for stl in tdata])) > 1:

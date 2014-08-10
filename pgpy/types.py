@@ -15,6 +15,8 @@ from enum import IntEnum
 
 import requests
 
+import six
+
 from ._author import __version__
 
 from .decorators import TypedProperty
@@ -103,9 +105,7 @@ class FileLoader(object):
             fp.write(self.__bytes__() if binary else str(self))
 
 
-class Exportable(FileLoader, metaclass=abc.ABCMeta):
-    __metaclass__ = abc.ABCMeta
-
+class Exportable(six.with_metaclass(abc.ABCMeta, FileLoader)):
     __crc24_init__ = 0x0B704CE
     __crc24_poly__ = 0x1864CFB
 
@@ -219,7 +219,7 @@ class Exportable(FileLoader, metaclass=abc.ABCMeta):
         return crc & 0xFFFFFF
 
 
-class PGPObject(object, metaclass=abc.ABCMeta):
+class PGPObject(six.with_metaclass(abc.ABCMeta, object)):
     __metaclass__ = abc.ABCMeta
 
     @staticmethod
@@ -460,7 +460,7 @@ class MetaDispatchable(abc.ABCMeta):
         return obj
 
 
-class Dispatchable(PGPObject, metaclass=MetaDispatchable):
+class Dispatchable(six.with_metaclass(MetaDispatchable, PGPObject)):
     __metaclass__ = MetaDispatchable
 
     @abc.abstractproperty
@@ -516,7 +516,7 @@ class FlagEnumMeta(EnumMeta):
         return set([f for f in self._member_map_.values() if f.value & other])
 
 
-class FlagEnum(IntEnum, metaclass=FlagEnumMeta):
+class FlagEnum(six.with_metaclass(FlagEnumMeta, IntEnum)):
     pass
 
 

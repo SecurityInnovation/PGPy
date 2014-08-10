@@ -6,6 +6,9 @@ import itertools
 import os
 import re
 
+# compatibility shenanigans for Python 2.7
+if not hasattr(re, 'ASCII'):
+    re.ASCII = 0
 
 def is_ascii(text):
     if not isinstance(text, (str, bytes, bytearray)):
