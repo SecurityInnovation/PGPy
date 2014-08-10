@@ -48,6 +48,7 @@ class Image(UserAttribute):
     @TypedProperty
     def version(self):
         return self._version
+
     @version.int
     def version(self, val):
         self._version = val
@@ -55,9 +56,11 @@ class Image(UserAttribute):
     @TypedProperty
     def iencoding(self):
         return self._iencoding
+
     @iencoding.ImageEncoding
     def iencoding(self, val):
         self._iencoding = val
+
     @iencoding.int
     def iencoding(self, val):
         try:
@@ -69,6 +72,7 @@ class Image(UserAttribute):
     @TypedProperty
     def image(self):
         return self._image
+
     @image.bytearray
     @image.bytes
     def image(self, val):
@@ -93,7 +97,7 @@ class Image(UserAttribute):
 
     def parse(self, packet):
         super(Image, self).parse(packet)
-        _, self.version, self.iencoding, _, _, _= struct.unpack('<hbbiii', packet[:16])
+        _, self.version, self.iencoding, _, _, _ = struct.unpack('<hbbiii', packet[:16])
         del packet[:16]
         self.image = packet[:(self.header.length - 17)]
         del packet[:(self.header.length - 17)]

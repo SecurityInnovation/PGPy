@@ -352,9 +352,11 @@ class String2Key(Field):
     @TypedProperty
     def encalg(self):
         return self._encalg
+
     @encalg.SymmetricKeyAlgorithm
     def encalg(self, val):
         self._encalg = val
+
     @encalg.int
     def encalg(self, val):
         self.encalg = SymmetricKeyAlgorithm(val)
@@ -362,9 +364,11 @@ class String2Key(Field):
     @TypedProperty
     def specifier(self):
         return self._specifier
+
     @specifier.String2KeyType
     def specifier(self, val):
         self._specifier = val
+
     @specifier.int
     def specifier(self, val):
         self.specifier = String2KeyType(val)
@@ -372,9 +376,11 @@ class String2Key(Field):
     @TypedProperty
     def halg(self):
         return self._halg
+
     @halg.HashAlgorithm
     def halg(self, val):
         self._halg = val
+
     @halg.int
     def halg(self, val):
         self.halg = HashAlgorithm(val)
@@ -382,6 +388,7 @@ class String2Key(Field):
     @TypedProperty
     def count(self):
         return (16 + (self._count & 15)) << ((self._count >> 4) + 6)
+
     @count.int
     def count(self, val):
         self._count = val
@@ -460,7 +467,6 @@ class String2Key(Field):
         hashlen = self.halg.digest_size * 8
 
         ctx = int(math.ceil((keylen / hashlen)))
-
 
         # Simple S2K - always done
         hsalt = b''

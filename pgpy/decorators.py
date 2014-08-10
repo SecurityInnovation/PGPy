@@ -5,6 +5,7 @@ import functools
 
 from .errors import PGPError
 
+
 class TypedProperty(property):
     """
     """
@@ -50,7 +51,7 @@ class TypedProperty(property):
 
             This should work with anything, because fset{x} is set by the setter, and selected by __class__.__name__
             """
-            cur_setters = dict((k, v) for k, v in self.__dict__.items()) # if k[:4] == 'fset' and k != 'fset'
+            cur_setters = dict((k, v) for k, v in self.__dict__.items())  # if k[:4] == 'fset' and k != 'fset'
             if isinstance(ftypedsetter, TypedProperty):
                 # ftypedsetter at this point is a TypedProperty
                 # in this instance, something like this happened:

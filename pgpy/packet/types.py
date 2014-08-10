@@ -15,6 +15,7 @@ class Header(_Header):
     @TypedProperty
     def tag(self):
         return self._tag
+
     @tag.int
     def tag(self, val):
         self._tag = (val & 0x3F) if self._lenfmt else ((val & 0x3C) >> 2)
@@ -94,6 +95,7 @@ class VersionedHeader(Header):
     @TypedProperty
     def version(self):
         return self._version
+
     @version.int
     def version(self, val):
         self._version = val
@@ -141,6 +143,7 @@ class Packet(Dispatchable):
 
 class VersionedPacket(Packet):
     __headercls__ = VersionedHeader
+
     def __repr__(self):
         return "<{cls:s} [tag 0x{tag:02d}][v{ver:d}] at 0x{id:x}>".format(cls=self.__class__.__name__, tag=self.header.tag, ver=self.header.version, id=id(self))
 
@@ -151,6 +154,7 @@ class Opaque(Packet):
     @TypedProperty
     def payload(self):
         return self._payload
+
     @payload.bytearray
     @payload.bytes
     def payload(self, val):

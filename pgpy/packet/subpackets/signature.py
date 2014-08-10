@@ -29,9 +29,11 @@ class URI(Signature):
     @TypedProperty
     def uri(self):
         return self._uri
+
     @uri.str
     def uri(self, val):
         self._uri = val
+
     @uri.bytearray
     @uri.bytes
     def uri(self, val):
@@ -58,21 +60,25 @@ class FlagList(Signature):
     @TypedProperty
     def flags(self):
         return self._flags
+
     @flags.list
     def flags(self, val):
         self._flags = val
+
     @flags.CompressionAlgorithm
     @flags.HashAlgorithm
     @flags.PubKeyAlgorithm
     @flags.SymmetricKeyAlgorithm
     def flags(self, val):
         self.flags.append(val)
+
     @flags.int
     def flags(self, val):
         if self.__flags__ is None:
             raise AttributeError("Error: __flags__ not set!")
 
         self.flags.append(self.__flags__(val))
+
     @flags.bytearray
     @flags.bytes
     def flags(self, val):
@@ -100,17 +106,21 @@ class ByteFlag(Signature):
     @TypedProperty
     def flags(self):
         return self._flags
+
     @flags.list
     def flags(self, val):
         self._flags = val
+
     @flags.KeyFlags
     def flags(self, val):
         self.flags.append(val)
+
     @flags.int
     def flags(self, val):
         if self.__flags__ is None:
             raise AttributeError("Error: __flags__ not set!")
         self.flags += self.__flags__ & val
+
     @flags.bytearray
     @flags.bytes
     def flags(self, val):
@@ -136,9 +146,11 @@ class Boolean(Signature):
     @TypedProperty
     def bool(self):
         return self._bool
+
     @bool.bool
     def bool(self, val):
         self._bool = val
+
     @bool.bytearray
     @bool.bytes
     def bool(self, val):
@@ -182,12 +194,15 @@ class CreationTime(Signature):
     @TypedProperty
     def created(self):
         return self._created
+
     @created.datetime
     def created(self, val):
         self._created = val
+
     @created.int
     def created(self, val):
         self.created = datetime.utcfromtimestamp(val)
+
     @created.bytearray
     @created.bytes
     def created(self, val):
@@ -224,9 +239,11 @@ class SignatureExpirationTime(Signature):
     @TypedProperty
     def expires(self):
         return self._expires
+
     @expires.int
     def expires(self, val):
         self._expires = val
+
     @expires.bytearray
     @expires.bytes
     def expires(self, val):
@@ -304,9 +321,11 @@ class TrustSignature(Signature):
     @TypedProperty
     def level(self):
         return self._level
+
     @level.int
     def level(self, val):
         self._level = val
+
     @level.bytearray
     @level.bytes
     def level(self, val):
@@ -315,10 +334,12 @@ class TrustSignature(Signature):
     @TypedProperty
     def amount(self):
         return self._amount
+
     @amount.int
     def amount(self, val):
         # clamp 'val' to the range 0-255
         self._amount = max(0, min(val, 255))
+
     @amount.bytearray
     @amount.bytes
     def amount(self, val):
@@ -362,9 +383,11 @@ class RegularExpression(Signature):
     @TypedProperty
     def regex(self):
         return self._regex
+
     @regex.str
     def regex(self, val):
         self._regex = val
+
     @regex.bytearray
     @regex.bytes
     def regex(self, val):
@@ -460,15 +483,19 @@ class RevocationKey(Signature):
     @TypedProperty
     def keyclass(self):
         return self._keyclass
+
     @keyclass.list
     def keyclass(self, val):
         self._keyclass = val
+
     @keyclass.RevocationKeyClass
     def keyclass(self, val):
         self.keyclass.append(val)
+
     @keyclass.int
     def keyclass(self, val):
         self.keyclass += RevocationKeyClass & val
+
     @keyclass.bytearray
     @keyclass.bytes
     def keyclass(self, val):
@@ -477,12 +504,15 @@ class RevocationKey(Signature):
     @TypedProperty
     def algorithm(self):
         return self._algorithm
+
     @algorithm.PubKeyAlgorithm
     def algorithm(self, val):
         self._algorithm = val
+
     @algorithm.int
     def algorithm(self, val):
         self.algorithm = PubKeyAlgorithm(val)
+
     @algorithm.bytearray
     @algorithm.bytes
     def algorithm(self, val):
@@ -491,12 +521,15 @@ class RevocationKey(Signature):
     @TypedProperty
     def fingerprint(self):
         return self._fingerprint
+
     @fingerprint.Fingerprint
     def fingerprint(self, val):
         self._fingerprint = val
+
     @fingerprint.str
     def fingerprint(self, val):
         self.fingerprint = Fingerprint(val)
+
     @fingerprint.bytearray
     @fingerprint.bytes
     def fingerprint(self, val):
@@ -531,6 +564,7 @@ class Issuer(Signature):
     @TypedProperty
     def issuer(self):
         return self._issuer
+
     @issuer.bytearray
     def issuer(self, val):
         self.header.length = len(val) + 1
@@ -553,15 +587,19 @@ class NotationData(Signature):
     @TypedProperty
     def flags(self):
         return self._flags
+
     @flags.list
     def flags(self, val):
         self._flags = val
+
     @flags.NotationDataFlags
     def flags(self, val):
         self.flags.append(val)
+
     @flags.int
     def flags(self, val):
         self.flags += NotationDataFlags & val
+
     @flags.bytearray
     @flags.bytes
     def flags(self, val):
@@ -570,9 +608,11 @@ class NotationData(Signature):
     @TypedProperty
     def name(self):
         return self._name
+
     @name.str
     def name(self, val):
         self._name = val
+
     @name.bytearray
     @name.bytes
     def name(self, val):
@@ -581,9 +621,11 @@ class NotationData(Signature):
     @TypedProperty
     def value(self):
         return self._value
+
     @value.str
     def value(self, val):
         self._value = val
+
     @value.bytearray
     @value.bytes
     def value(self, val):
@@ -647,9 +689,11 @@ class PrimaryUserID(Signature):
     @TypedProperty
     def primary(self):
         return self._primary
+
     @primary.bool
     def primary(self, val):
         self._primary = val
+
     @primary.bytearray
     @primary.bytes
     def primary(self, val):
@@ -685,9 +729,11 @@ class SignersUserID(Signature):
     @TypedProperty
     def userid(self):
         return self._userid
+
     @userid.str
     def userid(self, val):
         self._userid = val
+
     @userid.bytearray
     @userid.bytes
     def userid(self, val):
@@ -714,12 +760,15 @@ class ReasonForRevocation(Signature):
     @TypedProperty
     def code(self):
         return self._code
+
     @code.RevocationReason
     def code(self, val):
         self._code = val
+
     @code.int
     def code(self, val):
         self.code = RevocationReason(val)
+
     @code.bytearray
     @code.bytes
     def code(self, val):
@@ -728,9 +777,11 @@ class ReasonForRevocation(Signature):
     @TypedProperty
     def string(self):
         return self._string
+
     @string.str
     def string(self, val):
         self._string = val
+
     @string.bytearray
     @string.bytes
     def string(self, val):

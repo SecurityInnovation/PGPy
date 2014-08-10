@@ -57,7 +57,7 @@ class PGPKey(PGPObject, Exportable):
         raise NotImplementedError()
 
     def sign(self, subject, **kwargs):
-        prefs = {'inline': False}
+        # prefs = {'inline': False}
         raise NotImplementedError()
 
     def verify(self, subject, signature=None, **kwargs):

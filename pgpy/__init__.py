@@ -15,4 +15,5 @@ __all__ = [__author__,
            __version__,
            PGPError,
            PGPKeyDecryptionError,
-           PGPOpenSSLCipherNotSupported,]
+           PGPOpenSSLCipherNotSupported,
+           ]

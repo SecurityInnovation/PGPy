@@ -123,7 +123,7 @@ class Exportable(six.with_metaclass(abc.ABCMeta, FileLoader)):
     def __init__(self):
         super(Exportable, self).__init__()
         self.ascii_headers = collections.OrderedDict()
-        self.ascii_headers['Version'] = 'PGPy v' + __version__ # Default value
+        self.ascii_headers['Version'] = 'PGPy v' + __version__  # Default value
 
     @abc.abstractmethod
     def __bytes__(self):
@@ -202,7 +202,6 @@ class Exportable(six.with_metaclass(abc.ABCMeta, FileLoader)):
         if data is None:
             data = self.__bytes__()
 
-
         crc = self.__crc24_init__
         # sig = [ ord(i) for i in data ] if type(data) is str else data
         # sig = bytearray()
@@ -270,7 +269,6 @@ class Header(Field):
 
             return b'\xFF' + Header.int_to_bytes(l, 4)
 
-
         def _old_length(l, llen):
             return Header.int_to_bytes(l, llen) if llen > 0 else b''
 
@@ -279,9 +277,11 @@ class Header(Field):
     @TypedProperty
     def length(self):
         return self._len
+
     @length.int
     def length(self, val):
         self._len = val
+
     @length.bytearray
     @length.bytes
     def length(self, val):
@@ -334,6 +334,7 @@ class Header(Field):
             # old-format length
             ##TODO: what if _llen needs to be (re)computed?
             return self._llen
+
     @llen.int
     def llen(self, val):
         if self._lenfmt == 0:
@@ -390,8 +391,8 @@ class MetaDispatchable(abc.ABCMeta):
          - the given typeid/ver combination is not already registered
     """
 
-    def __new__(mcls, name, bases, attrs):
-        ncls = super(MetaDispatchable, mcls).__new__(mcls, name, bases, attrs)
+    def __new__(mcs, name, bases, attrs):  # NOQA
+        ncls = super(MetaDispatchable, mcs).__new__(mcs, name, bases, attrs)
 
         if not hasattr(ncls.__typeid__, '__isabstractmethod__'):
             if ncls.__typeid__ == -1 and not issubclass(ncls, tuple(MetaDispatchable._roots)):
@@ -403,14 +404,14 @@ class MetaDispatchable(abc.ABCMeta):
                     if (rcls, ncls.__typeid__) not in MetaDispatchable._registry:
                         MetaDispatchable._registry[(rcls, ncls.__typeid__)] = ncls
 
-                    if (ncls.__ver__ != None and ncls.__ver__ > 0 and
-                                (rcls, ncls.__typeid__, ncls.__ver__) not in MetaDispatchable._registry):
+                    if (ncls.__ver__ is not None and ncls.__ver__ > 0 and
+                            (rcls, ncls.__typeid__, ncls.__ver__) not in MetaDispatchable._registry):
                         MetaDispatchable._registry[(rcls, ncls.__typeid__, ncls.__ver__)] = ncls
 
         # finally, return the new class object
         return ncls
 
-    def __call__(cls, packet=None):
+    def __call__(cls, packet=None):  # NOQA
         def _makeobj(cls):
             obj = object.__new__(cls)
             obj.__init__()
@@ -445,10 +446,8 @@ class MetaDispatchable(abc.ABCMeta):
                     else:
                         ncls = None
 
-
-            if ncls == None:
+            if ncls is None:
                 ncls = MetaDispatchable._registry[(rcls, None)]
-
 
             obj = _makeobj(ncls)
             obj.header = header

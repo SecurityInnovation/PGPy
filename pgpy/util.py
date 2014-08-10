@@ -10,6 +10,7 @@ import re
 if not hasattr(re, 'ASCII'):
     re.ASCII = 0
 
+
 def is_ascii(text):
     if not isinstance(text, (str, bytes, bytearray)):
         raise ValueError("Expected: ASCII input of type str, bytes, or bytearray")
@@ -45,6 +46,7 @@ def is_path(ppath):
 ##TODO: asn1_seqint_to_tuple needs to move
 bytes_to_int = lambda x: int.from_bytes(x, 'big')
 int_to_bytes = lambda x, y=1: x.to_bytes(y, 'big')
+
 
 def asn1_seqint_to_tuple(asn1block):
     # very limited asn1 decoder - only intended to decode a DER encoded sequence of integers

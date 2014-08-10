@@ -95,9 +95,11 @@ class SignatureV4(Signature):
     @TypedProperty
     def sigtype(self):
         return self._sigtype
+
     @sigtype.SignatureType
     def sigtype(self, val):
         self._sigtype = val
+
     @sigtype.int
     def sigtype(self, val):
         self.sigtype = SignatureType(val)
@@ -105,6 +107,7 @@ class SignatureV4(Signature):
     @TypedProperty
     def pubalg(self):
         return self._pubalg
+
     @pubalg.PubKeyAlgorithm
     def pubalg(self, val):
         self._pubalg = val
@@ -113,6 +116,7 @@ class SignatureV4(Signature):
 
         elif val == PubKeyAlgorithm.DSA:
             self.signature = DSASignature()
+
     @pubalg.int
     def pubalg(self, val):
         self.pubalg = PubKeyAlgorithm(val)
@@ -120,9 +124,11 @@ class SignatureV4(Signature):
     @TypedProperty
     def halg(self):
         return self._halg
+
     @halg.HashAlgorithm
     def halg(self, val):
         self._halg = val
+
     @halg.int
     def halg(self, val):
         try:
@@ -134,6 +140,7 @@ class SignatureV4(Signature):
     @property
     def signature(self):
         return self._signature
+
     @signature.setter
     def signature(self, val):
         self._signature = val
@@ -202,12 +209,15 @@ class PubKeyV4(PubKey):
     @TypedProperty
     def created(self):
         return self._created
+
     @created.datetime
     def created(self, val):
         self._created = val
+
     @created.int
     def created(self, val):
         self.created = datetime.utcfromtimestamp(val)
+
     @created.bytearray
     @created.bytes
     def created(self, val):
@@ -216,6 +226,7 @@ class PubKeyV4(PubKey):
     @TypedProperty
     def pkalg(self):
         return self._pkalg
+
     @pkalg.PubKeyAlgorithm
     def pkalg(self, val):
         self._pkalg = val
@@ -244,6 +255,7 @@ class PubKeyV4(PubKey):
 
         else:
             self.keymaterial = None
+
     @pkalg.int
     def pkalg(self, val):
         self.pkalg = PubKeyAlgorithm(val)
@@ -349,9 +361,11 @@ class Trust(Packet):
     @TypedProperty
     def trustlevel(self):
         return self._trustlevel
+
     @trustlevel.TrustLevel
     def trustlevel(self, val):
         self._trustlevel = val
+
     @trustlevel.int
     def trustlevel(self, val):
         self.trustlevel = TrustLevel(val & 0x0F)
@@ -359,9 +373,11 @@ class Trust(Packet):
     @TypedProperty
     def trustflags(self):
         return self._trustflags
+
     @trustflags.list
     def trustflags(self, val):
         self._trustflags = val
+
     @trustflags.int
     def trustflags(self, val):
         self._trustflags = TrustFlags & val

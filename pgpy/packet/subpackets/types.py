@@ -11,6 +11,7 @@ class Header(_Header):
     @TypedProperty
     def critical(self):
         return self._critical
+
     @critical.bool
     def critical(self, val):
         self._critical = val
@@ -18,9 +19,11 @@ class Header(_Header):
     @TypedProperty
     def typeid(self):
         return self._typeid
+
     @typeid.int
     def typeid(self, val):
         self._typeid = val & 0x7f
+
     @typeid.bytearray
     @typeid.bytes
     def typeid(self, val):
@@ -58,7 +61,7 @@ class SubPacket(Dispatchable):
         # if self.__typeid__ not in [-1, None]:
         if (self.header.typeid == 0x00
                 and (not hasattr(self.__typeid__, '__abstractmethod__'))
-                and (not self.__typeid__ in [-1, None])):
+                and (self.__typeid__ not in [-1, None])):
             self.header.typeid = self.__typeid__
 
     def __bytes__(self):
@@ -90,6 +93,7 @@ class Opaque(Signature, UserAttribute):
     @TypedProperty
     def payload(self):
         return self._payload
+
     @payload.bytearray
     @payload.bytes
     def payload(self, val):
