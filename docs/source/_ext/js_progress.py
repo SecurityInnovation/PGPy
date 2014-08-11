@@ -5,12 +5,11 @@ import re
 
 from docutils import nodes
 from docutils.parsers.rst import Directive
-from docutils.parsers.rst import directives
 from docutils.statemachine import StringList
 
 
-class JSProgressCell(nodes.General, nodes.TextElement):
-    tagname = 'td'
+class progress(nodes.General, nodes.Element):
+    tagname = 'progress'
 
 
 class JSProgressTable(Directive):
@@ -25,7 +24,6 @@ class JSProgressTable(Directive):
         hrow += nodes.entry('', nodes.paragraph(text=label), classes=['head'] + list(classes))
         hrow += nodes.entry('', nodes.paragraph(text='PLACEHOLDER'), classes=['PLACEHOLDER'])
         return hrow
-
 
     def create_progtable(self, **attrs):
         _attrs = {
@@ -56,6 +54,13 @@ class JSProgressTable(Directive):
         # return the table
         return node
 
+    def add_progbar(self, row, val, max):
+        entry = nodes.entry(classes=['progcell'])
+        pbar = progress(value=val, max=max)
+        entry += pbar
+
+        row.replace(row.children[-1], entry)
+
     def run(self):
         secid = [self.arguments[0].lower().replace(' ', '-')]
         section = nodes.section(ids=secid)
@@ -81,7 +86,7 @@ class JSProgressTable(Directive):
             if nl is not None:
                 if cur != "":
                     # finish up shrow
-                    shrow.replace(shrow.children[-1], JSProgressCell(text="{:d}/{:d}".format(len([c for c in comps[cur] if c == True]), len(comps[cur]))))
+                    self.add_progbar(shrow, len([c for c in comps[cur] if c == True]), len(comps[cur]))
 
                 cur = nl.groupdict()['component']
 
@@ -105,60 +110,33 @@ class JSProgressTable(Directive):
                 body += tr
 
         # finish up the final hrow
-        shrow.replace(shrow.children[-1], JSProgressCell(text="{:d}/{:d}".format(len([c for c in comps[cur] if c == True]), len(comps[cur]))))
+        self.add_progbar(shrow, len([c for c in comps[cur] if c == True]), len(comps[cur]))
 
 
         # and fill in the end of mrow
-        head.replace(head.children[-1], JSProgressCell(text="{:d}/{:d}".format(len([c for r in comps.values() for c in r if c == True]),
-                                                                               len([c for r in comps.values() for c in r]))))
+        self.add_progbar(head, len([c for r in comps.values() for c in r if c == True]), len([c for r in comps.values() for c in r]))
+
 
         return [section]
 
 
-def visit_progcell(self, node):
-    table = node.parent.parent
-    row = node.parent
+def visit_progress(self, node):
+    attrs = {'value': 0,
+             'max': 0}
+    for a in attrs.keys():
+        if a in node.attributes:
+            attrs[a] = node.attributes[a]
 
-    text = node.astext()
-    if text != '':
-        node.remove(text)
-        encoded = self.encode(text)
-
-    if 'outer' in table.parent.parent.attributes['classes']:
-        classes = 'progtop'
-
-    self.body.append(self.starttag(node, 'th' if isinstance(row.parent, nodes.thead) else 'td', '', CLASS=classes))
-    self.body.append(self.starttag(node, 'div', '', CLASS='ui-progressbar'))
-    self.body.append(self.starttag(node, 'div', '', CLASS='progress-label'))
-
-    if text != '':
-        self.body.append(encoded)
-
-def depart_progcell(self, node):
-    self.body.append('</div></div>')
-    self.depart_description(node)
+    self.body.append('<label>{}/{}</label>'.format(attrs['value'], attrs['max']))
+    self.body.append(self.starttag(node, node.tagname, **attrs))
+    self.body.append('</progress>')
 
 
-def progress_insert_js(app, doctree):
-    if len(doctree.traverse(JSProgressCell)) > 0:
-        # add jquery-ui
-        app.add_javascript('jquery-ui.min.js')
-        app.add_stylesheet('jquery-ui.min.css')
-        app.add_stylesheet('jquery-ui.theme.min.css')
-
-        # add progress.{js,css}
-        app.add_javascript('progress.js')
-        app.add_stylesheet('progress.css')
+def depart_progress(self, node):
+    pass
 
 
 def setup(app):
-    # add directive(s): progbar, and some nodes to handle some pieces
-    # app.add_node(JSProgressTableNode,
-    #              html=(visit_progress, depart_progress))
-    app.add_node(JSProgressCell,
-                 html=(visit_progcell, depart_progcell))
-
-    # add a hook to insert the progress bar javascript into a page using progress
-    app.connect('doctree-read', progress_insert_js)
-
+    app.add_stylesheet('progress.css')
+    app.add_node(progress, html=(visit_progress, depart_progress))
     app.add_directive('progress', JSProgressTable)
