@@ -12,7 +12,7 @@ class progress(nodes.General, nodes.Element):
     tagname = 'progress'
 
 
-class JSProgressTable(Directive):
+class ProgressTable(Directive):
     has_content = True
     required_arguments = 1
     final_argument_whitespace = True
@@ -139,4 +139,4 @@ def depart_progress(self, node):
 def setup(app):
     app.add_stylesheet('progress.css')
     app.add_node(progress, html=(visit_progress, depart_progress))
-    app.add_directive('progress', JSProgressTable)
+    app.add_directive('progress', ProgressTable)

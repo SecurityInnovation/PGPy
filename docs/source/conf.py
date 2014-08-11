@@ -37,7 +37,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
     'sphinx.ext.todo',
-    '_ext.js_progress',
+    '_ext.progress',
     # 'sphinx.ext.doctest',
     # 'sphinx.ext.coverage',
     # 'sphinx.ext.mathjax',
