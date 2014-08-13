@@ -114,7 +114,7 @@ class PGPSignature(PGPObject, Exportable):
         return self._signature.sigtype
 
     def __init__(self):
-        super(PGPSignature).__init__()
+        super(PGPSignature, self).__init__()
         self._signature = None
 
     def __bytes__(self):
