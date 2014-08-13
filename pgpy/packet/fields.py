@@ -143,6 +143,10 @@ class Signature(MPIs):
     def __bytes__(self):
         return b''.join(i.to_mpibytes() for i in self)
 
+    @abc.abstractproperty
+    def __sig__(self):
+        return b''
+
 
 class RSASignature(Signature):
     def __init__(self):
@@ -150,6 +154,9 @@ class RSASignature(Signature):
 
     def __iter__(self):
         yield self.md_mod_n
+
+    def __sig__(self):
+        return self.md_mod_n.to_mpibytes()[2:]
 
     def parse(self, packet):
         self.md_mod_n = MPI(packet)
@@ -163,6 +170,31 @@ class DSASignature(Signature):
     def __iter__(self):
         yield self.r
         yield self.s
+
+    def __sig__(self):
+        # return the signature data into an ASN.1 sequence of integers in DER format
+        # (see http://en.wikipedia.org/wiki/Abstract_Syntax_Notation_One#Example_encoded_in_DER)
+
+        def _der_flen(i):
+            _b = b''
+            # returns the length of byte field i
+            ilen = len(i)
+            bilen = self.int_to_bytes(ilen)
+
+            # long-form must be used ilen > 127
+            if len(bilen) > 127:
+                _b += 0x80 ^ len(bilen)
+            return _b + bilen
+
+        def _der_intf(i):
+            bf = self.int_to_bytes(i)
+            return b'\x02' + _der_flen(bf) + bf
+
+        # construct the sequence of integers
+        fbytes = b''.join([_der_intf(i) for i in self])
+
+        # now mark it as a sequence and return
+        return b'\x30' + _der_flen(fbytes) + fbytes
 
     def parse(self, packet):
         self.r = MPI(packet)

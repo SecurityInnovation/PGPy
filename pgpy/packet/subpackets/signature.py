@@ -6,6 +6,7 @@ import binascii
 import calendar
 
 from datetime import datetime
+from datetime import timedelta
 
 from .types import Signature
 
@@ -240,9 +241,13 @@ class SignatureExpirationTime(Signature):
     def expires(self):
         return self._expires
 
-    @expires.int
+    @expires.timedelta
     def expires(self, val):
         self._expires = val
+
+    @expires.int
+    def expires(self, val):
+        self.expires = timedelta(seconds=val)
 
     @expires.bytearray
     @expires.bytes
@@ -255,7 +260,7 @@ class SignatureExpirationTime(Signature):
 
     def __bytes__(self):
         _bytes = super(SignatureExpirationTime, self).__bytes__()
-        _bytes += self.int_to_bytes(self.expires, 4)
+        _bytes += self.int_to_bytes(int(self.expires.total_seconds()), 4)
         return _bytes
 
     def parse(self, packet):

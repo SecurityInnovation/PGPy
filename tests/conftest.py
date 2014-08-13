@@ -102,15 +102,11 @@ def pytest_configure(config):
 # pytest_generate_tests
 # called when each test method is collected to generate parametrizations
 def pytest_generate_tests(metafunc):
-    global spdir
-    global pdir
     global params
     global argvals
     global ids
     global tdata
-
-    spdir = 'subpackets/'
-    pdir = 'packets/'
+    global adata
 
     params = []
     argvals = []
@@ -215,51 +211,61 @@ def pytest_generate_tests(metafunc):
                     ]]
         ids += ['is2k_' + str(i) for i in range(len(argvals[-1]))]
 
-    @CWD_As('tests/testdata')
+    @CWD_As('tests/testdata/subpackets/')
     def sigsubpacket():
-        global spdir
         global params
         global tdata
 
         params += ['sigsubpacket']
-        tdata += [sorted([ spdir + f for f in os.listdir(spdir) if f.endswith('signature') ])]
+        tdata += [sorted([ os.path.abspath(f) for f in os.listdir('.') if f.endswith('signature') ])]
 
-    @CWD_As('tests/testdata')
+    @CWD_As('tests/testdata/subpackets/')
     def uasubpacket():
-        global spdir
         global params
         global tdata
 
         params += ['uasubpacket']
-        tdata += [sorted([ spdir + f for f in os.listdir(spdir) if f.endswith('userattr') ])]
+        tdata += [sorted([ os.path.abspath(f) for f in os.listdir('.') if f.endswith('userattr') ])]
 
-    @CWD_As('tests/testdata')
+    @CWD_As('tests/testdata/packets/')
     def packet():
-        global pdir
         global params
         global tdata
 
         params += ['packet']
-        tdata += [sorted([ pdir + f for f in os.listdir(pdir) ])]
+        tdata += [sorted([ os.path.abspath(f) for f in os.listdir('.') ])]
 
-    @CWD_As('tests/testdata')
+    @CWD_As('tests/testdata/packets/')
     def ekpacket():
-        global pdir
         global params
         global tdata
-        global pdir
 
         params += ['ekpacket']
-        tdata += [sorted([ pdir + f for f in os.listdir(pdir) if f.startswith('05.v4.enc') ])]
+        tdata += [sorted([ os.path.abspath(f) for f in os.listdir('.') if f.startswith('05.v4.enc') ])]
 
-    @CWD_As('tests/testdata')
+    @CWD_As('tests/testdata/packets/')
     def ukpacket():
-        global pdir
         global params
         global tdata
 
         params += ['ukpacket']
-        tdata += [sorted([ pdir + f for f in os.listdir(pdir) if f.startswith('05.v4.unc') ])]
+        tdata += [sorted([ os.path.abspath(f) for f in os.listdir('.') if f.startswith('05.v4.unc') ])]
+
+    @CWD_As('tests/testdata/blocks/')
+    def block():
+        global params
+        global tdata
+
+        params += ['block']
+        tdata += [sorted([ os.path.abspath(f) for f in os.listdir('.') if f.endswith('.asc') ])]
+
+    @CWD_As('tests/testdata/blocks/')
+    def rsasigblock():
+        global params
+        global tdata
+
+        params += ['rsasigblock']
+        tdata += [[os.path.abspath('rsasignature.asc')]]
 
     # run all inner functions that match fixturenames
     # I organized it like this for easy code folding in PyCharm :)
@@ -267,12 +273,7 @@ def pytest_generate_tests(metafunc):
         if fn in locals():
             locals()[fn]()
 
-    @CWD_As('tests/testdata')
-    def _loadbytearrays():
-        global argvals
-        global tdata
-        global ids
-
+    if tdata != []:
         # quick error checking
         if len(set([len(stl) for stl in tdata])) > 1:
             raise ValueError("All sublists of tdata must be the same length! "
@@ -295,12 +296,7 @@ def pytest_generate_tests(metafunc):
                 at.append(_b)
             argvals += [tuple(at)]
 
-        # ids = [ '_'.join(re.split('\.', f[0])[1:]) for f in tdata ]
         ids = [ '_'.join(re.split('\.', f[0])[:-1]) for f in tdata ]
-
-
-    if tdata != []:
-        _loadbytearrays()
 
     if params != []:
         para = ','.join(params)

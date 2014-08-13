@@ -151,7 +151,7 @@ class SignatureV4(Signature):
         self._pubalg = None
         self._halg = None
         self.subpackets = SubPackets()
-        self.hleft = bytearray(2)
+        self.hash2 = bytearray(2)
         self.signature = None
 
     def __bytes__(self):
@@ -161,7 +161,7 @@ class SignatureV4(Signature):
         _bytes += self.int_to_bytes(self.pubalg)
         _bytes += self.int_to_bytes(self.halg)
         _bytes += self.subpackets.__bytes__()
-        _bytes += self.hleft
+        _bytes += self.hash2
         _bytes += self.signature.__bytes__()
 
         return bytes(_bytes)
@@ -179,7 +179,7 @@ class SignatureV4(Signature):
 
         self.subpackets.parse(packet)
 
-        self.hleft = packet[:2]
+        self.hash2 = packet[:2]
         del packet[:2]
 
         self.signature.parse(packet)

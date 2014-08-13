@@ -2,12 +2,153 @@
 
 this is where the armorable PGP block objects live
 """
+
+from datetime import datetime
+
+from .packet import Packet
+from .packet.types import Opaque
+
 from .types import Exportable
 from .types import PGPObject
 
 
 class PGPSignature(PGPObject, Exportable):
-    pass
+    @property
+    def __sig__(self):
+        return self._signature.signature.__sig__()
+
+    @property
+    def created(self):
+        return self._signature.subpackets['h_CreationTime'][-1].created
+
+    @property
+    def expired(self):
+        if not 'SignatureExpirationTime' in self._signature.subpackets:
+            return False
+
+        expd = self._signature.subpackets['SignatureExpirationTime'].expires
+        if expd.total_seconds() == 0:
+            return False
+
+        exp = self.created + expd
+        return exp > datetime.utcnow()
+
+    @property
+    def exportable(self):
+        if not 'ExportableCertification' in self._signature.subpackets:
+            return True
+
+        return bool(self._signature.subpackets['ExportableCertification'])
+
+    @property
+    def features(self):
+        if 'Features' in self._signature.subpackets:
+            return self._signature.subpackets['Features'].flags
+        return []
+
+    @property
+    def hash2(self):
+        return self._signature.hash2
+
+    @property
+    def hash_algorithm(self):
+        return self._signature.halg
+
+    @property
+    def key_algorithm(self):
+        return self._signature.pubalg
+
+    @property
+    def key_flags(self):
+        if 'KeyFlags' in self._signature.subpackets:
+            return self._signature.subpackets['KeyFlags'].flags
+        return []
+
+    @property
+    def magic(self):
+        return "SIGNATURE"
+
+    @property
+    def notation(self):
+        if 'NotationData' in self._signature.subpackets:
+            nd = self._signature.subpackets['NotationData']
+            return {'flags': nd.flags, 'name': nd.name, 'value': nd.value}
+        return {}
+
+    @property
+    def prefs(self):
+        prefs = {}
+        for p in [self._signature.subpackets[sp]
+                  for sp in ['h_KeyServerPreferences', 'h_PreferredKeyServer', 'h_PreferredSymmetricAlgorithms',
+                             'h_PreferredHashAlgorithms', 'h_PreferredCompressionAlgorithms']
+                  if sp in self._signature.subpackets]:
+            prefs[p.__class__.__name__] = p.flags
+        return prefs
+
+    @property
+    def revocable(self):
+        if not 'Revocable' in self._signature.subpackets:
+            return True
+        return bool(self._signature.subpackets['Revocable'])
+
+    @property
+    def revocation_key(self):
+        if not 'RevocationKey' in self._signature.subpackets:
+            return None
+        raise NotImplementedError()
+
+    @property
+    def revoked(self):
+        raise NotImplementedError()
+
+    @property
+    def signer(self):
+        return self._signature.subpackets['Issuer'][-1].issuer
+
+    @property
+    def target_signature(self):
+        raise NotImplementedError()
+
+    @property
+    def type(self):
+        return self._signature.sigtype
+
+    def __init__(self):
+        super(PGPSignature).__init__()
+        self._signature = None
+
+    def __bytes__(self):
+        if self._signature is None:
+            return b''
+        return self._signature.__bytes__()
+
+    def parse(self, packet):
+        data = bytearray()
+        unarmored = None
+
+        try:
+            unarmored = self.ascii_unarmor(packet)
+
+        except ValueError:
+            data = packet
+
+        finally:
+            if unarmored is not None:
+                if unarmored['magic'] != 'SIGNATURE':
+                    raise ValueError('Expected: Signature. Got: {}'.format(str(unarmored['magic'])))
+
+                data = unarmored['body']
+
+        if not isinstance(data, bytearray):
+            data = bytearray(data)
+
+        # load *one* packet from data
+        pkt = Packet(data)
+        if pkt.header.tag == 2 and not isinstance(pkt, Opaque):
+            self._signature = pkt
+
+        else:
+            raise ValueError('Expected: Signature. Got: {:s}'.format(pkt.__class__.__name__))
 
 
 class PGPKey(PGPObject, Exportable):
