@@ -11,10 +11,13 @@ class TestRegressions(object):
 
         from datetime import datetime
 
-        from pgpy.types import Exportable
+        from pgpy.pgp import PGPKey
+        from pgpy.pgp import PGPSignature
 
-        from pgpy.packet.packets import PrivKeyV4
-        from pgpy.packet.packets import PubKeyV4
+        # from pgpy.types import Exportable
+
+        # from pgpy.packet.packets import PrivKeyV4
+        # from pgpy.packet.packets import PubKeyV4
         from pgpy.packet.packets import SignatureV4
 
         from pgpy.packet.types import MPI
@@ -71,9 +74,13 @@ class TestRegressions(object):
               "-----END PGP PUBLIC KEY BLOCK-----\n"
 
         # load the key above
-        sk = PrivKeyV4(Exportable.ascii_unarmor(sec)['body'])
-        _pk = PubKeyV4(Exportable.ascii_unarmor(pub)['body'])
+        # sk = PrivKeyV4(Exportable.ascii_unarmor(sec)['body'])
+        # _pk = PubKeyV4(Exportable.ascii_unarmor(pub)['body'])
 
+        sk = PGPKey()
+        sk.parse(sec)
+        pk = PGPKey()
+        pk.parse(pub)
 
         sigsubject = b"Hello!I'm a test document.I'm going to get signed a bunch of times.KBYE!"
         hdata = b"Hello!I'm a test document.I'm going to get signed a bunch of times.KBYE!" \
@@ -100,7 +107,8 @@ class TestRegressions(object):
         # hash2; should be 0x9f 0x02
         sig.hleft = hashlib.new('sha512', hdata).digest()[:2]
 
-        signer = sk.keymaterial.__privkey__().signer(padding.PKCS1v15(), hashes.SHA512(), default_backend())
+        ##TODO: PGPKey needs a __key__ method like PGPSignature has __sig__
+        signer = sk._key.keymaterial.__privkey__().signer(padding.PKCS1v15(), hashes.SHA512(), default_backend())
         signer.update(hdata)
         s = signer.finalize()
 
@@ -113,19 +121,8 @@ class TestRegressions(object):
         ##TODO: verify sig with PGPy
 
         # verify sig with gpg
-        ##TODO: this is temporary until PGPSignature makes its return, or Signature objects become exportable
-        class TempExportableSig(Exportable):
-            magic = 'SIGNATURE'
-
-            def __init__(self):
-                super(TempExportableSig, self).__init__()
-                self.sig = None
-
-            def __bytes__(self):
-                return self.sig.__bytes__()
-
-        esig = TempExportableSig()
-        esig.sig = sig
+        esig = PGPSignature()
+        esig._signature = sig
 
 
         # write the subject
@@ -140,7 +137,7 @@ class TestRegressions(object):
 
         # write the pubkey
         with open('tests/testdata/pub.gpg', 'wb') as kr:
-            kr.write(_pk.__bytes__())
+            kr.write(pk.__bytes__())
             kr.flush()
 
         assert 'Good signature from' in gpg_verify('subj', 'subj.asc', keyring='./pub.gpg')
