@@ -4,9 +4,12 @@ import pytest
 
 from datetime import datetime
 
-from pgpy.constants import PubKeyAlgorithm
+from pgpy.constants import CompressionAlgorithm
 from pgpy.constants import HashAlgorithm
+from pgpy.constants import KeyFlags
+from pgpy.constants import PubKeyAlgorithm
 from pgpy.constants import SignatureType
+from pgpy.constants import SymmetricKeyAlgorithm
 
 from pgpy.pgp import PGPSignature
 from pgpy.pgp import PGPKey
@@ -17,12 +20,11 @@ from pgpy.types import Exportable
 # generic block tests
 class TestBlocks(object):
     def test_load(self, block):
-        if 'SIGNATURE' in block.decode('latin-1').splitlines()[0]:
+        if 'SIGNATURE' in block.splitlines()[0]:
             p1 = PGPSignature()
             p2 = PGPSignature()
 
-        elif 'KEY' in block.decode('latin-1').splitlines()[0]:
-            pytest.skip("not ready for this one")
+        elif 'KEY' in block.splitlines()[0]:
             p1 = PGPKey()
             p2 = PGPKey()
 
@@ -34,6 +36,9 @@ class TestBlocks(object):
         p1.parse(block)
         # manually de-armor and load the binary data
         p2.parse(Exportable.ascii_unarmor(block)['body'])
+
+        assert str(p1) == block
+        assert p1.__bytes__() == p2.__bytes__()
 
 
 # PGPSignature specific tests
@@ -50,17 +55,21 @@ class TestPGPSignature(object):
                             b'\xb3\x7e\xa4\x79\x59\x06\xa2\x05\x44\x9d\xd2\xa9\xcf\xb1\xf8\x03\xc1\x90\x81\x87\x36\x1a' \
                             b'\xa6\x5c\x79\x98\xfe\xdb\xdd\x23\x54\x69\x92\x2f\x0b\xc4\xee\x2a\x61\x77\x35\x59\x6e\xb2' \
                             b'\xe2\x1b\x80\x61\xaf\x2d\x7a\x64\x38\xfe\xe3\x95\xcc\xe8\xa4\x05\x55\x5d'
+        assert p.cipherprefs == []
+        assert p.compprefs == []
         assert p.created == datetime.utcfromtimestamp(1402615373)
         assert p.expired is False
         assert p.exportable is True
         assert p.features == []
         assert p.hash2 == b'\xc4\x24'
         assert p.hash_algorithm == HashAlgorithm.SHA512
+        assert p.hashprefs == []
         assert p.key_algorithm == PubKeyAlgorithm.RSAEncryptOrSign
         assert p.key_flags == []
+        assert p.keyserver == ''
+        assert p.keyserverprefs == []
         assert p.magic == "SIGNATURE"
         assert p.notation == {}
-        assert p.prefs == {}
         assert p.revocable is True
         assert p.revocation_key is None
         # assert p.revoked is False  # not implemented yet
@@ -68,9 +77,85 @@ class TestPGPSignature(object):
         # assert p.target_signature is None  # not implemented yet
         assert p.type == SignatureType.BinaryDocument
         assert p.__bytes__() == bytes(Exportable.ascii_unarmor(rsasigblock)['body'])
-
+        assert str(p) == rsasigblock
 
 
 # PGPKey specific tests
 class TestPGPKey(object):
-    pass
+    def test_load_rsapub(self, rsapubblock):
+        p = PGPKey()
+        r = p.parse(rsapubblock)
+
+        assert p.fingerprint == "F429 4BC8 094A 7E05 85C8 5E86 3747 3B37 58C4 4F36"
+        assert p.magic == "PUBLIC KEY BLOCK"
+        assert p.parent is None
+
+        assert len(p.userattributes) == 1
+        assert len(p.userids) == 1
+        assert len(p.signatures) == 0
+
+        # assert p.userids[0].primary
+        assert len(p.userattributes[0]._sigs) == 2
+        assert len(p.userids[0]._sigs) == 1
+
+        assert p.cipherprefs == [SymmetricKeyAlgorithm.AES256,
+                                 SymmetricKeyAlgorithm.AES192,
+                                 SymmetricKeyAlgorithm.AES128]
+        assert p.compprefs == [CompressionAlgorithm.ZLIB]
+        assert p.hashprefs == [HashAlgorithm.SHA256]
+        assert p.usageflags == [KeyFlags.Certify]
+
+        # check subkeys
+        assert len(p.subkeys) == 2
+        skfps = ["7CC4 6C3B E05F 9F9C 9144  CE8B 2A83 4D8E 5918 E886",
+                 "00EC FAF5 48AE B655 F861  8193 EEE0 97A0 17B9 79CA"]
+        skufs = [[KeyFlags.Sign],
+                 [KeyFlags.EncryptStorage, KeyFlags.EncryptCommunications]]
+        assert len(set([p] + [sk.parent for sk in p.subkeys.values()])) == 1
+        for sk, fp, ufs in zip(p.subkeys.values(), skfps, skufs):
+            assert sk.magic == "PUBLIC KEY BLOCK"
+            assert sk.ascii_headers == p.ascii_headers
+            assert sk.fingerprint == fp
+            assert len(sk.signatures) == 1
+            assert sk.usageflags == ufs
+
+        assert len(r['keys']) == 0
+        assert len(r['orphaned']) == 0
+
+    def test_load_rsapriv(self, rsaprivblock):
+        p = PGPKey()
+        r = p.parse(rsaprivblock)
+
+        assert p.fingerprint == "F429 4BC8 094A 7E05 85C8 5E86 3747 3B37 58C4 4F36"
+        assert p.magic == "PRIVATE KEY BLOCK"
+        assert p.parent is None
+
+        assert len(p.userattributes) == 0
+        assert len(p.userids) == 1
+
+        assert p.cipherprefs == [SymmetricKeyAlgorithm.AES256,
+                                 SymmetricKeyAlgorithm.AES192,
+                                 SymmetricKeyAlgorithm.AES128,
+                                 SymmetricKeyAlgorithm.CAST5,
+                                 SymmetricKeyAlgorithm.TripleDES]
+        assert p.compprefs == [CompressionAlgorithm.ZLIB,
+                               CompressionAlgorithm.BZ2,
+                               CompressionAlgorithm.ZIP]
+        assert p.usageflags == [KeyFlags.Certify]
+
+        # check subkeys
+        assert len(p.subkeys) == 2
+        skfps = ["7CC4 6C3B E05F 9F9C 9144  CE8B 2A83 4D8E 5918 E886",
+                 "00EC FAF5 48AE B655 F861  8193 EEE0 97A0 17B9 79CA"]
+        skufs = [[KeyFlags.Sign],
+                 [KeyFlags.EncryptStorage, KeyFlags.EncryptCommunications]]
+        assert len(set([p] + [sk.parent for sk in p.subkeys.values()])) == 1
+        for sk, fp, ufs in zip(p.subkeys.values(), skfps, skufs):
+            assert sk.magic == "PRIVATE KEY BLOCK"
+            assert sk.ascii_headers == p.ascii_headers
+            assert sk.fingerprint == fp
+            assert len(sk.signatures) == 1
+            assert sk.usageflags == ufs
+
+        assert len(r['keys']) == 0
+        assert len(r['orphaned']) == 0

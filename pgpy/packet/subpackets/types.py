@@ -2,6 +2,8 @@
 """
 import abc
 
+from ..types import VersionedHeader
+
 from ...decorators import TypedProperty
 from ...types import Dispatchable
 from ...types import Header as _Header
@@ -49,6 +51,17 @@ class Header(_Header):
         _bytes = self.encode_length(self.length)
         _bytes += self.int_to_bytes((int(self.critical) << 7) + self.typeid)
         return _bytes
+
+
+class EmbeddedSignatureHeader(VersionedHeader):
+    def __bytes__(self):
+        _bytes = bytearray()
+        _bytes.append(self.version)
+        return bytes(_bytes)
+
+    def parse(self, packet):
+        self.tag = 2
+        super(EmbeddedSignatureHeader, self).parse(packet)
 
 
 class SubPacket(Dispatchable):

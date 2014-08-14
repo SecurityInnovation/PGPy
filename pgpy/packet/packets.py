@@ -19,6 +19,10 @@ from .fields import SubPackets
 from .fields import UserAttributeSubPackets
 
 from .types import Packet
+from .types import Primary
+from .types import Private
+from .types import Public
+from .types import Sub
 from .types import VersionedPacket
 
 from ..constants import HashAlgorithm
@@ -189,12 +193,12 @@ class SignatureV4(Signature):
 # Placeholder for 0x04
 
 
-class PrivKey(VersionedPacket):
+class PrivKey(VersionedPacket, Primary, Private):
     __typeid__ = 0x05
     __ver__ = 0
 
 
-class PubKey(VersionedPacket):
+class PubKey(VersionedPacket, Primary, Public):
     __typeid__ = 0x06
     __ver__ = 0
 
@@ -326,7 +330,7 @@ class PrivKeyV4(PrivKey, PubKeyV4):
         del passphrase
 
 
-class PrivSubKey(VersionedPacket):
+class PrivSubKey(VersionedPacket, Sub, Private):
     __typeid__ = 0x07
     __ver__ = 0
 
@@ -457,7 +461,7 @@ class UserID(Packet):
             self.email = uid['email']
 
 
-class PubSubKey(VersionedPacket):
+class PubSubKey(VersionedPacket, Sub, Public):
     __typeid__ = 0x0E
     __ver__ = 0
 

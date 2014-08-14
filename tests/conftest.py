@@ -211,7 +211,7 @@ def pytest_generate_tests(metafunc):
                     ]]
         ids += ['is2k_' + str(i) for i in range(len(argvals[-1]))]
 
-    @CWD_As('tests/testdata/subpackets/')
+    @CWD_As('tests/testdata/subpackets')
     def sigsubpacket():
         global params
         global tdata
@@ -219,7 +219,7 @@ def pytest_generate_tests(metafunc):
         params += ['sigsubpacket']
         tdata += [sorted([ os.path.abspath(f) for f in os.listdir('.') if f.endswith('signature') ])]
 
-    @CWD_As('tests/testdata/subpackets/')
+    @CWD_As('tests/testdata/subpackets')
     def uasubpacket():
         global params
         global tdata
@@ -227,7 +227,7 @@ def pytest_generate_tests(metafunc):
         params += ['uasubpacket']
         tdata += [sorted([ os.path.abspath(f) for f in os.listdir('.') if f.endswith('userattr') ])]
 
-    @CWD_As('tests/testdata/packets/')
+    @CWD_As('tests/testdata/packets')
     def packet():
         global params
         global tdata
@@ -235,7 +235,7 @@ def pytest_generate_tests(metafunc):
         params += ['packet']
         tdata += [sorted([ os.path.abspath(f) for f in os.listdir('.') ])]
 
-    @CWD_As('tests/testdata/packets/')
+    @CWD_As('tests/testdata/packets')
     def ekpacket():
         global params
         global tdata
@@ -243,7 +243,7 @@ def pytest_generate_tests(metafunc):
         params += ['ekpacket']
         tdata += [sorted([ os.path.abspath(f) for f in os.listdir('.') if f.startswith('05.v4.enc') ])]
 
-    @CWD_As('tests/testdata/packets/')
+    @CWD_As('tests/testdata/packets')
     def ukpacket():
         global params
         global tdata
@@ -251,7 +251,7 @@ def pytest_generate_tests(metafunc):
         params += ['ukpacket']
         tdata += [sorted([ os.path.abspath(f) for f in os.listdir('.') if f.startswith('05.v4.unc') ])]
 
-    @CWD_As('tests/testdata/blocks/')
+    @CWD_As('tests/testdata/blocks')
     def block():
         global params
         global tdata
@@ -259,13 +259,29 @@ def pytest_generate_tests(metafunc):
         params += ['block']
         tdata += [sorted([ os.path.abspath(f) for f in os.listdir('.') if f.endswith('.asc') ])]
 
-    @CWD_As('tests/testdata/blocks/')
+    @CWD_As('tests/testdata/blocks')
     def rsasigblock():
         global params
         global tdata
 
         params += ['rsasigblock']
         tdata += [[os.path.abspath('rsasignature.asc')]]
+
+    @CWD_As('tests/testdata/blocks')
+    def rsapubblock():
+        global params
+        global tdata
+
+        params += ['rsapubblock']
+        tdata += [[os.path.abspath('rsapubkey.asc')]]
+
+    @CWD_As('tests/testdata/blocks')
+    def rsaprivblock():
+        global params
+        global tdata
+
+        params += ['rsaprivblock']
+        tdata += [[os.path.abspath('rsaseckey.asc')]]
 
     # run all inner functions that match fixturenames
     # I organized it like this for easy code folding in PyCharm :)
@@ -287,11 +303,16 @@ def pytest_generate_tests(metafunc):
         for i, fa in enumerate(tdata):
             at = []
             for a, f in enumerate(fa):
-                _b = bytearray(os.path.getsize(f))
-                with open(f, 'rb') as fo:
-                    fo.readinto(_b)
+                if not f.endswith('.asc'):
+                    _b = bytearray(os.path.getsize(f))
+                    with open(f, 'rb') as fo:
+                        fo.readinto(_b)
 
-                _b += b'\xca\xfe\xba\xbe'
+                    _b += b'\xca\xfe\xba\xbe'
+
+                else:
+                    with open(f, 'r') as fo:
+                        _b = fo.read()
 
                 at.append(_b)
             argvals += [tuple(at)]

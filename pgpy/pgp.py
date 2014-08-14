@@ -3,19 +3,361 @@
 this is where the armorable PGP block objects live
 """
 
+from collections import OrderedDict
 from datetime import datetime
 
+from .constants import PacketTag
+from .constants import SignatureType
+
+from .packet import Key
 from .packet import Packet
+from .packet import Primary
+from .packet import Private
+from .packet import Public
+from .packet import Sub
+from .packet import UserID
+from .packet import UserAttribute
+from .packet.packets import Signature
 from .packet.types import Opaque
 
 from .types import Exportable
 from .types import PGPObject
 
 
+class PGPKey(PGPObject, Exportable):
+    """
+    11.1.  Transferable Public Keys
+
+    OpenPGP users may transfer public keys.  The essential elements of a
+    transferable public key are as follows:
+
+     - One Public-Key packet
+
+     - Zero or more revocation signatures
+     - One or more User ID packets
+
+     - After each User ID packet, zero or more Signature packets
+       (certifications)
+
+     - Zero or more User Attribute packets
+
+     - After each User Attribute packet, zero or more Signature packets
+       (certifications)
+
+     - Zero or more Subkey packets
+
+     - After each Subkey packet, one Signature packet, plus optionally a
+       revocation
+
+    The Public-Key packet occurs first.  Each of the following User ID
+    packets provides the identity of the owner of this public key.  If
+    there are multiple User ID packets, this corresponds to multiple
+    means of identifying the same unique individual user; for example, a
+    user may have more than one email address, and construct a User ID
+    for each one.
+
+    Immediately following each User ID packet, there are zero or more
+    Signature packets.  Each Signature packet is calculated on the
+    immediately preceding User ID packet and the initial Public-Key
+    packet.  The signature serves to certify the corresponding public key
+    and User ID.  In effect, the signer is testifying to his or her
+    belief that this public key belongs to the user identified by this
+    User ID.
+
+    Within the same section as the User ID packets, there are zero or
+    more User Attribute packets.  Like the User ID packets, a User
+    Attribute packet is followed by zero or more Signature packets
+    calculated on the immediately preceding User Attribute packet and the
+    initial Public-Key packet.
+
+    User Attribute packets and User ID packets may be freely intermixed
+    in this section, so long as the signatures that follow them are
+    maintained on the proper User Attribute or User ID packet.
+
+    After the User ID packet or Attribute packet, there may be zero or
+    more Subkey packets.  In general, subkeys are provided in cases where
+    the top-level public key is a signature-only key.  However, any V4
+    key may have subkeys, and the subkeys may be encryption-only keys,
+    signature-only keys, or general-purpose keys.  V3 keys MUST NOT have
+    subkeys.
+
+    Each Subkey packet MUST be followed by one Signature packet, which
+    should be a subkey binding signature issued by the top-level key.
+    For subkeys that can issue signatures, the subkey binding signature
+    MUST contain an Embedded Signature subpacket with a primary key
+    binding signature (0x19) issued by the subkey on the top-level key.
+
+    Subkey and Key packets may each be followed by a revocation Signature
+    packet to indicate that the key is revoked.  Revocation signatures
+    are only accepted if they are issued by the key itself, or by a key
+    that is authorized to issue revocations via a Revocation Key
+    subpacket in a self-signature by the top-level key.
+
+    Transferable public-key packet sequences may be concatenated to allow
+    transferring multiple public keys in one operation.
+
+    11.2.  Transferable Secret Keys
+
+    OpenPGP users may transfer secret keys.  The format of a transferable
+    secret key is the same as a transferable public key except that
+    secret-key and secret-subkey packets are used instead of the public
+    key and public-subkey packets.  Implementations SHOULD include self-
+    signatures on any user IDs and subkeys, as this allows for a complete
+    public key to be automatically extracted from the transferable secret
+    key.  Implementations MAY choose to omit the self-signatures,
+    especially if a transferable public key accompanies the transferable
+    secret key.
+    """
+    @property
+    def cipherprefs(self):
+        return self._uids[0]._sigs[(self.fingerprint.keyid, 0)].cipherprefs
+
+    @property
+    def compprefs(self):
+        return self._uids[0]._sigs[(self.fingerprint.keyid, 0)].compprefs
+
+    @property
+    def fingerprint(self):
+        return self._key.fingerprint
+
+    @property
+    def hashprefs(self):
+        return self._uids[0]._sigs[(self.fingerprint.keyid, 0)].hashprefs
+
+    @property
+    def is_primary(self):
+        return isinstance(self._key, Primary) and not isinstance(self._key, Sub)
+
+    @property
+    def magic(self):
+        return '{:s} KEY BLOCK'.format('PUBLIC' if (isinstance(self._key, Public) and not isinstance(self._key, Private)) else
+                                 'PRIVATE' if isinstance(self._key, Private) else '')
+
+    @property
+    def parent(self):
+        if isinstance(self, Primary):
+            return None
+        return self._parent
+
+    @property
+    def signatures(self):
+        return self._signatures
+
+    @property
+    def subkeys(self):
+        return self._children
+
+    @property
+    def usageflags(self):
+        if self.is_primary:
+            return self._uids[0]._sigs[(self.fingerprint.keyid, 0)].key_flags
+
+        else:
+            return self._signatures[list(self._signatures.keys())[0]].key_flags
+
+    @property
+    def userids(self):
+        return [u for u in self._uids if isinstance(u._uid, UserID)]
+
+    @property
+    def userattributes(self):
+        return [u for u in self._uids if isinstance(u._uid, UserAttribute)]
+
+    def __init__(self):
+        super(PGPKey, self).__init__()
+        self._key = None                # :type: PubKeyV4 | PrivKeyV4 | PubSubKeyV4 | PrivSubKeyV4
+        self._children = OrderedDict()  # :type: dict of PGPKey
+        self._parent = None             # :type: PGPKey
+        self._signatures = {}           # :type: dict of PGPSignature
+        self._uids = []                 # :type: list of PGPUID
+
+    def __bytes__(self):
+        _bytes = bytearray()
+        # us
+        _bytes += self._key.__bytes__()
+        # our signatures
+        for sig in self.signatures.values():
+            _bytes += sig.__bytes__()
+        # one or more User IDs, followed by their signatures
+        for uid in self._uids:
+            _bytes += uid._uid.__bytes__()
+            _bytes += b''.join([s.__bytes__() for s in uid._sigs.values()])
+        # subkeys
+        for sk in self._children.values():
+            _bytes += sk.__bytes__()
+
+        return bytes(_bytes)
+
+    @classmethod
+    def generate(cls):
+        raise NotImplementedError()
+
+    def protect(self):
+        raise NotImplementedError()
+
+    def unprotect(self):
+        raise NotImplementedError()
+
+    def sign(self, subject, **kwargs):
+        # prefs = {'inline': False}
+        raise NotImplementedError()
+
+    def verify(self, subject, signature=None, **kwargs):
+        raise NotImplementedError()
+
+    def encrypt(self):
+        raise NotImplementedError()
+
+    def decrypt(self):
+        raise NotImplementedError()
+
+    def parse(self, packet):
+        data = bytearray()
+        unarmored = None
+
+        try:
+            unarmored = self.ascii_unarmor(packet)
+
+        except ValueError:
+            data = packet
+
+        finally:
+            if unarmored is not None:
+                if 'KEY' not in unarmored['magic']:
+                    raise ValueError('Expected: Signature. Got: {}'.format(str(unarmored['magic'])))
+
+                data = unarmored['body']
+                self.ascii_headers = unarmored['headers']
+
+        if not isinstance(data, bytearray):
+            data = bytearray(data)
+
+        # parse packets
+        # keys will hold other keys parsed here
+        keys = OrderedDict()
+        # uids will hold user ids and user attributes parsed here
+        uids = OrderedDict()
+        # orphaned will hold all non-opaque orphaned packets
+        orphaned = OrderedDict()
+
+        # parsing hints
+        # last non-signature placed
+        last = None  # last PGP*thing placed
+        lns = None   # last non-signature PGP*thing placed
+        lpk = None   # last primary key parsed
+        lk = None    # last key parsed
+        pkt = None   # packet just parsed
+
+        while len(data) > 0:
+            pkt = Packet(data)
+
+            # discard opaque packets
+            if isinstance(pkt, Opaque):
+                ##TODO: warn if Opaque
+                del pkt
+                continue
+
+            # load a key packet
+            if isinstance(pkt, Key):
+                key = self if self._key is None else PGPKey()
+                key._key = pkt
+                key.ascii_headers = self.ascii_headers
+
+                lk = key
+                if key.is_primary:
+                    lpk = key
+                    keys[key.fingerprint.keyid] = key
+
+                elif (not key.is_primary) and lpk is not None and \
+                        (isinstance(lns, PGPUID) or (isinstance(lns, PGPKey)) and not lk.is_primary):
+                    key._parent = lpk
+                    lpk._children[key.fingerprint.keyid] = key
+
+                else:
+                    ##TODO: most other possibilities at this point is an error condition
+                    ##TODO: the other possibility is a subkey that has been separated from its primary, on purpose
+                    pass
+
+                last = key
+                lns = key
+                continue
+
+            # don't bother trying to load anything else until we've loaded a key
+            # this could be useful in cases where a large block is being loaded and it's led off
+            # with key packet versions that we don't understand yet (currently, v2 and v3 key packets)
+            if lpk is None:
+                continue
+
+            # A user id/attribute was parsed!
+            # Discounting signatures, they must follow either a primary key or another user id/attribute
+            if isinstance(pkt, (UserID, UserAttribute)) and isinstance(lns, (PGPKey, PGPUID)):
+                uid = PGPUID()
+                uid._uid = pkt
+                uid._parent = lpk
+                lpk._uids.append(uid)
+                last = uid
+                lns = uid
+                continue
+
+            # A signature was parsed!
+            if isinstance(pkt, Signature):
+                sig = PGPSignature()
+                sig._signature = pkt
+
+                # A KeyRevocation signature *must immediately* follow a *primary* key *only*
+                if sig.type == SignatureType.KeyRevocation and isinstance(last, PGPKey) and last.is_primary:
+                    lk.signatures[sig.type] = sig
+                    last = sig
+                    continue
+
+                # A SubkeyRevocation signature *must immediately* follow the Subkey Binding Signature that
+                # immediately follows a Subkey
+                if sig.type == SignatureType.SubkeyRevocation and isinstance(last, PGPSignature) and isinstance(lk, PGPKey) and not lk.is_primary:
+                    lk.signatures[sig.type] = sig
+                    last = sig
+                    continue
+
+                # Certification signatures *must* follow either a User ID or User Attribute packet,
+                # or another Certification signature.
+                if isinstance(lns, (PGPUID)):
+                    scount = len([k for k in lns._sigs.keys() if k[0] == sig.signer])
+                    lns._sigs[(sig.signer, scount)] = sig
+                    last = sig
+                    continue
+
+                # Subkey Binding signatures *must immediately* follow a Subkey
+                if isinstance(last, PGPKey) and not last.is_primary:
+                    last._signatures[(sig.signer, 0)] = sig
+                    last = sig
+                    continue
+
+                ##TODO: where do direct-key signatures go?
+
+
+            # if we get this far, the packet was orphaned! Add it to orphaned.
+            orphaned[(pkt.header.tag, len([k for k, v in orphaned.keys() if k == pkt.header.tag]))] = pkt
+
+        # remove the reference to self from keys
+        del keys[self.fingerprint.keyid]
+        return {'keys': keys, 'orphaned': orphaned}
+
+
 class PGPSignature(PGPObject, Exportable):
     @property
     def __sig__(self):
         return self._signature.signature.__sig__()
+
+    @property
+    def cipherprefs(self):
+        if 'PreferredSymmetricAlgorithms' not in self._signature.subpackets:
+            return []
+        return self._signature.subpackets['h_PreferredSymmetricAlgorithms'][0].flags
+
+    @property
+    def compprefs(self):
+        if 'PreferredCompressionAlgorithms' not in self._signature.subpackets:
+            return []
+        return self._signature.subpackets['h_PreferredCompressionAlgorithms'][0].flags
 
     @property
     def created(self):
@@ -51,6 +393,12 @@ class PGPSignature(PGPObject, Exportable):
         return self._signature.hash2
 
     @property
+    def hashprefs(self):
+        if 'PreferredHashAlgorithms' not in self._signature.subpackets:
+            return []
+        return self._signature.subpackets['h_PreferredHashAlgorithms'][0].flags
+
+    @property
     def hash_algorithm(self):
         return self._signature.halg
 
@@ -61,8 +409,20 @@ class PGPSignature(PGPObject, Exportable):
     @property
     def key_flags(self):
         if 'KeyFlags' in self._signature.subpackets:
-            return self._signature.subpackets['KeyFlags'].flags
+            return self._signature.subpackets['h_KeyFlags'][0].flags
         return []
+
+    @property
+    def keyserver(self):
+        if 'PreferredKeyServer' not in self._signature.subpackets:
+            return ''
+        return self._signature.subpackets['h_KeyServerPreferences'].uri
+
+    @property
+    def keyserverprefs(self):
+        if 'KeyServerPreferences' not in self._signature.subpackets:
+            return []
+        return self._signature.subpackets['h_KeyServerPreferences'].flags
 
     @property
     def magic(self):
@@ -76,16 +436,6 @@ class PGPSignature(PGPObject, Exportable):
         return {}
 
     @property
-    def prefs(self):
-        prefs = {}
-        for p in [self._signature.subpackets[sp]
-                  for sp in ['h_KeyServerPreferences', 'h_PreferredKeyServer', 'h_PreferredSymmetricAlgorithms',
-                             'h_PreferredHashAlgorithms', 'h_PreferredCompressionAlgorithms']
-                  if sp in self._signature.subpackets]:
-            prefs[p.__class__.__name__] = p.flags
-        return prefs
-
-    @property
     def revocable(self):
         if not 'Revocable' in self._signature.subpackets:
             return True
@@ -95,10 +445,6 @@ class PGPSignature(PGPObject, Exportable):
     def revocation_key(self):
         if not 'RevocationKey' in self._signature.subpackets:
             return None
-        raise NotImplementedError()
-
-    @property
-    def revoked(self):
         raise NotImplementedError()
 
     @property
@@ -138,341 +484,31 @@ class PGPSignature(PGPObject, Exportable):
                     raise ValueError('Expected: Signature. Got: {}'.format(str(unarmored['magic'])))
 
                 data = unarmored['body']
+                self.ascii_headers = unarmored['headers']
 
         if not isinstance(data, bytearray):
             data = bytearray(data)
 
         # load *one* packet from data
         pkt = Packet(data)
-        if pkt.header.tag == 2 and not isinstance(pkt, Opaque):
+        if pkt.header.tag == PacketTag.Signature and not isinstance(pkt, Opaque):
             self._signature = pkt
 
         else:
             raise ValueError('Expected: Signature. Got: {:s}'.format(pkt.__class__.__name__))
 
 
-class PGPKey(PGPObject, Exportable):
+class PGPUID(object):
     @property
-    def magic(self):
-        raise NotImplementedError()
-
-    @property
-    def fingerprint(self):
-        raise NotImplementedError()
-
-    @property
-    def usageflags(self):
-        raise NotImplementedError()
-
-    @property
-    def cipherprefs(self):
-        raise NotImplementedError()
-
-    @property
-    def hashprefs(self):
-        raise NotImplementedError()
-
-    @property
-    def compprefs(self):
+    def primary(self):
         raise NotImplementedError()
 
     def __init__(self):
-        super(PGPKey, self).__init__()
-        self._key = None
-        self._children = {}
-        self._uids = []
-        self._uattrs = []
-        self._signatures = {}
-
-    def __bytes__(self):
-        raise NotImplementedError()
-
-    @classmethod
-    def generate(cls):
-        raise NotImplementedError()
-
-    def protect(self):
-        raise NotImplementedError()
-
-    def unprotect(self):
-        raise NotImplementedError()
-
-    def sign(self, subject, **kwargs):
-        # prefs = {'inline': False}
-        raise NotImplementedError()
-
-    def verify(self, subject, signature=None, **kwargs):
-        raise NotImplementedError()
-
-    def encrypt(self):
-        raise NotImplementedError()
-
-    def decrypt(self):
-        raise NotImplementedError()
-
-    def parse(self, data):
-        raise NotImplementedError()
+        self._uid = None
+        self._sigs = OrderedDict()
+        self._parent = None
 
 
-# # import calendar
-# # import re
-# # from datetime import datetime
-# #
-# # from .packet.packets import Packet
-# # from .packet.packets import Signature
-# # from .packet.types import HashAlgo
-# # from .packet.types import PubKeyAlgo
-# #
-# # # from .packet.fields.fields import Header
-# #
-# # from .errors import PGPError
-# # from .types import FileLoader
-# # from .types import PGPObject
-# # from .util import int_to_bytes
-# # from .util import is_ascii
-#
-#
-# # def pgpload(pgpbytes):
-# #     # load pgpbytes regardless of type, first
-# #     f = FileLoader(pgpbytes)
-# #
-# #     b = []
-# #
-# #     # now, are there any ASCII PGP blocks at all?
-# #     if is_ascii(f._bytes):
-# #         # decode/parse ASCII PGP blocks
-# #         nascii = list(re.finditer(ASCII_BLOCK, f.bytes.decode(), flags=re.MULTILINE | re.DOTALL))
-# #
-# #         if len(nascii) == 0:
-# #             raise PGPError("No PGP blocks to read!")  # pragma: no cover
-# #
-# #         for block in nascii:
-# #             if block.group(1)[-9:] == "KEY BLOCK":
-# #                 c = PGPKey
-# #
-# #             if block.group(1) == "SIGNATURE":
-# #                 c = PGPSignature
-# #
-# #             p = c(block.group(0).encode())
-# #             p.path = f.path
-# #             b.append(p)
-# #
-# #     # try to load binary instead
-# #     else:
-# #         block = PGPBlock(pgpbytes)
-# #
-# #         # is this a signature?
-# #         if block.packets[0].header.tag.is_signature:
-# #             b.append(PGPSignature(pgpbytes))
-# #             block.packets = []
-# #
-# #         # now go through block and split out any keys, if possible
-# #         bpos = 0
-# #         for i, pkt in enumerate(block.packets):
-# #             # if this is the last packet, we need to instantiate whatever type is at block.packets[bpos]
-# #             if i == len(block.packets) - 1:
-# #                 pktblock = block.packets[bpos:]
-# #
-# #                 if pktblock[0].header.tag.is_key and not pktblock[0].header.tag.is_subkey:
-# #                     bl = PGPKey(None)
-# #
-# #                 bl.packets = pktblock
-# #                 b.append(bl)
-# #                 bpos = i
-# #                 continue
-# #
-# #             # a public or private key (not subkey) indicates the start of a new block,
-# #             # so load the previous block into a new object
-# #             if i != bpos and pkt.header.tag.is_key and not pkt.header.tag.is_subkey:
-# #                 pktblock = block.packets[bpos:i]
-# #                 bl = PGPKey(None)
-# #                 bl.packets = pktblock
-# #
-# #                 b.append(bl)
-# #                 bpos = i
-# #                 continue
-# #
-# #     ##TODO: load from a GPG agent
-# #
-# #     # return loaded blocks
-# #     return b
-#
-#
-# class PGPSignature(PGPObject):
-#     """
-#     Returned by :py:meth:`pgpy.PGPKeyring.sign`
-#     """
-#     # @property
-#     # def sigpkt(self):
-#     #     return self.packets[0]
-#
-#     # @classmethod
-#     # def new(cls, keyid,
-#     #         sigtype=Signature.Type.BinaryDocument,
-#     #         alg=PubKeyAlgo.RSAEncryptOrSign,
-#     #         hashalg=HashAlgo.SHA256):
-#     #     # create a new signature
-#     #     newsig = PGPSignature(None)
-#     #
-#     #     # create a new signature packet
-#     #     newsig.packets = [Packet(ptype=Header.Tag.Signature)]
-#     #     newsig.sigpkt.type = sigtype
-#     #     newsig.sigpkt.key_algorithm = alg
-#     #     newsig.sigpkt.hash_algorithm = hashalg
-#     #
-#     #     # add hashed subpacket - signature creation time
-#     #     ##TODO: maybe use the subpacket type instead of \x02
-#     #     ##TODO: implement subpacket creation in SubPackets
-#     #     hspacket = b'\x00\x06\x05\x02' + int_to_bytes(calendar.timegm(datetime.utcnow().timetuple()), 4)
-#     #     newsig.sigpkt.hashed_subpackets.parse(hspacket)
-#     #
-#     #     # add unhashed subpacket - issuer key ID
-#     #     ##TODO: maybe use the subpacket type instead of \x10
-#     #     ##TODO: implement subpacket creation in SubPackets
-#     #     spacket = b'\x09\x10' + int_to_bytes(int(keyid, 16), 8)
-#     #     spacket = int_to_bytes(len(spacket), 2) + spacket
-#     #     newsig.sigpkt.unhashed_subpackets.parse(spacket)
-#     #
-#     #     return newsig
-#
-#     @property
-#     def magic(self):
-#         return "SIGNATURE"
-#
-#     def __init__(self):
-#         super(PGPSignature, self).__init__()
-#         self.signature = Signature.new()
-#
-#     def parse(self, data):
-#         self.signature.parse(data)
-#
-#     def __bytes__(self):
-#         return self.signature.__bytes__()
-#
-#     def __pgpdump__(self):
-#         raise NotImplementedError()
-#
-#     def hashdata(self, subject):
-#         # from the Computing Signatures section of RFC 4880 (http://tools.ietf.org/html/rfc4880#section-5.2.4)
-#         #
-#         # All signatures are formed by producing a hash over the signature
-#         # data, and then using the resulting hash in the signature algorithm.
-#         #
-#         # For binary document signatures (type 0x00), the document data is
-#         # hashed directly.  For text document signatures (type 0x01), the
-#         # document is canonicalized by converting line endings to <CR><LF>,
-#         # and the resulting data is hashed.
-#         #
-#         # ...
-#         #
-#         # ...
-#         #
-#         # ...
-#         #
-#         # Once the data body is hashed, then a trailer is hashed.
-#         # (...) A V4 signature hashes the packet body
-#         # starting from its first field, the version number, through the end
-#         # of the hashed subpacket data.  Thus, the fields hashed are the
-#         # signature version, the signature type, the public-key algorithm, the
-#         # hash algorithm, the hashed subpacket length, and the hashed
-#         # subpacket body.
-#         #
-#         # V4 signatures also hash in a final trailer of six octets: the
-#         # version of the Signature packet, i.e., 0x04; 0xFF; and a four-octet,
-#         # big-endian number that is the length of the hashed data from the
-#         # Signature packet (note that this number does not include these final
-#         # six octets).
-#         #
-#         # After all this has been hashed in a single hash context, the
-#         # resulting hash field is used in the signature algorithm and placed
-#         # at the end of the Signature packet.
-#         _data = b''
-#         # h = hashlib.new(spkt.hash_algorithm.name)
-#
-#         # if spkt.hash_algorithm == HashAlgo.SHA1:
-#         #     h = SHA.new()
-#         #
-#         # elif spkt.hash_algorithm == HashAlgo.SHA256:
-#         #     h = SHA256.new()
-#         #
-#         # else:
-#         #     raise NotImplementedError()
-#
-#         s = FileLoader(subject)
-#
-#         if self.signature.type == Signature.Type.BinaryDocument:
-#             _data += s._bytes
-#
-#         else:
-#             ##TODO: sign other types of things
-#             raise NotImplementedError(self.sigpkt.type)  # pragma: no cover
-#
-#         # add the signature trailer to the hash context
-#         _data += self.signature.version.__bytes__()
-#         _data += self.signature.type.__bytes__()
-#         _data += self.signature.key_algorithm.__bytes__()
-#         _data += self.signature.hash_algorithm.__bytes__()
-#         _data += self.signature.hashed_subpackets.__bytes__()
-#
-#         # finally, hash the final six-octet trailer and return
-#         hlen = 4 + len(self.signature.hashed_subpackets.__bytes__())
-#         _data += b'\x04\xff'
-#         _data += int_to_bytes(hlen, 4)
-#
-#         return _data
-#
-#
-# class PGPKeyBlock(PGPObject):
-#     @property
-#     def magic(self):
-#         return self._keys[0].magic if len(self._keys) > 0 else "? KEY BLOCK"
-#
-#     def __init__(self):
-#         super(PGPKeyBlock, self).__init__()
-#         self._keys = []
-#         self._userids = []
-#         self._signatures = []
-#
-#     def parse(self, data):
-#         packets = []
-#
-#         while data != b'':
-#             packets.append(Packet.load_packet(data))
-#
-#             lplen = packets[-1].header.length + len(packets[-1].header.__bytes__())
-#             oplen = len(packets[-1].__bytes__())
-#
-#             # debugging
-#             if oplen != lplen:
-#                 packets[-1].__bytes__()
-#                 raise PGPError("__bytes__ chain {} for {}".format("incomplete" if oplen < lplen else "incorrect",
-#                                                                   packets[-1].__class__))
-#
-#             if packets[-1].__bytes__() != data[:lplen]:
-#                 packets[-1].__bytes__()
-#                 raise PGPError("__bytes__ chain incorrect for {}".format(packets[-1].__class__))
-#
-#             data = data[len(packets[-1].__bytes__()):]
-#
-#         for p in packets:
-#             if isinstance(p, KeyPacket):
-#                 k = PGPKey()
-#                 k._keypkt = p
-#                 self._keys.append(k)
-#
-#             if isinstance(p, UserID):
-#                 self._userids.append(p)
-#
-#             if isinstance(p, Signature):
-#                 self._signatures.append(p)
-#
-#     def __bytes__(self):
-#         raise NotImplementedError()
-#
-#     def __pgpdump__(self):
-#         raise NotImplementedError()
-#
-#
 # class PGPKey(PGPObject):
 #     # @property
 #     # def keypkts(self):

@@ -175,6 +175,27 @@ class Opaque(Packet):
         del packet[:self.header.length if not hasattr(self.header, 'version') else (self.header.length - 1)]
 
 
+# key marker classes for convenience
+class Key(object):
+    pass
+
+
+class Public(Key):
+    pass
+
+
+class Private(Key):
+    pass
+
+
+class Primary(Key):
+    pass
+
+
+class Sub(Key):
+    pass
+
+
 # Python 2.7 shenanigans
 try:  # pragma: no cover
     long

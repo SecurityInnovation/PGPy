@@ -95,7 +95,7 @@ class SubPackets(collections.MutableMapping, Field):
         pass
 
     def __contains__(self, key):
-        return any([key in [dk[0][2:] for dk in self._hashed_sp.keys()],
+        return any([key in [dk[0] for dk in self._hashed_sp.keys()],
                     key in [dk[0] for dk in self._unhashed_sp.keys()]])
 
     def parse(self, packet):

@@ -8,6 +8,7 @@ import calendar
 from datetime import datetime
 from datetime import timedelta
 
+from .types import EmbeddedSignatureHeader
 from .types import Signature
 
 from ...constants import CompressionAlgorithm
@@ -820,6 +821,48 @@ class Features(ByteFlag):
 
 
 class EmbeddedSignature(Signature):
-    ##TODO: this, once packet.packets.Signature is reworked
-    # __typeid__ = 0x20
-    pass
+    __typeid__ = 0x20
+
+    @TypedProperty
+    def _sig(self):
+        return self._sigpkt
+    @_sig.SignatureV4
+    def _sig(self, val):
+        self._sig = val
+
+    @property
+    def sigtype(self):
+        return self._sig.sigtype
+
+    @property
+    def pubalg(self):
+        return self._sig.pubalg
+
+    @property
+    def halg(self):
+        return self._sig.halg
+
+    @property
+    def subpackets(self):
+        return self._sig.subpackets
+
+    @property
+    def hash2(self):
+        return self._sig.hash2
+
+    @property
+    def signature(self):
+        return self._sig.signature
+
+    def __init__(self):
+        super(EmbeddedSignature, self).__init__()
+        from ..packets import SignatureV4
+        self._sigpkt = SignatureV4()
+        self._sigpkt.header = EmbeddedSignatureHeader()
+
+    def __bytes__(self):
+        return super(EmbeddedSignature, self).__bytes__() + self._sigpkt.__bytes__()
+
+    def parse(self, packet):
+        super(EmbeddedSignature, self).parse(packet)
+        self._sig.parse(packet)

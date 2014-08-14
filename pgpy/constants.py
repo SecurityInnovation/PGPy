@@ -10,6 +10,26 @@ from cryptography.hazmat.primitives.ciphers import algorithms
 from .types import FlagEnum
 
 
+class PacketTag(IntEnum):
+    PublicKeyEncryptedSessionKey = 1
+    Signature = 2
+    SymmetricKeyEncryptedSessionKey = 3
+    OnePassSignature = 4
+    SecretKey = 5
+    PublicKey = 6
+    SecretSubKey = 7
+    CompressedData = 8
+    SymmetricallyEncryptedData = 9
+    Marker = 10
+    LiteralData = 11
+    Trust = 12
+    UserID = 13
+    PublicSubKey = 14
+    UserAttribute = 17
+    SymmetricallyEncryptedIntegrityProtectedData = 18
+    ModificationDetectionCode = 19
+
+
 class SymmetricKeyAlgorithm(IntEnum):
     Plaintext = 0x00
     IDEA = 0x01
@@ -127,10 +147,10 @@ class SignatureType(IntEnum):
     BinaryDocument = 0x00
     CanonicalDocument = 0x01
     Standalone = 0x02
-    Generic_UserID_Pubkey = 0x10
-    Persona_UserID_Pubkey = 0x11
-    Casual_UserID_Pubkey = 0x12
-    Positive_UserID_Pubkey = 0x13
+    Generic_Cert = 0x10
+    Persona_Cert = 0x11
+    Casual_Cert = 0x12
+    Positive_Cert = 0x13
     Subkey_Binding = 0x18
     PrimaryKey_Binding = 0x19
     DirectlyOnKey = 0x1F
