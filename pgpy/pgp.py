@@ -2,7 +2,9 @@
 
 this is where the armorable PGP block objects live
 """
-
+from collections import Container
+from collections import Iterable
+from collections import Sized
 from collections import OrderedDict
 from datetime import datetime
 
@@ -108,6 +110,10 @@ class PGPKey(PGPObject, Exportable):
     especially if a transferable public key accompanies the transferable
     secret key.
     """
+    @property
+    def __key__(self):
+        raise NotImplementedError()
+
     @property
     def cipherprefs(self):
         return self._uids[0]._sigs[(self.fingerprint.keyid, 0)].cipherprefs
@@ -508,6 +514,33 @@ class PGPUID(object):
         self._sigs = OrderedDict()
         self._parent = None
 
+
+class PGPKeyring(Container, Iterable, Sized):
+    def __init__(self, *args):
+        self._keys = OrderedDict()
+        self._aliases = {}
+        # self.load(*args) ##TODO: once self.load is implemented, uncomment this
+
+    def __contains__(self, item):
+        raise NotImplementedError()
+
+    def __len__(self):
+        raise NotImplementedError()
+
+    def __iter__(self):
+        raise NotImplementedError()
+
+    def load(self, *args):
+        raise NotImplementedError()
+
+    def key(self, id=None, **kwargs):
+        raise NotImplementedError()
+
+    def fingerprints(self, public=True, private=False):
+        raise NotImplementedError()
+
+    def unload(self, fp):
+        raise NotImplementedError()
 
 # class PGPKey(PGPObject):
 #     # @property
