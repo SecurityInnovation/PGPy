@@ -95,8 +95,8 @@ class TestPGPKey(object):
         assert len(p.signatures) == 0
 
         # assert p.userids[0].primary
-        assert len(p.userattributes[0]._sigs) == 2
-        assert len(p.userids[0]._sigs) == 1
+        assert len(p.userattributes[0]._signatures) == 2
+        assert len(p.userids[0]._signatures) == 1
 
         assert p.cipherprefs == [SymmetricKeyAlgorithm.AES256,
                                  SymmetricKeyAlgorithm.AES192,

@@ -7,6 +7,7 @@ import abc
 import base64
 import binascii
 import collections
+import itertools
 import os
 import re
 
@@ -21,13 +22,14 @@ from ._author import __version__
 
 from .decorators import TypedProperty
 
-from .util import is_ascii
-from .util import is_path
-
 try:  # pragma: no cover
     e = FileNotFoundError
 except NameError:  # pragma: no cover
     e = IOError
+
+# compatibility shenanigans for Python 2.7
+if not hasattr(re, 'ASCII'):
+    re.ASCII = 0
 
 
 class FileLoader(object):
@@ -37,25 +39,56 @@ class FileLoader(object):
 
     @path.setter
     def path(self, ppath):
-        if not (is_path(ppath)):
+        if not (self.is_path(ppath)):
             raise ValueError("Expected: valid path")
 
         self._path = ppath
 
+    @staticmethod
+    def is_ascii(text):
+        if not isinstance(text, (str, bytes, bytearray)):
+            raise ValueError("Expected: ASCII input of type str, bytes, or bytearray")
+
+        if isinstance(text, str):
+            return bool(re.match(r'^[ -~\n]+$', text, flags=re.ASCII))
+
+        if isinstance(text, (bytes, bytearray)):
+            return bool(re.match(rb'^[ -~\n]+$', text, flags=re.ASCII))
+
+    @staticmethod
+    def is_path(ppath):
+        if type(ppath) is not str:
+            return False
+
+        win_badchars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
+        badchars = itertools.chain(range(0, 32), range(127, 256), win_badchars if os.name == 'nt' else [])
+
+        checkchars = re.match('\A[^' + ''.join([ chr(c) for c in badchars ]) + ']+\Z', ppath, flags=re.ASCII)
+
+        if checkchars is not None:
+            return True
+
+        return False
+
     @classmethod
     def load(cls, lf):
-        _bytes = b''
+        _bytes = bytearray()
 
         # None means nothing to load
         if lf is None:
             pass
 
         # This is a file-like object
+        elif hasattr(lf, "readinto") and hasattr(lf, "fileno"):
+            _bytes = bytearray(os.stat(lf.fileno).st_size)
+            lf.readinto(_bytes)
+
         elif hasattr(lf, "read"):
-            _bytes = bytes(lf.read())
+            _bytes = bytearray(lf.read())
 
         # this could be a path
-        elif is_path(lf) and ('/' in lf or '\\' in lf):
+        elif cls.is_path(lf):
+            lf = os.path.expanduser(lf)
             # this is a URI
             if "://" in lf:
                 r = requests.get(lf, verify=True)
@@ -68,7 +101,7 @@ class FileLoader(object):
             # this is an existing file
             elif os.path.isfile(lf):
                 with open(lf, 'rb') as lf:
-                    _bytes = bytes(lf.read())
+                    _bytes = bytearray(lf.read())
 
             # this is a new file
             elif os.path.isdir(os.path.dirname(lf)):
@@ -79,8 +112,12 @@ class FileLoader(object):
                 raise e(lf)
 
         # this is probably data we want to load directly
-        elif type(lf) in [str, bytes]:
-            _bytes = bytes(lf)
+        elif isinstance(lf, (str, bytes, bytearray)):
+            if isinstance(lf, str):
+                _bytes = bytearray(lf, 'latin-1')
+
+            else:
+                _bytes = bytearray(lf)
 
         # something else entirely
         else:
@@ -149,8 +186,10 @@ class Exportable(six.with_metaclass(abc.ABCMeta, FileLoader)):
         :return:
         :raises:
         """
-        if not is_ascii(text):
-            raise TypeError("Expected: ASCII")
+        m = {'magic': None, 'headers': None, 'body': bytearray(), 'crc': None}
+        if not FileLoader.is_ascii(text):
+            m['body'] = bytearray(text)
+            return m
 
         if isinstance(text, (bytes, bytearray)):
             text = text.decode('latin-1')
@@ -553,7 +592,7 @@ class Fingerprint(str):
         return False
 
     def __hash__(self):
-        return hash(str(self))
+        return hash(str(self.replace(' ', '')))
 
     def __int__(self):
         return int(self.replace(' ', ''), 16)

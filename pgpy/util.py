@@ -6,43 +6,6 @@ import itertools
 import os
 import re
 
-# compatibility shenanigans for Python 2.7
-if not hasattr(re, 'ASCII'):
-    re.ASCII = 0
-
-
-def is_ascii(text):
-    if not isinstance(text, (str, bytes, bytearray)):
-        raise ValueError("Expected: ASCII input of type str, bytes, or bytearray")
-
-    if isinstance(text, str):
-        #                      matches all printable ASCII characters
-        return bool(re.match(r'^[ -~\n]+$', text, flags=re.ASCII))
-
-    try:
-        text.decode('latin-1')
-
-    except UnicodeDecodeError:
-        return False
-
-    else:
-        return True
-
-
-def is_path(ppath):
-    if type(ppath) is not str:
-        return False
-
-    win_badchars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
-    badchars = itertools.chain(range(0, 32), range(127, 256), win_badchars if os.name == 'nt' else [])
-
-    checkchars = re.match('\A[^' + ''.join([ chr(c) for c in badchars ]) + ']+\Z', ppath, flags=re.ASCII)
-
-    if checkchars is not None:
-        return True
-
-    return False
-
 ##TODO: asn1_seqint_to_tuple needs to move
 bytes_to_int = lambda x: int.from_bytes(x, 'big')
 int_to_bytes = lambda x, y=1: x.to_bytes(y, 'big')

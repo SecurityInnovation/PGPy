@@ -448,7 +448,7 @@ class UserID(Packet):
                                # comment *optionally* matches text in parens following name
                                # this should never come after email and must be followed immediately by
                                # either the email field, or the end of the packet.
-                               (\ \((?P<comment>.+?)\)(?=( <|$)))?
+                               (\ \((?P<comment>.+?)\)(?=(\ <|$)))?
                                # email *optionally* matches text in angle brackets following name or comment
                                # this should never come before a comment, if comment exists,
                                # but can immediately follow name if comment does not exist

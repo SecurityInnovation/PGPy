@@ -88,7 +88,7 @@ class SubPackets(collections.MutableMapping, Field):
             return [v for k, v in self._hashed_sp.items() if key[2:] == k[0]]
 
         else:
-            return [v for k, v in self._unhashed_sp.items() if key == k[0]]
+            return [v for k, v in itertools.chain(self._hashed_sp.items(), self._unhashed_sp.items()) if key == k[0]]
 
     def __delitem__(self, key):
         ##TODO: this

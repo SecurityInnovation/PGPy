@@ -283,6 +283,16 @@ def pytest_generate_tests(metafunc):
         params += ['rsaprivblock']
         tdata += [[os.path.abspath('rsaseckey.asc')]]
 
+    @CWD_As('tests/testdata')
+    def ascrings():
+        global params
+        global argvals
+        global ids
+
+        params += ['ascrings']
+        argvals += [[[os.path.abspath('pubtest.asc'), os.path.abspath('sectest.asc')]]]
+        ids += ['ascrings']
+
     # run all inner functions that match fixturenames
     # I organized it like this for easy code folding in PyCharm :)
     for fn in metafunc.fixturenames:

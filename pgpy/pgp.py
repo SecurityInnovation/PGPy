@@ -2,10 +2,11 @@
 
 this is where the armorable PGP block objects live
 """
-from collections import Container
-from collections import Iterable
-from collections import Sized
-from collections import OrderedDict
+import collections
+import contextlib
+import itertools
+import warnings
+
 from datetime import datetime
 
 from .constants import PacketTag
@@ -115,12 +116,16 @@ class PGPKey(PGPObject, Exportable):
         raise NotImplementedError()
 
     @property
+    def created(self):
+        return self._key.created
+
+    @property
     def cipherprefs(self):
-        return self._uids[0]._sigs[(self.fingerprint.keyid, 0)].cipherprefs
+        return self._uids[0]._signatures[0].cipherprefs
 
     @property
     def compprefs(self):
-        return self._uids[0]._sigs[(self.fingerprint.keyid, 0)].compprefs
+        return self._uids[0]._signatures[0].compprefs
 
     @property
     def fingerprint(self):
@@ -128,7 +133,7 @@ class PGPKey(PGPObject, Exportable):
 
     @property
     def hashprefs(self):
-        return self._uids[0]._sigs[(self.fingerprint.keyid, 0)].hashprefs
+        return self._uids[0]._signatures[0].hashprefs
 
     @property
     def is_primary(self):
@@ -156,10 +161,10 @@ class PGPKey(PGPObject, Exportable):
     @property
     def usageflags(self):
         if self.is_primary:
-            return self._uids[0]._sigs[(self.fingerprint.keyid, 0)].key_flags
+            return self._uids[0]._signatures[0].key_flags
 
         else:
-            return self._signatures[list(self._signatures.keys())[0]].key_flags
+            return self._signatures[0].key_flags
 
     @property
     def userids(self):
@@ -171,23 +176,23 @@ class PGPKey(PGPObject, Exportable):
 
     def __init__(self):
         super(PGPKey, self).__init__()
-        self._key = None                # :type: PubKeyV4 | PrivKeyV4 | PubSubKeyV4 | PrivSubKeyV4
-        self._children = OrderedDict()  # :type: dict of PGPKey
-        self._parent = None             # :type: PGPKey
-        self._signatures = {}           # :type: dict of PGPSignature
-        self._uids = []                 # :type: list of PGPUID
+        self._key = None
+        self._children = collections.OrderedDict()
+        self._parent = None
+        self._signatures = collections.deque()
+        self._uids = collections.deque()
 
     def __bytes__(self):
         _bytes = bytearray()
         # us
         _bytes += self._key.__bytes__()
         # our signatures
-        for sig in self.signatures.values():
+        for sig in self.signatures:
             _bytes += sig.__bytes__()
         # one or more User IDs, followed by their signatures
         for uid in self._uids:
             _bytes += uid._uid.__bytes__()
-            _bytes += b''.join([s.__bytes__() for s in uid._sigs.values()])
+            _bytes += b''.join([s.__bytes__() for s in uid._signatures])
         # subkeys
         for sk in self._children.values():
             _bytes += sk.__bytes__()
@@ -218,33 +223,20 @@ class PGPKey(PGPObject, Exportable):
         raise NotImplementedError()
 
     def parse(self, packet):
-        data = bytearray()
-        unarmored = None
+        unarmored = self.ascii_unarmor(self.load(packet))
+        data = unarmored['body']
 
-        try:
-            unarmored = self.ascii_unarmor(packet)
+        if unarmored['magic'] is not None and 'KEY' not in unarmored['magic']:
+            raise ValueError('Expected: KEY. Got: {}'.format(str(unarmored['magic'])))
 
-        except ValueError:
-            data = packet
-
-        finally:
-            if unarmored is not None:
-                if 'KEY' not in unarmored['magic']:
-                    raise ValueError('Expected: Signature. Got: {}'.format(str(unarmored['magic'])))
-
-                data = unarmored['body']
-                self.ascii_headers = unarmored['headers']
-
-        if not isinstance(data, bytearray):
-            data = bytearray(data)
+        if unarmored['headers'] is not None:
+            self.ascii_headers = unarmored['headers']
 
         # parse packets
         # keys will hold other keys parsed here
-        keys = OrderedDict()
-        # uids will hold user ids and user attributes parsed here
-        uids = OrderedDict()
+        keys = collections.OrderedDict()
         # orphaned will hold all non-opaque orphaned packets
-        orphaned = OrderedDict()
+        orphaned = collections.OrderedDict()
 
         # parsing hints
         # last non-signature placed
@@ -259,7 +251,7 @@ class PGPKey(PGPObject, Exportable):
 
             # discard opaque packets
             if isinstance(pkt, Opaque):
-                ##TODO: warn if Opaque
+                warnings.warn("Discarded unsupported packet: {:s}".format(repr(pkt)), stacklevel=2)
                 del pkt
                 continue
 
@@ -312,35 +304,42 @@ class PGPKey(PGPObject, Exportable):
 
                 # A KeyRevocation signature *must immediately* follow a *primary* key *only*
                 if sig.type == SignatureType.KeyRevocation and isinstance(last, PGPKey) and last.is_primary:
-                    lk.signatures[sig.type] = sig
+                    lk._signatures.append(sig)
                     last = sig
                     continue
+
+                # A signature directly on a key follows the key that is its subject, but comes after a revocation signature
+                # or subkey binding signature if the last key is a subkey
+                if sig.type == SignatureType.DirectlyOnKey and isinstance(lns, PGPKey):
+                    ahead = [SignatureType.KeyRevocation, SignatureType.SubkeyRevocation, SignatureType.Subkey_Binding]
+                    rots = len(list(itertools.groupby(lk._signatures, key=lambda s: s.type in ahead)[0][1]))
+                    lk._signatures.rotate(-1 * rots)
+                    lk._signatures.appendleft(sig)
+                    lk._signatures.rotate(1 * rots)
 
                 # A SubkeyRevocation signature *must immediately* follow the Subkey Binding Signature that
                 # immediately follows a Subkey
                 if sig.type == SignatureType.SubkeyRevocation and isinstance(last, PGPSignature) and isinstance(lk, PGPKey) and not lk.is_primary:
-                    lk.signatures[sig.type] = sig
+                    lk._signatures.appendleft(sig)
                     last = sig
                     continue
 
                 # Certification signatures *must* follow either a User ID or User Attribute packet,
                 # or another Certification signature.
-                if isinstance(lns, (PGPUID)):
-                    scount = len([k for k in lns._sigs.keys() if k[0] == sig.signer])
-                    lns._sigs[(sig.signer, scount)] = sig
+                if sig.type in [SignatureType.Positive_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
+                                SignatureType.Generic_Cert] and isinstance(lns, (PGPUID)):
+                    lns._signatures.append(sig)
                     last = sig
                     continue
 
                 # Subkey Binding signatures *must immediately* follow a Subkey
                 if isinstance(last, PGPKey) and not last.is_primary:
-                    last._signatures[(sig.signer, 0)] = sig
+                    last._signatures.appendleft(sig)
                     last = sig
                     continue
 
-                ##TODO: where do direct-key signatures go?
-
-
-            # if we get this far, the packet was orphaned! Add it to orphaned.
+            # if we get this far, the packet was orphaned! Add it to orphaned and warn.
+            warnings.warn("Warning: Orphaned packet detected! {:s}".format(repr(pkt)), stacklevel=2)
             orphaned[(pkt.header.tag, len([k for k, v in orphaned.keys() if k == pkt.header.tag]))] = pkt
 
         # remove the reference to self from keys
@@ -475,25 +474,14 @@ class PGPSignature(PGPObject, Exportable):
         return self._signature.__bytes__()
 
     def parse(self, packet):
-        data = bytearray()
-        unarmored = None
+        unarmored = self.ascii_unarmor(self.load(packet))
+        data = unarmored['body']
 
-        try:
-            unarmored = self.ascii_unarmor(packet)
+        if unarmored['magic'] is not None and unarmored['magic'] != 'SIGNATURE':
+            raise ValueError('Expected: SIGNATURE. Got: {}'.format(str(unarmored['magic'])))
 
-        except ValueError:
-            data = packet
-
-        finally:
-            if unarmored is not None:
-                if unarmored['magic'] != 'SIGNATURE':
-                    raise ValueError('Expected: Signature. Got: {}'.format(str(unarmored['magic'])))
-
-                data = unarmored['body']
-                self.ascii_headers = unarmored['headers']
-
-        if not isinstance(data, bytearray):
-            data = bytearray(data)
+        if unarmored['headers'] is not None:
+            self.ascii_headers = unarmored['headers']
 
         # load *one* packet from data
         pkt = Packet(data)
@@ -509,34 +497,136 @@ class PGPUID(object):
     def primary(self):
         raise NotImplementedError()
 
+    @property
+    def name(self):
+        return self._uid.name
+
+    @property
+    def comment(self):
+        return self._uid.comment
+
+    @property
+    def email(self):
+        return self._uid.email
+
     def __init__(self):
         self._uid = None
-        self._sigs = OrderedDict()
+        self._signatures = collections.deque()
         self._parent = None
 
 
-class PGPKeyring(Container, Iterable, Sized):
+class PGPKeyChainMap(collections.ChainMap):
+    def __init__(self):
+        # init without arguments, and then replace self.maps with a deque using our desired initial values
+        super(PGPKeyChainMap, self).__init__({}, collections.OrderedDict())
+
+    def _chain_bob(self, depth=0):
+        if depth > len(self.maps) - 1 or depth == 0:
+            depth = len(self.maps) - 1
+
+        tdepth = len(self.maps) - 2
+
+        return range(tdepth, tdepth - depth, -1)
+
+    def _get_next_depth(self, key):
+        # return the deepest map in the chain that does not yet contain key
+        for i in [ i for i in self._chain_bob() if key not in self.maps[i]]:
+            return i
+
+        # if we got this far, all levels have the key, so we need to add a new one, and return 0
+        self.maps.insert(0, {})
+        return 0
+
+    def _sort_key_depth(self, key):
+        # create a list of unique PGPKeys that are referred to by key, sorted by creation date from oldest to newest
+        ka = sorted(list(set(self.maps[i].pop(key) for i in self._chain_bob() if key in self.maps[i])), key=lambda k: k.created)
+
+        # now write the elements in ka to our maps, from the bottom up
+        for k, i in zip(ka, self._chain_bob(len(ka))):
+            self.maps[i][key] = k
+
+    def __setitem__(self, key, value):
+        # this is a new key being added
+        if isinstance(value, PGPKey) and value not in self.values():
+            self.maps[-1][id(value)] = value
+            # add aliases
+            self[value.fingerprint] = value
+            self[value.fingerprint.keyid] = value
+            self[value.fingerprint.shortid] = value
+            for uid in value.userids:
+                self[uid.name] = value
+                self[uid.email] = value
+            # add subkeys
+            for subkey in value.subkeys.values():
+                self[None] = subkey
+
+        # ignore any alias that is None
+        elif key is None:
+            pass
+
+        # this is an alias being added for an existing key value
+        else:
+            kd = self._get_next_depth(key)
+            self.maps[kd][key] = value
+
+            # this was a duplicate alias
+            if kd < len(self.maps) - 2:
+                self._sort_key_depth(key)
+
+        # and a little cleanup - remove any empty dicts at the head of self.maps
+        while self.maps[0] == {} and len(self.maps) > 2:
+            self.maps.popleft()
+
+
+class PGPKeyring(collections.Container, collections.Iterable, collections.Sized):
     def __init__(self, *args):
-        self._keys = OrderedDict()
-        self._aliases = {}
-        # self.load(*args) ##TODO: once self.load is implemented, uncomment this
+        self._keys = PGPKeyChainMap()
+        self.load(*args)
 
     def __contains__(self, item):
-        raise NotImplementedError()
+        if item.replace(' ', '') in self._keys:
+            return True
+
+        elif item in self._keys:
+            return True
+
+        elif item in self._keys.values():
+            return True
+
+        else:
+            return False
 
     def __len__(self):
-        raise NotImplementedError()
+        return len(self._keys.maps[-1])
 
     def __iter__(self):
-        raise NotImplementedError()
+        for k in self._keys.maps[-1].values():
+            yield k
 
     def load(self, *args):
+        def _do_load(arg):
+            if isinstance(arg, (list, tuple)):
+                for item in arg:
+                    _do_load(item)
+
+            else:
+                _key = PGPKey()
+                keys = _key.parse(arg)
+
+                for key in itertools.chain([_key], keys['keys'].values()):
+                    self._keys[None] = key
+                    for fp in [k.fingerprint for k in itertools.chain([key], key.subkeys.values())]:
+                        loaded.append(fp)
+
+        loaded = []
+        _do_load(args)
+        return loaded
+
+    @contextlib.contextmanager
+    def key(self, id=None, keyhalf='private', keytype='any'):
         raise NotImplementedError()
 
-    def key(self, id=None, **kwargs):
-        raise NotImplementedError()
-
-    def fingerprints(self, public=True, private=False):
+    def fingerprints(self, keyhalf='public', keytype='any'):
         raise NotImplementedError()
 
     def unload(self, fp):
