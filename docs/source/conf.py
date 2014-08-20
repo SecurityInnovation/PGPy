@@ -20,9 +20,8 @@ import sphinx_rtd_theme
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
+sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(0, os.path.abspath('../../'))
-
-print(os.path.abspath('.'))
 
 from pgpy._author import __version__
 
@@ -38,6 +37,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
     'sphinx.ext.todo',
+    '_ext.progress',
     # 'sphinx.ext.doctest',
     # 'sphinx.ext.coverage',
     # 'sphinx.ext.mathjax',
@@ -106,6 +106,12 @@ pygments_style = 'sphinx'
 
 # If true, keep warnings as "system message" paragraphs in the built documents.
 #keep_warnings = False
+
+# -- Options for ext.autodoc ----------------------------------------------
+
+autoclass_content = 'init'
+autodoc_member_order = 'groupwise'
+autodoc_default_flags = ['members']
 
 # -- Options for ext.autosummary ------------------------------------------
 

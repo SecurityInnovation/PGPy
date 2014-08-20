@@ -2,18 +2,13 @@
 
 utility functions for PGPY
 """
-import binascii
-import math
+import itertools
+import os
+import re
 
-
-def bytes_to_int(b):
-    return int(binascii.hexlify(b), 16)
-
-
-def int_to_bytes(i, minlen=1):
-    plen = max(int(math.ceil(i.bit_length() / 8.0)) * 2, (minlen * 2))
-    hexstr = '{0:0{1}x}'.format(i, plen).encode('ascii')
-    return binascii.unhexlify(hexstr)
+##TODO: asn1_seqint_to_tuple needs to move
+bytes_to_int = lambda x: int.from_bytes(x, 'big')
+int_to_bytes = lambda x, y=1: x.to_bytes(y, 'big')
 
 
 def asn1_seqint_to_tuple(asn1block):

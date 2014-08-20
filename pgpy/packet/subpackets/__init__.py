@@ -1,5 +1,7 @@
-from .signature import SigSubPacket
-from .userattribute import UASubPacket
+from .types import Signature as Signature
+from .types import UserAttribute as UserAttribute
 
-__all__ = [SigSubPacket,
-           UASubPacket]
+from .signature import *  # NOQA
+from .userattribute import *  # NOQA
+
+__all__ = [Signature, UserAttribute]

@@ -1,178 +1,53 @@
 """ packet.py
 """
+import abc
 import calendar
 import hashlib
+import re
 
 from datetime import datetime
-from enum import Enum
 
-from cryptography.exceptions import UnsupportedAlgorithm
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.ciphers import Cipher, modes
+from .fields import DSAPriv
+from .fields import DSAPub
+from .fields import DSASignature
+from .fields import ElGPriv
+from .fields import ElGPub
+from .fields import RSAPriv
+from .fields import RSAPub
+from .fields import RSASignature
+from .fields import SubPackets
+from .fields import UserAttributeSubPackets
 
-from .fields.fields import Header
-from .fields.fields import SignatureSubPackets
-from .fields.fields import UserAttributeSubPackets
-from .fields.keyfields import MPIFields
-from .fields.keyfields import String2Key
-from .types import HashAlgo
-from .types import PFIntEnum
-from .types import PubKeyAlgo
+from .types import Packet
+from .types import Primary
+from .types import Private
+from .types import Public
+from .types import Sub
+from .types import VersionedPacket
 
-from ..errors import PGPKeyDecryptionError
-from ..errors import PGPOpenSSLCipherNotSupported
-from ..util import bytes_to_int
-from ..util import int_to_bytes
+from ..constants import HashAlgorithm
+from ..constants import PubKeyAlgorithm
+from ..constants import SignatureType
+from ..constants import TrustFlags
+from ..constants import TrustLevel
 
+from ..decorators import TypedProperty
 
-class PGPPacketClass(Enum):
-        # tag support list
-        # [x] 0  - Reserved (Illegal Value)
-        # [ ] 1  - Public-Key Encrypted Session Key Packet
-        # [x] 2  - Signature Packet
-        Signature = Header.Tag.Signature
-        # [ ] 3  - Symmetric-Key Encrypted Session Key Packet
-        # [ ] 4  - One-Pass Signature Packet
-        # [x] 5  - Secret-Key Packet
-        PrivKey = Header.Tag.PrivKey
-        # [x] 6  - Public-Key Packet
-        PubKey = Header.Tag.PubKey
-        # [x] 7  - Secret-Subkey Packet
-        PrivSubKey = Header.Tag.PrivSubKey
-        # [ ] 8  - Compressed Data Packet
-        # [ ] 9  - Symmetrically Encrypted Data Packet
-        # [ ] 10 - Marker Packet
-        # [ ] 11 - Literal Data Packet
-        # [x] 12 - Trust Packet
-        Trust = Header.Tag.Trust
-        # [x] 13 - User ID Packet
-        UserID = Header.Tag.UserID
-        # [x] 14 - Public-Subkey Packet
-        PubSubKey = Header.Tag.PubSubKey
-        # [x] 17 - User Attribute Packet
-        UserAttribute = Header.Tag.UserAttribute
-        # [ ] 18 - Sym. Encrypted and Integrity Protected Data Packet
-        # [ ] 19 - Modification Detection Code Packet
-
-        @property
-        def subclass(self):
-            if self == PGPPacketClass.Signature:
-                return Signature
-
-            # if self in [PGPPacketClass.PubKey, PGPPacketClass.PubSubKey]:
-            if self == PGPPacketClass.PubKey:
-                return PubKey
-
-            if self == PGPPacketClass.PubSubKey:
-                return PubSubKey
-
-            if self == PGPPacketClass.PrivKey:
-                return PrivKey
-
-            if self == PGPPacketClass.PrivSubKey:
-                return PrivSubKey
-
-            if self == PGPPacketClass.Trust:
-                return Trust
-
-            if self == PGPPacketClass.UserID:
-                return UserID
-
-            if self == PGPPacketClass.UserAttribute:
-                return UserAttribute
-
-            raise NotImplementedError(self)  # pragma: no cover
+from ..types import Fingerprint
 
 
-class Packet(object):
-    name = ""
-
-    def __init__(self, packet=None, ptype=None):
-        # __init__ on Packet is now a "factory" of sorts
-        #   - if `packet` is None, this is to be a shiny new packet created by PGPy
-        #     of type `type`
-        #   - if `packet` is not None, this is an existing packet to be parsed
-        #     `type` is ignored
-        #
-        # packet will be None if we're creating a new packet from scratch
-        self.header = Header()
-
-        if packet is None and ptype is not None:
-            self.header.tag = ptype
-            self.__class__ = PGPPacketClass(ptype).subclass
-            self.__class__.__init__(self)
-
-        # we're parsing an existing packet
-        if packet is not None:
-            # parse header, then change into our subclass
-            self.header.parse(packet)
-            start = len(self.header.__bytes__())
-            end = start + self.header.length
-
-            try:
-                # get the subclass to be instantiated - will fall back if the packet is not supported
-                nc = PGPPacketClass(self.header.tag).subclass
-
-                # if the subclass is versioned and the packet looks like it's not version 4, also fall back
-                if hasattr(nc, "Version") and bytes_to_int(packet[start:(start + 1)]) != 4:
-                    raise ValueError()
-
-            except ValueError:
-                # fall back to Opaque
-                nc = Opaque
-
-            finally:
-                self.__class__ = nc
-                self.__init__()
-                self.parse(packet[start:end])
-
-            # try:
-            #     # try to set the class
-            #     self.__class__ = PGPPacketClass(self.header.tag).subclass
-            #
-            # except ValueError:
-            #     # fall back to Opaque if the packet type is unknown
-            #     self.__class__ = Opaque
-            #
-            # finally:
-            #     # run child class' __init__
-            #     self.__class__.__init__(self)
-            #
-            # try:
-            #     # try to parse
-            #     self.parse(packet[start:end])
-            #
-            # except ValueError:
-            #     # parsing failed; fall back to Opaque(Packet)
-            #     self.__class__ = Opaque
-            #     self.__class__.__init__(self)
-            #     self.parse(packet[start:end])
-
-    def parse(self, packet):
-        raise NotImplementedError(self.header.tag.name)  # pragma: no cover
-
-    def __bytes__(self):
-        raise NotImplementedError(self.header.tag.name)  # pragma: no cover
-
-    def pgpdump_out(self):
-        raise NotImplementedError(self.header.tag.name)  # pragma: no cover
+# Placeholder for 0x01
 
 
-class Opaque(Packet):
-    def __init__(self):
-        self.contents = b''
-
-    def parse(self, packet):
-        self.contents = packet
-
-    def __bytes__(self):
-        _bytes = self.header.__bytes__()
-        _bytes += self.contents
-        return _bytes
+class Signature(VersionedPacket):
+    __typeid__ = 0x02
+    __ver__ = 0
 
 
-class Signature(Packet):
+class SignatureV4(Signature):
     """
+    5.2.3.  Version 4 Signature Packet Format
+
     The body of a version 4 Signature packet contains:
 
      - One-octet version number (4).
@@ -214,339 +89,385 @@ class Signature(Packet):
     is unhashed.  The second set of subpackets is not cryptographically
     protected by the signature and should include only advisory
     information.
+
+    The algorithms for converting the hash function result to a signature
+    are described in a section below.
     """
-    class Version(PFIntEnum):
-        v4 = 4
+    __typeid__ = 0x02
+    __ver__ = 4
 
-    class Type(PFIntEnum):
-        BinaryDocument = 0x00
-        CanonicalDocument = 0x01
-        Standalone = 0x02
-        Generic_UserID_Pubkey = 0x10
-        Persona_UserID_Pubkey = 0x11
-        Casual_UserID_Pubkey = 0x12
-        Positive_UserID_Pubkey = 0x13
-        Subkey_Binding = 0x18
-        PrimaryKey_Binding = 0x19
-        DirectlyOnKey = 0x1F
-        KeyRevocation = 0x20
-        SubkeyRevocation = 0x28
-        CertRevocation = 0x30
-        Timestamp = 0x40
-        ThirdParty_Confirmation = 0x50
+    @TypedProperty
+    def sigtype(self):
+        return self._sigtype
 
-        def __str__(self):
-            types = {'BinaryDocument': "Signature of a binary document",
-                     'CanonicalDocument': "Signature of a canonical text document",
-                     'Standalone': "Standalone signature",
-                     'Generic_UserID_Pubkey': "Generic certification of a User ID and Public Key packet",
-                     'Persona_UserID_Pubkey': "Persona certification of a User ID and Public-Key packet",
-                     'Casual_UserID_Pubkey': "Casual certification of a User ID and Public-Key packet",
-                     'Positive_UserID_Pubkey': "Positive certification of a User ID and Public Key packet",
-                     'Subkey_Binding': "Subkey Binding Signature",
-                     'PrimaryKey_Binding': "Primary Key Binding Signature",
-                     'DirectlyOnKey': "Signature directly on a key",
-                     'KeyRevocation': "Key revocation signature",
-                     'SubkeyRevocation': "Subkey revocation signature",
-                     'CertRevocation': "Certification revocation signature",
-                     'Timestamp': "Timestamp signature",
-                     'ThirdParty_Confirmation': "Third-Party Confirmation signature"}
+    @sigtype.SignatureType
+    def sigtype(self, val):
+        self._sigtype = val
 
-            if self.name in types.keys():
-                return types[self.name]
+    @sigtype.int
+    def sigtype(self, val):
+        self.sigtype = SignatureType(val)
 
-            raise NotImplementedError(self.name)  # pragma: no cover
+    @TypedProperty
+    def pubalg(self):
+        return self._pubalg
 
-    name = "Signature Packet"
+    @pubalg.PubKeyAlgorithm
+    def pubalg(self, val):
+        self._pubalg = val
+        if val in [PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.RSAEncrypt, PubKeyAlgorithm.RSASign]:
+            self.signature = RSASignature()
+
+        elif val == PubKeyAlgorithm.DSA:
+            self.signature = DSASignature()
+
+    @pubalg.int
+    def pubalg(self, val):
+        self.pubalg = PubKeyAlgorithm(val)
+
+    @TypedProperty
+    def halg(self):
+        return self._halg
+
+    @halg.HashAlgorithm
+    def halg(self, val):
+        self._halg = val
+
+    @halg.int
+    def halg(self, val):
+        try:
+            self.halg = HashAlgorithm(val)
+
+        except ValueError:
+            self._halg = val
+
+    @property
+    def signature(self):
+        return self._signature
+
+    @signature.setter
+    def signature(self, val):
+        self._signature = val
 
     def __init__(self):
-        self.version = Signature.Version.v4  # default for new Signature packets
-        self.type = Signature.Type.BinaryDocument  # default for new Signature packets
-        self.key_algorithm = PubKeyAlgo.RSAEncryptOrSign  # default for new Signature packets
-        self.hash_algorithm = 0
-        self.hashed_subpackets = SignatureSubPackets()
-        self.hashed_subpackets.hashed = True
-        self.unhashed_subpackets = SignatureSubPackets()
-        self.hash2 = b''
-        self.signature = MPIFields()
-
-    def parse(self, packet):
-        self.version = Signature.Version(bytes_to_int(packet[:1]))
-
-        if self.version == Signature.Version.v4:
-            self.type = Signature.Type(bytes_to_int(packet[1:2]))
-            self.key_algorithm = PubKeyAlgo(bytes_to_int(packet[2:3]))
-            self.hash_algorithm = HashAlgo(bytes_to_int(packet[3:4]))
-
-            # subpackets
-            self.hashed_subpackets.parse(packet[4:])
-            pos = 4 + self.hashed_subpackets.length
-
-            self.unhashed_subpackets.parse(packet[pos:])
-            pos += self.unhashed_subpackets.length
-
-            # hash2
-            self.hash2 = packet[pos:pos + 2]
-            pos += 2
-
-            # algorithm-specific integer(s)
-            self.signature.parse(packet[pos:], self.header.tag, self.key_algorithm)
+        super(Signature, self).__init__()
+        self._sigtype = None
+        self._pubalg = None
+        self._halg = None
+        self.subpackets = SubPackets()
+        self.hash2 = bytearray(2)
+        self.signature = None
 
     def __bytes__(self):
-        _bytes = b''
+        _bytes = bytearray()
+        _bytes += super(Signature, self).__bytes__()
+        _bytes += self.int_to_bytes(self.sigtype)
+        _bytes += self.int_to_bytes(self.pubalg)
+        _bytes += self.int_to_bytes(self.halg)
+        _bytes += self.subpackets.__bytes__()
+        _bytes += self.hash2
+        _bytes += self.signature.__bytes__()
 
-        if self.version == Signature.Version.v4:
-            _bytes += self.header.__bytes__()
-            _bytes += self.version.__bytes__()
-            _bytes += self.type.__bytes__()
-            _bytes += self.key_algorithm.__bytes__()
-            _bytes += self.hash_algorithm.__bytes__()
-            _bytes += self.hashed_subpackets.__bytes__()
-            _bytes += self.unhashed_subpackets.__bytes__()
-            _bytes += self.hash2
-            _bytes += self.signature.sigbytes()
+        return bytes(_bytes)
 
-        return _bytes
+    def parse(self, packet):
+        super(Signature, self).parse(packet)
+        self.sigtype = packet[0]
+        del packet[0]
+
+        self.pubalg = packet[0]
+        del packet[0]
+
+        self.halg = packet[0]
+        del packet[0]
+
+        self.subpackets.parse(packet)
+
+        self.hash2 = packet[:2]
+        del packet[:2]
+
+        self.signature.parse(packet)
 
 
-class KeyPacket(Packet):
-    class Version(PFIntEnum):
-        v4 = 4
+# Placeholder for 0x03
+# Placeholder for 0x04
+
+
+class PrivKey(VersionedPacket, Primary, Private):
+    __typeid__ = 0x05
+    __ver__ = 0
+
+
+class PubKey(VersionedPacket, Primary, Public):
+    __typeid__ = 0x06
+    __ver__ = 0
+
+    @abc.abstractproperty
+    def fingerprint(self):
+        return ""
+
+
+class PubKeyV4(PubKey):
+    __ver__ = 4
+
+    @TypedProperty
+    def created(self):
+        return self._created
+
+    @created.datetime
+    def created(self, val):
+        self._created = val
+
+    @created.int
+    def created(self, val):
+        self.created = datetime.utcfromtimestamp(val)
+
+    @created.bytearray
+    @created.bytes
+    def created(self, val):
+        self.created = self.bytes_to_int(val)
+
+    @TypedProperty
+    def pkalg(self):
+        return self._pkalg
+
+    @pkalg.PubKeyAlgorithm
+    def pkalg(self, val):
+        self._pkalg = val
+
+        _c = {
+            # True means public
+            (True, PubKeyAlgorithm.RSAEncryptOrSign): RSAPub,
+            (True, PubKeyAlgorithm.RSAEncrypt): RSAPub,
+            (True, PubKeyAlgorithm.RSASign): RSAPub,
+            (True, PubKeyAlgorithm.DSA): DSAPub,
+            (True, PubKeyAlgorithm.ElGamal): ElGPub,
+            (True, PubKeyAlgorithm.FormerlyElGamalEncryptOrSign): ElGPub,
+            # False means private
+            (False, PubKeyAlgorithm.RSAEncryptOrSign): RSAPriv,
+            (False, PubKeyAlgorithm.RSAEncrypt): RSAPriv,
+            (False, PubKeyAlgorithm.RSASign): RSAPriv,
+            (False, PubKeyAlgorithm.DSA): DSAPriv,
+            (False, PubKeyAlgorithm.ElGamal): ElGPriv,
+            (False, PubKeyAlgorithm.FormerlyElGamalEncryptOrSign): ElGPriv,
+        }
+
+        k = (self.public, self.pkalg)
+
+        if k in _c:
+            self.keymaterial = _c[k]()
+
+        else:
+            self.keymaterial = None
+
+    @pkalg.int
+    def pkalg(self, val):
+        self.pkalg = PubKeyAlgorithm(val)
+
+    @property
+    def public(self):
+        return isinstance(self, PubKey) and not isinstance(self, PrivKey)
 
     @property
     def fingerprint(self):
-        if self._fp is None:
-            # We have not yet computed the fingerprint, so we'll have to do that now.
-            # Here is the RFC 4880 section on computing v4 fingerprints:
-            #
-            # A V4 fingerprint is the 160-bit SHA-1 hash of the octet 0x99,
-            # followed by the two-octet packet length, followed by the entire
-            # Public-Key packet starting with the version field.  The Key ID is the
-            # low-order 64 bits of the fingerprint.
-            sha1 = hashlib.sha1()
-            bcde_len = int_to_bytes(6 + len(self.key_material.pubbytes()), 2)
+        # A V4 fingerprint is the 160-bit SHA-1 hash of the octet 0x99, followed by the two-octet packet length,
+        # followed by the entire Public-Key packet starting with the version field.  The Key ID is the
+        # low-order 64 bits of the fingerprint.
+        fp = hashlib.new('sha1')
 
-            # a.1) 0x99 (1 octet)
-            sha1.update(b'\x99')
-            # a.2 high-order length octet
-            sha1.update(bcde_len[:1])
-            # a.3 low-order length octet
-            sha1.update(bcde_len[-1:])
-            # b) version number = 4 (1 octet);
-            sha1.update(b'\x04')
-            # c) timestamp of key creation (4 octets);
-            sha1.update(int_to_bytes(calendar.timegm(self.key_creation.timetuple()), 4))
-            # d) algorithm (1 octet): 17 = DSA (example);
-            sha1.update(self.key_algorithm.__bytes__())
-            # e) Algorithm-specific fields.
-            sha1.update(self.key_material.pubbytes())
+        plen = self.keymaterial.publen()
+        bcde_len = self.int_to_bytes(6 + plen, 2)
 
-            # now store the digest
-            self._fp = sha1.hexdigest().upper()
+        # a.1) 0x99 (1 octet)
+        # a.2) high-order length octet
+        # a.3) low-order length octet
+        fp.update(b'\x99' + bcde_len[:1] + bcde_len[-1:])
+        # b) version number = 4 (1 octet);
+        fp.update(b'\x04')
+        # c) timestamp of key creation (4 octets);
+        fp.update(self.int_to_bytes(calendar.timegm(self.created.timetuple()), 4))
+        # d) algorithm (1 octet): 17 = DSA (example);
+        fp.update(self.int_to_bytes(self.pkalg))
+        # e) Algorithm-specific fields.
+        fp.update(self.keymaterial.__bytes__()[:plen])
 
-        return self._fp
-
-    @property
-    def keyid(self):
-        return self.fingerprint[-16:]
+        # and return the digest
+        return Fingerprint(fp.hexdigest().upper())
 
     def __init__(self):
-        self._fp = None
-
-        self.version = PubKey.Version.v4  # default for new Key packets
-        self.key_creation = datetime.utcnow()
-        self.key_algorithm = PubKeyAlgo.RSAEncryptOrSign
-        self.key_material = MPIFields()
-
-    def parse(self, packet):
-        # all keys have the public component, at least
-        self.version = PubKey.Version(bytes_to_int(packet[:1]))
-
-        if self.version == PubKey.Version.v4:
-            self.key_creation = datetime.utcfromtimestamp(bytes_to_int(packet[1:5]))
-            self.key_algorithm = PubKeyAlgo(bytes_to_int(packet[5:6]))
-            self.key_material.parse(packet[6:], self.header.tag, self.key_algorithm)
+        super(PubKeyV4, self).__init__()
+        self.created = datetime.utcnow()
+        self.pkalg = 0
 
     def __bytes__(self):
-        _bytes = b''
-        _bytes += self.header.__bytes__()
-        _bytes += self.version.__bytes__()
-        _bytes += int_to_bytes(calendar.timegm(self.key_creation.timetuple()), 4)
-        _bytes += self.key_algorithm.__bytes__()
-        _bytes += self.key_material.pubbytes()
-
-        return _bytes
-
-
-class PubKey(KeyPacket):
-    # Tag 6
-    name = 'Public Key Packet'
-
-
-class PubSubKey(PubKey):
-    # Tag 14
-    name = 'Public Subkey Packet'
-
-
-class PrivKey(KeyPacket):
-    # Tag 5
-    name = 'Secret Key Packet'
-
-    @property
-    def encrypted(self):
-        return not self.stokey.id == 0
-
-    def __init__(self):
-        super(PrivKey, self).__init__()
-        self.stokey = String2Key()
-        self.enc_seckey_material = b''
-        self.checksum = b''
+        _bytes = bytearray()
+        _bytes += super(PubKeyV4, self).__bytes__()
+        _bytes += self.int_to_bytes(calendar.timegm(self.created.timetuple()), 4)
+        _bytes += self.int_to_bytes(self.pkalg)
+        _bytes += self.keymaterial.__bytes__()
+        return bytes(_bytes)
 
     def parse(self, packet):
-        super(PrivKey, self).parse(packet)
-        pos = 6 + len(self.key_material.pubbytes())
+        super(PubKeyV4, self).parse(packet)
 
-        self.stokey.parse(packet[pos:])
-        pos += len(self.stokey.__bytes__())
+        self.created = packet[:4]
+        del packet[:4]
 
-        # secret key material is not encrypted
-        if self.stokey.id == 0:
-            self.key_material.parse(packet[pos:], self.header.tag, self.key_algorithm, sec=True)
-            pos += len(self.key_material.privbytes())
+        self.pkalg = packet[0]
+        del packet[0]
 
-        # secret key material is encrypted
-        else:
-            mend = -2
-            if self.stokey.id == 254:
-                mend = len(packet)
-            self.enc_seckey_material = packet[pos:mend]
-
-        if self.stokey.id in [0, 255]:
-            self.checksum = packet[pos:]
-
-    def __bytes__(self):
-        _bytes = super(PrivKey, self).__bytes__()
-        _bytes += self.stokey.__bytes__()
-        if self.stokey.id == 0:
-            _bytes += self.key_material.privbytes()
-        else:
-            _bytes += self.enc_seckey_material
-        _bytes += self.checksum
-        return _bytes
-
-    def encrypt_keymaterial(self, passphrase):
-        ##TODO: encrypt secret key material that is not yet encrypted
-        ##TODO: generate String2Key specifier for newly encrypted data
-        pass
-
-    def decrypt_keymaterial(self, passphrase):
-        if not self.encrypted:
-            return  # pragma: no cover
-
-        # Encryption/decryption of the secret data is done in CFB mode using
-        # the key created from the passphrase and the Initial Vector from the
-        # packet.  A different mode is used with V3 keys (which are only RSA)
-        # than with other key formats.  (...)
-        #
-        # With V4 keys, a simpler method is used.  All secret MPI values are
-        # encrypted in CFB mode, including the MPI bitcount prefix.
-
-        # derive a key from our passphrase. If the passphrase is correct, this will be the right one...
-        sessionkey = self.stokey.derive_key(passphrase)
-
-        # attempt to decrypt this key!
-        cipher = Cipher(self.stokey.alg.decalg(sessionkey), modes.CFB(bytes(self.stokey.iv)), backend=default_backend())
-        try:
-            decryptor = cipher.decryptor()
-
-        except UnsupportedAlgorithm as e:
-            raise PGPOpenSSLCipherNotSupported(str(e))
-
-        pt = decryptor.update(bytes(self.enc_seckey_material)) + decryptor.finalize()
-
-        # check the hash to see if we decrypted successfully or not
-        if self.stokey.id == 254:
-            if not pt[-20:] == hashlib.new('sha1', pt[:-20]).digest():
-                raise PGPKeyDecryptionError("Passphrase was incorrect!")
-
-            # parse decrypted key material into self.key_material
-            self.key_material.parse(pt[:-20], self.header.tag, self.key_algorithm, sec=True)
-            self.checksum = pt[-20:]
-
-    def undecrypt_keymaterial(self):
-        if self.encrypted and not self.key_material.privempty:
-            self.key_material.reset()
-            self.checksum = b''
+        # bound keymaterial to the remaining length of the packet
+        pend = self.header.length - 6
+        self.keymaterial.parse(packet[:pend])
+        del packet[:pend]
 
 
-class PrivSubKey(PrivKey):
-    name = 'Secret Subkey Packet'
+class PrivKeyV4(PrivKey, PubKeyV4):
+    __ver__ = 4
+
+    def unprotect(self, passphrase):
+        self.keymaterial.decrypt_keyblob(passphrase)
+        del passphrase
 
 
-class UserID(Packet):
-    name = "User ID Packet"
+class PrivSubKey(VersionedPacket, Sub, Private):
+    __typeid__ = 0x07
+    __ver__ = 0
 
-    def __init__(self):
-        self.data = b''
 
-    def parse(self, packet):
-        self.data = packet
+class PrivSubKeyV4(PrivSubKey, PrivKeyV4):
+    __ver__ = 4
 
-    def __bytes__(self):
-        _bytes = b''
-        _bytes += self.header.__bytes__()
-        _bytes += self.data
 
-        return _bytes
+# Placeholder for 0x08
+# Placehlder for 0x09
+# Placeholder for 0x0A
+# Placeholder for 0x0B
 
 
 class Trust(Packet):
-    name = "Trust Packet"
+    """
+    5.10.  Trust Packet (Tag 12)
 
-    class TrustLevel(PFIntEnum):
-        # trust levels
-        Unknown = 0
-        Expired = 1
-        Undefined = 2
-        Never = 3
-        Marginal = 4
-        Fully = 5
-        Ultimate = 6
+    The Trust packet is used only within keyrings and is not normally
+    exported.  Trust packets contain data that record the user's
+    specifications of which key holders are trustworthy introducers,
+    along with other information that implementing software uses for
+    trust information.  The format of Trust packets is defined by a given
+    implementation.
 
-    class TrustFlags(PFIntEnum):
-        Revoked = 32
-        SubRevoked = 64
-        Disabled = 128
-        PendingCheck = 256
+    Trust packets SHOULD NOT be emitted to output streams that are
+    transferred to other users, and they SHOULD be ignored on any input
+    other than local keyring files.
+    """
+    __typeid__ = 0x0C
 
-    @property
-    def trust(self):
-        return int_to_bytes(self.trustlevel + sum(self.trustflags), 2)
+    @TypedProperty
+    def trustlevel(self):
+        return self._trustlevel
+
+    @trustlevel.TrustLevel
+    def trustlevel(self, val):
+        self._trustlevel = val
+
+    @trustlevel.int
+    def trustlevel(self, val):
+        self.trustlevel = TrustLevel(val & 0x0F)
+
+    @TypedProperty
+    def trustflags(self):
+        return self._trustflags
+
+    @trustflags.list
+    def trustflags(self, val):
+        self._trustflags = val
+
+    @trustflags.int
+    def trustflags(self, val):
+        self._trustflags = TrustFlags & val
 
     def __init__(self):
-        self.trustlevel = Trust.TrustLevel.Unknown
+        super(Trust, self).__init__()
+        self.trustlevel = TrustLevel.Unknown
         self.trustflags = []
 
-    def parse(self, packet):
-        # Trust packets contain data that record the user's
-        # specifications of which key holders are trustworthy introducers,
-        # along with other information that implementing software uses for
-        # trust information.  The format of Trust packets is defined by a given
-        # implementation.
-        # self.trust = packet
+    def __bytes__(self):
+        _bytes = bytearray()
+        _bytes += super(Trust, self).__bytes__()
+        _bytes += self.int_to_bytes(self.trustlevel + sum(self.trustflags), 2)
+        return bytes(_bytes)
 
-        # GPG Trust packet format - see https://github.com/Commod0re/PGPy/issues/14
-        self.trustlevel = Trust.TrustLevel(bytes_to_int(packet) % 0xF)
-        for tf in sorted(Trust.TrustFlags.__members__.values()):
-            if bytes_to_int(packet) & tf.value:
-                self.trustflags.append(tf.value)
+    def parse(self, packet):
+        super(Trust, self).parse(packet)
+        # self.trustlevel = packet[0] & 0x1f
+        t = self.bytes_to_int(packet[:2])
+        del packet[:2]
+
+        self.trustlevel = t
+        self.flags = t
+
+
+class UserID(Packet):
+    """
+    5.11.  User ID Packet (Tag 13)
+
+    A User ID packet consists of UTF-8 text that is intended to represent
+    the name and email address of the key holder.  By convention, it
+    includes an RFC 2822 [RFC2822] mail name-addr, but there are no
+    restrictions on its content.  The packet length in the header
+    specifies the length of the User ID.
+    """
+    __typeid__ = 0x0D
+
+    def __init__(self):
+        super(UserID, self).__init__()
+        self.name = ""
+        self.comment = ""
+        self.email = ""
 
     def __bytes__(self):
-        _bytes = b''
-        _bytes += self.header.__bytes__()
-        _bytes += self.trust
+        _bytes = bytearray()
+        _bytes += super(UserID, self).__bytes__()
+        _bytes += "{name:s}{comment:s}{email:s}".format(
+            name=self.name,
+            comment=" ({comment:s})".format(comment=self.comment) if self.comment not in [None, ""] else "",
+            email=" <{email:s}>".format(email=self.email) if self.email not in [None, ""] else "").encode()
+        return bytes(_bytes)
 
-        return _bytes
+    def parse(self, packet):
+        super(UserID, self).parse(packet)
+
+        uid_text = packet[:self.header.length].decode('latin-1')
+        del packet[:self.header.length]
+
+        # came across a UID packet with no payload. If that happens, don't bother trying to parse anything!
+        if self.header.length > 0:
+            uid = re.match(r"""^
+                               # name should always match something
+                               (?P<name>.+?)
+                               # comment *optionally* matches text in parens following name
+                               # this should never come after email and must be followed immediately by
+                               # either the email field, or the end of the packet.
+                               (\ \((?P<comment>.+?)\)(?=(\ <|$)))?
+                               # email *optionally* matches text in angle brackets following name or comment
+                               # this should never come before a comment, if comment exists,
+                               # but can immediately follow name if comment does not exist
+                               (\ <(?P<email>.+)>)?
+                               $
+                            """, uid_text, flags=re.VERBOSE).groupdict()
+
+            self.name = uid['name']
+            self.comment = uid['comment']
+            self.email = uid['email']
+
+
+class PubSubKey(VersionedPacket, Sub, Public):
+    __typeid__ = 0x0E
+    __ver__ = 0
+
+
+class PubSubKeyV4(PubSubKey, PubKeyV4):
+    __ver__ = 4
 
 
 class UserAttribute(Packet):
@@ -582,21 +503,24 @@ class UserAttribute(Packet):
     not recognize.  Subpacket types 100 through 110 are reserved for
     private or experimental use.
     """
-    name = "User Attribute Packet"
+    __typeid__ = 0x11
 
     def __init__(self):
+        super(UserAttribute, self).__init__()
         self.subpackets = UserAttributeSubPackets()
 
-    def parse(self, packet):
-        ##TODO: these are a separate set of subpackets from the usual subpackets
-        ##      defined as User Attribute Subpackets. There is only one currently defined in the standard
-        ##      but we should treat it the same way for later extensibility
-        ##      for now, let's just store it, though
-        # self.contents = packet
-        self.subpackets.parse(packet)
-
     def __bytes__(self):
-        _bytes = b''
-        _bytes += self.header.__bytes__()
+        _bytes = bytearray()
+        _bytes += super(UserAttribute, self).__bytes__()
         _bytes += self.subpackets.__bytes__()
-        return _bytes
+        return bytes(_bytes)
+
+    def parse(self, packet):
+        super(UserAttribute, self).parse(packet)
+
+        plen = len(packet)
+        while self.header.length > (plen - len(packet)):
+            self.subpackets.parse(packet)
+
+# Placeholder for 0x12
+# Placeholder for 0x13

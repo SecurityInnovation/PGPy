@@ -4,6 +4,7 @@ python:
   - "3.3"
   - "3.2"
   - "2.7"
+  - "pypy"
 env:
   matrix:
     # test all versions against OpenSSL 0.9.8
@@ -23,6 +24,7 @@ matrix:
       env: TOXENV=setup27
   allow_failures:
     - env: TOXENV=pep8
+    - python: "pypy"
 # install requirements
 install:
   # add the lucid repo for if we need OpenSSL 0.9.8
@@ -36,6 +38,7 @@ install:
 # set TOXENV if it isn't yet
 before_script:
   - if [[ -z "$TOXENV" ]]; then export TOXENV=py${TRAVIS_PYTHON_VERSION//.}; fi
+  - if [[ "$TRAVIS_PYTHON_VERSION" == 'pypy' ]]; then export TOXENV=pypy; fi
 # use setup.py to invoke testing via coveralls
 script:
  - tox
