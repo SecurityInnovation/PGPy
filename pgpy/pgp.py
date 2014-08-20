@@ -2,6 +2,7 @@
 
 this is where the armorable PGP block objects live
 """
+# import collections
 import collections
 import contextlib
 import itertools
@@ -140,9 +141,13 @@ class PGPKey(PGPObject, Exportable):
         return isinstance(self._key, Primary) and not isinstance(self._key, Sub)
 
     @property
+    def is_public(self):
+        return isinstance(self._key, Public) and not isinstance(self._key, Private)
+
+    @property
     def magic(self):
         return '{:s} KEY BLOCK'.format('PUBLIC' if (isinstance(self._key, Public) and not isinstance(self._key, Private)) else
-                                 'PRIVATE' if isinstance(self._key, Private) else '')
+                                       'PRIVATE' if isinstance(self._key, Private) else '')
 
     @property
     def parent(self):
@@ -515,93 +520,98 @@ class PGPUID(object):
         self._parent = None
 
 
-class PGPKeyChainMap(collections.ChainMap):
-    def __init__(self):
-        # init without arguments, and then replace self.maps with a deque using our desired initial values
-        super(PGPKeyChainMap, self).__init__({}, collections.OrderedDict())
-
-    def _chain_bob(self, depth=0):
-        if depth > len(self.maps) - 1 or depth == 0:
-            depth = len(self.maps) - 1
-
-        tdepth = len(self.maps) - 2
-
-        return range(tdepth, tdepth - depth, -1)
-
-    def _get_next_depth(self, key):
-        # return the deepest map in the chain that does not yet contain key
-        for i in [ i for i in self._chain_bob() if key not in self.maps[i]]:
-            return i
-
-        # if we got this far, all levels have the key, so we need to add a new one, and return 0
-        self.maps.insert(0, {})
-        return 0
-
-    def _sort_key_depth(self, key):
-        # create a list of unique PGPKeys that are referred to by key, sorted by creation date from oldest to newest
-        ka = sorted(list(set(self.maps[i].pop(key) for i in self._chain_bob() if key in self.maps[i])), key=lambda k: k.created)
-
-        # now write the elements in ka to our maps, from the bottom up
-        for k, i in zip(ka, self._chain_bob(len(ka))):
-            self.maps[i][key] = k
-
-    def __setitem__(self, key, value):
-        # this is a new key being added
-        if isinstance(value, PGPKey) and value not in self.values():
-            self.maps[-1][id(value)] = value
-            # add aliases
-            self[value.fingerprint] = value
-            self[value.fingerprint.keyid] = value
-            self[value.fingerprint.shortid] = value
-            for uid in value.userids:
-                self[uid.name] = value
-                self[uid.email] = value
-            # add subkeys
-            for subkey in value.subkeys.values():
-                self[None] = subkey
-
-        # ignore any alias that is None
-        elif key is None:
-            pass
-
-        # this is an alias being added for an existing key value
-        else:
-            kd = self._get_next_depth(key)
-            self.maps[kd][key] = value
-
-            # this was a duplicate alias
-            if kd < len(self.maps) - 2:
-                self._sort_key_depth(key)
-
-        # and a little cleanup - remove any empty dicts at the head of self.maps
-        while self.maps[0] == {} and len(self.maps) > 2:
-            self.maps.popleft()
-
-
 class PGPKeyring(collections.Container, collections.Iterable, collections.Sized):
     def __init__(self, *args):
-        self._keys = PGPKeyChainMap()
+        self._keys = {}
+        self._pubkeys = collections.deque()
+        self._privkeys = collections.deque()
+        self._aliases = collections.deque([{}])
         self.load(*args)
 
-    def __contains__(self, item):
-        if item.replace(' ', '') in self._keys:
-            return True
-
-        elif item in self._keys:
-            return True
-
-        elif item in self._keys.values():
-            return True
-
-        else:
-            return False
+    def __contains__(self, alias):
+        return any([alias.replace(' ', '') in m, alias in m] for m in self._aliases)
 
     def __len__(self):
-        return len(self._keys.maps[-1])
+        return len(self._keys)
 
     def __iter__(self):
-        for k in self._keys.maps[-1].values():
-            yield k
+        for pgpkey in itertools.chain(self._pubkeys, self._privkeys):
+            yield pgpkey
+
+    def _get_key(self, alias):
+        for m in self._aliases:
+            if alias in m:
+                return self._keys[m[alias]]
+
+        raise KeyError(alias)
+
+    def _get_keys(self, alias):
+        return [self._keys[m[alias]] for m in self._aliases if alias in m]
+
+    def _sort_alias(self, alias):
+        # remove alias from all levels of _aliases, and sort by created time and key half
+        # so the order of _aliases from left to right:
+        #  - newer keys come before older ones
+        #  - private keys come before public ones
+        #
+        # this list is sorted in the opposite direction from that, because they will be placed into self._aliases
+        # from right to left.
+        pkids = sorted(list(set().union([m.pop(alias) for m in self._aliases if alias in m])),
+                       key=lambda pkid: (self._keys[pkid].created, self._keys[pkid].is_public))
+
+        # drop the now-sorted aliases into place
+        for depth, pkid in enumerate(pkids):
+            self._aliases[depth][alias] = pkid
+
+        # finally, remove any empty dicts left over
+        while {} in self._aliases:
+            self._aliases.remove({})
+
+    def _add_alias(self, alias, pkid):
+        # brand new alias never seen before!
+        if alias not in self:
+            self._aliases[-1][alias] = pkid
+
+        # this is a duplicate alias->key link; ignore it
+        elif alias in self and pkid in set(m[alias] for m in self._aliases if alias in m):
+            pass
+
+        # this is an alias that already exists, but points to a key that is not already referenced by it
+        else:
+            adepth = len(self._aliases) - len([None for m in self._aliases if alias in m]) - 1
+            # all alias maps have this alias, so increase total depth by 1
+            if adepth == -1:
+                self._aliases.appendleft({})
+                adepth = 0
+
+            self._aliases[adepth][alias] = pkid
+            self._sort_alias(alias)
+
+    def _add_key(self, pgpkey):
+        pkid = id(pgpkey)
+        if pkid not in self._keys:
+            self._keys[pkid] = pgpkey
+
+            # add to _{pub,priv}keys if this is either a primary key, or a subkey without one
+            if pgpkey.parent is None:
+                if pgpkey.is_public:
+                    self._pubkeys.append(pkid)
+
+                else:
+                    self._privkeys.append(pkid)
+
+            # aliases
+            self._add_alias(pgpkey.fingerprint, pkid)
+            self._add_alias(pgpkey.fingerprint.keyid, pkid)
+            self._add_alias(pgpkey.fingerprint.shortid, pkid)
+            for uid in pgpkey.userids:
+                self._add_alias(uid.name, pkid)
+                self._add_alias(uid.comment, pkid)
+                self._add_alias(uid.email, pkid)
+
+            # subkeys
+            for subkey in pgpkey.subkeys.values():
+                self._add_key(subkey)
 
     def load(self, *args):
         def _do_load(arg):
@@ -614,7 +624,7 @@ class PGPKeyring(collections.Container, collections.Iterable, collections.Sized)
                 keys = _key.parse(arg)
 
                 for key in itertools.chain([_key], keys['keys'].values()):
-                    self._keys[None] = key
+                    self._add_key(key)
                     for fp in [k.fingerprint for k in itertools.chain([key], key.subkeys.values())]:
                         loaded.append(fp)
 
@@ -623,132 +633,25 @@ class PGPKeyring(collections.Container, collections.Iterable, collections.Sized)
         return loaded
 
     @contextlib.contextmanager
-    def key(self, id=None, keyhalf='private', keytype='any'):
-        raise NotImplementedError()
+    def key(self, identifier):
+        ##TODO: identifier is a PGPSignature
+        if isinstance(identifier, PGPSignature):
+            pgpkey = self._get_key(identifier.signer)
 
-    def fingerprints(self, keyhalf='public', keytype='any'):
-        raise NotImplementedError()
+        if identifier in self:
+            pgpkey = self._get_key(identifier)
+
+        else:
+            raise KeyError(identifier)
+
+        yield pgpkey
+
+    def fingerprints(self, keyhalf='any', keytype='any'):
+        return [pgpkey for pgpkey in self._keys.values()
+                if pgpkey.is_primary in [True if keytype in ['primary', 'any'] else None,
+                                         False if keytype in ['sub', 'any'] else None]
+                if pgpkey.is_public in [True if keyhalf in ['public', 'any'] else None,
+                                        False if keyhalf in ['private', 'any'] else None]]
 
     def unload(self, fp):
         raise NotImplementedError()
-
-# class PGPKey(PGPObject):
-#     # @property
-#     # def keypkts(self):
-#     #     return [ packet for packet in self.packets if isinstance(packet, KeyPacket) ]
-#
-#     # @property
-#     # def primarykey(self):
-#     #     """
-#     #     Reference to the primary key if this is a subkey
-#     #     ?? if this is already a primary key
-#     #     """
-#     #     # return [ packet for packet in self.packets if type(packet) in [PubKey, PrivKey] ][0]
-#     #     raise NotImplementedError()
-#
-#     @property
-#     def primary(self):
-#         """
-#         True if this is a primary key
-#         False if this is a subkey
-#         """
-#         return isinstance(self._keypkt, Primary)
-#
-#     @property
-#     def sub(self):
-#         """
-#         True if this is a subkey
-#         False if this is a primary key
-#         """
-#         return isinstance(self._keypkt, Sub)
-#
-#     @property
-#     def public(self):
-#         """
-#         True if this is a public key
-#         False if this is a private key
-#         """
-#         return isinstance(self._keypkt, Public)
-#
-#     @property
-#     def private(self):
-#         """
-#         True if this is a private key
-#         False if this is a public key
-#         """
-#         return isinstance(self._keypkt, Private)
-#
-#     @property
-#     def magic(self):
-#         return "{} KEY BLOCK".format("PRIVATE" if self.private else \
-#                                      "PUBLIC" if self.public else "?")
-#
-#     @classmethod
-#     def new(cls):
-#         ##TODO: generate a new key
-#         raise NotImplementedError()
-#
-#     def __init__(self):
-#         super(PGPKey, self).__init__()
-#
-#         self._keypkt = None
-#         self._userids = []
-#         self._attrs = []
-#         self._keysigs = []
-#
-#     def parse(self, data):
-#         ##TODO: load the next key in data and return the leftovers
-#         raise NotImplementedError()
-#
-#     def __bytes__(self):
-#         raise NotImplementedError()
-#
-#     def __pgpdump__(self):
-#         raise NotImplementedError()
-#
-#     def lock(self, passphrase, s2k=None):
-#         """
-#         Encrypt the secret key material if it is not already encrypted.
-#         """
-#         ##TODO: this should fail if this PGPKey is not a private key
-#         ##TODO: this should fail if the secret key material is already encrypted
-#         ##TODO: s2k should default to the strongest method available (which is currently Iterated)
-#         raise NotImplementedError()
-#
-#     def unlock(self, passphrase):
-#         """
-#         Decrypt the secret key material if it is encrypted
-#         """
-#         raise NotImplementedError()
-#
-#     def sign(self, subject, hash=None, inline=False, sigtype=None):
-#         """
-#         Sign a subject with this key.
-#         """
-#         ##TODO: if hash is None, default to using the strongest hash in this key's preference flags
-#         ##TODO: implement inline signing
-#         ##TODO: implement signing things other than binary documents
-#         ##TODO: sigtype should default to the binary signature type specifier rather than None
-#         raise NotImplementedError()
-#
-#     def verify(self, subject, signature):
-#         """
-#         Verify a subject using this key.
-#         """
-#         if not isinstance(signature, PGPSignature):
-#             signature = pgpload(signature)[0]
-#
-#         if not isinstance(signature, PGPSignature):
-#             raise ValueError("signature must be a signature!")
-#
-#     def encrypt(self):
-#         """
-#         Encrypt something
-#         """
-#         raise NotImplementedError()
-#
-#     def decrypt(self):
-#         """
-#         Decrypt something
-#         """
-#         raise NotImplementedError()
