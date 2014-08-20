@@ -53,7 +53,7 @@ class FileLoader(object):
             return bool(re.match(r'^[ -~\n]+$', text, flags=re.ASCII))
 
         if isinstance(text, (bytes, bytearray)):
-            return bool(re.match(rb'^[ -~\n]+$', text, flags=re.ASCII))
+            return bool(re.match(br'^[ -~\n]+$', text, flags=re.ASCII))
 
     @staticmethod
     def is_path(ppath):
