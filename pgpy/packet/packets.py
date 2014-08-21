@@ -18,6 +18,7 @@ from .fields import RSACipherText
 from .fields import RSAPriv
 from .fields import RSAPub
 from .fields import RSASignature
+from .fields import String2Key
 from .fields import SubPackets
 from .fields import UserAttributeSubPackets
 
@@ -32,6 +33,7 @@ from ..constants import CompressionAlgorithm
 from ..constants import HashAlgorithm
 from ..constants import PubKeyAlgorithm
 from ..constants import SignatureType
+from ..constants import SymmetricKeyAlgorithm
 from ..constants import TrustFlags
 from ..constants import TrustLevel
 
@@ -326,8 +328,94 @@ class SKESessionKey(VersionedPacket):
 
 
 class SKESessionKeyV4(SKESessionKey):
-    # __ver__ = 4
-    pass
+    """
+    5.3.  Symmetric-Key Encrypted Session Key Packets (Tag 3)
+
+    The Symmetric-Key Encrypted Session Key packet holds the
+    symmetric-key encryption of a session key used to encrypt a message.
+    Zero or more Public-Key Encrypted Session Key packets and/or
+    Symmetric-Key Encrypted Session Key packets may precede a
+    Symmetrically Encrypted Data packet that holds an encrypted message.
+    The message is encrypted with a session key, and the session key is
+    itself encrypted and stored in the Encrypted Session Key packet or
+    the Symmetric-Key Encrypted Session Key packet.
+
+    If the Symmetrically Encrypted Data packet is preceded by one or
+    more Symmetric-Key Encrypted Session Key packets, each specifies a
+    passphrase that may be used to decrypt the message.  This allows a
+    message to be encrypted to a number of public keys, and also to one
+    or more passphrases.  This packet type is new and is not generated
+    by PGP 2.x or PGP 5.0.
+
+    The body of this packet consists of:
+
+     - A one-octet version number.  The only currently defined version
+       is 4.
+
+     - A one-octet number describing the symmetric algorithm used.
+
+     - A string-to-key (S2K) specifier, length as defined above.
+
+     - Optionally, the encrypted session key itself, which is decrypted
+       with the string-to-key object.
+
+    If the encrypted session key is not present (which can be detected
+    on the basis of packet length and S2K specifier size), then the S2K
+    algorithm applied to the passphrase produces the session key for
+    decrypting the file, using the symmetric cipher algorithm from the
+    Symmetric-Key Encrypted Session Key packet.
+
+    If the encrypted session key is present, the result of applying the
+    S2K algorithm to the passphrase is used to decrypt just that
+    encrypted session key field, using CFB mode with an IV of all zeros.
+    The decryption result consists of a one-octet algorithm identifier
+    that specifies the symmetric-key encryption algorithm used to
+    encrypt the following Symmetrically Encrypted Data packet, followed
+    by the session key octets themselves.
+
+    Note: because an all-zero IV is used for this decryption, the S2K
+    specifier MUST use a salt value, either a Salted S2K or an
+    Iterated-Salted S2K.  The salt value will ensure that the decryption
+    key is not repeated even if the passphrase is reused.
+    """
+    __ver__ = 4
+
+    @TypedProperty
+    def symalg(self):
+        return self._symalg
+
+    @symalg.SymmetricKeyAlgorithm
+    def symalg(self, val):
+        self._symalg = val
+
+    @symalg.int
+    def symalg(self, val):
+        self.symalg = SymmetricKeyAlgorithm(val)
+
+    def __init__(self):
+        super(SKESessionKeyV4, self).__init__()
+        self.symalg = 0
+        self.s2k = String2Key()
+        self.ct = bytearray()
+
+    def __bytes__(self):
+        _bytes = bytearray()
+        _bytes += super(SKESessionKeyV4, self).__bytes__()
+        _bytes.append(self.symalg)
+        _bytes += self.s2k.__bytes__()
+        _bytes += self.ct
+        return bytes(_bytes)
+
+    def parse(self, packet):
+        super(SKESessionKeyV4, self).parse(packet)
+        self.symalg = packet[0]
+        del packet[0]
+
+        self.s2k.parse(packet)
+
+        ctend = ((self.header.length - 2) - len(self.s2k))
+        self.ct = packet[:ctend]
+        del packet[:ctend]
 
 
 class OnePassSignature(VersionedPacket):
@@ -335,8 +423,9 @@ class OnePassSignature(VersionedPacket):
     __ver__ = 0
 
 
-class OnePassSignatureV4(OnePassSignature):
-    __ver__ = 4
+class OnePassSignatureV3(OnePassSignature):
+    # __ver__ = 3
+    pass
 
 
 class PrivKey(VersionedPacket, Primary, Private):
