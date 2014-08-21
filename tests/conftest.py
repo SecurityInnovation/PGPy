@@ -327,7 +327,7 @@ def pytest_generate_tests(metafunc):
                 at.append(_b)
             argvals += [tuple(at)]
 
-        ids = [ '_'.join(re.split('\.', f[0])[:-1]) for f in tdata ]
+        ids = [ '_'.join(re.split('\.', os.path.basename(f[0]))[:-1]) for f in tdata ]
 
     if params != []:
         para = ','.join(params)
