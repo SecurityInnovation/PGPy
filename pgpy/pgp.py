@@ -626,11 +626,11 @@ class PGPKeyring(collections.Container, collections.Iterable, collections.Sized)
                 for key in itertools.chain([_key], keys['keys'].values()):
                     self._add_key(key)
                     for fp in [k.fingerprint for k in itertools.chain([key], key.subkeys.values())]:
-                        loaded.append(fp)
+                        loaded.add(fp)
 
-        loaded = []
+        loaded = set()
         _do_load(args)
-        return loaded
+        return list(loaded)
 
     @contextlib.contextmanager
     def key(self, identifier):
@@ -647,11 +647,11 @@ class PGPKeyring(collections.Container, collections.Iterable, collections.Sized)
         yield pgpkey
 
     def fingerprints(self, keyhalf='any', keytype='any'):
-        return [pgpkey for pgpkey in self._keys.values()
-                if pgpkey.is_primary in [True if keytype in ['primary', 'any'] else None,
-                                         False if keytype in ['sub', 'any'] else None]
-                if pgpkey.is_public in [True if keyhalf in ['public', 'any'] else None,
-                                        False if keyhalf in ['private', 'any'] else None]]
+        return list({pk.fingerprint for pk in self._keys.values()
+                if pk.is_primary in [True if keytype in ['primary', 'any'] else None,
+                                     False if keytype in ['sub', 'any'] else None]
+                if pk.is_public in [True if keyhalf in ['public', 'any'] else None,
+                                    False if keyhalf in ['private', 'any'] else None]})
 
     def unload(self, fp):
         raise NotImplementedError()

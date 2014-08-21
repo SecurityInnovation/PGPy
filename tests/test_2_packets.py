@@ -14,23 +14,23 @@ from pgpy.constants import PubKeyAlgorithm
 
 
 _pclasses = {
-    # 0x01: [''], ##TODO: name this
+    (0x01, 3): 'PKESessionKeyV3',
     (0x02, 4): 'SignatureV4',
-    # 0x03: [''], ##TODO: name this
-    # 0x04: [''], ##TODO: name this
+    # (0x03, 4): 'SKESessionKeyV4', ##TODO: implement this
+    # (0x04, 4): 'OnePassSignatureV4', ##TODO: implement this
     (0x05, 4): 'PrivKeyV4',
     (0x06, 4): 'PubKeyV4',
     (0x07, 4): 'PrivSubKeyV4',
-    # 0x08: ['CompressedData'], ##TODO: uncomment when class is turned back on
-    # 0x09: [''], ##TODO: name this
-    # 0x0A: [''], ##TODO: name this
-    # 0x0B: ['LiteralData'], ##TODO: uncomment when class is written
+    0x08: 'CompressedData',
+    # 0x09: 'SKEData', ##TODO: implement this
+    # 0x0A: 'Marker', ##TODO: obtain one of these ##TODO: implement this
+    0x0B: 'LiteralData',
     0x0C: 'Trust',
     0x0D: 'UserID',
     (0x0E, 4): 'PubSubKeyV4',
     0x11: 'UserAttribute',
-    # 0x12: [''], ##TODO: name this
-    # 0x13: ['',] ##TODO: name this
+    # (0x12, 1): 'IntegrityProtectedSKEDataV1', this ##TODO: implement this
+    # 0x13: 'MDC', ##TODO: obtain one of these ##TODO: implement this
 }
 
 class TestPacket(object):

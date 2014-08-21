@@ -755,3 +755,35 @@ class ElGPriv(PrivKey, ElGPub):
         if self.s2k.usage in [254, 255]:
             self.chksum = kb
             del kb
+
+
+class CipherText(MPIs):
+    def __bytes__(self):
+        return b''.join(i.to_mpibytes() for i in self)
+
+
+class RSACipherText(CipherText):
+    def __init__(self):
+        super(RSACipherText, self).__init__()
+        self.me_mod_n = MPI(0)
+
+    def __iter__(self):
+        yield self.me_mod_n
+
+    def parse(self, packet):
+        self.me_mod_n = MPI(packet)
+
+
+class ElGCipherText(CipherText):
+    def __init__(self):
+        super(ElGCipherText, self).__init__()
+        self.gk_mod_p = MPI(0)
+        self.myk_mod_p = MPI(0)
+
+    def __iter__(self):
+        yield self.gk_mod_p
+        yield self.myk_mod_p
+
+    def parse(self, packet):
+        self.gk_mod_p = MPI(packet)
+        self.myk_mod_p = MPI(packet)

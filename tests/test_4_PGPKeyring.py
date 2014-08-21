@@ -3,6 +3,7 @@
 from pgpy.pgp import PGPKeyring
 from pgpy.types import Fingerprint
 
+
 class TestPGPKeyring(object):
     def test_load(self, ascrings):
         kr = PGPKeyring()
@@ -12,8 +13,8 @@ class TestPGPKeyring(object):
         assert all([isinstance(k, Fingerprint) for k in keys])
 
         # __len__
-        assert len(keys) == len(kr)
-        assert len(keys) == 12
+        assert len(keys) == 6
+        assert len(kr) == 12
 
         # __contains__
         # RSA von TestKey
@@ -29,17 +30,17 @@ class TestPGPKeyring(object):
             assert selector in kr
 
         # fingerprints filtering
-        # we have 12 keys - 4 primary, 8 sub
-        assert len(kr.fingerprints()) == 12
-        # 6 of which are public; the other 6 are private
+        # we have 6 complete keys
+        assert len(kr.fingerprints()) == 6
+        # 6 public halves, 6 private halves
         assert len(kr.fingerprints(keyhalf='public')) == 6
         assert len(kr.fingerprints(keyhalf='private')) == 6
-        # we have 4 primary keys; 2 public and 2 private
-        assert len(kr.fingerprints(keytype='primary')) == 4
+        # we have 2 primary keys; 2 public and 2 private
+        assert len(kr.fingerprints(keytype='primary')) == 2
         assert len(kr.fingerprints(keytype='primary', keyhalf='public')) == 2
         assert len(kr.fingerprints(keytype='primary', keyhalf='private')) == 2
-        # and the other 8; 4 public and 4 private
-        assert len(kr.fingerprints(keytype='sub')) == 8
+        # and the other 4; 4 public and 4 private
+        assert len(kr.fingerprints(keytype='sub')) == 4
         assert len(kr.fingerprints(keytype='sub', keyhalf='public')) == 4
         assert len(kr.fingerprints(keytype='sub', keyhalf='private')) == 4
 

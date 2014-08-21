@@ -171,8 +171,12 @@ class Opaque(Packet):
 
     def parse(self, packet):
         super(Opaque, self).parse(packet)
-        self.payload = packet[:self.header.length]
-        del packet[:self.header.length if not hasattr(self.header, 'version') else (self.header.length - 1)]
+        pend = self.header.length
+        if hasattr(self.header, 'version'):
+            pend -= 1
+
+        self.payload = packet[:pend]
+        del packet[:pend]
 
 
 # key marker classes for convenience

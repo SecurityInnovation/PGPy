@@ -1,6 +1,7 @@
 """ packet.py
 """
 import abc
+import binascii
 import calendar
 import hashlib
 import re
@@ -10,8 +11,10 @@ from datetime import datetime
 from .fields import DSAPriv
 from .fields import DSAPub
 from .fields import DSASignature
+from .fields import ElGCipherText
 from .fields import ElGPriv
 from .fields import ElGPub
+from .fields import RSACipherText
 from .fields import RSAPriv
 from .fields import RSAPub
 from .fields import RSASignature
@@ -25,6 +28,7 @@ from .types import Public
 from .types import Sub
 from .types import VersionedPacket
 
+from ..constants import CompressionAlgorithm
 from ..constants import HashAlgorithm
 from ..constants import PubKeyAlgorithm
 from ..constants import SignatureType
@@ -36,7 +40,134 @@ from ..decorators import TypedProperty
 from ..types import Fingerprint
 
 
-# Placeholder for 0x01
+class PKESessionKey(VersionedPacket):
+    __typeid__ = 0x01
+    __ver__ = 0
+
+
+class PKESessionKeyV3(PKESessionKey):
+    """
+    5.1.  Public-Key Encrypted Session Key Packets (Tag 1)
+
+    A Public-Key Encrypted Session Key packet holds the session key used
+    to encrypt a message.  Zero or more Public-Key Encrypted Session Key
+    packets and/or Symmetric-Key Encrypted Session Key packets may
+    precede a Symmetrically Encrypted Data Packet, which holds an
+    encrypted message.  The message is encrypted with the session key,
+    and the session key is itself encrypted and stored in the Encrypted
+    Session Key packet(s).  The Symmetrically Encrypted Data Packet is
+    preceded by one Public-Key Encrypted Session Key packet for each
+    OpenPGP key to which the message is encrypted.  The recipient of the
+    message finds a session key that is encrypted to their public key,
+    decrypts the session key, and then uses the session key to decrypt
+    the message.
+
+    The body of this packet consists of:
+
+     - A one-octet number giving the version number of the packet type.
+       The currently defined value for packet version is 3.
+
+     - An eight-octet number that gives the Key ID of the public key to
+       which the session key is encrypted.  If the session key is
+       encrypted to a subkey, then the Key ID of this subkey is used
+       here instead of the Key ID of the primary key.
+
+     - A one-octet number giving the public-key algorithm used.
+
+     - A string of octets that is the encrypted session key.  This
+       string takes up the remainder of the packet, and its contents are
+       dependent on the public-key algorithm used.
+
+    Algorithm Specific Fields for RSA encryption
+
+     - multiprecision integer (MPI) of RSA encrypted value m**e mod n.
+
+    Algorithm Specific Fields for Elgamal encryption:
+
+     - MPI of Elgamal (Diffie-Hellman) value g**k mod p.
+
+     - MPI of Elgamal (Diffie-Hellman) value m * y**k mod p.
+
+    The value "m" in the above formulas is derived from the session key
+    as follows.  First, the session key is prefixed with a one-octet
+    algorithm identifier that specifies the symmetric encryption
+    algorithm used to encrypt the following Symmetrically Encrypted Data
+    Packet.  Then a two-octet checksum is appended, which is equal to the
+    sum of the preceding session key octets, not including the algorithm
+    identifier, modulo 65536.  This value is then encoded as described in
+    PKCS#1 block encoding EME-PKCS1-v1_5 in Section 7.2.1 of [RFC3447] to
+    form the "m" value used in the formulas above.  See Section 13.1 of
+    this document for notes on OpenPGP's use of PKCS#1.
+
+    Note that when an implementation forms several PKESKs with one
+    session key, forming a message that can be decrypted by several keys,
+    the implementation MUST make a new PKCS#1 encoding for each key.
+
+    An implementation MAY accept or use a Key ID of zero as a "wild card"
+    or "speculative" Key ID.  In this case, the receiving implementation
+    would try all available private keys, checking for a valid decrypted
+    session key.  This format helps reduce traffic analysis of messages.
+    """
+    __ver__ = 3
+
+    @TypedProperty
+    def encrypter(self):
+        return self._encrypter
+
+    @encrypter.bytearray
+    def encrypter(self, val):
+        self._encrypter = binascii.hexlify(val).upper().decode('latin-1')
+
+    @TypedProperty
+    def pkalg(self):
+        return self._pkalg
+
+    @pkalg.PubKeyAlgorithm
+    def pkalg(self, val):
+        self._pkalg = val
+
+        _c = {PubKeyAlgorithm.RSAEncryptOrSign: RSACipherText,
+              PubKeyAlgorithm.RSAEncrypt: RSACipherText,
+              PubKeyAlgorithm.ElGamal: ElGCipherText,
+              PubKeyAlgorithm.FormerlyElGamalEncryptOrSign: ElGCipherText}
+
+        if val in _c:
+            self.ct = _c[val]()
+
+        else:
+            self.ct = None
+
+    @pkalg.int
+    def pkalg(self, val):
+        self.pkalg = PubKeyAlgorithm(val)
+
+    def __init__(self):
+        super(PKESessionKeyV3, self).__init__()
+        self.encrypter = bytearray(8)
+        self.pkalg = 0
+        self.ct = None
+
+    def __bytes__(self):
+        _bytes = bytearray()
+        _bytes += super(PKESessionKeyV3, self).__bytes__()
+        _bytes += binascii.unhexlify(self.encrypter.encode())
+        _bytes.append(self.pkalg)
+        _bytes += self.ct.__bytes__() if self.ct is not None else b'\x00' * (self.header.length - 10)
+        return bytes(_bytes)
+
+    def parse(self, packet):
+        super(PKESessionKeyV3, self).parse(packet)
+        self.encrypter = packet[:8]
+        del packet[:8]
+
+        self.pkalg = packet[0]
+        del packet[0]
+
+        if self.ct is not None:
+            self.ct.parse(packet)
+
+        else:
+            del packet[:(self.header.length - 18)]
 
 
 class Signature(VersionedPacket):
@@ -189,8 +320,23 @@ class SignatureV4(Signature):
         self.signature.parse(packet)
 
 
-# Placeholder for 0x03
-# Placeholder for 0x04
+class SKESessionKey(VersionedPacket):
+    __typeid__ = 0x03
+    __ver__ = 0
+
+
+class SKESessionKeyV4(SKESessionKey):
+    # __ver__ = 4
+    pass
+
+
+class OnePassSignature(VersionedPacket):
+    __typeid__ = 0x04
+    __ver__ = 0
+
+
+class OnePassSignatureV4(OnePassSignature):
+    __ver__ = 4
 
 
 class PrivKey(VersionedPacket, Primary, Private):
@@ -325,6 +471,10 @@ class PubKeyV4(PubKey):
 class PrivKeyV4(PrivKey, PubKeyV4):
     __ver__ = 4
 
+    @property
+    def protected(self):
+        return bool(self.keymaterial)
+
     def unprotect(self, passphrase):
         self.keymaterial.decrypt_keyblob(passphrase)
         del passphrase
@@ -339,10 +489,172 @@ class PrivSubKeyV4(PrivSubKey, PrivKeyV4):
     __ver__ = 4
 
 
-# Placeholder for 0x08
-# Placehlder for 0x09
-# Placeholder for 0x0A
-# Placeholder for 0x0B
+class CompressedData(Packet):
+    """
+    5.6.  Compressed Data Packet (Tag 8)
+
+    The Compressed Data packet contains compressed data.  Typically, this
+    packet is found as the contents of an encrypted packet, or following
+    a Signature or One-Pass Signature packet, and contains a literal data
+    packet.
+
+    The body of this packet consists of:
+
+     - One octet that gives the algorithm used to compress the packet.
+
+     - Compressed data, which makes up the remainder of the packet.
+
+    A Compressed Data Packet's body contains an block that compresses
+    some set of packets.  See section "Packet Composition" for details on
+    how messages are formed.
+
+    ZIP-compressed packets are compressed with raw RFC 1951 [RFC1951]
+    DEFLATE blocks.  Note that PGP V2.6 uses 13 bits of compression.  If
+    an implementation uses more bits of compression, PGP V2.6 cannot
+    decompress it.
+
+    ZLIB-compressed packets are compressed with RFC 1950 [RFC1950] ZLIB-
+    style blocks.
+
+    BZip2-compressed packets are compressed using the BZip2 [BZ2]
+    algorithm.
+    """
+    __typeid__ = 0x08
+
+    @TypedProperty
+    def calg(self):
+        return self._calg
+
+    @calg.CompressionAlgorithm
+    def calg(self, val):
+        self._calg = val
+
+    @calg.int
+    def calg(self, val):
+        self.calg = CompressionAlgorithm(val)
+
+    def __init__(self):
+        super(CompressedData, self).__init__()
+        self._calg = None
+        self.cdata = bytearray()
+
+    def __bytes__(self):
+        return super(CompressedData, self).__bytes__() + bytes(self.cdata)
+
+    def parse(self, packet):
+        super(CompressedData, self).parse(packet)
+        self.cdata = packet[:self.header.length]
+        del packet[:self.header.length]
+
+
+class SKEData(Packet):
+    # __typeid__ = 0x09
+    pass
+
+
+class Marker(Packet):
+    # __typeid__ = 0x10
+    pass
+
+
+class LiteralData(Packet):
+    """
+    5.9.  Literal Data Packet (Tag 11)
+
+    A Literal Data packet contains the body of a message; data that is
+    not to be further interpreted.
+
+    The body of this packet consists of:
+
+     - A one-octet field that describes how the data is formatted.
+
+    If it is a 'b' (0x62), then the Literal packet contains binary data.
+    If it is a 't' (0x74), then it contains text data, and thus may need
+    line ends converted to local form, or other text-mode changes.  The
+    tag 'u' (0x75) means the same as 't', but also indicates that
+    implementation believes that the literal data contains UTF-8 text.
+
+    Early versions of PGP also defined a value of 'l' as a 'local' mode
+    for machine-local conversions.  RFC 1991 [RFC1991] incorrectly stated
+    this local mode flag as '1' (ASCII numeral one).  Both of these local
+    modes are deprecated.
+
+     - File name as a string (one-octet length, followed by a file
+       name).  This may be a zero-length string.  Commonly, if the
+       source of the encrypted data is a file, this will be the name of
+       the encrypted file.  An implementation MAY consider the file name
+       in the Literal packet to be a more authoritative name than the
+       actual file name.
+
+    If the special name "_CONSOLE" is used, the message is considered to
+    be "for your eyes only".  This advises that the message data is
+    unusually sensitive, and the receiving program should process it more
+    carefully, perhaps avoiding storing the received data to disk, for
+    example.
+
+     - A four-octet number that indicates a date associated with the
+       literal data.  Commonly, the date might be the modification date
+       of a file, or the time the packet was created, or a zero that
+       indicates no specific time.
+
+     - The remainder of the packet is literal data.
+
+       Text data is stored with <CR><LF> text endings (i.e., network-
+       normal line endings).  These should be converted to native line
+       endings by the receiving software.
+    """
+    __typeid__ = 0x0B
+
+    @TypedProperty
+    def mtime(self):
+        return self._mtime
+
+    @mtime.datetime
+    def mtime(self, val):
+        self._mtime = val
+
+    @mtime.int
+    def mtime(self, val):
+        self.mtime = datetime.utcfromtimestamp(val)
+
+    @mtime.bytes
+    @mtime.bytearray
+    def mtime(self, val):
+        self.mtime = self.bytes_to_int(val)
+
+    def __init__(self):
+        super(LiteralData, self).__init__()
+        self.format = 'b'
+        self.filename = ''
+        self.mtime = datetime.utcnow()
+        self.contents = bytearray()
+
+    def __bytes__(self):
+        _bytes = bytearray()
+        _bytes += super(LiteralData, self).__bytes__()
+        _bytes += self.format.encode('latin-1')
+        _bytes.append(len(self.filename))
+        _bytes += self.filename.encode('latin-1')
+        _bytes += self.int_to_bytes(calendar.timegm(self.mtime.timetuple()), 4)
+        _bytes += self.contents
+        return bytes(_bytes)
+
+    def parse(self, packet):
+        super(LiteralData, self).parse(packet)
+        self.format = chr(packet[0])
+        del packet[0]
+
+        fnl = packet[0]
+        del packet[0]
+
+        self.filename = packet[:fnl].decode()
+        del packet[:fnl]
+
+        self.mtime = packet[:4]
+        del packet[:4]
+
+        self.contents = packet[:self.header.length - (6 + fnl)]
+        del packet[:self.header.length - (6 + fnl)]
 
 
 class Trust(Packet):
@@ -522,5 +834,17 @@ class UserAttribute(Packet):
         while self.header.length > (plen - len(packet)):
             self.subpackets.parse(packet)
 
-# Placeholder for 0x12
-# Placeholder for 0x13
+
+class IntegrityProtectedSKEData(VersionedPacket):
+    __typeid__ = 0x12
+    __ver__ = 0
+
+
+class IntegrityProtectedSKEDataV1(IntegrityProtectedSKEData):
+    # __ver__ = 1
+    pass
+
+
+class MDC(Packet):
+    # __typeid__ = 0x13
+    pass
