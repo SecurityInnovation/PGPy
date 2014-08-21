@@ -536,15 +536,23 @@ class CompressedData(Packet):
     def __init__(self):
         super(CompressedData, self).__init__()
         self._calg = None
-        self.cdata = bytearray()
+        self.cpacket = None
 
     def __bytes__(self):
-        return super(CompressedData, self).__bytes__() + bytes(self.cdata)
+        _bytes = bytearray()
+        _bytes += super(CompressedData, self).__bytes__()
+        _bytes.append(self.calg)
+        _bytes += self.calg.compress(self.cpacket.__bytes__())
+        return bytes(_bytes)
 
     def parse(self, packet):
         super(CompressedData, self).parse(packet)
-        self.cdata = packet[:self.header.length]
-        del packet[:self.header.length]
+        self.calg = packet[0]
+        del packet[0]
+
+        cdata = packet[:self.header.length - 1]
+        del packet[:self.header.length - 1]
+        self.cpacket = Packet(bytearray(self.calg.decompress(cdata)))
 
 
 class SKEData(Packet):

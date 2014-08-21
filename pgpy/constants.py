@@ -1,6 +1,9 @@
 """ constants.py
 """
+import bz2
 import hashlib
+import struct
+import zlib
 
 from collections import namedtuple
 from enum import IntEnum
@@ -105,6 +108,36 @@ class CompressionAlgorithm(IntEnum):
     ZIP = 0x01
     ZLIB = 0x02
     BZ2 = 0x03
+
+    def compress(self, data):
+        if self is CompressionAlgorithm.Uncompressed:
+            return data
+
+        if self is CompressionAlgorithm.ZIP:
+            return zlib.compress(data)[2:-4]
+
+        if self is CompressionAlgorithm.ZLIB:
+            return zlib.compress(data)
+
+        if self is CompressionAlgorithm.BZ2:
+            return bz2.compress(data)
+
+        raise NotImplementedError(self)
+
+    def decompress(self, data):
+        if self is CompressionAlgorithm.Uncompressed:
+            return data
+
+        if self is CompressionAlgorithm.ZIP:
+            return zlib.decompress(data, -15)
+
+        if self is CompressionAlgorithm.ZLIB:
+            return zlib.decompress(data)
+
+        if self is CompressionAlgorithm.BZ2:
+            return bz2.decompress(data)
+
+        raise NotImplementedError(self)
 
 
 class HashAlgorithm(IntEnum):
