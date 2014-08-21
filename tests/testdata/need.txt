@@ -9,8 +9,6 @@ Needed Subpacket Examples
 
 * Reserved (0x01)
 
-* Exportable Certification (0x04)
-
 * Reserved (0x08)
 
 * Reserved (0x0D)
@@ -40,11 +38,3 @@ Needed Packet Examples
 * Marker Packet (Obsolete Literal Packet) (Tag 10)
 
 * Modification Detection Code Packet (Tag 19)
-
-
-Needed Block Examples
----------------------
-
-* Encrypted message
-
-* Signed/Encrypted message

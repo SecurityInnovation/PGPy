@@ -40,7 +40,7 @@ _sspclasses = {
     # 0x01: 'Opaque',
     0x02: 'CreationTime',
     0x03: 'SignatureExpirationTime',
-    # 0x04: 'ExportableCertification',  ##TODO: obtain one of these
+    0x04: 'ExportableCertification',
     0x05: 'TrustSignature',
     0x06: 'RegularExpression',
     0x07: 'Revocable',
