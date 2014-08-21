@@ -40,3 +40,11 @@ Needed Packet Examples
 * Marker Packet (Obsolete Literal Packet) (Tag 10)
 
 * Modification Detection Code Packet (Tag 19)
+
+
+Needed Block Examples
+---------------------
+
+* Encrypted message
+
+* Signed/Encrypted message

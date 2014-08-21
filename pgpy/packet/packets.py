@@ -536,13 +536,13 @@ class CompressedData(Packet):
     def __init__(self):
         super(CompressedData, self).__init__()
         self._calg = None
-        self.cpacket = None
+        self.packets = []
 
     def __bytes__(self):
         _bytes = bytearray()
         _bytes += super(CompressedData, self).__bytes__()
         _bytes.append(self.calg)
-        _bytes += self.calg.compress(self.cpacket.__bytes__())
+        _bytes += self.calg.compress(b''.join(pkt.__bytes__() for pkt in self.packets))
         return bytes(_bytes)
 
     def parse(self, packet):
@@ -550,9 +550,11 @@ class CompressedData(Packet):
         self.calg = packet[0]
         del packet[0]
 
-        cdata = packet[:self.header.length - 1]
+        cdata = bytearray(self.calg.decompress(packet[:self.header.length - 1]))
         del packet[:self.header.length - 1]
-        self.cpacket = Packet(bytearray(self.calg.decompress(cdata)))
+
+        while len(cdata) > 0:
+            self.packets.append(Packet(cdata))
 
 
 class SKEData(Packet):

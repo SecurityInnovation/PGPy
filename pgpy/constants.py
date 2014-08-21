@@ -2,7 +2,6 @@
 """
 import bz2
 import hashlib
-import struct
 import zlib
 
 from collections import namedtuple
