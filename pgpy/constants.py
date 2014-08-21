@@ -126,7 +126,7 @@ class CompressionAlgorithm(IntEnum):
     def decompress(self, data):
         if bytes is str and isinstance(data, bytearray):
             data = bytes(data)
-            
+
         if self is CompressionAlgorithm.Uncompressed:
             return data
 
