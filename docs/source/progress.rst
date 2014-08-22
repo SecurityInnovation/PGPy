@@ -14,7 +14,7 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
         - Tag 2 v3,  False, Signature Packet
         - Tag 2 v4,  True,  Signature Packet
         - Tag 3 v4,  False, Symmetric-Key Encrypted Session Key Packet
-        - Tag 4 v4,  False, One-Pass Signature Packet
+        - Tag 4 v3,  False, One-Pass Signature Packet
         - Tag 5 v3,  False, Secret-Key Packet
         - Tag 5 v4,  True,  Secret-Key Packet
         - Tag 6 v3,  False, Public-Key Packet
@@ -23,17 +23,17 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
         - Tag 7 v4,  True,  Secret-Subkey Packet
         - Tag 14 v3, False, Public-SubKey Packet
         - Tag 14 v4, True,  Public-SubKey Packet
-        - Tag 18 v1, False, Symetrically Encrypted and Integrity Protected Data Packet
+        - Tag 18 v1, True,  Symetrically Encrypted and Integrity Protected Data Packet
 
     :Unversioned Packets:
         - Tag 8,  True,  Compressed Data Packet
-        - Tag 9,  False, Symetrically Encrypted Data Packet
+        - Tag 9,  True,  Symetrically Encrypted Data Packet
         - Tag 10, False, Marker Packet
         - Tag 11, True,  Literal Data Packet
-        - Tag 12, False, Trust Packet
+        - Tag 12, True,  Trust Packet
         - Tag 13, True,  User ID Packet
         - Tag 17, True,  User Attribute Packet
-        - Tag 19, False, Modification Detection Code Packet
+        - Tag 19, True,  Modification Detection Code Packet
 
     :Key Types:
         - RSA,     True, RSA
