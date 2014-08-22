@@ -98,6 +98,7 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
 .. comment::
     RFC 3156 (PGP in MIME security)?
 
+
 .. progress:: RFC 4398
     :text: :rfc:`4398` covers publishing and retrieving PGP public keys via DNS CERT records.
 
@@ -105,12 +106,14 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
         - DNS CERT, False, Look up and retrieve keys stored in Content-based DNS CERT records
         - DNS CERT, False, Look up and retrieve keys stored in Purpose-based DNS CERT records
 
+
 .. progress:: RFC 5581
     :text: :rfc:`5881` extends RFC 4880 to officially add support for the Camellia cipher
 
     :Key Actions:
         - Unprotect, True,  Camellia*
         - Protect,   False, Camellia*
+
 
 .. progress:: RFC 6637
     :text: :rfc:`6637` extends OpenPGP to officially add support for elliptic curve cryptography
@@ -131,6 +134,7 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
 
     :DNS:
         - DNS PKA, False, Look up and retrieve keys stored in DNS PKA records.
+
 
 .. note::
 

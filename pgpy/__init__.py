@@ -5,15 +5,20 @@ from ._author import __copyright__
 from ._author import __license__
 from ._author import __version__
 
-from .errors import PGPError
-from .errors import PGPKeyDecryptionError
-from .errors import PGPOpenSSLCipherNotSupported
+from . import errors
+
+from .pgp import PGPKey
+from .pgp import PGPKeyring
+from .pgp import PGPMessage
+from .pgp import PGPSignature
 
 __all__ = [__author__,
            __copyright__,
            __license__,
            __version__,
-           PGPError,
-           PGPKeyDecryptionError,
-           PGPOpenSSLCipherNotSupported,
+           errors,
+           PGPKey,
+           PGPKeyring,
+           PGPMessage,
+           PGPSignature
            ]

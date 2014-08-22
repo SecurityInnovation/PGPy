@@ -1,7 +1,6 @@
 import pytest
 
 import functools
-import keyword
 import os
 import re
 import subprocess
