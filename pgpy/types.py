@@ -200,7 +200,7 @@ class Exportable(six.with_metaclass(abc.ABCMeta, FileLoader)):
         ##TODO: add methods to Exportable for dash-(un)escaping strings
         m = re.match(r"""# This capture group is optional because it will only be present in signed cleartext messages
                          (^-{5}BEGIN\ PGP\ SIGNED\ MESSAGE-{5}\n
-                          (?P<hashes>(Hash:\ [A-Za-z0-9\-]+\n)*\n)
+                          (Hash:\ (?P<hashes>[A-Za-z0-9\-,]+)\n)?
                           (?P<cleartext>(.*\n)+)\n
                          )?
                          # armor header line; capture the variable part of the magic text
@@ -222,6 +222,9 @@ class Exportable(six.with_metaclass(abc.ABCMeta, FileLoader)):
             raise ValueError("Expected: ASCII-armored PGP data")
 
         m = m.groupdict()
+
+        if m['hashes'] is not None:
+            m['hashes'] = m['hashes'].split(',')
 
         if m['headers'] is not None:
             m['headers'] = collections.OrderedDict(re.findall('^(?P<key>.+): (?P<value>.+)$\n?', m['headers'], flags=re.MULTILINE))

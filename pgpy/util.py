@@ -2,9 +2,6 @@
 
 utility functions for PGPY
 """
-import itertools
-import os
-import re
 
 ##TODO: asn1_seqint_to_tuple needs to move
 bytes_to_int = lambda x: int.from_bytes(x, 'big')

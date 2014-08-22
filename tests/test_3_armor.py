@@ -11,8 +11,9 @@ from pgpy.constants import PubKeyAlgorithm
 from pgpy.constants import SignatureType
 from pgpy.constants import SymmetricKeyAlgorithm
 
-from pgpy.pgp import PGPSignature
 from pgpy.pgp import PGPKey
+from pgpy.pgp import PGPMessage
+from pgpy.pgp import PGPSignature
 
 from pgpy.types import Exportable
 
@@ -21,24 +22,23 @@ from pgpy.types import Exportable
 class TestBlocks(object):
     def test_load(self, block):
         if 'SIGNATURE' in block.splitlines()[0]:
-            p1 = PGPSignature()
-            p2 = PGPSignature()
+            p = PGPSignature()
 
         elif 'KEY' in block.splitlines()[0]:
-            p1 = PGPKey()
-            p2 = PGPKey()
+            p = PGPKey()
+
+
+        elif 'SIGNED MESSAGE' in block.splitlines()[0]:
+            p = PGPMessage()
 
         else:
             pytest.skip("not ready for this one")
             assert False
 
         # load ASCII
-        p1.parse(block)
-        # manually de-armor and load the binary data
-        p2.parse(Exportable.ascii_unarmor(block)['body'])
+        p.parse(block)
 
-        assert str(p1) == block
-        assert p1.__bytes__() == p2.__bytes__()
+        assert str(p) == block
 
 
 # PGPSignature specific tests

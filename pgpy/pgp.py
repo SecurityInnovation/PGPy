@@ -21,7 +21,15 @@ from .packet import Public
 from .packet import Sub
 from .packet import UserID
 from .packet import UserAttribute
+
+from .packet.packets import CompressedData
+from .packet.packets import LiteralData
+from .packet.packets import OnePassSignature
+from .packet.packets import PKESessionKey
 from .packet.packets import Signature
+from .packet.packets import SKEData
+from .packet.packets import SKESessionKey
+
 from .packet.types import Opaque
 
 from .types import Exportable
@@ -375,7 +383,7 @@ class PGPSignature(PGPObject, Exportable):
 
     @property
     def expired(self):
-        if not 'SignatureExpirationTime' in self._signature.subpackets:
+        if 'SignatureExpirationTime' not in self._signature.subpackets:
             return False
 
         expd = self._signature.subpackets['SignatureExpirationTime'].expires
@@ -387,7 +395,7 @@ class PGPSignature(PGPObject, Exportable):
 
     @property
     def exportable(self):
-        if not 'ExportableCertification' in self._signature.subpackets:
+        if 'ExportableCertification' not in self._signature.subpackets:
             return True
 
         return bool(self._signature.subpackets['ExportableCertification'])
@@ -447,13 +455,13 @@ class PGPSignature(PGPObject, Exportable):
 
     @property
     def revocable(self):
-        if not 'Revocable' in self._signature.subpackets:
+        if 'Revocable' not in self._signature.subpackets:
             return True
         return bool(self._signature.subpackets['Revocable'])
 
     @property
     def revocation_key(self):
-        if not 'RevocationKey' in self._signature.subpackets:
+        if 'RevocationKey' not in self._signature.subpackets:
             return None
         raise NotImplementedError()
 
@@ -543,8 +551,9 @@ class PGPMessage(PGPObject, Exportable):
 
     @property
     def magic(self):
-        ##TODO: this can be either "MESSAGE" or "SIGNED MESSAGE"
-        raise NotImplementedError()
+        if self.type == 'cleartext':
+            return "SIGNATURE"
+        return "MESSAGE"
 
     @property
     def message(self):
@@ -552,23 +561,66 @@ class PGPMessage(PGPObject, Exportable):
 
     @property
     def type(self):
-        raise NotImplementedError()
+        ##TODO: it might be better to use an Enum for this
+        if isinstance(self._contents[0], str):
+            return 'cleartext'
+
+        if isinstance(self._contents[0], LiteralData):
+            return 'literal'
+
+        if isinstance(self._contents[0], CompressedData):
+            return 'compressed'
+
+        if isinstance(self._contents[0], (Signature, OnePassSignature)):
+            return 'signed'
+
+        if isinstance(self._contents[0], (PKESessionKey, SKESessionKey, SKEData)):
+            return 'encrypted'
+
+        return 'unknown'
 
     def __init__(self):
         super(PGPMessage, self).__init__()
         self._contents = []
-        self._halg = None
+        self._halgs = []
 
     def __bytes__(self):
-        raise NotImplementedError()
+        return b''.join([ p.__bytes__() for p in self._contents if hasattr(p, '__bytes__') ])
 
     def __str__(self):
-        ##TODO: cleartext signatures behave differently
+        if self.type == "cleartext":
+            return "-----BEGIN PGP SIGNED MESSAGE-----\n" \
+                   "Hash: {hashes:s}\n" \
+                   "{cleartext:s}\n" \
+                   "{signature:s}".format(hashes=','.join(self._halgs),
+                                          cleartext=self._contents[0],
+                                          signature=super(PGPMessage, self).__str__())
+
         return super(PGPMessage, self).__str__()
 
     def parse(self, packet):
-        ##TODO: need to be able to regex a cleartext signature first
-        raise NotImplementedError()
+        unarmored = self.ascii_unarmor(self.load(packet))
+        data = unarmored['body']
+
+        if unarmored['magic'] is not None and unarmored['magic'] not in ['MESSAGE', 'SIGNATURE']:
+            raise ValueError('Expected: MESSAGE. Got: {}'.format(str(unarmored['magic'])))
+
+        if unarmored['headers'] is not None:
+            self.ascii_headers = unarmored['headers']
+
+        # cleartext signature
+        if unarmored['magic'] == 'SIGNATURE':
+            # the composition for this will be the 'cleartext' as a str,
+            # followed by one or more signatures (each one loaded into a PGPSignature)
+            self._contents.append(unarmored['cleartext'])
+            self._halgs = unarmored['hashes'] if unarmored['hashes'] is not None else ['MD5']
+            while len(data) > 0:
+                pkt = Packet(data)
+                if not isinstance(pkt, Signature):
+                    warnings.warn("Discarded unexpected packet: {:s}".format(pkt.__class__.__name__))
+                sig = PGPSignature()
+                sig._signature = pkt
+                self._contents.append(sig)
 
 
 class PGPKeyring(collections.Container, collections.Iterable, collections.Sized):
