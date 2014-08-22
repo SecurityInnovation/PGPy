@@ -520,6 +520,57 @@ class PGPUID(object):
         self._parent = None
 
 
+class PGPMessage(PGPObject, Exportable):
+    @property
+    def __ct__(self):
+        raise NotImplementedError()
+
+    @property
+    def __sig__(self):
+        raise NotImplementedError()
+
+    @property
+    def is_encrypted(self):
+        raise NotImplementedError()
+
+    @property
+    def is_signed(self):
+        raise NotImplementedError()
+
+    @property
+    def issuer(self):
+        raise NotImplementedError()
+
+    @property
+    def magic(self):
+        ##TODO: this can be either "MESSAGE" or "SIGNED MESSAGE"
+        raise NotImplementedError()
+
+    @property
+    def message(self):
+        raise NotImplementedError()
+
+    @property
+    def type(self):
+        raise NotImplementedError()
+
+    def __init__(self):
+        super(PGPMessage, self).__init__()
+        self._contents = []
+        self._halg = None
+
+    def __bytes__(self):
+        raise NotImplementedError()
+
+    def __str__(self):
+        ##TODO: cleartext signatures behave differently
+        return super(PGPMessage, self).__str__()
+
+    def parse(self, packet):
+        ##TODO: need to be able to regex a cleartext signature first
+        raise NotImplementedError()
+
+
 class PGPKeyring(collections.Container, collections.Iterable, collections.Sized):
     def __init__(self, *args):
         self._keys = {}
