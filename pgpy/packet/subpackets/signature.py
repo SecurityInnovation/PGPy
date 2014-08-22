@@ -826,6 +826,7 @@ class EmbeddedSignature(Signature):
     @TypedProperty
     def _sig(self):
         return self._sigpkt
+
     @_sig.SignatureV4
     def _sig(self, val):
         self._sig = val
