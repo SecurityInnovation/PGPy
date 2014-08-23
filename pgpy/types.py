@@ -22,13 +22,9 @@ from ._author import __version__
 
 from .decorators import TypedProperty
 
-try:  # pragma: no cover
-    e = FileNotFoundError
-except NameError:  # pragma: no cover
-    e = IOError
-
-# compatibility shenanigans for Python 2.7
-if not hasattr(re, 'ASCII'):
+# for Python 2.7
+if six.PY2:
+    FileNotFoundError = IOError
     re.ASCII = 0
 
 
@@ -94,7 +90,7 @@ class FileLoader(object):
                 r = requests.get(lf, verify=True)
 
                 if not r.ok:
-                    raise e(lf)
+                    raise FileNotFoundError(lf)
 
                 _bytes = r.content
 
@@ -109,15 +105,11 @@ class FileLoader(object):
 
             # this is all wrong
             else:
-                raise e(lf)
+                raise FileNotFoundError(lf)
 
         # this is probably data we want to load directly
         elif isinstance(lf, (str, bytes, bytearray)):
-            if isinstance(lf, str):
-                _bytes = bytearray(lf, 'latin-1')
-
-            else:
-                _bytes = bytearray(lf)
+            _bytes = bytearray(six.b(lf))
 
         # something else entirely
         else:
@@ -136,7 +128,7 @@ class FileLoader(object):
             if False, writes __str__ in ASCII
         """
         if self.path is None:
-            raise e("path needs to be set before calling .write")
+            raise FileNotFoundError("path needs to be set before calling .write")
 
         with open(self.path, 'wb' if binary else 'w') as fp:
             fp.write(self.__bytes__() if binary else str(self))
@@ -543,12 +535,10 @@ class SignatureVerification(object):
         The subject of the verification
         """
 
-    # Python 2
-    def __nonzero__(self):
+    def __bool__(self):
         return self._verified  # pragma: no cover
 
-    # Python 3
-    def __bool__(self):
+    def __nonzero__(self):
         return self._verified  # pragma: no cover
 
     def __repr__(self):  # pragma: no cover

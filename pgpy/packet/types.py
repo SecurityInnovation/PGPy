@@ -4,6 +4,8 @@ from __future__ import division
 
 import abc
 
+import six
+
 from ..decorators import TypedProperty
 
 from ..types import Dispatchable
@@ -202,9 +204,7 @@ class Sub(Key):
 
 
 # Python 2.7 shenanigans
-try:  # pragma: no cover
-    long
-except NameError:
+if six.PY3:
     long = int
 
 

@@ -7,6 +7,8 @@ import contextlib
 import itertools
 import warnings
 
+import six
+
 from datetime import datetime
 
 from .constants import PacketTag
@@ -563,8 +565,8 @@ class PGPMessage(PGPObject, Exportable):
 
     @property
     def type(self):
-        ##TODO: it might be better to use an Enum for this
-        if isinstance(self._contents[0], str):
+        ##TODO: it might be better to use an Enum for the output of this
+        if isinstance(self._contents[0], six.string_types):
             return 'cleartext'
 
         if isinstance(self._contents[0], LiteralData):

@@ -7,6 +7,8 @@ import zlib
 from collections import namedtuple
 from enum import IntEnum
 
+import six
+
 from cryptography.hazmat.primitives.ciphers import algorithms
 
 from .types import FlagEnum
@@ -124,7 +126,7 @@ class CompressionAlgorithm(IntEnum):
         raise NotImplementedError(self)
 
     def decompress(self, data):
-        if bytes is str and isinstance(data, bytearray):
+        if six.PY2:
             data = bytes(data)
 
         if self is CompressionAlgorithm.Uncompressed:

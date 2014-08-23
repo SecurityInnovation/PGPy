@@ -171,8 +171,8 @@ class Boolean(Signature):
         # Python 3.x
         return self.bool
 
+    # Python 2.7
     def __nonzero__(self):  # pragma: no cover
-        # Python 2.7
         return self.bool
 
     def parse(self, packet):
