@@ -200,7 +200,7 @@ class Exportable(six.with_metaclass(abc.ABCMeta, FileLoader)):
         ##TODO: add methods to Exportable for dash-(un)escaping strings
         m = re.match(r"""# This capture group is optional because it will only be present in signed cleartext messages
                          (^-{5}BEGIN\ PGP\ SIGNED\ MESSAGE-{5}\n
-                          (Hash:\ (?P<hashes>[A-Za-z0-9\-,]+)\n)?
+                          (Hash:\ (?P<hashes>[A-Za-z0-9\-,]+)\n{2})?
                           (?P<cleartext>(.*\n)+)\n
                          )?
                          # armor header line; capture the variable part of the magic text

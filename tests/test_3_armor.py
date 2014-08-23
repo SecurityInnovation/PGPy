@@ -159,3 +159,19 @@ class TestPGPKey(object):
 
         assert len(r['keys']) == 0
         assert len(r['orphaned']) == 0
+
+
+class TestPGPMessage(object):
+    def test_cleartext(self, clearblock):
+        p = PGPMessage()
+        p.parse(clearblock)
+
+        assert p.type == 'cleartext'
+        assert p.is_signed
+        assert not p.is_encrypted
+
+        assert p.message == "This is stored, literally\\!\n"
+
+        assert p._halgs == ['SHA1'] or p._halgs == ['SHA1', 'SHA256']
+        assert all(isinstance(pkt, PGPSignature) for pkt in p._contents[1:])
+        assert len(p._contents[1:]) in [1, 2]

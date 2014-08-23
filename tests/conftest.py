@@ -282,6 +282,14 @@ def pytest_generate_tests(metafunc):
         params += ['rsaprivblock']
         tdata += [[os.path.abspath('rsaseckey.asc')]]
 
+    @CWD_As('tests/testdata/blocks')
+    def clearblock():
+        global params
+        global tdata
+
+        params += ['clearblock']
+        tdata += [[os.path.abspath(f) for f in os.listdir('.') if f.startswith('cleartext')]]
+
     @CWD_As('tests/testdata')
     def ascrings():
         global params

@@ -2,7 +2,6 @@
 
 this is where the armorable PGP block objects live
 """
-# import collections
 import collections
 import contextlib
 import itertools
@@ -539,11 +538,11 @@ class PGPMessage(PGPObject, Exportable):
 
     @property
     def is_encrypted(self):
-        raise NotImplementedError()
+        return self.type == 'encrypted'
 
     @property
     def is_signed(self):
-        raise NotImplementedError()
+        return self.type in ['cleartext', 'signed']
 
     @property
     def issuer(self):
@@ -557,6 +556,9 @@ class PGPMessage(PGPObject, Exportable):
 
     @property
     def message(self):
+        if self.type == 'cleartext':
+            return self._contents[0]
+
         raise NotImplementedError()
 
     @property
@@ -582,6 +584,8 @@ class PGPMessage(PGPObject, Exportable):
     def __init__(self):
         super(PGPMessage, self).__init__()
         self._contents = []
+        ##TODO: this can be gleaned from any signatures in the message. It might not be worth even storing this here,
+        #       since it will need to be computed for constructed messages, anyway
         self._halgs = []
 
     def __bytes__(self):
@@ -590,7 +594,7 @@ class PGPMessage(PGPObject, Exportable):
     def __str__(self):
         if self.type == "cleartext":
             return "-----BEGIN PGP SIGNED MESSAGE-----\n" \
-                   "Hash: {hashes:s}\n" \
+                   "Hash: {hashes:s}\n\n" \
                    "{cleartext:s}\n" \
                    "{signature:s}".format(hashes=','.join(self._halgs),
                                           cleartext=self._contents[0],
@@ -621,6 +625,16 @@ class PGPMessage(PGPObject, Exportable):
                 sig = PGPSignature()
                 sig._signature = pkt
                 self._contents.append(sig)
+
+        # # some other kind of message; perhaps not from ASCII
+        # else:
+        #     packets = collections.deque()
+        #     while len(data) > 0:
+        #         pkt = Packet(data)
+        #         ##TODO: some validation might be useful
+        #         packets.append(pkt)
+        #     ##TODO: this may need to be organized into a proper PGP Message construct
+        #     self._contents = packets
 
 
 class PGPKeyring(collections.Container, collections.Iterable, collections.Sized):
@@ -751,10 +765,10 @@ class PGPKeyring(collections.Container, collections.Iterable, collections.Sized)
 
     def fingerprints(self, keyhalf='any', keytype='any'):
         return list({pk.fingerprint for pk in self._keys.values()
-                if pk.is_primary in [True if keytype in ['primary', 'any'] else None,
-                                     False if keytype in ['sub', 'any'] else None]
-                if pk.is_public in [True if keyhalf in ['public', 'any'] else None,
-                                    False if keyhalf in ['private', 'any'] else None]})
+                     if pk.is_primary in [True if keytype in ['primary', 'any'] else None,
+                                          False if keytype in ['sub', 'any'] else None]
+                     if pk.is_public in [True if keyhalf in ['public', 'any'] else None,
+                                         False if keyhalf in ['private', 'any'] else None]})
 
     def unload(self, fp):
         raise NotImplementedError()
