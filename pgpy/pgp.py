@@ -536,7 +536,7 @@ class PGPMessage(PGPObject, Exportable):
 
     @property
     def __sig__(self):
-        raise NotImplementedError()
+        return [pkt for pkt in self._contents if isinstance(pkt, PGPSignature)]
 
     @property
     def is_encrypted(self):
@@ -560,6 +560,12 @@ class PGPMessage(PGPObject, Exportable):
     def message(self):
         if self.type == 'cleartext':
             return self._contents[0]
+
+        if self.type == 'literal':
+            return self._contents[0].contents
+
+        if self.type == 'compressed':
+            return self._contents[0].packets[0].contents
 
         raise NotImplementedError()
 
@@ -627,6 +633,14 @@ class PGPMessage(PGPObject, Exportable):
                 sig = PGPSignature()
                 sig._signature = pkt
                 self._contents.append(sig)
+
+        else:
+            m = self
+            while len(data) > 0:
+                pkt = Packet(data)
+
+                if isinstance(pkt, (LiteralData, CompressedData)):
+                    m._contents.append(pkt)
 
         # # some other kind of message; perhaps not from ASCII
         # else:

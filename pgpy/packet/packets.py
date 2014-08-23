@@ -8,6 +8,8 @@ import re
 
 from datetime import datetime
 
+import six
+
 from .fields import DSAPriv
 from .fields import DSAPub
 from .fields import DSASignature
@@ -778,12 +780,22 @@ class LiteralData(Packet):
     def mtime(self, val):
         self.mtime = self.bytes_to_int(val)
 
+    @property
+    def contents(self):
+        if self.format == 't':
+            return self._contents.decode('latin-1')
+
+        if self.format == 'u':
+            return six.u(self._contents.decode('latin-1'))
+
+        return self._contents
+
     def __init__(self):
         super(LiteralData, self).__init__()
         self.format = 'b'
         self.filename = ''
         self.mtime = datetime.utcnow()
-        self.contents = bytearray()
+        self._contents = bytearray()
 
     def __bytes__(self):
         _bytes = bytearray()
@@ -792,7 +804,7 @@ class LiteralData(Packet):
         _bytes.append(len(self.filename))
         _bytes += self.filename.encode('latin-1')
         _bytes += self.int_to_bytes(calendar.timegm(self.mtime.timetuple()), 4)
-        _bytes += self.contents
+        _bytes += self._contents
         return bytes(_bytes)
 
     def parse(self, packet):
@@ -809,7 +821,7 @@ class LiteralData(Packet):
         self.mtime = packet[:4]
         del packet[:4]
 
-        self.contents = packet[:self.header.length - (6 + fnl)]
+        self._contents = packet[:self.header.length - (6 + fnl)]
         del packet[:self.header.length - (6 + fnl)]
 
 

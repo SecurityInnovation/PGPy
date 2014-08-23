@@ -290,6 +290,22 @@ def pytest_generate_tests(metafunc):
         params += ['clearblock']
         tdata += [[os.path.abspath(f) for f in os.listdir('.') if f.startswith('cleartext')]]
 
+    @CWD_As('tests/testdata/blocks')
+    def litblock():
+        global params
+        global tdata
+
+        params += ['litblock']
+        tdata += [[os.path.abspath('message.literal.asc')]]
+
+    @CWD_As('tests/testdata/blocks')
+    def compblock():
+        global params
+        global tdata
+
+        params += ['compblock']
+        tdata += [[os.path.abspath('message.compressed.asc')]]
+
     @CWD_As('tests/testdata')
     def ascrings():
         global params

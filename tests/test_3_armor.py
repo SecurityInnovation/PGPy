@@ -174,4 +174,28 @@ class TestPGPMessage(object):
 
         assert p._halgs == ['SHA1'] or p._halgs == ['SHA1', 'SHA256']
         assert all(isinstance(pkt, PGPSignature) for pkt in p._contents[1:])
-        assert len(p._contents[1:]) in [1, 2]
+        assert len(p.__sig__) in [1, 2]
+
+    def test_literal(self, litblock):
+        p = PGPMessage()
+        p.parse(litblock)
+
+        assert p.type == 'literal'
+        assert not p.is_signed
+        assert not p.is_encrypted
+
+        assert p.message == bytearray(b"This is stored, literally\\!\n\n")
+
+        assert len(p.__sig__) == 0
+
+    def test_compressed(self, compblock):
+        p = PGPMessage()
+        p.parse(compblock)
+
+        assert p.type == 'compressed'
+        assert not p.is_signed
+        assert not p.is_encrypted
+
+        assert p.message == bytearray(b"This is stored, literally\\!\n\n")
+
+        assert len(p.__sig__) == 0
