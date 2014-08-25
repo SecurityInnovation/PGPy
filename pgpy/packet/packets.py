@@ -532,7 +532,7 @@ class OnePassSignatureV3(OnePassSignature):
         _bytes.append(self.halg)
         _bytes.append(self.pubalg)
         _bytes += self.signer.encode('latin-1')
-        _bytes.append(1 if self.nested else 0)
+        _bytes.append(0 if self.nested else 1)
         return bytes(_bytes)
 
     def parse(self, packet):
@@ -549,7 +549,7 @@ class OnePassSignatureV3(OnePassSignature):
         self.signer = packet[:8]
         del packet[:8]
 
-        self.nested = bool(packet[0])
+        self.nested = (packet[0] == 0)
         del packet[0]
 
 
