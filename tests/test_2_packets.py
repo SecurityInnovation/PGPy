@@ -17,7 +17,7 @@ _pclasses = {
     (0x01, 3): 'PKESessionKeyV3',
     (0x02, 4): 'SignatureV4',
     (0x03, 4): 'SKESessionKeyV4',
-    # (0x04, 3): 'OnePassSignatureV4', ##TODO: implement this
+    (0x04, 3): 'OnePassSignatureV3',
     (0x05, 4): 'PrivKeyV4',
     (0x06, 4): 'PubKeyV4',
     (0x07, 4): 'PrivSubKeyV4',

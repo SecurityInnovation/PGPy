@@ -228,7 +228,6 @@ class SignatureV4(Signature):
     The algorithms for converting the hash function result to a signature
     are described in a section below.
     """
-    __typeid__ = 0x02
     __ver__ = 4
 
     @TypedProperty
@@ -426,8 +425,132 @@ class OnePassSignature(VersionedPacket):
 
 
 class OnePassSignatureV3(OnePassSignature):
-    # __ver__ = 3
-    pass
+    """
+    5.4.  One-Pass Signature Packets (Tag 4)
+
+    The One-Pass Signature packet precedes the signed data and contains
+    enough information to allow the receiver to begin calculating any
+    hashes needed to verify the signature.  It allows the Signature
+    packet to be placed at the end of the message, so that the signer
+    can compute the entire signed message in one pass.
+
+    A One-Pass Signature does not interoperate with PGP 2.6.x or
+    earlier.
+
+    The body of this packet consists of:
+
+     - A one-octet version number.  The current version is 3.
+
+     - A one-octet signature type.  Signature types are described in
+       Section 5.2.1.
+
+     - A one-octet number describing the hash algorithm used.
+
+     - A one-octet number describing the public-key algorithm used.
+
+     - An eight-octet number holding the Key ID of the signing key.
+
+     - A one-octet number holding a flag showing whether the signature
+       is nested.  A zero value indicates that the next packet is
+       another One-Pass Signature packet that describes another
+       signature to be applied to the same message data.
+
+    Note that if a message contains more than one one-pass signature,
+    then the Signature packets bracket the message; that is, the first
+    Signature packet after the message corresponds to the last one-pass
+    packet and the final Signature packet corresponds to the first
+    one-pass packet.
+    """
+    __ver__ = 3
+
+    @TypedProperty
+    def sigtype(self):
+        return self._sigtype
+
+    @sigtype.SignatureType
+    def sigtype(self, val):
+        self._sigtype = val
+
+    @sigtype.int
+    def sigtype(self, val):
+        self.sigtype = SignatureType(val)
+
+    @TypedProperty
+    def pubalg(self):
+        return self._pubalg
+
+    @pubalg.PubKeyAlgorithm
+    def pubalg(self, val):
+        self._pubalg = val
+        if val in [PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.RSAEncrypt, PubKeyAlgorithm.RSASign]:
+            self.signature = RSASignature()
+
+        elif val == PubKeyAlgorithm.DSA:
+            self.signature = DSASignature()
+
+    @pubalg.int
+    def pubalg(self, val):
+        self.pubalg = PubKeyAlgorithm(val)
+
+    @TypedProperty
+    def halg(self):
+        return self._halg
+
+    @halg.HashAlgorithm
+    def halg(self, val):
+        self._halg = val
+
+    @halg.int
+    def halg(self, val):
+        try:
+            self.halg = HashAlgorithm(val)
+
+        except ValueError:
+            self._halg = val
+
+    @TypedProperty
+    def signer(self):
+        return self._signer
+
+    @signer.bytes
+    @signer.bytearray
+    def signer(self, val):
+        self._signer = val.decode('latin-1')
+
+    def __init__(self):
+        super(OnePassSignatureV3, self).__init__()
+        self._sigtype = None
+        self._halg = None
+        self._pubalg = None
+        self._signer = b'\x00' * 8
+        self.nested = False
+
+    def __bytes__(self):
+        _bytes = bytearray()
+        _bytes += super(OnePassSignatureV3, self).__bytes__()
+        _bytes.append(self.sigtype)
+        _bytes.append(self.halg)
+        _bytes.append(self.pubalg)
+        _bytes += self.signer.encode('latin-1')
+        _bytes.append(1 if self.nested else 0)
+        return bytes(_bytes)
+
+    def parse(self, packet):
+        super(OnePassSignatureV3, self).parse(packet)
+        self.sigtype = packet[0]
+        del packet[0]
+
+        self.halg = packet[0]
+        del packet[0]
+
+        self.pubalg = packet[0]
+        del packet[0]
+
+        self.signer = packet[:8]
+        del packet[:8]
+
+        self.nested = bool(packet[0])
+        del packet[0]
 
 
 class PrivKey(VersionedPacket, Primary, Private):

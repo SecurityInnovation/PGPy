@@ -14,7 +14,7 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
         - Tag 2 v3,  False, Signature Packet
         - Tag 2 v4,  True,  Signature Packet
         - Tag 3 v4,  False, Symmetric-Key Encrypted Session Key Packet
-        - Tag 4 v3,  False, One-Pass Signature Packet
+        - Tag 4 v3,  True,  One-Pass Signature Packet
         - Tag 5 v3,  False, Secret-Key Packet
         - Tag 5 v4,  True,  Secret-Key Packet
         - Tag 6 v3,  False, Public-Key Packet
