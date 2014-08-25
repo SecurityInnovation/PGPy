@@ -306,6 +306,22 @@ def pytest_generate_tests(metafunc):
         params += ['compblock']
         tdata += [[os.path.abspath('message.compressed.asc')]]
 
+    @CWD_As('tests/testdata/blocks')
+    def onepassblock():
+        global params
+        global tdata
+
+        params += ['onepassblock']
+        tdata += [[os.path.abspath('message.onepass.asc'), os.path.abspath('message.two_onepass.asc')]]
+
+    @CWD_As('tests/testdata/blocks')
+    def encblock():
+        global params
+        global tdata
+
+        params += ['encblock']
+        tdata += [[os.path.abspath('message.encrypted.asc'), os.path.abspath('message.encrypted.signed.asc')]]
+
     @CWD_As('tests/testdata')
     def ascrings():
         global params

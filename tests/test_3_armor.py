@@ -28,7 +28,8 @@ class TestBlocks(object):
             p = PGPKey()
 
 
-        elif 'SIGNED MESSAGE' in block.splitlines()[0]:
+        # elif 'SIGNED MESSAGE' in block.splitlines()[0]:
+        elif 'MESSAGE' in block.splitlines()[0]:
             p = PGPMessage()
 
         else:
@@ -161,6 +162,7 @@ class TestPGPKey(object):
         assert len(r['orphaned']) == 0
 
 
+# PGPMessage specific tests
 class TestPGPMessage(object):
     def test_cleartext(self, clearblock):
         p = PGPMessage()
@@ -199,3 +201,24 @@ class TestPGPMessage(object):
         assert p.message == bytearray(b"This is stored, literally\\!\n\n")
 
         assert len(p.__sig__) == 0
+
+    def test_onepass(self, onepassblock):
+        p = PGPMessage()
+        p.parse(onepassblock)
+
+        assert p.type == 'signed'
+        assert p.is_signed
+        assert not p.is_encrypted
+
+        assert p.__bytes__().startswith(p._contents[0].__bytes__())
+        assert p._contents[1].__bytes__() in p.__bytes__()
+        assert p.__bytes__().endswith(p._contents[2].__bytes__())
+
+        assert p.message == bytearray(b"This is stored, literally\\!\n\n")
+
+    def test_encrypted(self, encblock):
+        p = PGPMessage()
+        p.parse(encblock)
+
+        assert p.type == 'encrypted'
+        assert p.is_encrypted

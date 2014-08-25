@@ -108,7 +108,10 @@ class FileLoader(object):
                 raise FileNotFoundError(lf)
 
         # this is probably data we want to load directly
-        elif isinstance(lf, (str, bytes, bytearray)):
+        elif isinstance(lf, bytearray):
+            _bytes = lf
+
+        elif isinstance(lf, (str, bytes)):
             _bytes = bytearray(six.b(lf))
 
         # something else entirely

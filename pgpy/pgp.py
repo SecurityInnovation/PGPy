@@ -548,6 +548,9 @@ class PGPMessage(PGPObject, Exportable):
 
     @property
     def issuer(self):
+        if self.type == 'signed':
+            return self._contents[0].signer
+
         raise NotImplementedError()
 
     @property
@@ -566,6 +569,9 @@ class PGPMessage(PGPObject, Exportable):
 
         if self.type == 'compressed':
             return self._contents[0].packets[0].contents
+
+        if self.type == 'signed':
+            return self._contents[1].message
 
         raise NotImplementedError()
 
@@ -597,7 +603,7 @@ class PGPMessage(PGPObject, Exportable):
         self._halgs = []
 
     def __bytes__(self):
-        return b''.join([ p.__bytes__() for p in self._contents if hasattr(p, '__bytes__') ])
+        return b''.join([ p.__bytes__() for p in self._contents if isinstance(p, (Packet, PGPMessage, PGPSignature)) ])
 
     def __str__(self):
         if self.type == "cleartext":
@@ -635,22 +641,38 @@ class PGPMessage(PGPObject, Exportable):
                 self._contents.append(sig)
 
         else:
-            m = self
-            while len(data) > 0:
-                pkt = Packet(data)
+            pkt = Packet(data)
 
-                if isinstance(pkt, (LiteralData, CompressedData)):
-                    m._contents.append(pkt)
+            # (non-one-pass) signed messages begin with a signature
+            if isinstance(pkt, Signature):
+                sig = PGPSignature()
+                sig._signature = pkt
+                self._contents.append(sig)
 
-        # # some other kind of message; perhaps not from ASCII
-        # else:
-        #     packets = collections.deque()
-        #     while len(data) > 0:
-        #         pkt = Packet(data)
-        #         ##TODO: some validation might be useful
-        #         packets.append(pkt)
-        #     ##TODO: this may need to be organized into a proper PGP Message construct
-        #     self._contents = packets
+            else:
+                self._contents.append(pkt)
+
+            # Literal and Compressed messages are comprised of a single packet each
+            if isinstance(pkt, (LiteralData, CompressedData, SKEData)):
+                return
+
+            # An encrypted message is zero or more ESKs, followed by encrypted data
+            # A Signed Message is a signature, followed by a message
+            # A One-Pass Signed Message are any other type of message, bracketed by one or more matched pairs of
+            # a One-Pass Signature packet and a Signature packet
+            if isinstance(pkt, (OnePassSignature, Signature, PKESessionKey, SKESessionKey)):
+                # inner message
+                im = PGPMessage()
+                im.parse(data)
+                self._contents.append(im)
+                del data[:len(im.__bytes__())]
+
+                # if this is a One-Pass Signature message, it will end with a Signature
+                if isinstance(pkt, OnePassSignature):
+                    pkt = Packet(data)
+                    sig = PGPSignature()
+                    sig._signature = pkt
+                    self._contents.append(sig)
 
 
 class PGPKeyring(collections.Container, collections.Iterable, collections.Sized):
