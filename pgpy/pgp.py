@@ -11,7 +11,15 @@ import six
 
 from datetime import datetime
 
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding
+
+from .errors import PGPError
+
 from .constants import PacketTag
+from .constants import PubKeyAlgorithm
 from .constants import SignatureType
 
 from .packet import Key
@@ -35,6 +43,7 @@ from .packet.types import Opaque
 
 from .types import Exportable
 from .types import PGPObject
+from .types import SignatureVerification
 
 
 class PGPKey(PGPObject, Exportable):
@@ -123,7 +132,7 @@ class PGPKey(PGPObject, Exportable):
     """
     @property
     def __key__(self):
-        raise NotImplementedError()
+        return self._key.keymaterial
 
     @property
     def created(self):
@@ -228,7 +237,56 @@ class PGPKey(PGPObject, Exportable):
         raise NotImplementedError()
 
     def verify(self, subject, signature=None, **kwargs):
-        raise NotImplementedError()
+        if isinstance(subject, PGPMessage):
+            raise NotImplementedError(repr(subject))
+
+        if signature is not None and not isinstance(signature, PGPSignature):
+            sig = PGPSignature()
+            sig.parse(signature)
+
+        if isinstance(signature, PGPSignature):
+            sig = signature
+
+        if self.fingerprint.keyid != sig.signer and sig.signer not in self.subkeys:
+            raise PGPError("Incorrect key. Expected: {:s}".format(sig.signer))
+
+        if self.fingerprint.keyid != sig.signer and sig.signer in self.subkeys:
+            warnings.warn("Signature was signed with this key's subkey: {:s}. Verifying with that...".format(sig.signer))
+            return self.subkeys[sig.signer].verify(subject, sig)
+
+        ##TODO: check this key's usage flags
+
+        if sig.key_algorithm == PubKeyAlgorithm.RSAEncryptOrSign:
+            verifier = self.__key__.__pubkey__().verifier(sig.__sig__, padding.PKCS1v15(), getattr(hashes, sig.hash_algorithm.name)(), default_backend())
+
+        elif sig.key_algorithm == PubKeyAlgorithm.DSA:
+            verifier = self.__key__.__pubkey__().verifier(sig.__sig__, getattr(hashes, sig.hash_algorithm.name)(), default_backend())
+
+        else:
+            ##TODO: raise a different exception if the key algorithm is something that can't/shouldn't be used for signing, like ElGamal
+            raise NotImplementedError(sig.key_algorithm)
+
+        subj = self.load(subject)
+
+        sigv = SignatureVerification()
+        sigv.signature = sig
+        sigv.subject = subj
+
+        sigdata = sig.hashdata(subj)
+
+        verifier.update(sigdata)
+
+        sigv = SignatureVerification()
+        try:
+            verifier.verify()
+
+        except InvalidSignature:
+            pass
+
+        else:
+            sigv._verified = True
+
+        return sigv
 
     def encrypt(self):
         raise NotImplementedError()
@@ -487,6 +545,51 @@ class PGPSignature(PGPObject, Exportable):
             return b''
         return self._signature.__bytes__()
 
+    def hashdata(self, subject):
+        _data = bytearray()
+        """
+        All signatures are formed by producing a hash over the signature
+        data, and then using the resulting hash in the signature algorithm.
+        """
+
+        if self.type == SignatureType.BinaryDocument:
+            """
+            For binary document signatures (type 0x00), the document data is
+            hashed directly.
+            """
+            s = self.load(subject)
+            _data += s
+
+        if len(s) == 0:
+            raise NotImplementedError(self.type)
+
+        """
+        Once the data body is hashed, then a trailer is hashed. (...)
+        A V4 signature hashes the packet body
+        starting from its first field, the version number, through the end
+        of the hashed subpacket data.  Thus, the fields hashed are the
+        signature version, the signature type, the public-key algorithm, the
+        hash algorithm, the hashed subpacket length, and the hashed
+        subpacket body.
+
+        V4 signatures also hash in a final trailer of six octets: the
+        version of the Signature packet, i.e., 0x04; 0xFF; and a four-octet,
+        big-endian number that is the length of the hashed data from the
+        Signature packet (note that this number does not include these final
+        six octets).
+        """
+
+        hcontext = bytearray()
+        hcontext.append(self._signature.header.version)
+        hcontext.append(self.type)
+        hcontext.append(self.key_algorithm)
+        hcontext.append(self.hash_algorithm)
+        hcontext += self._signature.subpackets.__hashbytes__()
+        hlen = len(hcontext)
+        _data += hcontext
+        _data += b'\x04\xff'
+        _data += self.int_to_bytes(hlen, 4)
+        return bytes(_data)
     def parse(self, packet):
         unarmored = self.ascii_unarmor(self.load(packet))
         data = unarmored['body']

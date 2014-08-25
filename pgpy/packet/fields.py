@@ -48,8 +48,18 @@ class SubPackets(collections.MutableMapping, Field):
 
     def __bytes__(self):
         _bytes = bytearray()
+        _bytes += self.__hashbytes__()
+        _bytes += self.__unhashbytes__()
+        return bytes(_bytes)
+
+    def __hashbytes__(self):
+        _bytes = bytearray()
         _bytes += self.int_to_bytes(sum(len(sp) for sp in self._hashed_sp.values()), 2)
         _bytes += b''.join(hsp.__bytes__() for hsp in self._hashed_sp.values())
+        return bytes(_bytes)
+
+    def __unhashbytes__(self):
+        _bytes = bytearray()
         _bytes += self.int_to_bytes(sum(len(sp) for sp in self._unhashed_sp.values()), 2)
         _bytes += b''.join(uhsp.__bytes__() for uhsp in self._unhashed_sp.values())
         return bytes(_bytes)
@@ -187,7 +197,7 @@ class DSASignature(Signature):
             return _b + bilen
 
         def _der_intf(i):
-            bf = self.int_to_bytes(i)
+            bf = self.int_to_bytes(i, i.byte_length())
             return b'\x02' + _der_flen(bf) + bf
 
         # construct the sequence of integers

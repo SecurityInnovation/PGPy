@@ -658,6 +658,7 @@ class PubKeyV4(PubKey):
         super(PubKeyV4, self).__init__()
         self.created = datetime.utcnow()
         self.pkalg = 0
+        self.keymaterial = None
 
     def __bytes__(self):
         _bytes = bytearray()

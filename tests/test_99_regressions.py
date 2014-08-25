@@ -107,8 +107,7 @@ class TestRegressions(object):
         # hash2; should be 0x9f 0x02
         sig.hleft = hashlib.new('sha512', hdata).digest()[:2]
 
-        ##TODO: PGPKey needs a __key__ method like PGPSignature has __sig__
-        signer = sk._key.keymaterial.__privkey__().signer(padding.PKCS1v15(), hashes.SHA512(), default_backend())
+        signer = sk.__key__.__privkey__().signer(padding.PKCS1v15(), hashes.SHA512(), default_backend())
         signer.update(hdata)
         s = signer.finalize()
 
@@ -118,13 +117,13 @@ class TestRegressions(object):
         # update header length in sig
         sig.header.length = len(sig.header) + 6 + len(sig.subpackets) + len(sig.signature)
 
-        ##TODO: verify sig with PGPy
-
-        # verify sig with gpg
+        # verify sig
         esig = PGPSignature()
         esig._signature = sig
 
-
+        # with PGPy
+        pk.verify(bytearray(sigsubject), esig)
+        # with gpg
         # write the subject
         with open('tests/testdata/subj', 'w') as sf:
             sf.write(sigsubject.decode('latin-1'))

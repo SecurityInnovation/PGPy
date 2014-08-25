@@ -322,6 +322,33 @@ def pytest_generate_tests(metafunc):
         params += ['encblock']
         tdata += [[os.path.abspath('message.encrypted.asc'), os.path.abspath('message.encrypted.signed.asc')]]
 
+    @CWD_As('tests/testdata/signatures')
+    def sigf():
+        global params
+        global argvals
+        global ids
+
+        params += ['sigf']
+        argvals += [ sorted(set(os.path.abspath(f.split('.')[0]) for f in os.listdir('.'))) ]
+        ids += sorted(set(f.split('.')[0] for f in os.listdir('.')))
+
+    @CWD_As('tests/testdata/signatures')
+    def sigfile():
+        global params
+        global tdata
+
+        params += ['sigfile']
+        tdata += [[os.path.abspath(f) for f in sorted(os.listdir('.')) if f.endswith('.sig.asc')]]
+
+    @CWD_As('tests/testdata/signatures')
+    def sigsubj():
+        global params
+        global tdata
+
+        params += ['sigsubj']
+        tdata += [[os.path.abspath(f) for f in sorted(os.listdir('.')) if f.endswith('.subj')]]
+
+
     @CWD_As('tests/testdata')
     def ascrings():
         global params

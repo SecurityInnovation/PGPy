@@ -28,7 +28,6 @@ class TestBlocks(object):
             p = PGPKey()
 
 
-        # elif 'SIGNED MESSAGE' in block.splitlines()[0]:
         elif 'MESSAGE' in block.splitlines()[0]:
             p = PGPMessage()
 

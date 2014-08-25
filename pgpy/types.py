@@ -529,10 +529,6 @@ class SignatureVerification(object):
         """
         The :py:class:`~pgpy.pgp.PGPSignature` that was used in the verification that returned this
         """
-        self.key = None
-        """
-        The key (if available) that was used to verify the signature
-        """
         self.subject = None
         """
         The subject of the verification
@@ -545,7 +541,7 @@ class SignatureVerification(object):
         return self._verified  # pragma: no cover
 
     def __repr__(self):  # pragma: no cover
-        return "SignatureVerification({key}, {verified})".format(verified=str(bool(self)), key=self.key.keyid)
+        return "SignatureVerification({verified})".format(verified=str(bool(self)))
 
 
 class FlagEnumMeta(EnumMeta):
