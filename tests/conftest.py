@@ -305,11 +305,9 @@ def pytest_generate_tests(metafunc):
 
     @CWD_As('tests/testdata')
     def ascrings():
-        global params
         global argvals
         global ids
 
-        params += ['ascrings']
         argvals += [[[os.path.abspath('pubtest.asc'), os.path.abspath('sectest.asc')]]]
         ids += ['ascrings']
 
