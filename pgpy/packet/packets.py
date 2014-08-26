@@ -688,7 +688,13 @@ class PrivKeyV4(PrivKey, PubKeyV4):
 
     @property
     def protected(self):
-        return bool(self.keymaterial)
+        return bool(self.keymaterial.s2k)
+
+    @property
+    def unlocked(self):
+        if self.protected:
+            return 0 in list(self.keymaterial)
+        return True
 
     def unprotect(self, passphrase):
         self.keymaterial.decrypt_keyblob(passphrase)

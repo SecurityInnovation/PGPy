@@ -2,6 +2,7 @@
 
 this is where the armorable PGP block objects live
 """
+import binascii
 import collections
 import contextlib
 import itertools
@@ -18,6 +19,8 @@ from cryptography.hazmat.primitives.asymmetric import padding
 
 from .errors import PGPError
 
+from .constants import HashAlgorithm
+from .constants import KeyFlags
 from .constants import PacketTag
 from .constants import PubKeyAlgorithm
 from .constants import SignatureType
@@ -36,10 +39,15 @@ from .packet.packets import LiteralData
 from .packet.packets import OnePassSignature
 from .packet.packets import PKESessionKey
 from .packet.packets import Signature
+from .packet.packets import SignatureV4
 from .packet.packets import SKEData
 from .packet.packets import SKESessionKey
 
+from .packet.types import MPI
 from .packet.types import Opaque
+
+from .packet.subpackets.signature import CreationTime
+from .packet.subpackets.signature import Issuer
 
 from .types import Exportable
 from .types import PGPObject
@@ -163,6 +171,10 @@ class PGPKey(PGPObject, Exportable):
         return isinstance(self._key, Public) and not isinstance(self._key, Private)
 
     @property
+    def key_algorithm(self):
+        return self._key.pkalg
+
+    @property
     def magic(self):
         return '{:s} KEY BLOCK'.format('PUBLIC' if (isinstance(self._key, Public) and not isinstance(self._key, Private)) else
                                        'PRIVATE' if isinstance(self._key, Private) else '')
@@ -233,11 +245,62 @@ class PGPKey(PGPObject, Exportable):
         raise NotImplementedError()
 
     def sign(self, subject, **kwargs):
-        # prefs = {'inline': False}
-        raise NotImplementedError()
+        # default options
+        prefs = {'hash_alg': HashAlgorithm.SHA512,
+                 # inline implies sigtype is SignatureType.CanonicalDocument
+                 'inline': False,
+                 'sigtype': SignatureType.BinaryDocument,
+                 # usage and *prefs are only meaningful on a self-signature
+                 'usage': [],
+                 'hashprefs': [],
+                 'cipherprefs': [],
+                 'compprefs': []}
+        prefs.update(kwargs)
+
+        if self.is_public:
+            raise PGPError("Can't sign with a public key")
+
+        if (not self.is_public) and self._key.protected and (not self._key.unlocked):
+            raise PGPError("This key is not unlocked")
+
+        if isinstance(subject, (PGPKey, PGPMessage)):
+            raise NotImplementedError(repr(subject))
+
+        if KeyFlags.Sign not in self.usageflags:
+            for sk in self.subkeys.values():
+                if KeyFlags.Sign in sk.usageflags:
+                    warnings.warn("This key is not marked for signing, but subkey {:s} is. "
+                                  "Using that subkey...".format(sk.fingerprint.keyid))
+                    return sk.sign(subject, **kwargs)
+
+            raise PGPError("This key is not marked for signing")
+
+        sig = PGPSignature.new(prefs['sigtype'], self.key_algorithm, prefs['hash_alg'], self.fingerprint.keyid)
+        sigdata = sig.hashdata(self.load(subject))
+
+        h2 = prefs['hash_alg'].hasher
+        h2.update(sigdata)
+        sig._signature.hash2 = bytearray(h2.digest()[:2])
+
+        if self.key_algorithm == PubKeyAlgorithm.RSAEncryptOrSign:
+            signer = self.__key__.__privkey__().signer(padding.PKCS1v15(), getattr(hashes, prefs['hash_alg'].name)(),
+                                                       default_backend())
+            signer.update(sigdata)
+            s = signer.finalize()
+            sig._signature.signature.md_mod_n = MPI(sig.bytes_to_int(s))
+
+        else:
+            signer = self.__key__.__privkey__().signer(getattr(hashes, prefs['hash_alg'].name)(), default_backend())
+            signer.update(sigdata)
+            s = signer.finalize()
+            sig._signature.signature.from_asn1(s)
+
+        sig._signature.header.length = len(sig._signature.header) + 6 + len(sig._signature.subpackets) + len(sig._signature.signature)
+
+        return sig
 
     def verify(self, subject, signature=None, **kwargs):
-        if isinstance(subject, PGPMessage):
+        if isinstance(subject, (PGPKey, PGPMessage)):
             raise NotImplementedError(repr(subject))
 
         if signature is not None and not isinstance(signature, PGPSignature):
@@ -536,6 +599,29 @@ class PGPSignature(PGPObject, Exportable):
     def type(self):
         return self._signature.sigtype
 
+    @classmethod
+    def new(cls, sigtype, pkalg, halg, signer):
+        sig = PGPSignature()
+
+        sigpkt = SignatureV4()
+        sigpkt.header.tag = 2
+        sigpkt.header.version = 4
+
+        csp = CreationTime()
+        csp.created = datetime.utcnow()
+        sigpkt.subpackets['h_CreationTime'] = csp
+
+        isp = Issuer()
+        isp.issuer = bytearray(binascii.unhexlify(signer))
+        sigpkt.subpackets['Issuer'] = isp
+
+        sigpkt.sigtype = sigtype
+        sigpkt.pubalg = pkalg
+        sigpkt.halg = halg
+
+        sig._signature = sigpkt
+        return sig
+
     def __init__(self):
         super(PGPSignature, self).__init__()
         self._signature = None
@@ -590,6 +676,7 @@ class PGPSignature(PGPObject, Exportable):
         _data += b'\x04\xff'
         _data += self.int_to_bytes(hlen, 4)
         return bytes(_data)
+
     def parse(self, packet):
         unarmored = self.ascii_unarmor(self.load(packet))
         data = unarmored['body']

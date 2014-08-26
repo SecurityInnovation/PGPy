@@ -105,7 +105,7 @@ class TestRegressions(object):
         isp.issuer = bytearray(b'\xC0\xF2\x21\x0E\x0F\x19\x3D\xCD')
         sig.subpackets['Issuer'] = isp
         # hash2; should be 0x9f 0x02
-        sig.hleft = hashlib.new('sha512', hdata).digest()[:2]
+        sig.hash2 = hashlib.new('sha512', hdata).digest()[:2]
 
         signer = sk.__key__.__privkey__().signer(padding.PKCS1v15(), hashes.SHA512(), default_backend())
         signer.update(hdata)

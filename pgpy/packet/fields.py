@@ -206,6 +206,46 @@ class DSASignature(Signature):
         # now mark it as a sequence and return
         return b'\x30' + _der_flen(fbytes) + fbytes
 
+    def from_asn1(self, asn1):
+        def _der_intf(_asn):
+            if _asn[0] != 0x02:
+                raise ValueError("Expected: Integer (0x02). Got: 0x{:02X}".format(_asn[0]))
+            del _asn[0]
+
+            if _asn[0] & 0x80:
+                llen = _asn[0] & 0x7F
+                del _asn[0]
+
+                flen = self.bytes_to_int(_asn[:llen])
+                del _asn[:llen]
+
+            else:
+                flen = _asn[0] & 0x7F
+                del _asn[0]
+
+            i = self.bytes_to_int(_asn[:flen])
+            del _asn[:flen]
+            return i
+
+        if isinstance(asn1, bytes):
+            asn1 = bytearray(asn1)
+
+        # this is a very limited asn1 decoder - it is only intended to decode a DER encoded sequence of integers
+        if not asn1[0] == 0x30:
+            raise NotImplementedError("Expected: Sequence (0x30). Got: 0x{:02X}".format(asn1[0]))
+        del asn1[0]
+
+        # skip the sequence length field
+        if asn1[0] & 0x80:
+            llen = asn1[0] & 0x7F
+            del asn1[:llen + 1]
+
+        else:
+            del asn1[0]
+
+        self.r = MPI(_der_intf(asn1))
+        self.s = MPI(_der_intf(asn1))
+
     def parse(self, packet):
         self.r = MPI(packet)
         self.s = MPI(packet)
