@@ -6,12 +6,6 @@ python:
   - "2.7"
   - "pypy"
   - "pypy3"
-env:
-  matrix:
-    # test all versions against OpenSSL 0.9.8
-    - OPENSSL=0.9.8
-    # test all versions against OpenSSL 1.0.0
-    - OPENSSL=1.0.1
 matrix:
   include:
     # add a pep8 test
