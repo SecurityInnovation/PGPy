@@ -610,7 +610,7 @@ class PGPSignature(PGPObject, Exportable):
         sigpkt.subpackets['h_CreationTime'] = csp
 
         isp = Issuer()
-        isp.issuer = bytearray(six.b(binascii.unhexlify(signer)))
+        isp.issuer = bytearray(binascii.unhexlify(six.b(signer)))
         sigpkt.subpackets['Issuer'] = isp
 
         sigpkt.sigtype = sigtype

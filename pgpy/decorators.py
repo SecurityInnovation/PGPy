@@ -87,37 +87,3 @@ class TypedProperty(property):
             return 'fset' + item in self.__dict__
 
         return _typedsetter
-
-
-class Managed(object):
-    def __init__(self, selection_required=False, pub_required=False, priv_required=False):
-        self.required = selection_required
-        self.pub_required = pub_required
-        self.priv_required = priv_required
-
-    def __call__(self, fn):
-        @functools.wraps(fn)
-        def decorated(iself, *args, **kwargs):
-            if not iself.ctx:
-                raise PGPError("Invalid usage - this method must be invoked from a context managed state!")
-
-            if self.required:
-                if iself.using is None:
-                    raise PGPError("Must select a loaded key!")
-
-                if iself.using not in iself._keys:
-                    raise PGPError("Key {keyid} is not loaded!".format(keyid=iself.using))
-
-            if self.pub_required and iself.using is not None and iself.selected.pubkey is None:
-                raise PGPError("Public Key {keyid} is not loaded!".format(keyid=iself.using))
-
-            if self.priv_required and iself.using is not None and iself.selected.privkey is None:
-                raise PGPError("Private Key {keyid} is not loaded!".format(keyid=iself.using))
-
-            return fn(iself, *args, **kwargs)
-
-        return decorated
-
-
-# just an alias; nothing to see here
-managed = Managed
