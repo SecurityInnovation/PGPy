@@ -1,5 +1,7 @@
 """ test the functionality of PGPKeyring
 """
+import pytest
+
 from pgpy.pgp import PGPKeyring
 from pgpy.types import Fingerprint
 
@@ -49,3 +51,27 @@ class TestPGPKeyring(object):
         assert len(rvt) == 2
         assert not rvt[0].is_public
         assert rvt[1].is_public
+
+    def test_select_fingerprint(self):
+        pytest.skip("not implemented yet")
+
+    def test_select_keyid(self):
+        pytest.skip("not implemented yet")
+
+    def test_select_shortid(self):
+        pytest.skip("not implemented yet")
+
+    def test_select_uid(self):
+        pytest.skip("not implemented yet")
+
+    def test_select_comment(self):
+        pytest.skip("not implemented yet")
+
+    def test_select_email(self):
+        pytest.skip("not implemented yet")
+
+    def test_select_pgpsignature(self):
+        pytest.skip("not implemented yet")
+
+    def test_select_pgpmessage(self):
+        pytest.skip("not implemented yet")

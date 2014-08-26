@@ -20,9 +20,11 @@ class TestPGPKey(object):
         assert sigv
 
     def test_verify_wrongkey(self):
+        # test verifying with the wrong key
         pytest.skip("not implemented yet")
 
     def test_verify_invalid(self):
+        # test verifying an invalid signature
         pytest.skip("not implemented yet")
 
     def test_sign_rsa_bindoc(self, rsakey, gpg_verify):
@@ -31,15 +33,15 @@ class TestPGPKey(object):
         key.parse(rsakey)
         sig = key.sign('tests/testdata/lit')
 
+        with open('tests/testdata/lit.sig', 'w') as sigf:
+            sigf.write(str(sig))
+
         # verify with PGPy
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
             assert key.verify('tests/testdata/lit', sig)
 
         # verify with GPG
-        with open('tests/testdata/lit.sig', 'w') as sigf:
-            sigf.write(str(sig))
-
         assert 'Good signature from' in gpg_verify('./lit', './lit.sig')
 
         os.remove('tests/testdata/lit.sig')
@@ -50,15 +52,15 @@ class TestPGPKey(object):
         key.parse(dsakey)
         sig = key.sign('tests/testdata/lit')
 
+        with open('tests/testdata/lit.sig', 'w') as sigf:
+            sigf.write(str(sig))
+
         # verify with PGPy
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
             assert key.verify('tests/testdata/lit', sig)
 
         # verify with GPG
-        with open('tests/testdata/lit.sig', 'w') as sigf:
-            sigf.write(str(sig))
-
         assert 'Good signature from' in gpg_verify('./lit', './lit.sig')
 
         os.remove('tests/testdata/lit.sig')

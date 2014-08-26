@@ -157,6 +157,10 @@ class Signature(MPIs):
     def __sig__(self):
         return b''
 
+    @abc.abstractmethod
+    def from_signer(self, sig):
+        pass
+
 
 class RSASignature(Signature):
     def __init__(self):
@@ -170,6 +174,9 @@ class RSASignature(Signature):
 
     def parse(self, packet):
         self.md_mod_n = MPI(packet)
+
+    def from_signer(self, sig):
+        self.md_mod_n = MPI(self.bytes_to_int(sig))
 
 
 class DSASignature(Signature):
@@ -206,7 +213,7 @@ class DSASignature(Signature):
         # now mark it as a sequence and return
         return b'\x30' + _der_flen(fbytes) + fbytes
 
-    def from_asn1(self, asn1):
+    def from_signer(self, sig):
         def _der_intf(_asn):
             if _asn[0] != 0x02:
                 raise ValueError("Expected: Integer (0x02). Got: 0x{:02X}".format(_asn[0]))
@@ -227,24 +234,24 @@ class DSASignature(Signature):
             del _asn[:flen]
             return i
 
-        if isinstance(asn1, bytes):
-            asn1 = bytearray(asn1)
+        if isinstance(sig, bytes):
+            sig = bytearray(sig)
 
         # this is a very limited asn1 decoder - it is only intended to decode a DER encoded sequence of integers
-        if not asn1[0] == 0x30:
-            raise NotImplementedError("Expected: Sequence (0x30). Got: 0x{:02X}".format(asn1[0]))
-        del asn1[0]
+        if not sig[0] == 0x30:
+            raise NotImplementedError("Expected: Sequence (0x30). Got: 0x{:02X}".format(sig[0]))
+        del sig[0]
 
         # skip the sequence length field
-        if asn1[0] & 0x80:
-            llen = asn1[0] & 0x7F
-            del asn1[:llen + 1]
+        if sig[0] & 0x80:
+            llen = sig[0] & 0x7F
+            del sig[:llen + 1]
 
         else:
-            del asn1[0]
+            del sig[0]
 
-        self.r = MPI(_der_intf(asn1))
-        self.s = MPI(_der_intf(asn1))
+        self.r = MPI(_der_intf(sig))
+        self.s = MPI(_der_intf(sig))
 
     def parse(self, packet):
         self.r = MPI(packet)

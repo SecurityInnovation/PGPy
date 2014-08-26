@@ -43,7 +43,6 @@ from .packet.packets import SignatureV4
 from .packet.packets import SKEData
 from .packet.packets import SKESessionKey
 
-from .packet.types import MPI
 from .packet.types import Opaque
 
 from .packet.subpackets.signature import CreationTime
@@ -283,18 +282,17 @@ class PGPKey(PGPObject, Exportable):
         sig._signature.hash2 = bytearray(h2.digest()[:2])
 
         if self.key_algorithm == PubKeyAlgorithm.RSAEncryptOrSign:
-            signer = self.__key__.__privkey__().signer(padding.PKCS1v15(), getattr(hashes, prefs['hash_alg'].name)(),
-                                                       default_backend())
-            signer.update(sigdata)
-            s = signer.finalize()
-            sig._signature.signature.md_mod_n = MPI(sig.bytes_to_int(s))
+            sigopts = (padding.PKCS1v15(), getattr(hashes, prefs['hash_alg'].name)(), default_backend())
+
+        elif self.key_algorithm == PubKeyAlgorithm.DSA:
+            sigopts = (getattr(hashes, prefs['hash_alg'].name)(), default_backend())
 
         else:
-            signer = self.__key__.__privkey__().signer(getattr(hashes, prefs['hash_alg'].name)(), default_backend())
-            signer.update(sigdata)
-            s = signer.finalize()
-            sig._signature.signature.from_asn1(s)
+            raise NotImplementedError(self.key_algorithm)
 
+        signer = self.__key__.__privkey__().signer(*sigopts)
+        signer.update(sigdata)
+        sig._signature.signature.from_signer(signer.finalize())
         sig._signature.header.length = len(sig._signature.header) + 6 + len(sig._signature.subpackets) + len(sig._signature.signature)
 
         return sig
