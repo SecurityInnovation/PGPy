@@ -3,6 +3,7 @@
 import pytest
 
 import os
+import warnings
 
 from pgpy import PGPKey
 from pgpy import PGPSignature
@@ -31,7 +32,9 @@ class TestPGPKey(object):
         sig = key.sign('tests/testdata/lit')
 
         # verify with PGPy
-        assert key.verify('tests/testdata/lit', sig)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            assert key.verify('tests/testdata/lit', sig)
 
         # verify with GPG
         with open('tests/testdata/lit.sig', 'w') as sigf:
@@ -48,7 +51,9 @@ class TestPGPKey(object):
         sig = key.sign('tests/testdata/lit')
 
         # verify with PGPy
-        assert key.verify('tests/testdata/lit', sig)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            assert key.verify('tests/testdata/lit', sig)
 
         # verify with GPG
         with open('tests/testdata/lit.sig', 'w') as sigf:
