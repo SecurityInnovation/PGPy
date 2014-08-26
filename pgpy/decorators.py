@@ -3,8 +3,6 @@
 
 import functools
 
-import six
-
 from .errors import PGPError
 
 
