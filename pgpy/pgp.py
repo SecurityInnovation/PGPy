@@ -16,6 +16,8 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.ciphers import Cipher
+from cryptography.hazmat.primitives.ciphers import modes
 
 from .errors import PGPError
 
@@ -24,6 +26,7 @@ from .constants import KeyFlags
 from .constants import PacketTag
 from .constants import PubKeyAlgorithm
 from .constants import SignatureType
+from .constants import SymmetricKeyAlgorithm
 
 from .packet import Key
 from .packet import Packet
@@ -35,6 +38,7 @@ from .packet import UserID
 from .packet import UserAttribute
 
 from .packet.packets import CompressedData
+from .packet.packets import IntegrityProtectedSKEData
 from .packet.packets import LiteralData
 from .packet.packets import OnePassSignature
 from .packet.packets import PKESessionKey
@@ -350,11 +354,89 @@ class PGPKey(PGPObject, Exportable):
 
         return sigv
 
-    def encrypt(self):
+    def encrypt(self, message):
         raise NotImplementedError()
 
-    def decrypt(self):
-        raise NotImplementedError()
+    def decrypt(self, message):
+        if not isinstance(message, PGPMessage):
+            _message = PGPMessage()
+            _message.parse(message)
+            message = _message
+            del _message
+
+        if not message.is_encrypted:
+            warnings.warn("This message is not encrypted")
+            return message
+
+        if message.issuer is not None and message.issuer != self.fingerprint.keyid:
+            if message.issuer in self.subkeys:
+                warnings.warn("Message was encrypted with this key's subkey: {:s}. "
+                              "Decrypting with that...".format(message.issuer))
+                return self.subkeys[message.issuer].decrypt(message)
+
+            raise PGPError("Cannot decrypt the provided message with this key")
+
+        if message.issuer is None:
+            raise NotImplementedError(repr(message._contents[0]))
+
+        # at this point we're assuming that the first packet in message._contents is a PKESessionKey
+        if self.key_algorithm == PubKeyAlgorithm.RSAEncryptOrSign:
+            decargs = (message._contents[0].ct.me_mod_n.to_mpibytes()[2:], padding.PKCS1v15(), default_backend())
+
+        else:
+            raise NotImplementedError(self.key_algorithm)
+
+        m = bytearray(self.__key__.__privkey__().decrypt(*decargs))
+
+        """
+        The value "m" in the above formulas is derived from the session key
+        as follows.  First, the session key is prefixed with a one-octet
+        algorithm identifier that specifies the symmetric encryption
+        algorithm used to encrypt the following Symmetrically Encrypted Data
+        Packet.  Then a two-octet checksum is appended, which is equal to the
+        sum of the preceding session key octets, not including the algorithm
+        identifier, modulo 65536.  This value is then encoded as described in
+        PKCS#1 block encoding EME-PKCS1-v1_5 in Section 7.2.1 of [RFC3447] to
+        form the "m" value used in the formulas above.  See Section 13.1 of
+        this document for notes on OpenPGP's use of PKCS#1.
+        """
+
+        symalg = SymmetricKeyAlgorithm(m[0])
+        del m[0]
+
+        symkey = m[:symalg.key_size // 8]
+        del m[:symalg.key_size // 8]
+
+        checksum = self.bytes_to_int(m[:2])
+        if not sum(symkey) % 65536 == checksum:
+            raise PGPError("Checksum failed :(")
+
+        # now that we have the symmetric cipher used and the key, we can decrypt the actual message
+        ##TODO: move this part to SKEData
+        """
+        Instead of using an IV, OpenPGP prefixes a string of length
+        equal to the block size of the cipher plus two to the data before it
+        is encrypted. The first block-size octets (for example, 8 octets for
+        a 64-bit block length) are random, and the following two octets are
+        copies of the last two octets of the IV.
+        """
+        cipher = Cipher(symalg.cipher(bytes(symkey)), modes.CFB(b'\x00' * (symalg.block_size // 8)), default_backend())
+        del symkey
+        decryptor = cipher.decryptor()
+        pt = bytearray(decryptor.update(bytes(message._contents[-1].ct)) + decryptor.finalize())
+
+        iv = pt[:symalg.block_size // 8]
+        del pt[:symalg.block_size // 8]
+        ivl2 = pt[:2]
+        del pt[:2]
+
+        if iv[-2:] != ivl2:
+            raise PGPError("Decryption failed")
+
+        decmsg = PGPMessage()
+        decmsg.parse(pt)
+
+        return decmsg
 
     def parse(self, packet):
         unarmored = self.ascii_unarmor(self.load(packet))
@@ -845,14 +927,20 @@ class PGPMessage(PGPObject, Exportable):
                 self._contents.append(pkt)
 
             # Literal and Compressed messages are comprised of a single packet each
-            if isinstance(pkt, (LiteralData, CompressedData, SKEData)):
+            if isinstance(pkt, (LiteralData, CompressedData, SKEData, IntegrityProtectedSKEData)):
                 return
 
             # An encrypted message is zero or more ESKs, followed by encrypted data
+            if isinstance(pkt, (PKESessionKey, SKESessionKey)):
+                while len(data) > 0:
+                    self._contents.append(Packet(data))
+                    if isinstance(self._contents[-1], (SKEData, IntegrityProtectedSKEData)):
+                        break
+
             # A Signed Message is a signature, followed by a message
             # A One-Pass Signed Message are any other type of message, bracketed by one or more matched pairs of
             # a One-Pass Signature packet and a Signature packet
-            if isinstance(pkt, (OnePassSignature, Signature, PKESessionKey, SKESessionKey)):
+            if isinstance(pkt, (OnePassSignature, Signature)):
                 # inner message
                 im = PGPMessage()
                 im.parse(data)

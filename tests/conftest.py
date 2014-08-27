@@ -303,6 +303,16 @@ def pytest_generate_tests(metafunc):
 
         tdata += [[os.path.abspath('dsa.asc')]]
 
+    @CWD_As('tests/testdata/messages')
+    def rsamessage():
+        global tdata
+        tdata += [sorted([os.path.abspath(f) for f in os.listdir('.') if f.startswith('message') and '.rsa.' in f])]
+
+    @CWD_As('tests/testdata/messages')
+    def dsamessage():
+        global tdata
+        tdata += [sorted([os.path.abspath(f) for f in os.listdir('.') if f.startswith('message') and '.dsa.' in f])]
+
     @CWD_As('tests/testdata')
     def ascrings():
         global argvals

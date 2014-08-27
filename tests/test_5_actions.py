@@ -6,6 +6,7 @@ import os
 import warnings
 
 from pgpy import PGPKey
+from pgpy import PGPMessage
 from pgpy import PGPSignature
 
 class TestPGPKey(object):
@@ -74,5 +75,16 @@ class TestPGPKey(object):
 
         os.remove('tests/testdata/lit.sig')
 
-    def test_unlock_enckey(self):
+    def test_decrypt_rsa_message(self, rsamessage):
+        key = PGPKey()
+        key.parse('tests/testdata/keys/rsa.asc')
+
+        msg = PGPMessage()
+        msg.parse(rsamessage)
+
+        decmsg = key.decrypt(msg)
+
+        assert isinstance(decmsg, PGPMessage)
+
+    def test_decrypt_dsa_message(self, dsamessage):
         pytest.skip("not implemented yet")

@@ -30,7 +30,7 @@ _pclasses = {
     (0x0E, 4): 'PubSubKeyV4',
     0x11: 'UserAttribute',
     (0x12, 1): 'IntegrityProtectedSKEDataV1',
-    # 0x13: 'MDC', ##TODO: obtain one of these ##TODO: implement this
+    0x13: 'MDC',
 }
 
 class TestPacket(object):
