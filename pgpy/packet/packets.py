@@ -395,6 +395,10 @@ class SKESessionKey(VersionedPacket):
     __typeid__ = 0x03
     __ver__ = 0
 
+    @abc.abstractmethod
+    def decrypt_sk(self, passphrase):
+        raise NotImplementedError()
+
 
 class SKESessionKeyV4(SKESessionKey):
     """
@@ -449,42 +453,49 @@ class SKESessionKeyV4(SKESessionKey):
     """
     __ver__ = 4
 
-    @TypedProperty
+    @property
     def symalg(self):
-        return self._symalg
-
-    @symalg.SymmetricKeyAlgorithm
-    def symalg(self, val):
-        self._symalg = val
-
-    @symalg.int
-    def symalg(self, val):
-        self.symalg = SymmetricKeyAlgorithm(val)
+        return self.s2k.encalg
 
     def __init__(self):
         super(SKESessionKeyV4, self).__init__()
-        self.symalg = 0
         self.s2k = String2Key()
         self.ct = bytearray()
 
     def __bytes__(self):
         _bytes = bytearray()
         _bytes += super(SKESessionKeyV4, self).__bytes__()
-        _bytes.append(self.symalg)
-        _bytes += self.s2k.__bytes__()
+        _bytes += self.s2k.__bytes__()[1:]
         _bytes += self.ct
         return bytes(_bytes)
 
     def parse(self, packet):
         super(SKESessionKeyV4, self).parse(packet)
-        self.symalg = packet[0]
-        del packet[0]
+        # prepend a valid usage identifier so this parses correctly
+        packet.insert(0, 255)
+        self.s2k.parse(packet, iv=False)
 
-        self.s2k.parse(packet)
-
-        ctend = ((self.header.length - 2) - len(self.s2k))
+        ctend = self.header.length - len(self.s2k)
         self.ct = packet[:ctend]
         del packet[:ctend]
+
+    def decrypt_sk(self, passphrase):
+        # derive the first session key from our passphrase
+        sk = self.s2k.derive_key(passphrase)
+        del passphrase
+
+        # if there is no ciphertext, then the first session key is the session key being used
+        if len(self.ct) == 0:
+            return sk
+
+        # otherwise, we now need to decrypt the encrypted session key
+        m = bytearray(_decrypt(bytes(self.ct), sk, self.symalg))
+        del sk
+
+        symalg = SymmetricKeyAlgorithm(m[0])
+        del m[0]
+
+        return (symalg, bytes(m))
 
 
 class OnePassSignature(VersionedPacket):

@@ -502,7 +502,8 @@ class String2Key(Field):
                 _bytes += self.salt
             if self.specifier == String2KeyType.Iterated:
                 _bytes.append(self._count)
-            _bytes += self.iv
+            if self.iv is not None:
+                _bytes += self.iv
         return bytes(_bytes)
 
     def __len__(self):
@@ -515,7 +516,7 @@ class String2Key(Field):
     def __nonzero__(self):
         return self.usage in [254, 255]
 
-    def parse(self, packet):
+    def parse(self, packet, iv=True):
         self.usage = packet[0]
         del packet[0]
 
@@ -539,8 +540,9 @@ class String2Key(Field):
                 self.count = packet[0]
                 del packet[0]
 
-            self.iv = packet[:(self.encalg.block_size // 8)]
-            del packet[:(self.encalg.block_size // 8)]
+            if iv:
+                self.iv = packet[:(self.encalg.block_size // 8)]
+                del packet[:(self.encalg.block_size // 8)]
 
     def derive_key(self, passphrase):
         ##TODO: raise an exception if self.usage is not 254 or 255

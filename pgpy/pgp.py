@@ -849,6 +849,24 @@ class PGPMessage(PGPObject, Exportable):
 
         return super(PGPMessage, self).__str__()
 
+    def encrypt(self, passphrase):
+        raise NotImplementedError()
+
+    def decrypt(self, passphrase):
+        if not self.is_encrypted:
+            raise PGPError("This message is not encrypted!")
+
+        for skesk in [pkt for pkt in self._contents if isinstance(pkt, SKESessionKey)]:
+            symalg, key = skesk.decrypt_sk(passphrase)
+            del passphrase
+            break
+
+        # now that we have the session key, we can decrypt the actual message
+        decmsg = PGPMessage()
+        decmsg.parse(self.message.decrypt(key, symalg))
+
+        return decmsg
+
     def parse(self, packet):
         unarmored = self.ascii_unarmor(self.load(packet))
         data = unarmored['body']

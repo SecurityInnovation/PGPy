@@ -9,6 +9,17 @@ from pgpy import PGPKey
 from pgpy import PGPMessage
 from pgpy import PGPSignature
 
+class TestPGPMessage(object):
+    def test_decrypt_passphrase_message(self, passmessage):
+        msg = PGPMessage()
+        msg.parse(passmessage)
+
+        decmsg = msg.decrypt("QwertyUiop")
+
+        assert isinstance(decmsg, PGPMessage)
+        assert decmsg.message == bytearray(b"This is stored, literally\\!\n\n")
+
+
 class TestPGPKey(object):
     def test_unlock_enckey(self):
         pytest.skip("not implemented yet")
@@ -93,3 +104,4 @@ class TestPGPKey(object):
             decmsg = key.decrypt(msg)
 
         assert isinstance(decmsg, PGPMessage)
+        assert decmsg.message == bytearray(b"This is stored, literally\\!\n\n")
