@@ -740,7 +740,10 @@ class PGPMessage(PGPObject, Exportable):
         if self.type == 'signed':
             return self._contents[0].signer
 
-        raise NotImplementedError()
+        if self.type == 'encrypted' and isinstance(self._contents[0], PKESessionKey):
+            return self._contents[0].encrypter
+
+        return None
 
     @property
     def magic(self):
@@ -776,7 +779,7 @@ class PGPMessage(PGPObject, Exportable):
         if isinstance(self._contents[0], CompressedData):
             return 'compressed'
 
-        if isinstance(self._contents[0], (Signature, OnePassSignature)):
+        if isinstance(self._contents[0], (PGPSignature, OnePassSignature)):
             return 'signed'
 
         if isinstance(self._contents[0], (PKESessionKey, SKESessionKey, SKEData)):
@@ -873,7 +876,12 @@ class PGPKeyring(collections.Container, collections.Iterable, collections.Sized)
         self.load(*args)
 
     def __contains__(self, alias):
-        return any([alias.replace(' ', '') in m, alias in m] for m in self._aliases)
+        aliases = set().union(*self._aliases)
+
+        if isinstance(alias, six.string_types):
+            return alias in aliases or alias.replace(' ', '') in aliases
+
+        return alias in aliases
 
     def __len__(self):
         return len(self._keys)
@@ -981,7 +989,9 @@ class PGPKeyring(collections.Container, collections.Iterable, collections.Sized)
 
     @contextlib.contextmanager
     def key(self, identifier):
-        ##TODO: identifier is a PGPMessage
+        if isinstance(identifier, PGPMessage):
+            identifier = identifier.issuer
+
         if isinstance(identifier, PGPSignature):
             identifier = identifier.signer
 
