@@ -823,7 +823,7 @@ class PGPMessage(PGPObject, Exportable):
         if isinstance(self._contents[0], (PGPSignature, OnePassSignature)):
             return 'signed'
 
-        if isinstance(self._contents[0], (PKESessionKey, SKESessionKey, SKEData)):
+        if isinstance(self._contents[0], (PKESessionKey, SKESessionKey, SKEData, IntegrityProtectedSKEData)):
             return 'encrypted'
 
         return 'unknown'
