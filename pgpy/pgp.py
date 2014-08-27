@@ -381,16 +381,16 @@ class PGPKey(PGPObject, Exportable):
             warnings.warn("This message is not encrypted")
             return message
 
-        if message.issuer is not None and message.issuer != self.fingerprint.keyid:
-            if message.issuer in self.subkeys:
+        if self.fingerprint.keyid not in message.issuers:
+            sks = set(self.subkeys)
+            mis = set(message.issuers)
+            if sks & mis:
+                skid = list(sks & mis)[0]
                 warnings.warn("Message was encrypted with this key's subkey: {:s}. "
-                              "Decrypting with that...".format(message.issuer))
-                return self.subkeys[message.issuer].decrypt(message)
+                              "Decrypting with that...".format(skid))
+                return self.subkeys[skid].decrypt(message)
 
             raise PGPError("Cannot decrypt the provided message with this key")
-
-        if message.issuer is None:
-            raise NotImplementedError(repr(message._contents[0]))
 
         for pkesk in [pkt for pkt in message._contents if isinstance(pkt, PKESessionKey)]:
             if pkesk.pkalg == self.key_algorithm and pkesk.encrypter == self.fingerprint.keyid:
@@ -635,7 +635,7 @@ class PGPSignature(PGPObject, Exportable):
 
     @property
     def signer(self):
-        return self._signature.subpackets['Issuer'][-1].issuer
+        return self._signature.signer
 
     @property
     def target_signature(self):
@@ -767,10 +767,6 @@ class PGPUID(object):
 
 class PGPMessage(PGPObject, Exportable):
     @property
-    def __ct__(self):
-        raise NotImplementedError()
-
-    @property
     def __sig__(self):
         return [pkt for pkt in self._contents if isinstance(pkt, PGPSignature)]
 
@@ -783,14 +779,10 @@ class PGPMessage(PGPObject, Exportable):
         return self.type in ['cleartext', 'signed']
 
     @property
-    def issuer(self):
-        if self.type == 'signed':
-            return self._contents[0].signer
-
-        if self.type == 'encrypted' and isinstance(self._contents[0], PKESessionKey):
-            return self._contents[0].encrypter
-
-        return None
+    def issuers(self):
+        return set().union(*[[pkt.encrypter for pkt in self._contents if isinstance(pkt, PKESessionKey)],
+                             [pkt.signer for pkt in self._contents if isinstance(pkt, (Signature, OnePassSignature))]
+                             ])
 
     @property
     def magic(self):
@@ -803,19 +795,18 @@ class PGPMessage(PGPObject, Exportable):
         if self.type == 'cleartext':
             return self._contents[0]
 
-        if self.type == 'literal':
-            return self._contents[0].contents
+        if self.type in ['literal', 'compressed', 'signed']:
+            m = [pkt for pkt in self._contents if isinstance(pkt, (CompressedData, LiteralData))][0]
 
-        if self.type == 'compressed':
-            return self._contents[0].packets[0].contents
+            if isinstance(m, CompressedData):
+                return m.packets[0].contents
 
-        if self.type == 'signed':
-            return self._contents[1].message
+            return m.contents
 
         if self.type == 'encrypted':
             return self._contents[-1]
 
-        raise NotImplementedError()
+        raise NotImplementedError(self.type)
 
     @property
     def type(self):
@@ -883,44 +874,8 @@ class PGPMessage(PGPObject, Exportable):
                 self._contents.append(sig)
 
         else:
-            pkt = Packet(data)
-
-            # (non-one-pass) signed messages begin with a signature
-            if isinstance(pkt, Signature):
-                sig = PGPSignature()
-                sig._signature = pkt
-                self._contents.append(sig)
-
-            else:
-                self._contents.append(pkt)
-
-            # Literal and Compressed messages are comprised of a single packet each
-            if isinstance(pkt, (LiteralData, CompressedData, SKEData, IntegrityProtectedSKEData)):
-                return
-
-            # An encrypted message is zero or more ESKs, followed by encrypted data
-            if isinstance(pkt, (PKESessionKey, SKESessionKey)):
-                while len(data) > 0:
-                    self._contents.append(Packet(data))
-                    if isinstance(self._contents[-1], (SKEData, IntegrityProtectedSKEData)):
-                        break
-
-            # A Signed Message is a signature, followed by a message
-            # A One-Pass Signed Message are any other type of message, bracketed by one or more matched pairs of
-            # a One-Pass Signature packet and a Signature packet
-            if isinstance(pkt, (OnePassSignature, Signature)):
-                # inner message
-                im = PGPMessage()
-                im.parse(data)
-                self._contents.append(im)
-                del data[:len(im.__bytes__())]
-
-                # if this is a One-Pass Signature message, it will end with a Signature
-                if isinstance(pkt, OnePassSignature):
-                    pkt = Packet(data)
-                    sig = PGPSignature()
-                    sig._signature = pkt
-                    self._contents.append(sig)
+            while len(data) > 0:
+                self._contents.append(Packet(data))
 
 
 class PGPKeyring(collections.Container, collections.Iterable, collections.Sized):
@@ -1046,7 +1001,10 @@ class PGPKeyring(collections.Container, collections.Iterable, collections.Sized)
     @contextlib.contextmanager
     def key(self, identifier):
         if isinstance(identifier, PGPMessage):
-            identifier = identifier.issuer
+            for issuer in identifier.issuers:
+                if issuer in self:
+                    identifier = issuer
+                    break
 
         if isinstance(identifier, PGPSignature):
             identifier = identifier.signer

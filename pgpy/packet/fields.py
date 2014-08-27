@@ -638,7 +638,7 @@ class PrivKey(PubKey):
         del passphrase
 
         # attempt to decrypt this key
-        pt = _decrypt(bytes(self.encbytes), self.s2k.encalg.cipher(bytes(sessionkey)), self.s2k.iv)
+        pt = _decrypt(bytes(self.encbytes), bytes(sessionkey), self.s2k.encalg, bytes(self.s2k.iv))
 
         # check the hash to see if we decrypted successfully or not
         if self.s2k.usage == 254 and not pt[-20:] == hashlib.new('sha1', pt[:-20]).digest():

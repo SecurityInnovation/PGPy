@@ -209,10 +209,6 @@ class TestPGPMessage(object):
         assert p.is_signed
         assert not p.is_encrypted
 
-        assert p.__bytes__().startswith(p._contents[0].__bytes__())
-        assert p._contents[1].__bytes__() in p.__bytes__()
-        assert p.__bytes__().endswith(p._contents[2].__bytes__())
-
         assert p.message == bytearray(b"This is stored, literally\\!\n\n")
 
     def test_encrypted(self, encblock):

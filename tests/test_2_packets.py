@@ -5,7 +5,7 @@ import pytest
 
 import sys
 
-from pgpy.errors import PGPKeyDecryptionError
+from pgpy.errors import PGPDecryptionError
 
 from pgpy.packet import Packet
 from pgpy.packet import Opaque
@@ -86,7 +86,7 @@ class TestPacket(object):
 
         # verify trying to unprotect using the wrong password doesn't work
         # also try with a purposely unicode password
-        with pytest.raises(PGPKeyDecryptionError):
+        with pytest.raises(PGPDecryptionError):
             ep.unprotect("TheWrongPassword")
             ep.unprotect("Ma\u00F1ana")
 

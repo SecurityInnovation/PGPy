@@ -347,6 +347,10 @@ class SignatureV4(Signature):
     def signature(self, val):
         self._signature = val
 
+    @property
+    def signer(self):
+        return self.subpackets['Issuer'][-1].issuer
+
     def __init__(self):
         super(Signature, self).__init__()
         self._sigtype = None

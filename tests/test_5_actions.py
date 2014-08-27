@@ -41,7 +41,10 @@ class TestPGPKey(object):
         # test signing binary documents with RSA
         key = PGPKey()
         key.parse(rsakey)
-        sig = key.sign('tests/testdata/lit')
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            sig = key.sign('tests/testdata/lit')
 
         with open('tests/testdata/lit.sig', 'w') as sigf:
             sigf.write(str(sig))
@@ -60,7 +63,10 @@ class TestPGPKey(object):
         # test signing binary documents with DSA
         key = PGPKey()
         key.parse(dsakey)
-        sig = key.sign('tests/testdata/lit')
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            sig = key.sign('tests/testdata/lit')
 
         with open('tests/testdata/lit.sig', 'w') as sigf:
             sigf.write(str(sig))
@@ -82,6 +88,8 @@ class TestPGPKey(object):
         msg = PGPMessage()
         msg.parse(rsamessage)
 
-        decmsg = key.decrypt(msg)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            decmsg = key.decrypt(msg)
 
         assert isinstance(decmsg, PGPMessage)
