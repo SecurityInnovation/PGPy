@@ -5,6 +5,7 @@ import hashlib
 import zlib
 
 from collections import namedtuple
+from enum import Enum
 from enum import IntEnum
 
 import six
@@ -98,8 +99,8 @@ class PubKeyAlgorithm(IntEnum):
     RSASign = 0x03     # deprecated
     ElGamal = 0x10
     DSA = 0x11
-    # EllipticCurve = 0x12
-    # ECDSA = 0x13
+    ECDH = 0x12
+    ECDSA = 0x13
     FormerlyElGamalEncryptOrSign = 0x14  # deprecated - do not generate
     # DiffieHellman = 0x15  # X9.42
 

@@ -2,7 +2,9 @@
 """
 import pytest
 
-from pgpy.pgp import PGPKeyring
+from pgpy import PGPKeyring
+from pgpy import PGPMessage
+from pgpy import PGPSignature
 from pgpy.types import Fingerprint
 
 
@@ -52,26 +54,67 @@ class TestPGPKeyring(object):
         assert not rvt[0].is_public
         assert rvt[1].is_public
 
-    def test_select_fingerprint(self):
-        pytest.skip("not implemented yet")
+    def test_select_fingerprint(self, ascrings):
+        kr = PGPKeyring(ascrings)
 
-    def test_select_keyid(self):
-        pytest.skip("not implemented yet")
+        with kr.key("F429 4BC8 094A 7E05 85C8 5E86 3747 3B37 58C4 4F36") as rsa:
+            assert rsa.userids[0].name == "RSA von TestKey"
 
-    def test_select_shortid(self):
-        pytest.skip("not implemented yet")
+        with kr.key("EBC8 8A94 ACB1 10F1 BE3F E3C1 2B47 4BB0 2084 C712") as dsa:
+            assert dsa.userids[0].name == "DSA von TestKey"
 
-    def test_select_uid(self):
-        pytest.skip("not implemented yet")
+    def test_select_keyid(self, ascrings):
+        kr = PGPKeyring(ascrings)
 
-    def test_select_comment(self):
-        pytest.skip("not implemented yet")
+        with kr.key("37473B3758C44F36") as rsa:
+            assert rsa.userids[0].name == "RSA von TestKey"
 
-    def test_select_email(self):
-        pytest.skip("not implemented yet")
+        with kr.key("2B474BB02084C712") as dsa:
+            assert dsa.userids[0].name == "DSA von TestKey"
+
+    def test_select_shortid(self, ascrings):
+        kr = PGPKeyring(ascrings)
+
+        with kr.key("58C44F36") as rsa:
+            assert rsa.userids[0].name == "RSA von TestKey"
+
+        with kr.key("2084C712") as dsa:
+            assert dsa.userids[0].name == "DSA von TestKey"
+
+    def test_select_name(self, ascrings):
+        kr = PGPKeyring(ascrings)
+
+        with kr.key("RSA von TestKey") as rsa:
+            assert rsa.userids[0].name == "RSA von TestKey"
+
+        with kr.key("DSA von TestKey") as dsa:
+            assert dsa.userids[0].name == "DSA von TestKey"
+
+    def test_select_comment(self, ascrings):
+        kr = PGPKeyring(ascrings)
+
+        with kr.key("2048-bit RSA") as rsa:
+            assert rsa.userids[0].name == "RSA von TestKey"
+
+        with kr.key("2048-bit DSA") as dsa:
+            assert dsa.userids[0].name == "DSA von TestKey"
+
+    def test_select_email(self, ascrings):
+        kr = PGPKeyring(ascrings)
+
+        with kr.key("rsa@test.key") as rsa:
+            assert rsa.userids[0].name == "RSA von TestKey"
+
+        with kr.key("dsa@test.key") as dsa:
+            assert dsa.userids[0].name == "DSA von TestKey"
 
     def test_select_pgpsignature(self):
-        pytest.skip("not implemented yet")
+        kr = PGPKeyring('tests/testdata/signatures/debian-sid.key.asc')
+        sig = PGPSignature()
+        sig.parse('tests/testdata/signatures/debian-sid.sig.asc')
+
+        with kr.key(sig) as sigkey:
+            assert sigkey.fingerprint.keyid == sig.signer
 
     def test_select_pgpmessage(self):
         pytest.skip("not implemented yet")

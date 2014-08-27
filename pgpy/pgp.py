@@ -312,7 +312,8 @@ class PGPKey(PGPObject, Exportable):
             raise PGPError("Incorrect key. Expected: {:s}".format(sig.signer))
 
         if self.fingerprint.keyid != sig.signer and sig.signer in self.subkeys:
-            warnings.warn("Signature was signed with this key's subkey: {:s}. Verifying with that...".format(sig.signer))
+            warnings.warn("Signature was signed with this key's subkey: {:s}. "
+                          "Verifying with that...".format(sig.signer))
             return self.subkeys[sig.signer].verify(subject, sig)
 
         ##TODO: check this key's usage flags
@@ -886,6 +887,9 @@ class PGPKeyring(collections.Container, collections.Iterable, collections.Sized)
             if alias in m:
                 return self._keys[m[alias]]
 
+            if alias.replace(' ', '') in m:
+                return self._keys[m[alias.replace(' ', '')]]
+
         raise KeyError(alias)
 
     def _get_keys(self, alias):
@@ -977,9 +981,9 @@ class PGPKeyring(collections.Container, collections.Iterable, collections.Sized)
 
     @contextlib.contextmanager
     def key(self, identifier):
-        ##TODO: identifier is a PGPSignature
+        ##TODO: identifier is a PGPMessage
         if isinstance(identifier, PGPSignature):
-            pgpkey = self._get_key(identifier.signer)
+            identifier = identifier.signer
 
         if identifier in self:
             pgpkey = self._get_key(identifier)

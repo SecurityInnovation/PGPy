@@ -51,6 +51,8 @@ Requirements
 
 - `enum34 <https://pypi.python.org/pypi/enum34>`_
 
+- `six <https://pypi.python.org/pypi/six>`_
+
 License
 -------
 

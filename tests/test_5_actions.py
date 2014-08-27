@@ -9,7 +9,10 @@ from pgpy import PGPKey
 from pgpy import PGPSignature
 
 class TestPGPKey(object):
-    def test_verify(self, sigf):
+    def test_unlock_enckey(self):
+        pytest.skip("not implemented yet")
+
+    def test_verify_detach(self, sigf):
         # test verifying signatures in tests/testdata/signatures
         key = PGPKey()
         key.parse(sigf + '.key.asc')
@@ -18,6 +21,12 @@ class TestPGPKey(object):
         sigv = key.verify(sigf + '.subj', sig)
 
         assert sigv
+
+    def test_verify_cleartext(self):
+        pytest.skip("not implemented yet")
+
+    def test_verify_message(self):
+        pytest.skip("not implemented yet")
 
     def test_verify_wrongkey(self):
         # test verifying with the wrong key
