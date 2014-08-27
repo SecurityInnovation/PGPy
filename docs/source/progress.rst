@@ -87,7 +87,7 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
         - Encrypt,   False, Encrypt data/messages using symmetric ciphers
         - Decrypt,   True,  Decrypt data/messages using RSA
         - Decrypt,   False, Decrypt data/messages using ElGamal
-        - Decrypt,   False, Decrypt data/messages using symmetric ciphers
+        - Decrypt,   True,  Decrypt data/messages using symmetric ciphers
 
     :Encodings:
         - ASCII,  True, ASCII armored PGP blocks

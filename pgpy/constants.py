@@ -10,9 +10,14 @@ from enum import IntEnum
 
 import six
 
+from cryptography.hazmat.backends import openssl
 from cryptography.hazmat.primitives.ciphers import algorithms
 
 from .types import FlagEnum
+
+
+class Backend(Enum):
+    OpenSSL = openssl.backend
 
 
 class PacketTag(IntEnum):
