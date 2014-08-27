@@ -1,10 +1,6 @@
 """ decorators.py
 """
 
-import functools
-
-from .errors import PGPError
-
 
 class TypedProperty(property):
     """

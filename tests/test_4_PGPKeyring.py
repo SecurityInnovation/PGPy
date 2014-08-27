@@ -122,18 +122,12 @@ class TestPGPKeyring(object):
         m1 = PGPMessage()
         m1.parse('tests/testdata/messages/message.rsa.enc.cast5.asc')
         m2 = PGPMessage()
-        m2.parse('tests/testdata/messages/message.dsa.enc.cast5.asc')
-        m3 = PGPMessage()
-        m3.parse('tests/testdata/blocks/message.signed.asc')
+        m2.parse('tests/testdata/blocks/message.signed.asc')
 
         with kr.key(m1) as rsakey:
             assert rsakey.fingerprint == "00EC FAF5 48AE B655 F861  8193 EEE0 97A0 17B9 79CA"
             assert rsakey.parent.fingerprint == "F429 4BC8 094A 7E05 85C8 5E86 3747 3B37 58C4 4F36"
 
-        with kr.key(m2) as dsakey:
-            assert dsakey.fingerprint == "BD47 DA72 72BC 2A74 DF9E  B8F5 1FD6 D5D4 DA01 70C4"
-            assert dsakey.parent.fingerprint == "EBC8 8A94 ACB1 10F1 BE3F E3C1 2B47 4BB0 2084 C712"
-
-        with kr.key(m3) as rsakey:
+        with kr.key(m2) as rsakey:
             assert rsakey.fingerprint == "7CC4 6C3B E05F 9F9C 9144  CE8B 2A83 4D8E 5918 E886"
             assert rsakey.parent.fingerprint == "F429 4BC8 094A 7E05 85C8 5E86 3747 3B37 58C4 4F36"

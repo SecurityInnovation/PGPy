@@ -7,7 +7,7 @@ class PGPError(Exception):
     pass
 
 
-class PGPKeyDecryptionError(Exception):
+class PGPDecryptionError(Exception):
     """Raised when decryption fails"""
     pass
 

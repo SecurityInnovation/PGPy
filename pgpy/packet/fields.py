@@ -9,17 +9,8 @@ import hashlib
 import itertools
 import math
 
-import six
-
-from cryptography.exceptions import UnsupportedAlgorithm
-
-from cryptography.hazmat.backends import default_backend
-
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric import dsa
-
-from cryptography.hazmat.primitives.ciphers import Cipher
-from cryptography.hazmat.primitives.ciphers import modes
 
 from .subpackets import Signature as SignatureSP
 from .subpackets import UserAttribute
@@ -33,8 +24,9 @@ from ..constants import SymmetricKeyAlgorithm
 
 from ..decorators import TypedProperty
 
-from ..errors import PGPKeyDecryptionError
-from ..errors import PGPOpenSSLCipherNotSupported
+from ..errors import PGPDecryptionError
+
+from ..symenc import _decrypt
 
 from ..types import Field
 
@@ -646,27 +638,18 @@ class PrivKey(PubKey):
         del passphrase
 
         # attempt to decrypt this key
-        cipher = Cipher(self.s2k.encalg.cipher(bytes(sessionkey)), modes.CFB(bytes(self.s2k.iv)), backend=default_backend())
-        del sessionkey
-
-        try:
-            decryptor = cipher.decryptor()
-
-        except UnsupportedAlgorithm as e:
-            six.reraise(PGPOpenSSLCipherNotSupported, e)
-
-        pt = decryptor.update(bytes(self.encbytes)) + decryptor.finalize()
+        pt = _decrypt(bytes(self.encbytes), self.s2k.encalg.cipher(bytes(sessionkey)), self.s2k.iv)
 
         # check the hash to see if we decrypted successfully or not
         if self.s2k.usage == 254 and not pt[-20:] == hashlib.new('sha1', pt[:-20]).digest():
             # if the usage byte is 254, key material is followed by a 20-octet sha-1 hash of the rest
             # of the key material block
-            raise PGPKeyDecryptionError("Passphrase was incorrect!")
+            raise PGPDecryptionError("Passphrase was incorrect!")
 
         if self.s2k.usage == 255 and not self.bytes_to_int(pt[-2:]) == (sum(bytearray(pt[:-2])) % 65536):
             # if the usage byte is 255, key material is followed by a 2-octet checksum of the rest
             # of the key material block
-            raise PGPKeyDecryptionError("Passphrase was incorrect!")
+            raise PGPDecryptionError("Passphrase was incorrect!")
 
         return bytearray(pt)
 

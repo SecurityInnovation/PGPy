@@ -10,6 +10,9 @@ from datetime import datetime
 
 import six
 
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.asymmetric import padding
+
 from .fields import DSAPriv
 from .fields import DSAPub
 from .fields import DSASignature
@@ -41,12 +44,37 @@ from ..constants import TrustLevel
 
 from ..decorators import TypedProperty
 
+from ..errors import PGPDecryptionError
+
+from ..symenc import _decrypt
+
 from ..types import Fingerprint
+
+
+class _SKEData(object):
+    # this is a mixin class to provide the same decrypt function to both SKEData and IntegrityProtectedSKEDataV1
+    def decrypt(self, key, alg):
+        pt = _decrypt(bytes(self.ct), bytes(key), alg)
+
+        iv = pt[:alg.block_size // 8]
+        del pt[:alg.block_size // 8]
+
+        ivl2 = pt[:2]
+        del pt[:2]
+
+        if iv[-2:] != ivl2:
+            raise PGPDecryptionError("Decryption failed")
+
+        return pt
 
 
 class PKESessionKey(VersionedPacket):
     __typeid__ = 0x01
     __ver__ = 0
+
+    @abc.abstractmethod
+    def decrypt_sk(self, pk):
+        raise NotImplementedError()
 
 
 class PKESessionKeyV3(PKESessionKey):
@@ -158,6 +186,42 @@ class PKESessionKeyV3(PKESessionKey):
         _bytes.append(self.pkalg)
         _bytes += self.ct.__bytes__() if self.ct is not None else b'\x00' * (self.header.length - 10)
         return bytes(_bytes)
+
+    def decrypt_sk(self, pk):
+        if self.pkalg == PubKeyAlgorithm.RSAEncryptOrSign:
+            decargs = (self.ct.me_mod_n.to_mpibytes()[2:], padding.PKCS1v15(), default_backend())
+
+        else:
+            raise NotImplementedError(self.pkalg)
+
+        m = bytearray(pk.decrypt(*decargs))
+
+        """
+        The value "m" in the above formulas is derived from the session key
+        as follows.  First, the session key is prefixed with a one-octet
+        algorithm identifier that specifies the symmetric encryption
+        algorithm used to encrypt the following Symmetrically Encrypted Data
+        Packet.  Then a two-octet checksum is appended, which is equal to the
+        sum of the preceding session key octets, not including the algorithm
+        identifier, modulo 65536.  This value is then encoded as described in
+        PKCS#1 block encoding EME-PKCS1-v1_5 in Section 7.2.1 of [RFC3447] to
+        form the "m" value used in the formulas above.  See Section 13.1 of
+        this document for notes on OpenPGP's use of PKCS#1.
+        """
+
+        symalg = SymmetricKeyAlgorithm(m[0])
+        del m[0]
+
+        symkey = m[:symalg.key_size // 8]
+        del m[:symalg.key_size // 8]
+
+        checksum = self.bytes_to_int(m[:2])
+        del m[:2]
+
+        if not sum(symkey) % 65536 == checksum:
+            raise PGPDecryptionError("{:s} decryption failed".format(self.pkalg.name))
+
+        return (symalg, symkey)
 
     def parse(self, packet):
         super(PKESessionKeyV3, self).parse(packet)
@@ -778,7 +842,7 @@ class CompressedData(Packet):
             self.packets.append(Packet(cdata))
 
 
-class SKEData(Packet):
+class SKEData(Packet, _SKEData):
     """
     5.7.  Symmetrically Encrypted Data Packet (Tag 9)
 
@@ -1138,7 +1202,7 @@ class IntegrityProtectedSKEData(VersionedPacket):
     __ver__ = 0
 
 
-class IntegrityProtectedSKEDataV1(IntegrityProtectedSKEData):
+class IntegrityProtectedSKEDataV1(IntegrityProtectedSKEData, _SKEData):
     """
     5.13.  Sym. Encrypted Integrity Protected Data Packet (Tag 18)
 
