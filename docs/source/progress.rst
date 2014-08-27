@@ -65,7 +65,7 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
         - Sign,      True,  Generate detached signatures of binary documents using RSA
         - Sign,      True,  Generate detached signatures of binary documents using DSA
         - Sign,      False, Sign keys
-        - Sign,      False, Sign User ID packets
+        - Sign,      False, Certify User IDs
         - Sign,      False, Sign User Attribute packets
         - Sign,      False, Generate key binding signatures
         - Sign,      False, Generate signatures directly on a key
@@ -85,7 +85,7 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
         - Encrypt,   False, Encrypt data/messages using RSA
         - Encrypt,   False, Encrypt data/messages using ElGamal
         - Encrypt,   False, Encrypt data/messages using symmetric ciphers
-        - Decrypt,   False, Decrypt data/messages using RSA
+        - Decrypt,   True,  Decrypt data/messages using RSA
         - Decrypt,   False, Decrypt data/messages using ElGamal
         - Decrypt,   False, Decrypt data/messages using symmetric ciphers
 

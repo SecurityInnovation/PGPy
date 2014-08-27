@@ -85,6 +85,3 @@ class TestPGPKey(object):
         decmsg = key.decrypt(msg)
 
         assert isinstance(decmsg, PGPMessage)
-
-    def test_decrypt_dsa_message(self, dsamessage):
-        pytest.skip("not implemented yet")
