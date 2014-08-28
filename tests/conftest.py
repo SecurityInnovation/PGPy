@@ -318,6 +318,11 @@ def pytest_generate_tests(metafunc):
         global tdata
         tdata += [sorted([os.path.abspath(f) for f in os.listdir('.') if f.startswith('message') and '.pass.' in f])]
 
+    @CWD_As('tests/testdata/messages')
+    def ctmessage():
+        global tdata
+        tdata += [sorted([os.path.abspath(f) for f in os.listdir('.') if f.startswith('cleartext')])]
+
     @CWD_As('tests/testdata')
     def ascrings():
         global argvals

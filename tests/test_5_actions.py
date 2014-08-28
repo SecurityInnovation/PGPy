@@ -34,10 +34,24 @@ class TestPGPKey(object):
 
         assert sigv
 
-    def test_verify_cleartext(self):
+    def test_verify_cleartext(self, ctmessage, rsakey, dsakey):
+        rsa = PGPKey()
+        rsa.parse(rsakey)
+        dsa = PGPKey()
+        dsa.parse(dsakey)
+
+        ctmsg = PGPMessage()
+        ctmsg.parse(ctmessage)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            assert rsa.verify(ctmsg)
+            assert dsa.verify(ctmsg)
+
+    def test_verify_onepass_signed_message(self):
         pytest.skip("not implemented yet")
 
-    def test_verify_message(self):
+    def test_verify_signed_message(self):
         pytest.skip("not implemented yet")
 
     def test_verify_wrongkey(self):

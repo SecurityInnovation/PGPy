@@ -6,6 +6,7 @@ import binascii
 import collections
 import contextlib
 import itertools
+import re
 import warnings
 
 import six
@@ -315,15 +316,36 @@ class PGPKey(PGPObject, Exportable):
         return sig
 
     def verify(self, subject, signature=None, **kwargs):
-        if isinstance(subject, (PGPKey, PGPMessage)):
-            raise NotImplementedError(repr(subject))
+        sig = None
 
-        if signature is not None and not isinstance(signature, PGPSignature):
-            sig = PGPSignature()
-            sig.parse(signature)
+        # load the signature subject if necessary
+        if not isinstance(subject, (PGPMessage, PGPKey)):
+            subj = self.load(subject)
 
+        # figure out what kind of signature we have
+        #  - error case
+        if not isinstance(signature, (type(None), PGPSignature)):
+            raise ValueError("Unexpected signature value - should be None or a PGPSignature")
+
+        #  - detached PGPSignature
         if isinstance(signature, PGPSignature):
             sig = signature
+
+        #  - cleartext message with inline signature
+        if isinstance(subject, PGPMessage) and subject.type == 'cleartext':
+            subj = subject.message
+
+            # signed by us?
+            if self.fingerprint.keyid in subject.issuers:
+                sig = [sig for sig in subject.__sig__ if sig.signer == self.fingerprint.keyid][0]
+
+            # signed by a subkey?
+            elif set(self.subkeys) & subject.issuers:
+                skid = list(set(self.subkeys) & subject.issuers)[0]
+                sig = [sig for sig in subject.__sig__ if sig.signer == skid][0]
+
+        if sig is None:
+            raise NotImplementedError(repr(subject))
 
         if self.fingerprint.keyid != sig.signer and sig.signer not in self.subkeys:
             raise PGPError("Incorrect key. Expected: {:s}".format(sig.signer))
@@ -344,8 +366,6 @@ class PGPKey(PGPObject, Exportable):
         else:
             ##TODO: raise a different exception if the key algorithm is something that can't/shouldn't be used for signing, like ElGamal
             raise NotImplementedError(sig.key_algorithm)
-
-        subj = self.load(subject)
 
         sigv = SignatureVerification()
         sigv.signature = sig
@@ -692,7 +712,15 @@ class PGPSignature(PGPObject, Exportable):
             s = self.load(subject)
             _data += s
 
-        if len(s) == 0:
+        if self.type == SignatureType.CanonicalDocument:
+            """
+            For text document signatures (type 0x01), the
+            document is canonicalized by converting line endings to <CR><LF>,
+            and the resulting data is hashed.
+            """
+            _data += re.subn(br'\r{0,1}\n', b'\r\n', six.b(subject))[0]
+
+        if len(_data) == 0:
             raise NotImplementedError(self.type)
 
         """
@@ -781,7 +809,7 @@ class PGPMessage(PGPObject, Exportable):
     @property
     def issuers(self):
         return set().union(*[[pkt.encrypter for pkt in self._contents if isinstance(pkt, PKESessionKey)],
-                             [pkt.signer for pkt in self._contents if isinstance(pkt, (Signature, OnePassSignature))]
+                             [pkt.signer for pkt in self._contents if isinstance(pkt, (Signature, OnePassSignature, PGPSignature))]
                              ])
 
     @property
