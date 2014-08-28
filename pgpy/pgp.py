@@ -718,7 +718,7 @@ class PGPSignature(PGPObject, Exportable):
             document is canonicalized by converting line endings to <CR><LF>,
             and the resulting data is hashed.
             """
-            _data += re.subn(br'\r{0,1}\n', b'\r\n', six.b(subject))[0]
+            _data += re.subn(br'\r{0,1}\n', b'\r\n', subject.encode('latin-1'))[0]
 
         if len(_data) == 0:
             raise NotImplementedError(self.type)
