@@ -339,12 +339,6 @@ def pytest_generate_tests(metafunc):
             locals()[fn]()
 
     if tdata != []:
-        # quick error checking
-        if len(set([len(stl) for stl in tdata])) > 1:
-            raise ValueError("All sublists of tdata must be the same length! "
-                             "param(s): " + ", ".join(params) +
-                             "; " + ", ".join([str(len(stl)) for stl in tdata]))
-
         # zip sublists together
         tdata = list(zip(*tdata))
 
@@ -379,14 +373,5 @@ def pytest_generate_tests(metafunc):
         # if there is only one param, it should actually just be a list of arguments
         if len(params) == 1 and isinstance(argvals[0], tuple):
             argvals = [i[0] for i in argvals]
-
-        # some error checking here with output that makes debugging easier
-        if len(al) > 1:
-            raise ValueError("All sublists of tdata must be the same length! param(s): " + para)
-
-        if len(argvals) != len(ids):
-            raise ValueError("length of ids not matched! param(s): {p:s}; {pl:d} vs {id:d}".format(p=para,
-                                                                                                   pl=len(argvals),
-                                                                                                   id=len(ids)))
 
         metafunc.parametrize(para, argvals, ids=ids, scope="class")

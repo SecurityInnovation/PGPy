@@ -794,6 +794,14 @@ class PGPUID(object):
 
 
 class PGPMessage(PGPObject, Exportable):
+    @staticmethod
+    def dash_unescape(text):
+        return re.subn(r'^- -', '-', text, flags=re.MULTILINE)[0]
+
+    @staticmethod
+    def dash_escape(text):
+        return re.subn(r'^-', '- -', text, flags=re.MULTILINE)[0]
+
     @property
     def __sig__(self):
         return [pkt for pkt in self._contents if isinstance(pkt, PGPSignature)]
@@ -872,7 +880,7 @@ class PGPMessage(PGPObject, Exportable):
                    "Hash: {hashes:s}\n\n" \
                    "{cleartext:s}\n" \
                    "{signature:s}".format(hashes=','.join(self._halgs),
-                                          cleartext=self._contents[0],
+                                          cleartext=self.dash_escape(self._contents[0]),
                                           signature=super(PGPMessage, self).__str__())
 
         return super(PGPMessage, self).__str__()
@@ -909,7 +917,7 @@ class PGPMessage(PGPObject, Exportable):
         if unarmored['magic'] == 'SIGNATURE':
             # the composition for this will be the 'cleartext' as a str,
             # followed by one or more signatures (each one loaded into a PGPSignature)
-            self._contents.append(unarmored['cleartext'])
+            self._contents.append(self.dash_unescape(unarmored['cleartext']))
             self._halgs = unarmored['hashes'] if unarmored['hashes'] is not None else ['MD5']
             while len(data) > 0:
                 pkt = Packet(data)
