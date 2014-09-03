@@ -60,7 +60,7 @@ class SubPackets(collections.MutableMapping, Field):
         return sum(sp.header.length for sp in itertools.chain(self._hashed_sp.values(), self._unhashed_sp.values())) + 4
 
     def __iter__(self):
-        for sp in itertools.chain(self.__hashed_sp, self.__unhashed_sp):
+        for sp in itertools.chain(self._hashed_sp.values(), self._unhashed_sp.values()):
             yield sp
 
     def __setitem__(self, key, val):
@@ -99,6 +99,10 @@ class SubPackets(collections.MutableMapping, Field):
     def __contains__(self, key):
         return any([key in [dk[0] for dk in self._hashed_sp.keys()],
                     key in [dk[0] for dk in self._unhashed_sp.keys()]])
+
+    def update_hlen(self):
+        for sp in self:
+            sp.update_hlen()
 
     def parse(self, packet):
         hl = self.bytes_to_int(packet[:2])

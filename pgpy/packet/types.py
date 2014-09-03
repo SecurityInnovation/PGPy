@@ -137,6 +137,9 @@ class Packet(Dispatchable):
     def __repr__(self):
         return "<{cls:s} [tag 0x{tag:02d}] at 0x{id:x}>".format(cls=self.__class__.__name__, tag=self.header.tag, id=id(self))
 
+    def update_hlen(self):
+        self.header.length = len(self.__bytes__()) - len(self.header)
+
     @abc.abstractmethod
     def parse(self, packet):
         if self.header.tag == 0:

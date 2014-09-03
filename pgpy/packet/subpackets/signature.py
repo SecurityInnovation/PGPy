@@ -213,11 +213,10 @@ class CreationTime(Signature):
     def __init__(self):
         super(CreationTime, self).__init__()
         self.created = datetime.utcnow()
-        self.header.length = 5  # this subpacket's length is always 5 octets long
 
     def __bytes__(self):
         _bytes = super(CreationTime, self).__bytes__()
-        _bytes += self.int_to_bytes(calendar.timegm(self.created.timetuple()), self.header.length - 1)
+        _bytes += self.int_to_bytes(calendar.timegm(self.created.timetuple()), 4)
         return _bytes
 
     def parse(self, packet):
@@ -573,7 +572,6 @@ class Issuer(Signature):
 
     @issuer.bytearray
     def issuer(self, val):
-        self.header.length = len(val) + 1
         self._issuer = binascii.hexlify(val).upper().decode('latin-1')
 
     def __bytes__(self):

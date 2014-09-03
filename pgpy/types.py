@@ -277,7 +277,9 @@ class PGPObject(six.with_metaclass(abc.ABCMeta, object)):
     def int_to_bytes(i, minlen=1, order='big'):
         """convert integer to bytes"""
         if hasattr(int, 'to_bytes'):
+
             return i.to_bytes(minlen, order)
+
         else:
             # fall back to the old method
             plen = max(int((i.bit_length() + 7) // 8) * 2, (minlen * 2))

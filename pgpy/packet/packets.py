@@ -372,6 +372,10 @@ class SignatureV4(Signature):
 
         return bytes(_bytes)
 
+    def update_hlen(self):
+        self.subpackets.update_hlen()
+        super(SignatureV4, self).update_hlen()
+
     def parse(self, packet):
         super(Signature, self).parse(packet)
         self.sigtype = packet[0]

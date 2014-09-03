@@ -86,6 +86,9 @@ class SubPacket(Dispatchable):
     def __repr__(self):
         return "<{} [0x{:02x}] at 0x{:x}>".format(self.__class__.__name__, self.header.typeid, id(self))
 
+    def update_hlen(self):
+        self.header.length = (len(self.__bytes__()) - len(self.header)) + 1
+
     @abc.abstractmethod  # subclasses still need to specify this
     def parse(self, packet):
         if self.header._typeid == 0:

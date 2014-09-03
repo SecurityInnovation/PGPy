@@ -311,7 +311,7 @@ class PGPKey(PGPObject, Exportable):
         signer = self.__key__.__privkey__().signer(*sigopts)
         signer.update(sigdata)
         sig._signature.signature.from_signer(signer.finalize())
-        sig._signature.header.length = len(sig._signature.header) + 6 + len(sig._signature.subpackets) + len(sig._signature.signature)
+        sig._signature.update_hlen()
 
         return sig
 
@@ -722,6 +722,9 @@ class PGPSignature(PGPObject, Exportable):
 
         if len(_data) == 0:
             raise NotImplementedError(self.type)
+
+        # update our signature packet lengths before proceeding, in case they are wrong
+        self._signature.update_hlen()
 
         """
         Once the data body is hashed, then a trailer is hashed. (...)

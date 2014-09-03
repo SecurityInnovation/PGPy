@@ -115,7 +115,8 @@ class TestRegressions(object):
         sig.signature.md_mod_n = MPI(sig.bytes_to_int(s))
 
         # update header length in sig
-        sig.header.length = len(sig.header) + 6 + len(sig.subpackets) + len(sig.signature)
+        # sig.header.length = len(sig.header) + 6 + len(sig.subpackets) + len(sig.signature)
+        sig.update_hlen()
 
         # verify sig
         esig = PGPSignature()
