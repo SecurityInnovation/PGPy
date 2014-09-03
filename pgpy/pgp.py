@@ -337,7 +337,7 @@ class PGPKey(PGPObject, Exportable):
 
             # signed by us?
             if self.fingerprint.keyid in subject.issuers:
-                sig = [sig for sig in subject.__sig__ if sig.signer == self.fingerprint.keyid][0]
+                sig = [s for s in subject.__sig__ if s.signer == self.fingerprint.keyid][0]
 
             # signed by a subkey?
             elif set(self.subkeys) & subject.issuers:
