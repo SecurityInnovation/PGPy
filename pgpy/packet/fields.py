@@ -659,6 +659,10 @@ class PrivKey(PubKey):
 
         return bytearray(pt)
 
+    @abc.abstractmethod
+    def clear(self):
+        return False
+
 
 class RSAPriv(PrivKey, RSAPub):
     def __init__(self):
@@ -720,6 +724,16 @@ class RSAPriv(PrivKey, RSAPub):
             self.chksum = kb
             del kb
 
+    def clear(self):
+        del self.d
+        del self.p
+        del self.q
+        del self.u
+        self.d = MPI(0)
+        self.p = MPI(0)
+        self.q = MPI(0)
+        self.u = MPI(0)
+
 
 class DSAPriv(PrivKey, DSAPub):
     def __init__(self):
@@ -763,6 +777,10 @@ class DSAPriv(PrivKey, DSAPub):
             self.chksum = kb
             del kb
 
+    def clear(self):
+        del self.x
+        self.x = MPI(0)
+
 
 class ElGPriv(PrivKey, ElGPub):
     def __init__(self):
@@ -801,6 +819,10 @@ class ElGPriv(PrivKey, ElGPub):
         if self.s2k.usage in [254, 255]:
             self.chksum = kb
             del kb
+
+    def clear(self):
+        del self.x
+        self.x = MPI(0)
 
 
 class CipherText(MPIs):

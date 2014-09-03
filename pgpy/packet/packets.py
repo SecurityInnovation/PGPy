@@ -776,7 +776,7 @@ class PrivKeyV4(PrivKey, PubKeyV4):
     @property
     def unlocked(self):
         if self.protected:
-            return 0 in list(self.keymaterial)
+            return 0 not in list(self.keymaterial)
         return True
 
     def unprotect(self, passphrase):

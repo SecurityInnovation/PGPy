@@ -202,106 +202,94 @@ def pytest_generate_tests(metafunc):
     @CWD_As('tests/testdata/subpackets')
     def sigsubpacket():
         global tdata
-
         tdata += [sorted([ os.path.abspath(f) for f in os.listdir('.') if f.endswith('signature') ])]
 
     @CWD_As('tests/testdata/subpackets')
     def uasubpacket():
         global tdata
-
         tdata += [sorted([ os.path.abspath(f) for f in os.listdir('.') if f.endswith('userattr') ])]
 
     @CWD_As('tests/testdata/packets')
     def packet():
         global tdata
-
         tdata += [sorted([ os.path.abspath(f) for f in os.listdir('.') ])]
 
     @CWD_As('tests/testdata/packets')
     def ekpacket():
         global tdata
-
         tdata += [sorted([ os.path.abspath(f) for f in os.listdir('.') if f.startswith('05.v4.enc') ])]
 
     @CWD_As('tests/testdata/packets')
     def ukpacket():
         global tdata
-
         tdata += [sorted([ os.path.abspath(f) for f in os.listdir('.') if f.startswith('05.v4.unc') ])]
 
     @CWD_As('tests/testdata/blocks')
     def block():
         global tdata
-
         tdata += [sorted([ os.path.abspath(f) for f in os.listdir('.') if f.endswith('.asc') ])]
 
     @CWD_As('tests/testdata/blocks')
     def rsasigblock():
         global tdata
-
         tdata += [[os.path.abspath('rsasignature.asc')]]
 
     @CWD_As('tests/testdata/blocks')
     def rsapubblock():
         global tdata
-
         tdata += [[os.path.abspath('rsapubkey.asc')]]
 
     @CWD_As('tests/testdata/blocks')
     def rsaprivblock():
         global tdata
-
         tdata += [[os.path.abspath('rsaseckey.asc')]]
 
     @CWD_As('tests/testdata/blocks')
     def clearblock():
         global tdata
-
         tdata += [[os.path.abspath(f) for f in os.listdir('.') if f.startswith('cleartext')]]
 
     @CWD_As('tests/testdata/blocks')
     def litblock():
         global tdata
-
         tdata += [[os.path.abspath('message.literal.asc')]]
 
     @CWD_As('tests/testdata/blocks')
     def compblock():
         global tdata
-
         tdata += [[os.path.abspath('message.compressed.asc')]]
 
     @CWD_As('tests/testdata/blocks')
     def onepassblock():
         global tdata
-
         tdata += [[os.path.abspath('message.onepass.asc'), os.path.abspath('message.two_onepass.asc')]]
 
     @CWD_As('tests/testdata/blocks')
     def encblock():
         global tdata
-
         tdata += [[os.path.abspath('message.encrypted.asc'), os.path.abspath('message.encrypted.signed.asc')]]
 
     @CWD_As('tests/testdata/signatures')
     def sigf():
         global argvals
         global ids
-
         argvals += [ sorted(set(os.path.abspath(f.split('.')[0]) for f in os.listdir('.'))) ]
         ids += sorted(set(f.split('.')[0] for f in os.listdir('.')))
 
     @CWD_As('tests/testdata/keys')
     def rsakey():
         global tdata
-
         tdata += [[os.path.abspath('rsa.asc')]]
 
     @CWD_As('tests/testdata/keys')
     def dsakey():
         global tdata
-
         tdata += [[os.path.abspath('dsa.asc')]]
+
+    @CWD_As('tests/testdata/keys')
+    def encrsakey():
+        global tdata
+        tdata += [[os.path.abspath('rsa.cast5.asc')]]
 
     @CWD_As('tests/testdata/messages')
     def rsamessage():
@@ -327,7 +315,6 @@ def pytest_generate_tests(metafunc):
     def ascrings():
         global argvals
         global ids
-
         argvals += [[[os.path.abspath('pubtest.asc'), os.path.abspath('sectest.asc')]]]
         ids += ['ascrings']
 

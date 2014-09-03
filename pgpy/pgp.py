@@ -168,8 +168,22 @@ class PGPKey(PGPObject, Exportable):
         return isinstance(self._key, Primary) and not isinstance(self._key, Sub)
 
     @property
+    def is_protected(self):
+        if self.is_public:
+            return False
+
+        return self._key.protected
+
+    @property
     def is_public(self):
         return isinstance(self._key, Public) and not isinstance(self._key, Private)
+
+    @property
+    def is_unlocked(self):
+        if self.is_public:
+            return True
+
+        return self._key.unlocked
 
     @property
     def key_algorithm(self):
@@ -248,18 +262,20 @@ class PGPKey(PGPObject, Exportable):
             ##TODO: we can't unprotect public keys because only private key material is ever protected
             return
 
-        if not self._key.protected:
+        if not self.is_protected:
             ##TODO: we can't unprotect private keys that are not protected, because there is no ciphertext to decrypt
             return
 
         try:
-            self._key.unprotect(passphrase)
+            for sk in itertools.chain([self], self.subkeys.values()):
+                sk._key.unprotect(passphrase)
             del passphrase
             yield
 
         finally:
-            ##TODO: cleanup here by deleting the previously decrypted secret key material
-            pass
+            # clean up here by deleting the previously decrypted secret key material
+            for sk in itertools.chain([self], self.subkeys.values()):
+                sk._key.keymaterial.clear()
 
     def sign(self, subject, **kwargs):
         # default options
@@ -281,7 +297,7 @@ class PGPKey(PGPObject, Exportable):
         if self.is_public:
             raise PGPError("Can't sign with a public key")
 
-        if (not self.is_public) and self._key.protected and (not self._key.unlocked):
+        if self.is_protected and (not self._key.unlocked):
             raise PGPError("This key is not unlocked")
 
         if isinstance(subject, PGPKey) or (isinstance(subject, PGPMessage) and subject.type != 'cleartext'):

@@ -2,12 +2,15 @@
 """
 import pytest
 
+import itertools
 import os
 import warnings
 
 from pgpy import PGPKey
 from pgpy import PGPMessage
 from pgpy import PGPSignature
+
+from pgpy.errors import PGPError
 
 class TestPGPMessage(object):
     def test_decrypt_passphrase_message(self, passmessage):
@@ -21,8 +24,26 @@ class TestPGPMessage(object):
 
 
 class TestPGPKey(object):
-    def test_unlock_enckey(self):
-        pytest.skip("not implemented yet")
+    def test_unlock_encrsakey(self, encrsakey, rsakey):
+        ekey = PGPKey()
+        ekey.parse(encrsakey)
+        rkey = PGPKey()
+        rkey.parse(rsakey)
+
+        assert ekey.is_protected
+        assert not ekey.is_unlocked
+        assert not rkey.is_protected
+
+        with pytest.raises(PGPError):
+            ekey.sign('tests/testdata/lit')
+
+        with ekey.unlock('QwertyUiop'):
+            assert ekey.is_unlocked
+            sig = ekey.sign('tests/testdata/lit')
+            assert ekey.verify('tests/testdata/lit', sig)
+            assert rkey.verify('tests/testdata/lit', sig)
+
+        assert not ekey.is_unlocked
 
     def test_verify_detach(self, sigf):
         # test verifying signatures in tests/testdata/signatures
