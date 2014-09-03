@@ -274,13 +274,17 @@ class PGPKey(PGPObject, Exportable):
                  'compprefs': []}
         prefs.update(kwargs)
 
+        ##TODO: roll this into above, if possible
+        if prefs['inline']:
+            prefs['sigtype'] = SignatureType.CanonicalDocument
+
         if self.is_public:
             raise PGPError("Can't sign with a public key")
 
         if (not self.is_public) and self._key.protected and (not self._key.unlocked):
             raise PGPError("This key is not unlocked")
 
-        if isinstance(subject, (PGPKey, PGPMessage)):
+        if isinstance(subject, PGPKey) or (isinstance(subject, PGPMessage) and subject.type != 'cleartext'):
             raise NotImplementedError(repr(subject))
 
         if KeyFlags.Sign not in self.usageflags:
@@ -293,7 +297,21 @@ class PGPKey(PGPObject, Exportable):
             raise PGPError("This key is not marked for signing")
 
         sig = PGPSignature.new(prefs['sigtype'], self.key_algorithm, prefs['hash_alg'], self.fingerprint.keyid)
-        sigdata = sig.hashdata(self.load(subject))
+
+        if prefs['inline']:
+            if not isinstance(subject, PGPMessage):
+                msg = PGPMessage()
+                msg._contents.append(self.load(subject).decode('latin-1'))
+
+            else:
+                msg = subject
+
+            msg._contents.append(sig)
+
+            sigdata = sig.hashdata(msg.message)
+
+        else:
+            sigdata = sig.hashdata(self.load(subject))
 
         h2 = prefs['hash_alg'].hasher
         h2.update(sigdata)
@@ -312,6 +330,9 @@ class PGPKey(PGPObject, Exportable):
         signer.update(sigdata)
         sig._signature.signature.from_signer(signer.finalize())
         sig._signature.update_hlen()
+
+        if prefs['inline']:
+            return msg
 
         return sig
 
@@ -878,11 +899,11 @@ class PGPMessage(PGPObject, Exportable):
         return b''.join([ p.__bytes__() for p in self._contents if isinstance(p, (Packet, PGPMessage, PGPSignature)) ])
 
     def __str__(self):
-        if self.type == "cleartext":
+        if self.type == 'cleartext':
             return "-----BEGIN PGP SIGNED MESSAGE-----\n" \
                    "Hash: {hashes:s}\n\n" \
                    "{cleartext:s}\n" \
-                   "{signature:s}".format(hashes=','.join(self._halgs),
+                   "{signature:s}".format(hashes=','.join([s.hash_algorithm.name for s in self.__sig__]),
                                           cleartext=self.dash_escape(self._contents[0]),
                                           signature=super(PGPMessage, self).__str__())
 

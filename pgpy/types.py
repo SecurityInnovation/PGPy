@@ -282,7 +282,7 @@ class PGPObject(six.with_metaclass(abc.ABCMeta, object)):
 
         else:
             # fall back to the old method
-            plen = max(int((i.bit_length() + 7) // 8) * 2, (minlen * 2))
+            plen = max(int((i.bit_length() + 7) // 8) * 2, (minlen * 2), 2)
             hexstr = '{0:0{1}x}'.format(i, plen).encode()
             return binascii.unhexlify(hexstr)
 

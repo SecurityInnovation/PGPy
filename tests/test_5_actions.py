@@ -106,6 +106,80 @@ class TestPGPKey(object):
 
         os.remove('tests/testdata/lit.sig')
 
+    def test_sign_rsa_cleartext(self, rsakey, gpg_verify):
+        key = PGPKey()
+        key.parse(rsakey)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            ctsmsg = key.sign('tests/testdata/lit', inline=True)
+
+        assert isinstance(ctsmsg, PGPMessage)
+        assert ctsmsg.type == 'cleartext'
+
+        with open('tests/testdata/lit.asc', 'w') as isigf:
+            isigf.write(str(ctsmsg))
+
+        # verify with PGPy
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            assert key.verify(ctsmsg)
+
+        # verify with GPG
+        assert 'Good signature from' in gpg_verify('./lit.asc')
+
+        os.remove('tests/testdata/lit.asc')
+
+    def test_sign_dsa_cleartext(self, dsakey, gpg_verify):
+        key = PGPKey()
+        key.parse(dsakey)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            ctsmsg = key.sign('tests/testdata/lit', inline=True)
+
+        assert isinstance(ctsmsg, PGPMessage)
+        assert ctsmsg.type == 'cleartext'
+
+        with open('tests/testdata/lit.asc', 'w') as isigf:
+            isigf.write(str(ctsmsg))
+
+        # verify with PGPy
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            assert key.verify(ctsmsg)
+
+        # verify with GPG
+        assert 'Good signature from' in gpg_verify('./lit.asc')
+
+        os.remove('tests/testdata/lit.asc')
+
+    def test_sign_rsa_dsa_cleartext(self, rsakey, dsakey, gpg_verify):
+        rkey = PGPKey()
+        rkey.parse(rsakey)
+        dkey = PGPKey()
+        dkey.parse(dsakey)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            ctsmsg = rkey.sign('tests/testdata/lit_de', inline=True)
+            ctsmsg = dkey.sign(ctsmsg, inline=True)
+
+        with open('tests/testdata/lit_de.asc', 'w') as isigf:
+            isigf.write(str(ctsmsg))
+
+        # verify with PGPy
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            assert rkey.verify(ctsmsg)
+            assert dkey.verify(ctsmsg)
+
+        # verify with GPG
+        gv = gpg_verify('./lit_de.asc')
+        assert 'Good signature from' in gv and 'BAD signature' not in gv
+
+        # os.remove('tests/testdata/lit_de.asc')
+
     def test_decrypt_rsa_message(self, rsamessage):
         key = PGPKey()
         key.parse('tests/testdata/keys/rsa.asc')
