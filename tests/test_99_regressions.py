@@ -6,7 +6,6 @@ class TestRegressions(object):
     # regression tests for actions
     def test_reg_bug_56(self, gpg_verify):
         # some imports only used by this regression test
-        import hashlib
         import os
 
         from datetime import datetime
@@ -14,11 +13,9 @@ class TestRegressions(object):
         from pgpy.pgp import PGPKey
         from pgpy.pgp import PGPSignature
 
-        # from pgpy.types import Exportable
-
-        # from pgpy.packet.packets import PrivKeyV4
-        # from pgpy.packet.packets import PubKeyV4
-        from pgpy.packet.packets import SignatureV4
+        from pgpy.constants import HashAlgorithm
+        from pgpy.constants import PubKeyAlgorithm
+        from pgpy.constants import SignatureType
 
         from pgpy.packet.types import MPI
 
@@ -26,8 +23,6 @@ class TestRegressions(object):
         from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.asymmetric import padding
 
-        from pgpy.packet.subpackets.signature import CreationTime
-        from pgpy.packet.subpackets.signature import Issuer
         # do a regression test on issue #56
         # re-create a signature that would have been encoded improperly as with issue #56
         # and see if it fails to verify or not
@@ -83,47 +78,24 @@ class TestRegressions(object):
         pk.parse(pub)
 
         sigsubject = b"Hello!I'm a test document.I'm going to get signed a bunch of times.KBYE!"
-        hdata = b"Hello!I'm a test document.I'm going to get signed a bunch of times.KBYE!" \
-                b"\x04\x00\x01\n\x00\x06\x05\x02S\xe2\xba3\x04\xff\x00\x00\x00\x0c"
 
-        # start with a shiny new SignatureV4
-        sig = SignatureV4()
-        sig.header.tag = 2
-        sig.header.version = 4
-        # signature of a binary document
-        sig.sigtype = 0
-        # algorithm is RSA
-        sig.pubalg = 1
-        # hash algorithm is SHA512
-        sig.halg = 10
-        # one hashed sub - creation time at `Wed Aug  6 23:28:51 UTC 2014`
-        csp = CreationTime()
-        csp.created = datetime(2014, 8, 6, 23, 28, 51)
-        sig.subpackets['h_CreationTime'] = csp
-        # one unhashed sub - issuer key ID `0xC0F2210E0F193DCD`
-        isp = Issuer()
-        isp.issuer = bytearray(b'\xC0\xF2\x21\x0E\x0F\x19\x3D\xCD')
-        sig.subpackets['Issuer'] = isp
-        # hash2; should be 0x9f 0x02
-        sig.hash2 = hashlib.new('sha512', hdata).digest()[:2]
+        sig = PGPSignature.new(SignatureType.BinaryDocument, PubKeyAlgorithm.RSAEncryptOrSign,HashAlgorithm.SHA512,
+                               sk.fingerprint.keyid)
+        sig._signature.subpackets['h_CreationTime'][-1].created = datetime(2014, 8, 6, 23, 28, 51)
+        hdata = sig.hashdata(bytearray(sigsubject))
 
         signer = sk.__key__.__privkey__().signer(padding.PKCS1v15(), hashes.SHA512(), default_backend())
         signer.update(hdata)
         s = signer.finalize()
 
         # add signature bytes to sig
-        sig.signature.md_mod_n = MPI(sig.bytes_to_int(s))
+        sig._signature.signature.md_mod_n = MPI(sig.bytes_to_int(s))
 
-        # update header length in sig
-        # sig.header.length = len(sig.header) + 6 + len(sig.subpackets) + len(sig.signature)
-        sig.update_hlen()
-
-        # verify sig
-        esig = PGPSignature()
-        esig._signature = sig
+        # update header length(s), then verify the signature
+        sig._signature.update_hlen()
 
         # with PGPy
-        pk.verify(bytearray(sigsubject), esig)
+        pk.verify(bytearray(sigsubject), sig)
         # with gpg
         # write the subject
         with open('tests/testdata/subj', 'w') as sf:
@@ -132,7 +104,7 @@ class TestRegressions(object):
 
         # write the signature
         with open('tests/testdata/subj.asc', 'w') as sf:
-            sf.write(str(esig))
+            sf.write(str(sig))
             sf.flush()
 
         # write the pubkey

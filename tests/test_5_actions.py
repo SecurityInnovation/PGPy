@@ -76,12 +76,22 @@ class TestPGPKey(object):
         pytest.skip("not implemented yet")
 
     def test_verify_wrongkey(self):
-        # test verifying with the wrong key
-        pytest.skip("not implemented yet")
+        wrongkey = PGPKey()
+        wrongkey.parse('tests/testdata/signatures/aptapproval-test.key.asc')
 
-    def test_verify_invalid(self):
-        # test verifying an invalid signature
-        pytest.skip("not implemented yet")
+        sig = PGPSignature()
+        sig.parse('tests/testdata/signatures/debian-sid.sig.asc')
+
+        with pytest.raises(PGPError):
+            wrongkey.verify('tests/testdata/signatures/debian-sid.subj', sig)
+
+    def test_verify_invalid(self, rsakey):
+        rkey = PGPKey()
+        rkey.parse(rsakey)
+
+        sig = rkey.sign('tests/testdata/lit')
+
+        assert not rkey.verify('tests/testdata/lit2', sig)
 
     def test_sign_rsa_bindoc(self, rsakey, gpg_verify):
         # test signing binary documents with RSA
@@ -199,7 +209,7 @@ class TestPGPKey(object):
         gv = gpg_verify('./lit_de.asc')
         assert 'Good signature from' in gv and 'BAD signature' not in gv
 
-        # os.remove('tests/testdata/lit_de.asc')
+        os.remove('tests/testdata/lit_de.asc')
 
     def test_decrypt_rsa_message(self, rsamessage):
         key = PGPKey()
