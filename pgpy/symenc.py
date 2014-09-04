@@ -12,7 +12,7 @@ from cryptography.hazmat.primitives.ciphers import modes
 from .errors import PGPDecryptionError
 
 
-def _encrypt(ct, key, alg, iv, real_iv=False):
+def _encrypt(pt, key, alg, iv, real_iv=False):
     raise NotImplementedError()
 
 

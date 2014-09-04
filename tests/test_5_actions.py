@@ -2,7 +2,6 @@
 """
 import pytest
 
-import itertools
 import os
 import warnings
 
@@ -13,6 +12,32 @@ from pgpy import PGPSignature
 from pgpy.errors import PGPError
 
 class TestPGPMessage(object):
+    def test_new_message(self, lit, gpg_print):
+        msg = PGPMessage.new(lit)
+
+        assert msg.type == 'compressed'
+        assert msg.message.decode('latin-1') == 'This is stored, literally\!\n\n'
+
+        with open('tests/testdata/lit.asc', 'w') as litascf:
+            litascf.write(str(msg))
+
+        assert msg.message.decode('latin-1') == gpg_print('lit.asc')
+
+        os.remove('tests/testdata/lit.asc')
+
+    def test_new_message_nocomp(self, lit, gpg_print):
+        msg = PGPMessage.new(lit, compress=False)
+
+        assert msg.type == 'literal'
+        assert msg.message.decode('latin-1') == 'This is stored, literally\!\n\n'
+
+        with open('tests/testdata/lit.asc', 'w') as litascf:
+            litascf.write(str(msg))
+
+        assert msg.message.decode('latin-1') == gpg_print('lit.asc')
+
+        os.remove('tests/testdata/lit.asc')
+
     def test_decrypt_passphrase_message(self, passmessage):
         msg = PGPMessage()
         msg.parse(passmessage)
@@ -21,6 +46,9 @@ class TestPGPMessage(object):
 
         assert isinstance(decmsg, PGPMessage)
         assert decmsg.message == bytearray(b"This is stored, literally\\!\n\n")
+
+    def test_encrypt_passphrase_message(self, lit, gpg_decrypt):
+        pytest.skip("not ready yet")
 
 
 class TestPGPKey(object):

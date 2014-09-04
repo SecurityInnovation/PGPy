@@ -6,6 +6,7 @@ import binascii
 import collections
 import contextlib
 import itertools
+import os
 import re
 import warnings
 
@@ -20,6 +21,7 @@ from cryptography.hazmat.primitives.asymmetric import padding
 
 from .errors import PGPError
 
+from .constants import CompressionAlgorithm
 from .constants import HashAlgorithm
 from .constants import KeyFlags
 from .constants import PacketTag
@@ -924,6 +926,44 @@ class PGPMessage(PGPObject, Exportable):
                                           signature=super(PGPMessage, self).__str__())
 
         return super(PGPMessage, self).__str__()
+
+    @classmethod
+    def new(cls, message, **kwargs):
+        prefs = {'sensitive': False,
+                 'compress': True,
+                 'compalg': CompressionAlgorithm.ZIP,
+                 'format': 'b'}
+        prefs.update(kwargs)
+
+        msg = PGPMessage()
+
+        # load literal data
+        lit = LiteralData()
+        lit._contents = msg.load(message)
+        lit.format = prefs['format']
+
+        if os.path.isfile(message):
+            lit.filename = os.path.basename(message)
+            lit.mtime = datetime.utcfromtimestamp(os.stat(message).st_mtime)
+
+        else:
+            lit.mtime = datetime.utcnow()
+
+        if prefs['sensitive']:
+            lit.filename = '_CONSOLE'
+
+        lit.update_hlen()
+
+        _m = lit
+        if prefs['compress']:
+            _m = CompressedData()
+            _m.calg = prefs['compalg']
+            _m.packets.append(lit)
+            _m.update_hlen()
+
+        msg._contents.append(_m)
+
+        return msg
 
     def encrypt(self, passphrase):
         raise NotImplementedError()

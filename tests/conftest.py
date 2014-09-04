@@ -65,25 +65,71 @@ class CWD_As(object):
 # fixtures
 @pytest.fixture()
 def gpg_verify():
-     @CWD_As('tests/testdata')
-     def _gpg_verify(gpg_subjpath, gpg_sigpath=None, keyring='./testkeys.gpg'):
-         _gpg_args = ['/usr/bin/gpg',
-             '--no-default-keyring',
-             '--keyring', keyring]
-         gpg_args = _gpg_args + ['-vv', '--verify']
+    @CWD_As('tests/testdata')
+    def _gpg_verify(gpg_subjpath, gpg_sigpath=None, keyring='./testkeys.gpg'):
+        _gpg_args = ['/usr/bin/gpg',
+                     '--no-default-keyring',
+                     '--keyring', keyring]
+        gpg_args = _gpg_args + ['-vv', '--verify']
 
-         if gpg_sigpath is not None:
-             gpg_args += [gpg_sigpath]
-         gpg_args += [gpg_subjpath]
+        if gpg_sigpath is not None:
+            gpg_args += [gpg_sigpath]
+        gpg_args += [gpg_subjpath]
 
-         try:
-             return subprocess.check_output(gpg_args, stderr=subprocess.STDOUT).decode()
+        try:
+            return subprocess.check_output(gpg_args, stderr=subprocess.STDOUT).decode()
 
-         except subprocess.CalledProcessError as e:
-             return "/usr/bin/gpg returned {ret}\n"\
+        except subprocess.CalledProcessError as e:
+            return "/usr/bin/gpg returned {ret}\n"\
                     "===========================\n"\
                     "{out}".format(ret=e.returncode, out=e.output.decode())
-     return _gpg_verify
+    return _gpg_verify
+
+
+@pytest.fixture
+def gpg_decrypt():
+    @CWD_As('tests/testdata')
+    def _gpg_decrypt(gpg_encmsgpath, passphrase=None, keyring='./testkeys.gpg'):
+        _gpg_args = ['/usr/bin/gpg',
+                     '--no-default-keyring',
+                     '--keyring', keyring,
+                     '--decrypt']
+
+        _cokwargs = {}
+        _comkwargs = {}
+
+        if passphrase is not None:
+            _gpg_args[:-1] += ['--batch',
+                               '--passphrase-fd', '0',
+                               '--decrypt']
+
+            _cokwargs['stdin'] = subprocess.PIPE
+            _comkwargs['input'] = passphrase
+
+        try:
+            gpgdec = subprocess.Popen(_gpg_args, **_cokwargs)
+            gpgo, gpge = gpgdec.communicate(**_comkwargs)
+
+        finally:
+            pass
+
+        return gpgo
+
+
+@pytest.fixture
+def gpg_print():
+    @CWD_As('tests/testdata')
+    def _gpg_print(infile):
+        _gpg_args = ['/usr/bin/gpg', '-o-', infile]
+
+        try:
+            return subprocess.check_output(_gpg_args).decode()
+
+        finally:
+            pass
+
+    return _gpg_print
+
 
 # pytest hooks
 
@@ -317,6 +363,27 @@ def pytest_generate_tests(metafunc):
         global ids
         argvals += [[[os.path.abspath('pubtest.asc'), os.path.abspath('sectest.asc')]]]
         ids += ['ascrings']
+
+    @CWD_As('tests/testdata')
+    def lit():
+        global argvals
+        global ids
+        argvals += [[os.path.abspath('lit')]]
+        ids += ['lit']
+
+    @CWD_As('tests/testdata')
+    def lit2():
+        global argvals
+        global ids
+        argvals += [[os.path.abspath('lit2')]]
+        ids += ['lit2']
+
+    @CWD_As('tests/testdata')
+    def lit_de():
+        global argvals
+        global ids
+        argvals += [[os.path.abspath('lit_de')]]
+        ids += ['lit_de']
 
     # run all inner functions that match fixturenames
     # I organized it like this for easy code folding in PyCharm :)

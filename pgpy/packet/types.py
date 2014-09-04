@@ -126,6 +126,8 @@ class Packet(Dispatchable):
 
     def __init__(self):
         self.header = self.__headercls__()
+        if isinstance(self.__typeid__, six.integer_types):
+            self.header.tag = self.__typeid__
 
     @abc.abstractmethod
     def __bytes__(self):
