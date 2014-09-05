@@ -107,14 +107,14 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
         - Verify,    False, Verify timestamp signatures using DSA
         - Verify,    False, Verify third party confirmation signatures using RSA
         - Verify,    False, Verify third party confirmation signatures using DSA
-        - Verify,,   False, Encrypt data/messages using RSA
+        - Encrypt,   False, Encrypt data/messages using RSA
         - Encrypt,   False, Encrypt data/messages using ElGamal
         - Decrypt,   True,  Decrypt data/messages using RSA
         - Decrypt,   False, Decrypt data/messages using ElGamal
 
     :Other Actions:
-        - Encrypt,   False, Encrypt data/messages using symmetric ciphers
-        - Decrypt,   True,  Decrypt data/messages using symmetric ciphers
+        - Encrypt,   True,  Encrypt data/messages using symmetric ciphers with passphrases
+        - Decrypt,   True,  Decrypt data/messages using symmetric ciphers with passphrases
 
     :Encodings:
         - ASCII,  True, ASCII armored PGP blocks
