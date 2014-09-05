@@ -4,6 +4,7 @@ import abc
 import binascii
 import calendar
 import hashlib
+import os
 import re
 
 from datetime import datetime
@@ -47,6 +48,7 @@ from ..decorators import TypedProperty
 from ..errors import PGPDecryptionError
 
 from ..symenc import _decrypt
+from ..symenc import _encrypt
 
 from ..types import Fingerprint
 
@@ -403,6 +405,10 @@ class SKESessionKey(VersionedPacket):
     def decrypt_sk(self, passphrase):
         raise NotImplementedError()
 
+    @abc.abstractmethod
+    def gen_sk(self, passphrase):
+        raise NotImplementedError()
+
 
 class SKESessionKeyV4(SKESessionKey):
     """
@@ -500,6 +506,22 @@ class SKESessionKeyV4(SKESessionKey):
         del m[0]
 
         return (symalg, bytes(m))
+
+    def gen_sk(self, passphrase):
+        # generate the session key
+        sk = os.urandom(self.symalg.key_size // 8)
+
+        # generate the salt and derive the key to encrypt sk with from it
+        self.s2k.salt = bytearray(os.urandom(8))
+        esk = self.s2k.derive_key(passphrase)
+        del passphrase
+
+        self.ct = _encrypt(self.int_to_bytes(self.symalg) + sk, esk, self.symalg)
+
+        # update header length and return sk
+        self.update_hlen()
+
+        return sk
 
 
 class OnePassSignature(VersionedPacket):
@@ -1337,6 +1359,17 @@ class IntegrityProtectedSKEDataV1(IntegrityProtectedSKEData, _SKEData):
         super(IntegrityProtectedSKEDataV1, self).parse(packet)
         self.ct = packet[:self.header.length - 1]
         del packet[:self.header.length - 1]
+
+    def encrypt(self, key, alg, data):
+        iv = alg.gen_iv()
+        data = iv + iv[-2:] + data
+
+        mdc = MDC()
+        mdc.mdc = binascii.hexlify(hashlib.new('SHA1', data + b'\xd3\x14').digest())
+        mdc.update_hlen()
+
+        data += mdc.__bytes__()
+        self.ct = _encrypt(data, key, alg)
 
 
 class MDC(Packet):

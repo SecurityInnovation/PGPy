@@ -18,12 +18,12 @@ class TestPGPMessage(object):
         assert msg.type == 'compressed'
         assert msg.message.decode('latin-1') == 'This is stored, literally\!\n\n'
 
-        with open('tests/testdata/lit.asc', 'w') as litascf:
-            litascf.write(str(msg))
+        with open('tests/testdata/cmsg.asc', 'w') as litf:
+            litf.write(str(msg))
 
-        assert msg.message.decode('latin-1') == gpg_print('lit.asc')
+        assert msg.message.decode('latin-1') == gpg_print('cmsg.asc')
 
-        os.remove('tests/testdata/lit.asc')
+        os.remove('tests/testdata/cmsg.asc')
 
     def test_new_message_nocomp(self, lit, gpg_print):
         msg = PGPMessage.new(lit, compress=False)
@@ -31,12 +31,12 @@ class TestPGPMessage(object):
         assert msg.type == 'literal'
         assert msg.message.decode('latin-1') == 'This is stored, literally\!\n\n'
 
-        with open('tests/testdata/lit.asc', 'w') as litascf:
-            litascf.write(str(msg))
+        with open('tests/testdata/lmsg.asc', 'w') as litf:
+            litf.write(str(msg))
 
-        assert msg.message.decode('latin-1') == gpg_print('lit.asc')
+        assert msg.message.decode('latin-1') == gpg_print('lmsg.asc')
 
-        os.remove('tests/testdata/lit.asc')
+        os.remove('tests/testdata/lmsg.asc')
 
     def test_decrypt_passphrase_message(self, passmessage):
         msg = PGPMessage()
@@ -48,7 +48,24 @@ class TestPGPMessage(object):
         assert decmsg.message == bytearray(b"This is stored, literally\\!\n\n")
 
     def test_encrypt_passphrase_message(self, lit, gpg_decrypt):
-        pytest.skip("not ready yet")
+        msg = PGPMessage.new(lit)
+        msg.encrypt("QwertyUiop")
+
+        assert msg.type == 'encrypted'
+
+        with open('tests/testdata/semsg.asc', 'w') as litf:
+            litf.write(str(msg))
+
+        # decrypt with PGPy
+        decmsg = msg.decrypt("QwertyUiop")
+        assert isinstance(decmsg, PGPMessage)
+        assert decmsg.type == 'compressed'
+        assert decmsg.message == bytearray(b"This is stored, literally\\!\n\n")
+
+        # decrypt with GPG
+        assert gpg_decrypt('./semsg.asc', "QwertyUiop") == 'This is stored, literally\!\n\n'
+
+        os.remove('tests/testdata/semsg.asc')
 
 
 class TestPGPKey(object):

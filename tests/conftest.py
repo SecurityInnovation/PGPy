@@ -96,7 +96,6 @@ def gpg_decrypt():
                      '--decrypt']
 
         _cokwargs = {}
-        _comkwargs = {}
 
         if passphrase is not None:
             _gpg_args[:-1] += ['--batch',
@@ -104,16 +103,21 @@ def gpg_decrypt():
                                '--decrypt']
 
             _cokwargs['stdin'] = subprocess.PIPE
-            _comkwargs['input'] = passphrase
+            _cokwargs['stdout'] = subprocess.PIPE
+            _cokwargs['stderr'] = subprocess.PIPE
+
+        _gpg_args += [gpg_encmsgpath]
 
         try:
             gpgdec = subprocess.Popen(_gpg_args, **_cokwargs)
-            gpgo, gpge = gpgdec.communicate(**_comkwargs)
+            gpgo, gpge = gpgdec.communicate(passphrase.encode())
 
         finally:
             pass
 
-        return gpgo
+        return gpgo.decode() if gpgo is not None else gpge
+
+    return _gpg_decrypt
 
 
 @pytest.fixture

@@ -27,6 +27,7 @@ from .constants import KeyFlags
 from .constants import PacketTag
 from .constants import PubKeyAlgorithm
 from .constants import SignatureType
+from .constants import SymmetricKeyAlgorithm
 
 from .packet import Key
 from .packet import Packet
@@ -39,6 +40,7 @@ from .packet import UserAttribute
 
 from .packet.packets import CompressedData
 from .packet.packets import IntegrityProtectedSKEData
+from .packet.packets import IntegrityProtectedSKEDataV1
 from .packet.packets import LiteralData
 from .packet.packets import OnePassSignature
 from .packet.packets import PKESessionKey
@@ -46,6 +48,7 @@ from .packet.packets import Signature
 from .packet.packets import SignatureV4
 from .packet.packets import SKEData
 from .packet.packets import SKESessionKey
+from .packet.packets import SKESessionKeyV4
 
 from .packet.types import Opaque
 
@@ -965,8 +968,29 @@ class PGPMessage(PGPObject, Exportable):
 
         return msg
 
-    def encrypt(self, passphrase):
-        raise NotImplementedError()
+    def encrypt(self, passphrase, **kwargs):
+        prefs = {'cipher': SymmetricKeyAlgorithm.AES256,
+                 'hash': HashAlgorithm.SHA256}
+        prefs.update(kwargs)
+
+        # set up a new SKESessionKeyV4
+        skesk = SKESessionKeyV4()
+        skesk.s2k.usage = 255
+        skesk.s2k.specifier = 3
+        skesk.s2k.halg = prefs['hash']
+        skesk.s2k.encalg = prefs['cipher']
+        skesk.s2k.tune_count()
+
+        sesskey = skesk.gen_sk(passphrase)
+        del passphrase
+
+        # now encrypt pt and place it inside an IntegrityProtectedSKEDataV1
+        skedata = IntegrityProtectedSKEDataV1()
+        skedata.encrypt(sesskey, prefs['cipher'], self.__bytes__())
+        skedata.update_hlen()
+
+        # now replace self._contents with the newly constructed encrypted message
+        self._contents = [skesk, skedata]
 
     def decrypt(self, passphrase):
         if not self.is_encrypted:

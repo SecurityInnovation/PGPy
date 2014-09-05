@@ -12,17 +12,22 @@ from cryptography.hazmat.primitives.ciphers import modes
 from .errors import PGPDecryptionError
 
 
-def _encrypt(pt, key, alg, iv, real_iv=False):
-    raise NotImplementedError()
+def _encrypt(pt, key, alg, iv=None):
+    if iv is None:
+        iv = b'\x00' * (alg.block_size // 8)
+
+    try:
+        encryptor = Cipher(alg.cipher(key), modes.CFB(iv), default_backend()).encryptor()
+
+    except UnsupportedAlgorithm as ex:
+        six.reraise(PGPDecryptionError, ex)
+
+    else:
+        return bytearray(encryptor.update(pt) + encryptor.finalize())
 
 
 def _decrypt(ct, key, alg, iv=None):
-    # when decrypting secret key material, standard CFB is used with a normal IV
-    if iv is not None:
-        mode = modes.CFB(iv)
-
-    # otherwise, OpenPGP CFB mode is used
-    else:
+    if iv is None:
         """
         Instead of using an IV, OpenPGP prefixes a string of length
         equal to the block size of the cipher plus two to the data before it
@@ -30,12 +35,13 @@ def _decrypt(ct, key, alg, iv=None):
         a 64-bit block length) are random, and the following two octets are
         copies of the last two octets of the IV.
         """
-        mode = modes.CFB(b'\x00' * (alg.block_size // 8))
+        iv = b'\x00' * (alg.block_size // 8)
 
     try:
-        decryptor = Cipher(alg.cipher(key), mode, default_backend()).decryptor()
+        decryptor = Cipher(alg.cipher(key), modes.CFB(iv), default_backend()).decryptor()
 
     except UnsupportedAlgorithm as ex:
         six.reraise(PGPDecryptionError, ex)
 
-    return bytearray(decryptor.update(ct) + decryptor.finalize())
+    else:
+        return bytearray(decryptor.update(ct) + decryptor.finalize())

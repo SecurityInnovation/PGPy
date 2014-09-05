@@ -2,6 +2,7 @@
 """
 import bz2
 import hashlib
+import os
 import zlib
 
 from collections import namedtuple
@@ -95,6 +96,9 @@ class SymmetricKeyAlgorithm(IntEnum):
             return ks[self]
 
         raise NotImplementedError(repr(self))
+
+    def gen_iv(self):
+        return os.urandom(self.block_size // 8)
 
 
 class PubKeyAlgorithm(IntEnum):
