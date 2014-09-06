@@ -968,7 +968,7 @@ class PGPMessage(PGPObject, Exportable):
 
         return msg
 
-    def encrypt(self, passphrase, **kwargs):
+    def encrypt(self, passphrase, sessionkey=None, **kwargs):
         prefs = {'cipher': SymmetricKeyAlgorithm.AES256,
                  'hash': HashAlgorithm.SHA256}
         prefs.update(kwargs)
@@ -979,10 +979,13 @@ class PGPMessage(PGPObject, Exportable):
         skesk.s2k.specifier = 3
         skesk.s2k.halg = prefs['hash']
         skesk.s2k.encalg = prefs['cipher']
-        skesk.s2k.tune_count()
+        skesk.s2k.count = skesk.s2k.halg.tuned_count
 
-        sesskey = skesk.gen_sk(passphrase)
+        if sessionkey is None:
+            sessionkey = prefs['cipher'].gen_key()
+        sesskey = skesk.encrypt_sk(passphrase, sessionkey)
         del passphrase
+        del sessionkey
 
         # now encrypt pt and place it inside an IntegrityProtectedSKEDataV1
         skedata = IntegrityProtectedSKEDataV1()

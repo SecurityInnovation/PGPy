@@ -3,6 +3,7 @@
 import bz2
 import hashlib
 import os
+import time
 import zlib
 
 from collections import namedtuple
@@ -15,6 +16,9 @@ from cryptography.hazmat.backends import openssl
 from cryptography.hazmat.primitives.ciphers import algorithms
 
 from .types import FlagEnum
+
+# this is 100 KiB
+_hashtunedata = bytearray([10, 11, 12, 13, 14, 15, 16, 17] * 128 * 100)
 
 
 class Backend(Enum):
@@ -100,6 +104,9 @@ class SymmetricKeyAlgorithm(IntEnum):
     def gen_iv(self):
         return os.urandom(self.block_size // 8)
 
+    def gen_key(self):
+        return os.urandom(self.key_size // 8)
+
 
 class PubKeyAlgorithm(IntEnum):
     Invalid = 0x00
@@ -168,6 +175,9 @@ class HashAlgorithm(IntEnum):
     SHA512 = 0x0A
     SHA224 = 0x0B
 
+    def __init__(self, *args):
+        self._tuned_count = 0
+
     @property
     def hasher(self):
         return hashlib.new(self.name)
@@ -175,6 +185,29 @@ class HashAlgorithm(IntEnum):
     @property
     def digest_size(self):
         return self.hasher.digest_size
+
+    @property
+    def tuned_count(self):
+        if self._tuned_count == 0:
+            self.tune_count()
+
+        return self._tuned_count
+
+    def tune_count(self):
+        start = time.time()
+        h = self.hasher
+        h.update(_hashtunedata)
+        end = time.time()
+
+        # now calculate how many bytes need to be hashed to reach our expected time period
+        # GnuPG tunes for about 100ms, so we'll do that as well
+        _TIME = 0.100
+        ct = int(len(_hashtunedata) * (_TIME / (end - start)))
+        c1 = ((ct >> (ct.bit_length() - 5)) - 16)
+        c2 = (ct.bit_length() - 11)
+        c = ((c2 << 4) + c1)
+
+        self._tuned_count = c
 
 
 class RevocationReason(IntEnum):

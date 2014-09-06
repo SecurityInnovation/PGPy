@@ -549,27 +549,6 @@ class String2Key(Field):
                 self.iv = packet[:(self.encalg.block_size // 8)]
                 del packet[:(self.encalg.block_size // 8)]
 
-    def tune_count(self):
-        # try to set the coded count to a relatively secure value by measuring our own hash performance
-        # GnuPG tunes for about 100ms, so we'll do that as well
-        self.count = 255
-        hashdata = bytearray([10, 11, 12, 13, 14, 15, 16, 17] * ((self.count // 8) + 1))
-        start = time.time()
-        h = self.halg.hasher
-        h.update(hashdata)
-        end = time.time()
-
-        # now take the amount of time it took, and reduce the target hash amount to match
-        ct = int(self.count * (0.100 / (end - start)))
-
-        # and reduce that to the coded count with a little math
-        c1 = ((ct >> (ct.bit_length() - 5)) - 16)
-        c2 = (ct.bit_length() - 11)
-        c = ((c2 << 4) + c1) + 1
-
-        # the largest the coded count can be is 255
-        self.count = min(255, c)
-
     def derive_key(self, passphrase):
         ##TODO: raise an exception if self.usage is not 254 or 255
         keylen = self.encalg.key_size
