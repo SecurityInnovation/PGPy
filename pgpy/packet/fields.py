@@ -8,7 +8,6 @@ import collections
 import hashlib
 import itertools
 import math
-import time
 
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric import dsa
