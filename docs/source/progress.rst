@@ -91,6 +91,10 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
         - Verify,    True,  Verify detached signatures of binary documents using DSA
         - Verify,    True,  Verify inline signatures of canonical documents using RSA
         - Verify,    True,  Verify inline signatures of canonical documents using DSA
+        - Verify,    True,  One-Pass verify messages using RSA
+        - Verify,    True,  One-Pass verify messages using DSA
+        - Verify,    True,  Verify messages using RSA
+        - Verify,    True,  Verify messages using DSA
         - Verify,    False, Verify key signatures using RSA
         - Verify,    False, Verify key signatures using DSA
         - Verify,    False, Verify User ID certification signatures using RSA
