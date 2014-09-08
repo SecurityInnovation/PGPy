@@ -663,16 +663,6 @@ class PrivKey(PubKey):
 
 
 class RSAPriv(PrivKey, RSAPub):
-    @staticmethod
-    def modinv(e, m):
-        x1, y1, x2, y2 = 1, 0, 0, 1
-        a, b = e, m
-        while b > 0:
-            q, r = divmod(a, b)
-            xn, yn = x1 - q * x2, y1 - q * y2
-            a, b, x1, y1, x2, y2 = b, r, x2, y2, xn, yn
-        return x1 % m
-
     def __init__(self):
         RSAPub.__init__(self)
         PrivKey.__init__(self)
@@ -694,9 +684,9 @@ class RSAPriv(PrivKey, RSAPub):
             p=self.p,
             q=self.q,
             private_exponent=self.d,
-            dmp1=self.d % (self.p - 1),
-            dmq1=self.d % (self.q - 1),
-            iqmp=self.modinv(self.p, self.q),
+            dmp1=rsa.rsa_crt_dmp1(self.d, self.p),
+            dmq1=rsa.rsa_crt_dmq1(self.d, self.q),
+            iqmp=rsa.rsa_crt_iqmp(self.p, self.q),
             public_exponent=self.e,
             modulus=self.n
         )
