@@ -107,7 +107,7 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
         - Verify,    False, Verify timestamp signatures using DSA
         - Verify,    False, Verify third party confirmation signatures using RSA
         - Verify,    False, Verify third party confirmation signatures using DSA
-        - Encrypt,   False, Encrypt data/messages using RSA
+        - Encrypt,   True,  Encrypt data/messages using RSA
         - Encrypt,   False, Encrypt data/messages using ElGamal
         - Decrypt,   True,  Decrypt data/messages using RSA
         - Decrypt,   False, Decrypt data/messages using ElGamal
