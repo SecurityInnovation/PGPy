@@ -830,6 +830,10 @@ class CipherText(MPIs):
     def __bytes__(self):
         return b''.join(i.to_mpibytes() for i in self)
 
+    @abc.abstractmethod
+    def from_encrypter(self, ct):
+        pass
+
 
 class RSACipherText(CipherText):
     def __init__(self):
@@ -841,6 +845,9 @@ class RSACipherText(CipherText):
 
     def parse(self, packet):
         self.me_mod_n = MPI(packet)
+
+    def from_encrypter(self, ct):
+        self.me_mod_n = MPI(self.bytes_to_int(ct))
 
 
 class ElGCipherText(CipherText):
@@ -856,3 +863,6 @@ class ElGCipherText(CipherText):
     def parse(self, packet):
         self.gk_mod_p = MPI(packet)
         self.myk_mod_p = MPI(packet)
+
+    def from_encrypter(self, ct):
+        raise NotImplementedError()

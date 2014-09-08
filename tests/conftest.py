@@ -95,7 +95,9 @@ def gpg_decrypt():
                      '--keyring', keyring,
                      '--decrypt']
 
-        _cokwargs = {}
+        _cokwargs = {'stdout': subprocess.PIPE,
+                     'stderr': subprocess.PIPE}
+        _comargs = ()
 
         if passphrase is not None:
             _gpg_args[:-1] += ['--batch',
@@ -103,14 +105,13 @@ def gpg_decrypt():
                                '--decrypt']
 
             _cokwargs['stdin'] = subprocess.PIPE
-            _cokwargs['stdout'] = subprocess.PIPE
-            _cokwargs['stderr'] = subprocess.PIPE
+            _comargs = (passphrase.encode(),)
 
         _gpg_args += [gpg_encmsgpath]
 
         try:
             gpgdec = subprocess.Popen(_gpg_args, **_cokwargs)
-            gpgo, gpge = gpgdec.communicate(passphrase.encode())
+            gpgo, gpge = gpgdec.communicate(*_comargs)
 
         finally:
             pass

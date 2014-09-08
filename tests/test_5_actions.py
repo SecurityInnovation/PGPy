@@ -256,9 +256,9 @@ class TestPGPKey(object):
 
         os.remove('tests/testdata/lit_de.asc')
 
-    def test_decrypt_rsa_message(self, rsamessage):
+    def test_decrypt_rsa_message(self, rsakey, rsamessage):
         key = PGPKey()
-        key.parse('tests/testdata/keys/rsa.asc')
+        key.parse(rsakey)
 
         msg = PGPMessage()
         msg.parse(rsamessage)
@@ -269,3 +269,30 @@ class TestPGPKey(object):
 
         assert isinstance(decmsg, PGPMessage)
         assert decmsg.message == bytearray(b"This is stored, literally\\!\n\n")
+
+    def test_encrypt_rsa_message(self, rsakey, gpg_decrypt):
+        key = PGPKey()
+        key.parse(rsakey)
+
+        msg = PGPMessage.new('tests/testdata/lit')
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            encmsg = key.encrypt(msg)
+
+        assert isinstance(encmsg, PGPMessage)
+        assert encmsg.is_encrypted
+
+        with open('tests/testdata/aemsg.asc', 'w') as litf:
+            litf.write(str(encmsg))
+
+        # decrypt with PGPy
+        decmsg = key.decrypt(encmsg)
+        assert isinstance(decmsg, PGPMessage)
+        assert not decmsg.is_encrypted
+        assert decmsg.message == bytearray(b'This is stored, literally\!\n\n')
+
+        # decrypt with GPG
+        assert gpg_decrypt('./aemsg.asc') == 'This is stored, literally\!\n\n'
+
+        os.remove('tests/testdata/aemsg.asc')

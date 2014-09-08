@@ -44,6 +44,7 @@ from .packet.packets import IntegrityProtectedSKEDataV1
 from .packet.packets import LiteralData
 from .packet.packets import OnePassSignature
 from .packet.packets import PKESessionKey
+from .packet.packets import PKESessionKeyV3
 from .packet.packets import Signature
 from .packet.packets import SignatureV4
 from .packet.packets import SKEData
@@ -429,8 +430,41 @@ class PGPKey(PGPObject, Exportable):
 
         return sigv
 
-    def encrypt(self, message):
-        raise NotImplementedError()
+    def encrypt(self, message, sessionkey=None, **kwargs):
+        prefs = {'cipher': SymmetricKeyAlgorithm.AES256,
+                 'hash': HashAlgorithm.SHA256}
+        prefs.update(kwargs)
+
+        if KeyFlags.EncryptCommunications not in self.usageflags:
+            for sk in self.subkeys.values():
+                if KeyFlags.EncryptCommunications in sk.usageflags:
+                    warnings.warn("This key is not marked for encrypting communications, but subkey {:s} is. "
+                                  "Using that subkey...".format(sk.fingerprint.keyid))
+                    return sk.encrypt(message, sessionkey, **kwargs)
+
+            raise PGPError("This key is not marked for encryption")
+
+        if sessionkey is None:
+            sessionkey = prefs['cipher'].gen_key()
+
+        # set up a new PKESessionKeyV3
+        pkesk = PKESessionKeyV3()
+        pkesk.encrypter = bytearray(binascii.unhexlify(self.fingerprint.keyid.encode('latin-1')))
+        pkesk.pkalg = self.key_algorithm
+        pkesk.encrypt_sk(self.__key__.__pubkey__(), prefs['cipher'], sessionkey)
+
+        if message.is_encrypted:
+            _m = message
+
+        else:
+            _m = PGPMessage()
+            skedata = IntegrityProtectedSKEDataV1()
+            skedata.encrypt(sessionkey, prefs['cipher'], message.__bytes__())
+            _m._contents = [skedata]
+
+        _m._contents.insert(0, pkesk)
+
+        return _m
 
     def decrypt(self, message):
         if not isinstance(message, PGPMessage):
@@ -990,7 +1024,6 @@ class PGPMessage(PGPObject, Exportable):
         # now encrypt pt and place it inside an IntegrityProtectedSKEDataV1
         skedata = IntegrityProtectedSKEDataV1()
         skedata.encrypt(sesskey, prefs['cipher'], self.__bytes__())
-        skedata.update_hlen()
 
         # now replace self._contents with the newly constructed encrypted message
         self._contents = [skesk, skedata]

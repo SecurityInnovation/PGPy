@@ -225,6 +225,19 @@ class PKESessionKeyV3(PKESessionKey):
 
         return (symalg, symkey)
 
+    def encrypt_sk(self, pk, symalg, symkey):
+        m = bytearray(self.int_to_bytes(symalg) + symkey)
+        m += self.int_to_bytes(sum(bytearray(symkey)) % 65536, 2)
+
+        if self.pkalg == PubKeyAlgorithm.RSAEncryptOrSign:
+            encargs = (bytes(m), padding.PKCS1v15(), default_backend())
+
+        else:
+            raise NotImplementedError(self.pkalg)
+
+        self.ct.from_encrypter(pk.encrypt(*encargs))
+        self.update_hlen()
+
     def parse(self, packet):
         super(PKESessionKeyV3, self).parse(packet)
         self.encrypter = packet[:8]
@@ -1371,6 +1384,7 @@ class IntegrityProtectedSKEDataV1(IntegrityProtectedSKEData, _SKEData):
 
         data += mdc.__bytes__()
         self.ct = _encrypt(data, key, alg)
+        self.update_hlen()
 
 
 class MDC(Packet):

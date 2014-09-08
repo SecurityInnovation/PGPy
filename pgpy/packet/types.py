@@ -221,7 +221,11 @@ if six.PY3:
 class MPI(long):
     def __new__(cls, num):
         mpi = num
+
         if isinstance(num, (bytes, bytearray)):
+            if isinstance(num, bytes):
+                num = bytearray(num)
+
             fl = ((MPIs.bytes_to_int(num[:2]) + 7) // 8)
             del num[:2]
 
