@@ -374,18 +374,20 @@ class PGPKey(PGPObject, Exportable):
         if isinstance(signature, PGPSignature):
             sig = signature
 
-        #  - cleartext message with inline signature
-        if isinstance(subject, PGPMessage) and subject.type == 'cleartext':
-            subj = subject.message
+        if isinstance(subject, PGPMessage):
+            #  - cleartext message with inline signature
+            #  - signed message (regular or one-pass)
+            if subject.type in ['cleartext', 'signed']:
+                subj = subject.message
 
-            # signed by us?
-            if self.fingerprint.keyid in subject.issuers:
-                sig = [s for s in subject.__sig__ if s.signer == self.fingerprint.keyid][0]
+                # signed by us?
+                if self.fingerprint.keyid in subject.issuers:
+                    sig = [s for s in subject.__sig__ if s.signer == self.fingerprint.keyid][0]
 
-            # signed by a subkey?
-            elif set(self.subkeys) & subject.issuers:
-                skid = list(set(self.subkeys) & subject.issuers)[0]
-                sig = [sig for sig in subject.__sig__ if sig.signer == skid][0]
+                # signed by a subkey?
+                elif set(self.subkeys) & subject.issuers:
+                    skid = list(set(self.subkeys) & subject.issuers)[0]
+                    sig = [sig for sig in subject.__sig__ if sig.signer == skid][0]
 
         if sig is None:
             raise NotImplementedError(repr(subject))
@@ -883,6 +885,10 @@ class PGPMessage(PGPObject, Exportable):
 
     @property
     def __sig__(self):
+        # if any(isinstance(pkt, OnePassSignature) for pkt in self._contents):
+        #     return [ (self._contents[i], self._contents[-1 * (i + 1)])
+        #              for i in range(len([pkt for pkt in self._contents if isinstance(pkt, OnePassSignature)])) ]
+
         return [pkt for pkt in self._contents if isinstance(pkt, PGPSignature)]
 
     @property
@@ -1069,7 +1075,14 @@ class PGPMessage(PGPObject, Exportable):
 
         else:
             while len(data) > 0:
-                self._contents.append(Packet(data))
+                pkt = Packet(data)
+                if isinstance(pkt, Signature):
+                    sig = PGPSignature()
+                    sig._signature = pkt
+                    self._contents.append(sig)
+
+                else:
+                    self._contents.append(pkt)
 
 
 class PGPKeyring(collections.Container, collections.Iterable, collections.Sized):

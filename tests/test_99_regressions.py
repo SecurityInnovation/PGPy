@@ -112,7 +112,7 @@ class TestRegressions(object):
             kr.write(pk.__bytes__())
             kr.flush()
 
-        assert 'Good signature from' in gpg_verify('subj', 'subj.asc', keyring='./pub.gpg')
+        assert gpg_verify('subj', 'subj.asc', keyring='./pub.gpg')
 
         os.remove('tests/testdata/subj')
         os.remove('tests/testdata/subj.asc')

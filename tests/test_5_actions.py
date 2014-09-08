@@ -114,11 +114,26 @@ class TestPGPKey(object):
             assert rsa.verify(ctmsg)
             assert dsa.verify(ctmsg)
 
-    def test_verify_onepass_signed_message(self):
-        pytest.skip("not implemented yet")
+    def test_verify_onepass_signed_message(self, rsakey, dsakey):
+        opmsg = PGPMessage()
+        opmsg.parse('tests/testdata/messages/message.signed_rsa.signed_dsa.asc')
+        rkey = PGPKey()
+        rkey.parse(rsakey)
+        dkey = PGPKey()
+        dkey.parse(dsakey)
 
-    def test_verify_signed_message(self):
-        pytest.skip("not implemented yet")
+        with warnings.catch_warnings():
+            assert rkey.verify(opmsg)
+            assert dkey.verify(opmsg)
+
+    def test_verify_signed_message(self, rsakey):
+        smsg = PGPMessage()
+        smsg.parse('tests/testdata/blocks/message.signed.asc')
+        rkey = PGPKey()
+        rkey.parse(rsakey)
+
+        with warnings.catch_warnings():
+            assert rkey.verify(smsg)
 
     def test_verify_wrongkey(self):
         wrongkey = PGPKey()
@@ -156,7 +171,7 @@ class TestPGPKey(object):
             assert key.verify('tests/testdata/lit', sig)
 
         # verify with GPG
-        assert 'Good signature from' in gpg_verify('./lit', './lit.sig')
+        assert gpg_verify('./lit', './lit.sig')
 
         os.remove('tests/testdata/lit.sig')
 
@@ -178,7 +193,7 @@ class TestPGPKey(object):
             assert key.verify('tests/testdata/lit', sig)
 
         # verify with GPG
-        assert 'Good signature from' in gpg_verify('./lit', './lit.sig')
+        assert gpg_verify('./lit', './lit.sig')
 
         os.remove('tests/testdata/lit.sig')
 
@@ -202,7 +217,7 @@ class TestPGPKey(object):
             assert key.verify(ctsmsg)
 
         # verify with GPG
-        assert 'Good signature from' in gpg_verify('./lit.asc')
+        assert gpg_verify('./lit.asc')
 
         os.remove('tests/testdata/lit.asc')
 
@@ -226,7 +241,7 @@ class TestPGPKey(object):
             assert key.verify(ctsmsg)
 
         # verify with GPG
-        assert 'Good signature from' in gpg_verify('./lit.asc')
+        assert gpg_verify('./lit.asc')
 
         os.remove('tests/testdata/lit.asc')
 
@@ -251,8 +266,7 @@ class TestPGPKey(object):
             assert dkey.verify(ctsmsg)
 
         # verify with GPG
-        gv = gpg_verify('./lit_de.asc')
-        assert 'Good signature from' in gv and 'BAD signature' not in gv
+        assert gpg_verify('./lit_de.asc')
 
         os.remove('tests/testdata/lit_de.asc')
 
