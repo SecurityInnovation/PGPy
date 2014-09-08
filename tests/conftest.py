@@ -13,6 +13,7 @@ from distutils.version import LooseVersion
 from cryptography.hazmat.backends import openssl
 
 openssl_ver = LooseVersion(openssl.backend.openssl_version_text().split(' ')[1])
+gpg_ver = LooseVersion()
 
 # set the CWD to the project root if it isn't already
 if 'PGPy' in os.getcwd():
@@ -89,10 +90,11 @@ def gpg_verify():
 @pytest.fixture
 def gpg_decrypt():
     @CWD_As('tests/testdata')
-    def _gpg_decrypt(gpg_encmsgpath, passphrase=None, keyring='./testkeys.gpg'):
+    def _gpg_decrypt(gpg_encmsgpath, passphrase=None, keyring='./testkeys.gpg', secring='./testkeys.sec.gpg'):
         _gpg_args = ['/usr/bin/gpg',
                      '--no-default-keyring',
                      '--keyring', keyring,
+                     '--secret-keyring', secring,
                      '--decrypt']
 
         _cokwargs = {'stdout': subprocess.PIPE,
