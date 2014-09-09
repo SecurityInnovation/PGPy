@@ -332,6 +332,11 @@ def pytest_generate_tests(metafunc):
         ids += sorted(set(f.split('.')[0] for f in os.listdir('.')))
 
     @CWD_As('tests/testdata/keys')
+    def pubkey():
+        global tdata
+        tdata += [[os.path.abspath(f) for f in os.listdir('.') if '.pub.' in f and f.endswith('.asc')]]
+
+    @CWD_As('tests/testdata/keys')
     def rsakey():
         global tdata
         tdata += [[os.path.abspath('rsa.asc')]]

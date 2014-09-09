@@ -135,6 +135,21 @@ class TestPGPKey(object):
         with warnings.catch_warnings():
             assert rkey.verify(smsg)
 
+    def test_verify_key_selfsigs(self, pubkey):
+        k = PGPKey()
+        k.parse(pubkey)
+
+        # verify user id(s)
+        for uid in k.userids:
+            assert k.verify(uid)
+
+        # verify user attribute(s)
+        for ua in k.userattributes:
+            assert k.verify(ua)
+
+        ##TODO: verify subkey binding signatures
+
+
     def test_verify_wrongkey(self):
         wrongkey = PGPKey()
         wrongkey.parse('tests/testdata/signatures/aptapproval-test.key.asc')

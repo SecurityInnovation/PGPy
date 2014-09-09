@@ -362,7 +362,7 @@ class PGPKey(PGPObject, Exportable):
         sig = None
 
         # load the signature subject if necessary
-        if not isinstance(subject, (PGPMessage, PGPKey)):
+        if not isinstance(subject, (PGPMessage, PGPKey, PGPUID)):
             subj = self.load(subject)
 
         # figure out what kind of signature we have
@@ -374,6 +374,7 @@ class PGPKey(PGPObject, Exportable):
         if isinstance(signature, PGPSignature):
             sig = signature
 
+        #  - PGPMessage
         if isinstance(subject, PGPMessage):
             #  - cleartext message with inline signature
             #  - signed message (regular or one-pass)
@@ -388,6 +389,19 @@ class PGPKey(PGPObject, Exportable):
                 elif set(self.subkeys) & subject.issuers:
                     skid = list(set(self.subkeys) & subject.issuers)[0]
                     sig = [sig for sig in subject.__sig__ if sig.signer == skid][0]
+
+        #  - PGPUID (UserID or UserAttribute)
+        if isinstance(subject, PGPUID):
+            subj = subject
+
+            # signed by us?
+            if self.fingerprint.keyid in [ sig.signer for sig in subject.__sig__ ]:
+                sig = [ sig for sig in subject.__sig__ if sig.signer == self.fingerprint.keyid ][0]
+
+            # signed by a subkey?
+            elif set(self.subkeys) & { sig.signer for sig in subject.__sig__ }:
+                skid = list(set(self.subkeys) & { sig.signer for sig in subject.__sig__ })[0]
+                sig = [ sig for sig in subject.__sig__ if sig.signer == skid ][0]
 
         if sig is None:
             raise NotImplementedError(repr(subject))
@@ -777,6 +791,7 @@ class PGPSignature(PGPObject, Exportable):
 
     def hashdata(self, subject):
         _data = bytearray()
+
         """
         All signatures are formed by producing a hash over the signature
         data, and then using the resulting hash in the signature algorithm.
@@ -798,11 +813,55 @@ class PGPSignature(PGPObject, Exportable):
             """
             _data += re.subn(br'\r{0,1}\n', b'\r\n', subject.encode('latin-1'))[0]
 
+        if self.type in [SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
+                         SignatureType.Positive_Cert, SignatureType.Subkey_Binding, SignatureType.PrimaryKey_Binding,
+                         SignatureType.DirectlyOnKey, SignatureType.KeyRevocation, SignatureType.SubkeyRevocation]:
+            """
+            When a signature is made over a key, the hash data starts with the
+            octet 0x99, followed by a two-octet length of the key, and then body
+            of the key packet.  (Note that this is an old-style packet header for
+            a key packet with two-octet length.) ...
+            Key revocation signatures (types 0x20 and 0x28)
+            hash only the key being revoked.
+            """
+            pass
+
+        if self.type in [SignatureType.Subkey_Binding, SignatureType.PrimaryKey_Binding]:
+            """
+            A subkey binding signature
+            (type 0x18) or primary key binding signature (type 0x19) then hashes
+            the subkey using the same format as the main key (also using 0x99 as
+            the first octet).
+            """
+            pass
+
+        if self.type in [SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
+                         SignatureType.Positive_Cert]:
+            """
+            A certification signature (type 0x10 through 0x13) hashes the User
+            ID being bound to the key into the hash context after the above
+            data.  ...  A V4 certification
+            hashes the constant 0xB4 for User ID certifications or the constant
+            0xD1 for User Attribute certifications, followed by a four-octet
+            number giving the length of the User ID or User Attribute data, and
+            then the User ID or User Attribute data.
+            """
+            _s = subject._parent._key.__bytes__()[len(subject._parent._key.header):]
+            _data = b'\x99' + self.int_to_bytes(len(_s), 2) + _s
+
+            _s = subject.hashdata
+            if subject.is_uid:
+                _data += b'\xb4' + self.int_to_bytes(len(_s), 4) + _s
+
+            if subject.is_ua:
+                _data += b'\xd1' + self.int_to_bytes(len(_s), 4) + _s
+
         if len(_data) == 0:
             raise NotImplementedError(self.type)
 
-        # update our signature packet lengths before proceeding, in case they are wrong
-        self._signature.update_hlen()
+        # if this is a new signature, do update_hlen
+        if 0 in list(self._signature.signature):
+            self._signature.update_hlen()
 
         """
         Once the data body is hashed, then a trailer is hashed. (...)
@@ -853,20 +912,44 @@ class PGPSignature(PGPObject, Exportable):
 
 class PGPUID(object):
     @property
+    def __sig__(self):
+        return list(self._signatures)
+
+    @property
     def primary(self):
         raise NotImplementedError()
 
     @property
     def name(self):
-        return self._uid.name
+        return self._uid.name if isinstance(self._uid, UserID) else ""
 
     @property
     def comment(self):
-        return self._uid.comment
+        return self._uid.comment if isinstance(self._uid, UserID) else ""
 
     @property
     def email(self):
-        return self._uid.email
+        return self._uid.email if isinstance(self._uid, UserID) else ""
+
+    @property
+    def image(self):
+        return self._uid.image if isinstance(self._uid, UserAttribute) else None
+
+    @property
+    def is_uid(self):
+        return isinstance(self._uid, UserID)
+
+    @property
+    def is_ua(self):
+        return isinstance(self._uid, UserAttribute)
+
+    @property
+    def hashdata(self):
+        if self.is_uid:
+            return self._uid.__bytes__()[len(self._uid.header):]
+
+        if self.is_ua:
+            return self._uid.subpackets.__bytes__()
 
     def __init__(self):
         self._uid = None
@@ -885,10 +968,6 @@ class PGPMessage(PGPObject, Exportable):
 
     @property
     def __sig__(self):
-        # if any(isinstance(pkt, OnePassSignature) for pkt in self._contents):
-        #     return [ (self._contents[i], self._contents[-1 * (i + 1)])
-        #              for i in range(len([pkt for pkt in self._contents if isinstance(pkt, OnePassSignature)])) ]
-
         return [pkt for pkt in self._contents if isinstance(pkt, PGPSignature)]
 
     @property
@@ -952,9 +1031,6 @@ class PGPMessage(PGPObject, Exportable):
     def __init__(self):
         super(PGPMessage, self).__init__()
         self._contents = []
-        ##TODO: this can be gleaned from any signatures in the message. It might not be worth even storing this here,
-        #       since it will need to be computed for constructed messages, anyway
-        self._halgs = []
 
     def __bytes__(self):
         return b''.join([ p.__bytes__() for p in self._contents if isinstance(p, (Packet, PGPMessage, PGPSignature)) ])
@@ -1064,7 +1140,6 @@ class PGPMessage(PGPObject, Exportable):
             # the composition for this will be the 'cleartext' as a str,
             # followed by one or more signatures (each one loaded into a PGPSignature)
             self._contents.append(self.dash_unescape(unarmored['cleartext']))
-            self._halgs = unarmored['hashes'] if unarmored['hashes'] is not None else ['MD5']
             while len(data) > 0:
                 pkt = Packet(data)
                 if not isinstance(pkt, Signature):

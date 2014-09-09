@@ -1234,6 +1234,10 @@ class UserAttribute(Packet):
     """
     __typeid__ = 0x11
 
+    @property
+    def image(self):
+        return self.subpackets['Image']
+
     def __init__(self):
         super(UserAttribute, self).__init__()
         self.subpackets = UserAttributeSubPackets()
