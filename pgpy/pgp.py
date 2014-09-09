@@ -167,7 +167,14 @@ class PGPKey(PGPObject, Exportable):
 
     @property
     def hashprefs(self):
-        return self._uids[0]._signatures[0].hashprefs
+        if self.is_primary or len(self._uids) > 0:
+            return self._uids[0]._signatures[0].hashprefs
+
+        elif self.parent is not None:
+            return self.parent.hashprefs
+
+        else:
+            raise PGPError("Incomplete key")
 
     @property
     def is_primary(self):
@@ -285,7 +292,7 @@ class PGPKey(PGPObject, Exportable):
 
     def sign(self, subject, **kwargs):
         # default options
-        prefs = {'hash_alg': HashAlgorithm.SHA512,
+        prefs = {'hash_alg': self.hashprefs[0],
                  # inline implies sigtype is SignatureType.CanonicalDocument
                  'inline': False,
                  'sigtype': SignatureType.BinaryDocument,
@@ -299,6 +306,9 @@ class PGPKey(PGPObject, Exportable):
         ##TODO: roll this into above, if possible
         if prefs['inline']:
             prefs['sigtype'] = SignatureType.CanonicalDocument
+
+        if prefs['hash_alg'] not in self.hashprefs:
+            warnings.warn("Selected hash algorithm not in key preferences")
 
         if self.is_public:
             raise PGPError("Can't sign with a public key")
