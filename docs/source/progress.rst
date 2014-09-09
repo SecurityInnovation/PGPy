@@ -75,8 +75,8 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
         - Sign,      False, Sign keys using DSA
         - Sign,      False, Certify User IDs using RSA
         - Sign,      False, Certify User IDs using DSA
-        - Sign,      False, Sign User Attribute packets using RSA
-        - Sign,      False, Sign User Attribute packets using DSA
+        - Sign,      False, Certify User Attribute packets using RSA
+        - Sign,      False, Certify User Attribute packets using DSA
         - Sign,      False, Generate key binding signatures using RSA
         - Sign,      False, Generate key binding signatures using DSA
         - Sign,      False, Generate signatures directly on a key using RSA
@@ -141,9 +141,9 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
 .. progress:: RFC 5581
     :text: :rfc:`5881` extends RFC 4880 to officially add support for the Camellia cipher
 
-    :Key Actions:
-        - Unprotect, True,  Camellia*
-        - Protect,   False, Camellia*
+    :Actions:
+        - Encrypt,   True,  Camellia*
+        - Decrypt,   True,  Camellia*
 
 
 .. progress:: RFC 6637
@@ -154,11 +154,14 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
         - ECDSA, False, Elliptic Curve Digital Signature Algorithm
 
     :Key Actions:
-        - Load,     False, Load from ASCII-armored files
-        - Load,     False, Load from GPG keyrings
-        - Load,     False, Load from GPG agents
+        - Load,     False, ECDH
+        - Load,     False, ECDSA
         - Generate, False, ECDH
         - Generate, False, ECDSA
+        - Sign,     False, Sign with ECDSA
+        - Verify,   False, Verify with ECDSA
+        - Encrypt,  False, Encrypt with ECDH
+        - Decrypt,  False, Decrypt with ECDH
 
 .. progress:: Non-RFC Extensions
     :text: This section covers things that are considered extensions to GPG, but are not codified in the form of an RFC.
