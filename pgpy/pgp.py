@@ -388,20 +388,20 @@ class PGPKey(PGPObject, Exportable):
                 # signed by a subkey?
                 elif set(self.subkeys) & subject.issuers:
                     skid = list(set(self.subkeys) & subject.issuers)[0]
-                    sig = [sig for sig in subject.__sig__ if sig.signer == skid][0]
+                    sig = [ _sig for _sig in subject.__sig__ if _sig.signer == skid][0]
 
         #  - PGPUID (UserID or UserAttribute)
         if isinstance(subject, PGPUID):
             subj = subject
 
             # signed by us?
-            if self.fingerprint.keyid in [ sig.signer for sig in subject.__sig__ ]:
-                sig = [ sig for sig in subject.__sig__ if sig.signer == self.fingerprint.keyid ][0]
+            if self.fingerprint.keyid in [ _sig.signer for _sig in subject.__sig__ ]:
+                sig = [ _sig for _sig in subject.__sig__ if _sig.signer == self.fingerprint.keyid ][0]
 
             # signed by a subkey?
             elif set(self.subkeys) & { sig.signer for sig in subject.__sig__ }:
                 skid = list(set(self.subkeys) & { sig.signer for sig in subject.__sig__ })[0]
-                sig = [ sig for sig in subject.__sig__ if sig.signer == skid ][0]
+                sig = [ _sig for _sig in subject.__sig__ if _sig.signer == skid ][0]
 
         if sig is None:
             raise NotImplementedError(repr(subject))
