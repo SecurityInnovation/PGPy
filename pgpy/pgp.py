@@ -308,7 +308,7 @@ class PGPKey(PGPObject, Exportable):
             prefs['sigtype'] = SignatureType.CanonicalDocument
 
         if prefs['hash_alg'] not in self.hashprefs:
-            warnings.warn("Selected hash algorithm not in key preferences")
+            warnings.warn("Selected hash algorithm not in key preferences", stacklevel=2)
 
         if self.is_public:
             raise PGPError("Can't sign with a public key")
@@ -323,7 +323,8 @@ class PGPKey(PGPObject, Exportable):
             for sk in self.subkeys.values():
                 if KeyFlags.Sign in sk.usageflags:
                     warnings.warn("This key is not marked for signing, but subkey {:s} is. "
-                                  "Using that subkey...".format(sk.fingerprint.keyid))
+                                  "Using that subkey...".format(sk.fingerprint.keyid),
+                                  stacklevel=2)
                     return sk.sign(subject, **kwargs)
 
             raise PGPError("This key is not marked for signing")
@@ -421,7 +422,8 @@ class PGPKey(PGPObject, Exportable):
 
         if self.fingerprint.keyid != sig.signer and sig.signer in self.subkeys:
             warnings.warn("Signature was signed with this key's subkey: {:s}. "
-                          "Verifying with that...".format(sig.signer))
+                          "Verifying with that...".format(sig.signer),
+                          stacklevel=2)
             return self.subkeys[sig.signer].verify(subject, sig)
 
         ##TODO: check this key's usage flags
@@ -465,7 +467,8 @@ class PGPKey(PGPObject, Exportable):
             for sk in self.subkeys.values():
                 if KeyFlags.EncryptCommunications in sk.usageflags:
                     warnings.warn("This key is not marked for encrypting communications, but subkey {:s} is. "
-                                  "Using that subkey...".format(sk.fingerprint.keyid))
+                                  "Using that subkey...".format(sk.fingerprint.keyid),
+                                  stacklevel=2)
                     return sk.encrypt(message, sessionkey, **kwargs)
 
             raise PGPError("This key is not marked for encryption")
@@ -500,7 +503,7 @@ class PGPKey(PGPObject, Exportable):
             del _message
 
         if not message.is_encrypted:
-            warnings.warn("This message is not encrypted")
+            warnings.warn("This message is not encrypted", stacklevel=2)
             return message
 
         if self.fingerprint.keyid not in message.issuers:
@@ -509,7 +512,8 @@ class PGPKey(PGPObject, Exportable):
             if sks & mis:
                 skid = list(sks & mis)[0]
                 warnings.warn("Message was encrypted with this key's subkey: {:s}. "
-                              "Decrypting with that...".format(skid))
+                              "Decrypting with that...".format(skid),
+                              stacklevel=2)
                 return self.subkeys[skid].decrypt(message)
 
             raise PGPError("Cannot decrypt the provided message with this key")
@@ -1153,7 +1157,7 @@ class PGPMessage(PGPObject, Exportable):
             while len(data) > 0:
                 pkt = Packet(data)
                 if not isinstance(pkt, Signature):
-                    warnings.warn("Discarded unexpected packet: {:s}".format(pkt.__class__.__name__))
+                    warnings.warn("Discarded unexpected packet: {:s}".format(pkt.__class__.__name__), stacklevel=2)
                 sig = PGPSignature()
                 sig._signature = pkt
                 self._contents.append(sig)

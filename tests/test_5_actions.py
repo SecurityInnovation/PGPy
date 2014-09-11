@@ -82,7 +82,8 @@ class TestPGPKey(object):
         with pytest.raises(PGPError):
             ekey.sign('tests/testdata/lit')
 
-        with ekey.unlock('QwertyUiop'):
+        with ekey.unlock('QwertyUiop'), warnings.catch_warnings():
+            warnings.simplefilter('ignore')
             assert ekey.is_unlocked
             sig = ekey.sign('tests/testdata/lit')
             assert ekey.verify('tests/testdata/lit', sig)
@@ -149,7 +150,6 @@ class TestPGPKey(object):
 
         ##TODO: verify subkey binding signatures
 
-
     def test_verify_wrongkey(self):
         wrongkey = PGPKey()
         wrongkey.parse('tests/testdata/signatures/aptapproval-test.key.asc')
@@ -164,7 +164,9 @@ class TestPGPKey(object):
         rkey = PGPKey()
         rkey.parse(rsakey)
 
-        sig = rkey.sign('tests/testdata/lit')
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            sig = rkey.sign('tests/testdata/lit')
 
         assert not rkey.verify('tests/testdata/lit2', sig)
 
@@ -325,3 +327,6 @@ class TestPGPKey(object):
         assert gpg_decrypt('./aemsg.asc') == 'This is stored, literally\!\n\n'
 
         os.remove('tests/testdata/aemsg.asc')
+
+    def test_warnings(self):
+        pytest.skip("not implemented yet")
