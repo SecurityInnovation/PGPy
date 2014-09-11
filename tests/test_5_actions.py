@@ -140,15 +140,28 @@ class TestPGPKey(object):
         k = PGPKey()
         k.parse(pubkey)
 
-        # verify user id(s)
-        for uid in k.userids:
-            assert k.verify(uid)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
 
-        # verify user attribute(s)
-        for ua in k.userattributes:
-            assert k.verify(ua)
+            # verify user id(s)
+            for uid in k.userids:
+                assert k.verify(uid)
 
-        ##TODO: verify subkey binding signatures
+            # verify user attribute(s)
+            for ua in k.userattributes:
+                assert k.verify(ua)
+
+            # verify subkey binding signatures
+            for sk in k.subkeys.values():
+                assert k.verify(sk)
+
+    def test_verify_key_allsigs(self, pubkey):
+        k = PGPKey()
+        k.parse(pubkey)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            assert k.verify(k)
 
     def test_verify_wrongkey(self):
         wrongkey = PGPKey()

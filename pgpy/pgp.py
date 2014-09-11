@@ -150,6 +150,10 @@ class PGPKey(PGPObject, Exportable):
         return self._key.keymaterial
 
     @property
+    def __sig__(self):
+        return self.signatures
+
+    @property
     def created(self):
         return self._key.created
 
@@ -215,7 +219,11 @@ class PGPKey(PGPObject, Exportable):
 
     @property
     def signatures(self):
-        return self._signatures
+        return list(self._signatures)
+
+    @property
+    def signers(self):
+        return set([sig.signer for sig in self.__sig__])
 
     @property
     def subkeys(self):
@@ -370,8 +378,7 @@ class PGPKey(PGPObject, Exportable):
         return sig
 
     def verify(self, subject, signature=None):
-        subj = None
-        sigs = []
+        sspairs = []
 
         # some type checking
         if not isinstance(subject, (PGPMessage, PGPKey, PGPUID, PGPSignature, six.string_types, bytes, bytearray)):
@@ -381,37 +388,35 @@ class PGPKey(PGPObject, Exportable):
 
         # load the signature subject if necessary
         if isinstance(subject, (six.string_types, bytes, bytearray)):
-            subj = self.load(subject)
+            subject = self.load(subject)
 
         # collect signature(s)
         if isinstance(signature, PGPSignature):
             if signature.signer != self.fingerprint.keyid and signature.signer not in self.subkeys:
                 raise PGPError("Incorrect key. Expected: {:s}".format(signature.signer))
-            sigs.append(signature)
+            sspairs.append((signature, subject))
 
         if hasattr(subject, '__sig__'):
-            #  - cleartext message with inline signature
-            #  - signed message (regular or one-pass)
+            def _filter_sigs(sigs):
+                _ids = {self.fingerprint.keyid} | set(self.subkeys)
+                return [ sig for sig in sigs if sig.signer in _ids ]
+
             if isinstance(subject, PGPMessage) and subject.type in ['cleartext', 'signed']:
-                subj = subject.message
+                sspairs += [ (sig, subject.message) for sig in _filter_sigs(subject.__sig__) ]
 
-            if isinstance(subject, PGPUID):
-                subj = subject
+            if isinstance(subject, (PGPUID, PGPKey)):
+                sspairs += [ (sig, subject) for sig in _filter_sigs(subject.__sig__) ]
 
-            # collect all signatures that were signed either by this key, or one of its subkeys if any
-            _ids = {self.fingerprint.keyid} | set(self.subkeys)
-            if _ids & subject.signers:
-                sigs += [ sig for sig in subject.__sig__ if sig.signer in _ids ]
+            if isinstance(subject, PGPKey):
+                sspairs += [ (sig, uid) for uid in subject.userids for sig in _filter_sigs(uid.__sig__) ]
+                sspairs += [ (sig, subkey) for subkey in subject.subkeys.values() for sig in _filter_sigs(subkey.__sig__) ]
 
-            else:
-                raise PGPError("Incorrect key. Expected: {:s}".format(str(subject.signers)))
-
-        if len(sigs) == 0 or subj is None:
-            raise NotImplementedError(repr(subject))
+        if len(sspairs) == 0:
+            raise PGPError("Incorrect key")
 
         # finally, start verifying signatures
         sigv = SignatureVerification()
-        for sig in sigs:
+        for sig, subj in sspairs:
             if self.fingerprint.keyid != sig.signer:
                 warnings.warn("Signature was signed with this key's subkey: {:s}. "
                               "Verifying with subkey...".format(sig.signer),
@@ -793,6 +798,9 @@ class PGPSignature(PGPObject, Exportable):
             return b''
         return self._signature.__bytes__()
 
+    def __repr__(self):
+        return "<PGPSignature [{:s}] object at 0x{:02x}>".format(self.type.name, id(self))
+
     def hashdata(self, subject):
         _data = bytearray()
 
@@ -831,7 +839,15 @@ class PGPSignature(PGPObject, Exportable):
             Key revocation signatures (types 0x20 and 0x28)
             hash only the key being revoked.
             """
-            pass
+            _s = b''
+            if isinstance(subject, PGPUID) or (isinstance(subject, PGPKey) and not subject.is_primary):
+                _s = subject._parent._key.__bytes__()[len(subject._parent._key.header):]
+
+            elif isinstance(subject, PGPKey) and subject.is_primary:
+                _s = subject._key.__bytes__()[len(subject._key.header):]
+
+            if len(_s) > 0:
+                _data = b'\x99' + self.int_to_bytes(len(_s), 2) + _s
 
         if self.type in [SignatureType.Subkey_Binding, SignatureType.PrimaryKey_Binding]:
             """
@@ -840,7 +856,8 @@ class PGPSignature(PGPObject, Exportable):
             the subkey using the same format as the main key (also using 0x99 as
             the first octet).
             """
-            pass
+            _s = subject._key.__bytes__()[len(subject._key.header):]
+            _data += b'\x99' + self.int_to_bytes(len(_s), 2) + _s
 
         if self.type in [SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
                          SignatureType.Positive_Cert]:
@@ -853,8 +870,6 @@ class PGPSignature(PGPObject, Exportable):
             number giving the length of the User ID or User Attribute data, and
             then the User ID or User Attribute data.
             """
-            _s = subject._parent._key.__bytes__()[len(subject._parent._key.header):]
-            _data = b'\x99' + self.int_to_bytes(len(_s), 2) + _s
 
             _s = subject.hashdata
             if subject.is_uid:
