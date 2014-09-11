@@ -17,6 +17,7 @@ from cryptography.hazmat.primitives.ciphers import algorithms
 
 from .types import FlagEnum
 
+
 # this is 100 KiB
 _hashtunedata = bytearray([10, 11, 12, 13, 14, 15, 16, 17] * 128 * 100)
 
