@@ -121,6 +121,14 @@ class PubKeyAlgorithm(IntEnum):
     FormerlyElGamalEncryptOrSign = 0x14  # deprecated - do not generate
     # DiffieHellman = 0x15  # X9.42
 
+    @property
+    def can_sign(self):
+        return self in [PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.DSA]
+
+    @property
+    def can_encrypt(self):
+        return self in [PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.ElGamal]
+
 
 class CompressionAlgorithm(IntEnum):
     Uncompressed = 0x00

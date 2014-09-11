@@ -524,26 +524,48 @@ class SignatureVerification(object):
 
     Can be compared directly as a boolean to determine whether or not the specified signature verified.
     """
-    def __init__(self):
-        self._verified = False
+    _sigsubj = collections.namedtuple('sigsubj', ['verified', 'signature', 'subject'])
 
-        self.signature = None
-        """
-        The :py:class:`~pgpy.pgp.PGPSignature` that was used in the verification that returned this
-        """
-        self.subject = None
-        """
-        The subject of the verification
-        """
+    @property
+    def good_signatures(self):
+        for s in [ i for i in self._subjects if i.verified ]:
+            yield s
+
+    @property
+    def bad_signatures(self):
+        for s in [ i for i in self._subjects if not i.verified ]:
+            yield s
+
+    def __init__(self):
+        self._subjects = []
+
+    def add_sigsubj(self, signature, subject=None, verified=False):
+        self._subjects.append(self._sigsubj(verified, signature, subject))
 
     def __bool__(self):
-        return self._verified  # pragma: no cover
+        return all([s.verified for s in self._subjects])
 
-    def __nonzero__(self):
-        return self._verified  # pragma: no cover
+    def __nonzero__(self):  # pragma: no cover
+        return self.__bool__()
 
-    def __repr__(self):  # pragma: no cover
-        return "SignatureVerification({verified})".format(verified=str(bool(self)))
+    def __and__(self, other):
+        if not isinstance(other, SignatureVerification):
+            raise ValueError(type(other))
+
+        nsv = SignatureVerification()
+        nsv._subjects = self._subjects + other._subjects
+
+        return nsv
+
+    def __iand__(self, other):
+        if not isinstance(other, SignatureVerification):
+            raise ValueError(type(other))
+
+        self._subjects += other._subjects
+        return self
+
+    def __repr__(self):
+        return "<SignatureVerification({verified})>".format(verified=str(bool(self)))
 
 
 class FlagEnumMeta(EnumMeta):

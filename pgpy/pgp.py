@@ -369,92 +369,82 @@ class PGPKey(PGPObject, Exportable):
 
         return sig
 
-    def verify(self, subject, signature=None, **kwargs):
-        sig = None
+    def verify(self, subject, signature=None):
+        subj = None
+        sigs = []
+
+        # some type checking
+        if not isinstance(subject, (PGPMessage, PGPKey, PGPUID, PGPSignature, six.string_types, bytes, bytearray)):
+            raise ValueError("Unexpected subject value: {:s}".format(str(type(subject))))
+        if not isinstance(signature, (type(None), PGPSignature)):
+            raise ValueError("Unexpected signature value: {:s}".format(str(type(signature))))
 
         # load the signature subject if necessary
-        if not isinstance(subject, (PGPMessage, PGPKey, PGPUID)):
+        if isinstance(subject, (six.string_types, bytes, bytearray)):
             subj = self.load(subject)
 
-        # figure out what kind of signature we have
-        #  - error case
-        if not isinstance(signature, (type(None), PGPSignature)):
-            raise ValueError("Unexpected signature value - should be None or a PGPSignature")
-
-        #  - detached PGPSignature
+        # collect signature(s)
         if isinstance(signature, PGPSignature):
-            sig = signature
+            if signature.signer != self.fingerprint.keyid and signature.signer not in self.subkeys:
+                raise PGPError("Incorrect key. Expected: {:s}".format(signature.signer))
+            sigs.append(signature)
 
-        #  - PGPMessage
-        if isinstance(subject, PGPMessage):
+        if hasattr(subject, '__sig__'):
             #  - cleartext message with inline signature
             #  - signed message (regular or one-pass)
-            if subject.type in ['cleartext', 'signed']:
+            if isinstance(subject, PGPMessage) and subject.type in ['cleartext', 'signed']:
                 subj = subject.message
 
-                # signed by us?
-                if self.fingerprint.keyid in subject.issuers:
-                    sig = [s for s in subject.__sig__ if s.signer == self.fingerprint.keyid][0]
+            if isinstance(subject, PGPUID):
+                subj = subject
 
-                # signed by a subkey?
-                elif set(self.subkeys) & subject.issuers:
-                    skid = list(set(self.subkeys) & subject.issuers)[0]
-                    sig = [ _sig for _sig in subject.__sig__ if _sig.signer == skid][0]
+            # collect all signatures that were signed either by this key, or one of its subkeys if any
+            _ids = {self.fingerprint.keyid} | set(self.subkeys)
+            if _ids & subject.signers:
+                sigs += [ sig for sig in subject.__sig__ if sig.signer in _ids ]
 
-        #  - PGPUID (UserID or UserAttribute)
-        if isinstance(subject, PGPUID):
-            subj = subject
+            else:
+                raise PGPError("Incorrect key. Expected: {:s}".format(str(subject.signers)))
 
-            # signed by us?
-            if self.fingerprint.keyid in [ _sig.signer for _sig in subject.__sig__ ]:
-                sig = [ _sig for _sig in subject.__sig__ if _sig.signer == self.fingerprint.keyid ][0]
-
-            # signed by a subkey?
-            elif set(self.subkeys) & { sig.signer for sig in subject.__sig__ }:
-                skid = list(set(self.subkeys) & { sig.signer for sig in subject.__sig__ })[0]
-                sig = [ _sig for _sig in subject.__sig__ if _sig.signer == skid ][0]
-
-        if sig is None:
+        if len(sigs) == 0 or subj is None:
             raise NotImplementedError(repr(subject))
 
-        if self.fingerprint.keyid != sig.signer and sig.signer not in self.subkeys:
-            raise PGPError("Incorrect key. Expected: {:s}".format(sig.signer))
-
-        if self.fingerprint.keyid != sig.signer and sig.signer in self.subkeys:
-            warnings.warn("Signature was signed with this key's subkey: {:s}. "
-                          "Verifying with that...".format(sig.signer),
-                          stacklevel=2)
-            return self.subkeys[sig.signer].verify(subject, sig)
-
-        ##TODO: check this key's usage flags
-
-        if sig.key_algorithm == PubKeyAlgorithm.RSAEncryptOrSign:
-            verifier = self.__key__.__pubkey__().verifier(sig.__sig__, padding.PKCS1v15(), getattr(hashes, sig.hash_algorithm.name)(), default_backend())
-
-        elif sig.key_algorithm == PubKeyAlgorithm.DSA:
-            verifier = self.__key__.__pubkey__().verifier(sig.__sig__, getattr(hashes, sig.hash_algorithm.name)(), default_backend())
-
-        else:
-            ##TODO: raise a different exception if the key algorithm is something that can't/shouldn't be used for signing, like ElGamal
-            raise NotImplementedError(sig.key_algorithm)
-
+        # finally, start verifying signatures
         sigv = SignatureVerification()
-        sigv.signature = sig
-        sigv.subject = subj
+        for sig in sigs:
+            if self.fingerprint.keyid != sig.signer:
+                warnings.warn("Signature was signed with this key's subkey: {:s}. "
+                              "Verifying with subkey...".format(sig.signer),
+                              stacklevel=2)
+                sigv &= self.subkeys[sig.signer].verify(subj, sig)
 
-        sigdata = sig.hashdata(subj)
+            else:
+                if sig.key_algorithm == PubKeyAlgorithm.RSAEncryptOrSign:
+                    vargs = (sig.__sig__, padding.PKCS1v15(), getattr(hashes, sig.hash_algorithm.name)(), default_backend())
 
-        verifier.update(sigdata)
+                elif sig.key_algorithm == PubKeyAlgorithm.DSA:
+                    vargs = (sig.__sig__, getattr(hashes, sig.hash_algorithm.name)(), default_backend())
 
-        sigv = SignatureVerification()
-        try:
-            verifier.verify()
+                else:
+                    raise NotImplementedError(sig.key_algorithm)
 
-        except InvalidSignature:
-            pass
+                sigdata = sig.hashdata(subj)
+                verifier = self.__key__.__pubkey__().verifier(*vargs)
+                verifier.update(sigdata)
+                verified = False
 
-        else:
-            sigv._verified = True
+                try:
+                    verifier.verify()
+
+                except InvalidSignature:
+                    pass
+
+                else:
+                    verified = True
+
+                finally:
+                    sigv.add_sigsubj(sig, subj, verified)
+                    del sigdata, verifier, verified
 
         return sigv
 
@@ -806,6 +796,9 @@ class PGPSignature(PGPObject, Exportable):
     def hashdata(self, subject):
         _data = bytearray()
 
+        if isinstance(subject, six.string_types):
+            subject = subject.encode('latin-1')
+
         """
         All signatures are formed by producing a hash over the signature
         data, and then using the resulting hash in the signature algorithm.
@@ -825,7 +818,7 @@ class PGPSignature(PGPObject, Exportable):
             document is canonicalized by converting line endings to <CR><LF>,
             and the resulting data is hashed.
             """
-            _data += re.subn(br'\r{0,1}\n', b'\r\n', subject.encode('latin-1'))[0]
+            _data += re.subn(br'\r{0,1}\n', b'\r\n', subject)[0]
 
         if self.type in [SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
                          SignatureType.Positive_Cert, SignatureType.Subkey_Binding, SignatureType.PrimaryKey_Binding,
@@ -958,6 +951,10 @@ class PGPUID(object):
         return isinstance(self._uid, UserAttribute)
 
     @property
+    def signers(self):
+        return set(s.signer for s in self.__sig__)
+
+    @property
     def hashdata(self):
         if self.is_uid:
             return self._uid.__bytes__()[len(self._uid.header):]
@@ -985,6 +982,10 @@ class PGPMessage(PGPObject, Exportable):
         return [pkt for pkt in self._contents if isinstance(pkt, PGPSignature)]
 
     @property
+    def encrypters(self):
+        return set([m.encrypter for m in self._contents if isinstance(m, PKESessionKey)])
+
+    @property
     def is_encrypted(self):
         return self.type == 'encrypted'
 
@@ -994,9 +995,7 @@ class PGPMessage(PGPObject, Exportable):
 
     @property
     def issuers(self):
-        return set().union(*[[pkt.encrypter for pkt in self._contents if isinstance(pkt, PKESessionKey)],
-                             [pkt.signer for pkt in self._contents if isinstance(pkt, (Signature, OnePassSignature, PGPSignature))]
-                             ])
+        return self.encrypters | self.signers
 
     @property
     def magic(self):
@@ -1021,6 +1020,10 @@ class PGPMessage(PGPObject, Exportable):
             return self._contents[-1]
 
         raise NotImplementedError(self.type)
+
+    @property
+    def signers(self):
+        return set([m.signer for m in self._contents if isinstance(m, (Signature, OnePassSignature, PGPSignature))])
 
     @property
     def type(self):
