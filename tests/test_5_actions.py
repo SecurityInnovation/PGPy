@@ -113,6 +113,9 @@ class TestPGPMessage(object):
 
         os.remove('tests/testdata/semsg.asc')
 
+    def test_encrypt_passphrase_add_passphrase(self, lit, gpg_decrypt):
+        pytest.skip("not implemented yet")
+
 
 class TestPGPKey(object):
     def test_unlock_encrsakey(self, encrsakey, rsakey):
@@ -358,6 +361,12 @@ class TestPGPKey(object):
 
         os.remove('tests/testdata/lit_de.asc')
 
+    def test_sign_message(self, rsakey, dsakey, gpg_verify):
+        pytest.skip("not implemented yet")
+
+    def test_onepass_sign_message(self, rsakey, dsakey, gpg_verify):
+        pytest.skip("not implemented yet")
+
     def test_decrypt_rsa_message(self, rsakey, rsamessage):
         key = PGPKey()
         key.parse(rsakey)
@@ -400,6 +409,9 @@ class TestPGPKey(object):
         assert gpg_decrypt('./aemsg.asc') == 'This is stored, literally\!\n\n'
 
         os.remove('tests/testdata/aemsg.asc')
+
+    def test_encrypt_rsa_add_recipient(self, rsakey, gpg_decrypt):
+        pytest.skip("not implemented yet")
 
     def test_warnings(self):
         pytest.skip("not implemented yet")
