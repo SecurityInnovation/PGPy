@@ -125,6 +125,7 @@ class TestPGPKey(object):
         dkey.parse(dsakey)
 
         with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
             assert rkey.verify(opmsg)
             assert dkey.verify(opmsg)
 
@@ -135,6 +136,7 @@ class TestPGPKey(object):
         rkey.parse(rsakey)
 
         with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
             assert rkey.verify(smsg)
 
     def test_verify_key_selfsigs(self, pubkey):
@@ -191,8 +193,7 @@ class TestPGPKey(object):
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
             sig = rkey.sign('tests/testdata/lit')
-
-        assert not rkey.verify('tests/testdata/lit2', sig)
+            assert not rkey.verify('tests/testdata/lit2', sig)
 
     def test_sign_rsa_bindoc(self, rsakey, gpg_verify):
         # test signing binary documents with RSA
@@ -342,7 +343,9 @@ class TestPGPKey(object):
             litf.write(str(encmsg))
 
         # decrypt with PGPy
-        decmsg = key.decrypt(encmsg)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            decmsg = key.decrypt(encmsg)
         assert isinstance(decmsg, PGPMessage)
         assert not decmsg.is_encrypted
         assert decmsg.message == bytearray(b'This is stored, literally\!\n\n')
