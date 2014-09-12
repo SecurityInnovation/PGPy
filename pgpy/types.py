@@ -29,17 +29,6 @@ if six.PY2:
 
 
 class FileLoader(object):
-    @property
-    def path(self):
-        return self._path
-
-    @path.setter
-    def path(self, ppath):
-        if not (self.is_path(ppath)):
-            raise ValueError("Expected: valid path")
-
-        self._path = ppath
-
     @staticmethod
     def is_ascii(text):
         if not isinstance(text, (str, bytes, bytearray)):
@@ -111,7 +100,7 @@ class FileLoader(object):
         elif isinstance(lf, bytearray):
             _bytes = lf
 
-        elif isinstance(lf, (str, bytes)):
+        elif isinstance(lf, (six.string_types, bytes)):
             _bytes = bytearray(six.b(lf))
 
         # something else entirely
@@ -122,19 +111,6 @@ class FileLoader(object):
 
     def __init__(self):
         self._path = ''
-
-    def write(self, binary=False):
-        """
-        Writes the contents to disk, at the path specified in :py:attr:`path`
-        :param bool binary=False:
-            if True, writes __bytes__ in binary mode
-            if False, writes __str__ in ASCII
-        """
-        if self.path is None:
-            raise FileNotFoundError("path needs to be set before calling .write")
-
-        with open(self.path, 'wb' if binary else 'w') as fp:
-            fp.write(self.__bytes__() if binary else str(self))
 
 
 class Exportable(six.with_metaclass(abc.ABCMeta, FileLoader)):
