@@ -257,8 +257,8 @@ class PGPKey(PGPObject, Exportable):
         _bytes = bytearray()
         # us
         _bytes += self._key.__bytes__()
-        # our signatures
-        for sig in self.signatures:
+        # our signatures; ignore embedded signatures
+        for sig in [ s for s in self.signatures if not s.embedded ]:
             _bytes += sig.__bytes__()
         # one or more User IDs, followed by their signatures
         for uid in self._uids:
@@ -408,8 +408,11 @@ class PGPKey(PGPObject, Exportable):
                 sspairs += [ (sig, subject) for sig in _filter_sigs(subject.__sig__) ]
 
             if isinstance(subject, PGPKey):
+                # user ids
                 sspairs += [ (sig, uid) for uid in subject.userids for sig in _filter_sigs(uid.__sig__) ]
+                # user attributes
                 sspairs += [ (sig, ua) for ua in subject.userattributes for sig in _filter_sigs(ua.__sig__) ]
+                # subkey/primarykey binding signatures
                 sspairs += [ (sig, subkey) for subkey in subject.subkeys.values() for sig in _filter_sigs(subkey.__sig__) ]
 
         if len(sspairs) == 0:
@@ -625,8 +628,16 @@ class PGPKey(PGPObject, Exportable):
 
                 # Subkey Binding signatures come after subkeys
                 if sig.type == SignatureType.Subkey_Binding and not lk.is_primary:
-                    lk._signatures.appendleft(sig)
+                    lk._signatures.append(sig)
                     last = sig
+
+                    # extract the Primary Key Binding Signature as well if there is one
+                    if 'EmbeddedSignature' in sig._signature.subpackets:
+                        _sig = PGPSignature()
+                        _sig._signature = sig._signature.subpackets['EmbeddedSignature'][0]
+                        _sig.parent = sig
+                        lk._signatures.append(_sig)
+                        del _sig
                     continue
 
                 # Certification and Certification Revocation signatures *must* follow either a User ID or User Attribute packet,
@@ -666,6 +677,10 @@ class PGPSignature(PGPObject, Exportable):
     @property
     def created(self):
         return self._signature.subpackets['h_CreationTime'][-1].created
+
+    @property
+    def embedded(self):
+        return self.parent is not None
 
     @property
     def expired(self):
@@ -789,6 +804,7 @@ class PGPSignature(PGPObject, Exportable):
     def __init__(self):
         super(PGPSignature, self).__init__()
         self._signature = None
+        self.parent = None
 
     def __bytes__(self):
         if self._signature is None:
@@ -910,7 +926,7 @@ class PGPSignature(PGPObject, Exportable):
         """
 
         hcontext = bytearray()
-        hcontext.append(self._signature.header.version)
+        hcontext.append(self._signature.header.version if not self.embedded else self._signature._sig.header.version)
         hcontext.append(self.type)
         hcontext.append(self.key_algorithm)
         hcontext.append(self.hash_algorithm)

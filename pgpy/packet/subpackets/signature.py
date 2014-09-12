@@ -853,6 +853,10 @@ class EmbeddedSignature(Signature):
     def signature(self):
         return self._sig.signature
 
+    @property
+    def signer(self):
+        return self._sig.signer
+
     def __init__(self):
         super(EmbeddedSignature, self).__init__()
         from ..packets import SignatureV4

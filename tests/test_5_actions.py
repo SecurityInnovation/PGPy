@@ -166,13 +166,14 @@ class TestPGPKey(object):
             warnings.simplefilter('ignore')
             sv = k.verify(k)
 
-        assert len(sv._subjects) == 11
+        assert len(sv._subjects) == 13
         _svtypes = [ s.signature.type for s in sv._subjects ]
         assert SignatureType.CertRevocation in _svtypes
         assert SignatureType.DirectlyOnKey in _svtypes
         assert SignatureType.KeyRevocation in _svtypes
         assert SignatureType.Positive_Cert in _svtypes
         assert SignatureType.Subkey_Binding in _svtypes
+        assert SignatureType.PrimaryKey_Binding in _svtypes
         assert SignatureType.SubkeyRevocation in _svtypes
         assert sv
 

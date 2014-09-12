@@ -116,7 +116,8 @@ class TestPGPKey(object):
             assert sk.magic == "PUBLIC KEY BLOCK"
             assert sk.ascii_headers == p.ascii_headers
             assert sk.fingerprint == fp
-            assert len(sk.signatures) == 1
+            ##TODO: some subkeys have 2; others have 1 (depending on if there is an embedded primary key binding signature)
+            assert len(sk.signatures) in [1, 2]
             assert sk.usageflags == ufs
 
         assert len(r['keys']) == 0
@@ -154,7 +155,7 @@ class TestPGPKey(object):
             assert sk.magic == "PRIVATE KEY BLOCK"
             assert sk.ascii_headers == p.ascii_headers
             assert sk.fingerprint == fp
-            assert len(sk.signatures) == 1
+            assert len(sk.signatures) in [1, 2]
             assert sk.usageflags == ufs
 
         assert len(r['keys']) == 0
