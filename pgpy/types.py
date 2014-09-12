@@ -100,8 +100,11 @@ class FileLoader(object):
         elif isinstance(lf, bytearray):
             _bytes = lf
 
-        elif isinstance(lf, (six.string_types, bytes)):
-            _bytes = bytearray(six.b(lf))
+        elif isinstance(lf, six.binary_type):
+            _bytes = bytearray(lf)
+
+        elif isinstance(lf, six.text_type):
+            _bytes = bytearray(lf.encode('latin-1'))
 
         # something else entirely
         else:
