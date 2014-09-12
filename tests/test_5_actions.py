@@ -10,11 +10,38 @@ from pgpy import PGPMessage
 from pgpy import PGPSignature
 
 from pgpy.errors import PGPError
+from pgpy.constants import CompressionAlgorithm
 from pgpy.constants import SignatureType
 
 class TestPGPMessage(object):
-    def test_new_message(self, lit, gpg_print):
+    def test_new_message_zip(self, lit, gpg_print):
         msg = PGPMessage.new(lit)
+
+        assert msg.type == 'compressed'
+        assert msg.message.decode('latin-1') == 'This is stored, literally\!\n\n'
+
+        with open('tests/testdata/cmsg.asc', 'w') as litf:
+            litf.write(str(msg))
+
+        assert msg.message.decode('latin-1') == gpg_print('cmsg.asc')
+
+        os.remove('tests/testdata/cmsg.asc')
+
+    def test_new_message_zlib(self, lit, gpg_print):
+        msg = PGPMessage.new(lit, compression=CompressionAlgorithm.ZLIB)
+
+        assert msg.type == 'compressed'
+        assert msg.message.decode('latin-1') == 'This is stored, literally\!\n\n'
+
+        with open('tests/testdata/cmsg.asc', 'w') as litf:
+            litf.write(str(msg))
+
+        assert msg.message.decode('latin-1') == gpg_print('cmsg.asc')
+
+        os.remove('tests/testdata/cmsg.asc')
+
+    def test_new_message_bz2(self, lit, gpg_print):
+        msg = PGPMessage.new(lit, compression=CompressionAlgorithm.BZ2)
 
         assert msg.type == 'compressed'
         assert msg.message.decode('latin-1') == 'This is stored, literally\!\n\n'
@@ -38,6 +65,24 @@ class TestPGPMessage(object):
         assert msg.message.decode('latin-1') == gpg_print('lmsg.asc')
 
         os.remove('tests/testdata/lmsg.asc')
+
+    def test_message_change_compalg(self, lit, gpg_print):
+        # defaults to ZIP
+        msg = PGPMessage.new(lit)
+        assert msg.type == 'compressed'
+        assert msg.message.decode('latin-1') == 'This is stored, literally\!\n\n'
+
+        # change to ZLIB
+        msg._contents[0].calg = CompressionAlgorithm.ZLIB
+        assert msg.type == 'compressed'
+        assert msg.message.decode('latin-1') == 'This is stored, literally\!\n\n'
+
+        with open('tests/testdata/cmsg.asc', 'w') as litf:
+            litf.write(str(msg))
+
+        assert msg.message.decode('latin-1') == gpg_print('cmsg.asc')
+
+        os.remove('tests/testdata/cmsg.asc')
 
     def test_decrypt_passphrase_message(self, passmessage):
         msg = PGPMessage()
