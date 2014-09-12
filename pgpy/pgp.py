@@ -170,7 +170,14 @@ class PGPKey(PGPObject, Exportable):
 
     @property
     def compprefs(self):
-        return self._uids[0]._signatures[0].compprefs
+        if self.is_primary or len(self._uids) > 0:
+            return self._uids[0]._signatures[0].compprefs
+
+        elif self.parent is not None:
+            return self.parent.compprefs
+
+        else:
+            raise PGPError("Incomplete key")
 
     @property
     def fingerprint(self):
@@ -466,8 +473,7 @@ class PGPKey(PGPObject, Exportable):
 
     def encrypt(self, message, sessionkey=None, **kwargs):
         prefs = {'cipher': self.cipherprefs[0],
-                 'hash': self.hashprefs[0],
-                 'compression': CompressionAlgorithm.ZIP}
+                 'hash': self.hashprefs[0]}
         prefs.update(kwargs)
 
         if KeyFlags.EncryptCommunications not in self.usageflags:
@@ -484,6 +490,9 @@ class PGPKey(PGPObject, Exportable):
             warnings.warn("Selected symmetric algorithm not in key preferences", stacklevel=2)
 
         if prefs['hash'] not in self.hashprefs:
+            warnings.warn("Selected hash algorithm not in key preferences", stacklevel=2)
+
+        if message.is_compressed and message._contents[0].calg not in self.compprefs:
             warnings.warn("Selected hash algorithm not in key preferences", stacklevel=2)
 
         if sessionkey is None:
@@ -1039,6 +1048,10 @@ class PGPMessage(PGPObject, Exportable):
         return set([m.encrypter for m in self._contents if isinstance(m, PKESessionKey)])
 
     @property
+    def is_compressed(self):
+        return self.type == 'compressed'
+
+    @property
     def is_encrypted(self):
         return self.type == 'encrypted'
 
@@ -1120,7 +1133,7 @@ class PGPMessage(PGPObject, Exportable):
     def new(cls, message, **kwargs):
         prefs = {'sensitive': False,
                  'compress': True,
-                 'compalg': CompressionAlgorithm.ZIP,
+                 'compression': CompressionAlgorithm.ZIP,
                  'format': 'b'}
         prefs.update(kwargs)
 
@@ -1146,7 +1159,7 @@ class PGPMessage(PGPObject, Exportable):
         _m = lit
         if prefs['compress']:
             _m = CompressedData()
-            _m.calg = prefs['compalg']
+            _m.calg = prefs['compression']
             _m.packets.append(lit)
             _m.update_hlen()
 
