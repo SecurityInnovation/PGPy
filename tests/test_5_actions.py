@@ -10,6 +10,7 @@ from pgpy import PGPMessage
 from pgpy import PGPSignature
 
 from pgpy.errors import PGPError
+from pgpy.constants import SignatureType
 
 class TestPGPMessage(object):
     def test_new_message(self, lit, gpg_print):
@@ -161,7 +162,17 @@ class TestPGPKey(object):
 
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
-            assert k.verify(k)
+            sv = k.verify(k)
+
+        assert len(sv._subjects) == 11
+        _svtypes = [ s.signature.type for s in sv._subjects ]
+        assert SignatureType.CertRevocation in _svtypes
+        assert SignatureType.DirectlyOnKey in _svtypes
+        assert SignatureType.KeyRevocation in _svtypes
+        assert SignatureType.Positive_Cert in _svtypes
+        assert SignatureType.Subkey_Binding in _svtypes
+        assert SignatureType.SubkeyRevocation in _svtypes
+        assert sv
 
     def test_verify_wrongkey(self):
         wrongkey = PGPKey()

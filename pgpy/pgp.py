@@ -409,6 +409,7 @@ class PGPKey(PGPObject, Exportable):
 
             if isinstance(subject, PGPKey):
                 sspairs += [ (sig, uid) for uid in subject.userids for sig in _filter_sigs(uid.__sig__) ]
+                sspairs += [ (sig, ua) for ua in subject.userattributes for sig in _filter_sigs(ua.__sig__) ]
                 sspairs += [ (sig, subkey) for subkey in subject.subkeys.values() for sig in _filter_sigs(subkey.__sig__) ]
 
         if len(sspairs) == 0:
@@ -610,33 +611,29 @@ class PGPKey(PGPObject, Exportable):
                     last = sig
                     continue
 
-                # A signature directly on a key follows the key that is its subject, but comes after a revocation signature
-                # or subkey binding signature if the last key is a subkey
+                # A signature directly on a key follows the key that is its subject
                 if sig.type == SignatureType.DirectlyOnKey and isinstance(lns, PGPKey):
-                    ahead = [SignatureType.KeyRevocation, SignatureType.SubkeyRevocation, SignatureType.Subkey_Binding]
-                    rots = len(list(itertools.groupby(lk._signatures, key=lambda s: s.type in ahead)[0][1]))
-                    lk._signatures.rotate(-1 * rots)
-                    lk._signatures.appendleft(sig)
-                    lk._signatures.rotate(1 * rots)
+                    lk._signatures.append(sig)
+                    last = sig
+                    continue
 
-                # A SubkeyRevocation signature *must immediately* follow the Subkey Binding Signature that
-                # immediately follows a Subkey
-                if sig.type == SignatureType.SubkeyRevocation and isinstance(last, PGPSignature) and isinstance(lk, PGPKey) and not lk.is_primary:
+                # A SubkeyRevocation signature comes after a subkey
+                if sig.type == SignatureType.SubkeyRevocation and not lk.is_primary:
                     lk._signatures.appendleft(sig)
                     last = sig
                     continue
 
-                # Certification signatures *must* follow either a User ID or User Attribute packet,
+                # Subkey Binding signatures come after subkeys
+                if sig.type == SignatureType.Subkey_Binding and not lk.is_primary:
+                    lk._signatures.appendleft(sig)
+                    last = sig
+                    continue
+
+                # Certification and Certification Revocation signatures *must* follow either a User ID or User Attribute packet,
                 # or another Certification signature.
                 if sig.type in [SignatureType.Positive_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
-                                SignatureType.Generic_Cert] and isinstance(lns, (PGPUID)):
+                                SignatureType.Generic_Cert, SignatureType.CertRevocation] and isinstance(lns, (PGPUID)):
                     lns._signatures.append(sig)
-                    last = sig
-                    continue
-
-                # Subkey Binding signatures *must immediately* follow a Subkey
-                if isinstance(last, PGPKey) and not last.is_primary:
-                    last._signatures.appendleft(sig)
                     last = sig
                     continue
 
@@ -817,8 +814,8 @@ class PGPSignature(PGPObject, Exportable):
             For binary document signatures (type 0x00), the document data is
             hashed directly.
             """
-            s = self.load(subject)
-            _data += s
+            _s = self.load(subject)
+            _data += _s
 
         if self.type == SignatureType.CanonicalDocument:
             """
@@ -829,8 +826,9 @@ class PGPSignature(PGPObject, Exportable):
             _data += re.subn(br'\r{0,1}\n', b'\r\n', subject)[0]
 
         if self.type in [SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
-                         SignatureType.Positive_Cert, SignatureType.Subkey_Binding, SignatureType.PrimaryKey_Binding,
-                         SignatureType.DirectlyOnKey, SignatureType.KeyRevocation, SignatureType.SubkeyRevocation]:
+                         SignatureType.Positive_Cert, SignatureType.CertRevocation, SignatureType.Subkey_Binding,
+                         SignatureType.PrimaryKey_Binding, SignatureType.DirectlyOnKey, SignatureType.KeyRevocation,
+                         SignatureType.SubkeyRevocation]:
             """
             When a signature is made over a key, the hash data starts with the
             octet 0x99, followed by a two-octet length of the key, and then body
@@ -840,16 +838,19 @@ class PGPSignature(PGPObject, Exportable):
             hash only the key being revoked.
             """
             _s = b''
-            if isinstance(subject, PGPUID) or (isinstance(subject, PGPKey) and not subject.is_primary):
+            if isinstance(subject, PGPUID):
+                _s = subject._parent._key.__bytes__()[len(subject._parent._key.header):]
+
+            elif isinstance(subject, PGPKey) and not subject.is_primary:
                 _s = subject._parent._key.__bytes__()[len(subject._parent._key.header):]
 
             elif isinstance(subject, PGPKey) and subject.is_primary:
                 _s = subject._key.__bytes__()[len(subject._key.header):]
 
             if len(_s) > 0:
-                _data = b'\x99' + self.int_to_bytes(len(_s), 2) + _s
+                _data += b'\x99' + self.int_to_bytes(len(_s), 2) + _s
 
-        if self.type in [SignatureType.Subkey_Binding, SignatureType.PrimaryKey_Binding]:
+        if self.type in [SignatureType.Subkey_Binding, SignatureType.PrimaryKey_Binding, SignatureType.SubkeyRevocation]:
             """
             A subkey binding signature
             (type 0x18) or primary key binding signature (type 0x19) then hashes
@@ -860,7 +861,7 @@ class PGPSignature(PGPObject, Exportable):
             _data += b'\x99' + self.int_to_bytes(len(_s), 2) + _s
 
         if self.type in [SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
-                         SignatureType.Positive_Cert]:
+                         SignatureType.Positive_Cert, SignatureType.CertRevocation]:
             """
             A certification signature (type 0x10 through 0x13) hashes the User
             ID being bound to the key into the hash context after the above
@@ -869,6 +870,13 @@ class PGPSignature(PGPObject, Exportable):
             0xD1 for User Attribute certifications, followed by a four-octet
             number giving the length of the User ID or User Attribute data, and
             then the User ID or User Attribute data.
+
+            ...
+
+            The [certificate revocation] signature
+            is computed over the same data as the certificate that it
+            revokes, and should have a later creation date than that
+            certificate.
             """
 
             _s = subject.hashdata
