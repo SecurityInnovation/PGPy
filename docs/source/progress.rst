@@ -95,18 +95,18 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
         - Verify,    True,  One-Pass verify messages using DSA
         - Verify,    True,  Verify messages using RSA
         - Verify,    True,  Verify messages using DSA
-        - Verify,    False, Verify key signatures using RSA
-        - Verify,    False, Verify key signatures using DSA
+        - Verify,    True,  Verify key signatures using RSA
+        - Verify,    True,  Verify key signatures using DSA
         - Verify,    True,  Verify User ID certification signatures using RSA
         - Verify,    True,  Verify User ID certification signatures using DSA
         - Verify,    True,  Verify User Attribute certification signatures using RSA
         - Verify,    True,  Verify User Attribute certification signatures using DSA
-        - Verify,    False, Verify key binding signatures using RSA
-        - Verify,    False, Verify key binding signatures using DSA
-        - Verify,    False, Verify signatures directly on a key using RSA
-        - Verify,    False, Verify signatures directly on a key using DSA
-        - Verify,    False, Verify key/subkey/certification revocation signatures RSA
-        - Verify,    False, Verify key/subkey/certification revocation signatures DSA
+        - Verify,    True,  Verify key binding signatures using RSA
+        - Verify,    True,  Verify key binding signatures using DSA
+        - Verify,    True,  Verify signatures directly on a key using RSA
+        - Verify,    True,  Verify signatures directly on a key using DSA
+        - Verify,    True,  Verify key/subkey/certification revocation signatures RSA
+        - Verify,    True,  Verify key/subkey/certification revocation signatures DSA
         - Verify,    False, Verify timestamp signatures using RSA
         - Verify,    False, Verify timestamp signatures using DSA
         - Verify,    False, Verify third party confirmation signatures using RSA
