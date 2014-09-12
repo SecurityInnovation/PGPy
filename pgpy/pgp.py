@@ -159,7 +159,14 @@ class PGPKey(PGPObject, Exportable):
 
     @property
     def cipherprefs(self):
-        return self._uids[0]._signatures[0].cipherprefs
+        if self.is_primary or len(self._uids) > 0:
+            return self._uids[0]._signatures[0].cipherprefs
+
+        elif self.parent is not None:
+            return self.parent.cipherprefs
+
+        else:
+            raise PGPError("Incomplete key")
 
     @property
     def compprefs(self):
@@ -300,7 +307,7 @@ class PGPKey(PGPObject, Exportable):
 
     def sign(self, subject, **kwargs):
         # default options
-        prefs = {'hash_alg': self.hashprefs[0],
+        prefs = {'hash': self.hashprefs[0],
                  # inline implies sigtype is SignatureType.CanonicalDocument
                  'inline': False,
                  'sigtype': SignatureType.BinaryDocument,
@@ -315,7 +322,7 @@ class PGPKey(PGPObject, Exportable):
         if prefs['inline']:
             prefs['sigtype'] = SignatureType.CanonicalDocument
 
-        if prefs['hash_alg'] not in self.hashprefs:
+        if prefs['hash'] not in self.hashprefs:
             warnings.warn("Selected hash algorithm not in key preferences", stacklevel=2)
 
         if self.is_public:
@@ -337,7 +344,7 @@ class PGPKey(PGPObject, Exportable):
 
             raise PGPError("This key is not marked for signing")
 
-        sig = PGPSignature.new(prefs['sigtype'], self.key_algorithm, prefs['hash_alg'], self.fingerprint.keyid)
+        sig = PGPSignature.new(prefs['sigtype'], self.key_algorithm, prefs['hash'], self.fingerprint.keyid)
 
         if prefs['inline']:
             if not isinstance(subject, PGPMessage):
@@ -354,15 +361,15 @@ class PGPKey(PGPObject, Exportable):
         else:
             sigdata = sig.hashdata(self.load(subject))
 
-        h2 = prefs['hash_alg'].hasher
+        h2 = prefs['hash'].hasher
         h2.update(sigdata)
         sig._signature.hash2 = bytearray(h2.digest()[:2])
 
         if self.key_algorithm == PubKeyAlgorithm.RSAEncryptOrSign:
-            sigopts = (padding.PKCS1v15(), getattr(hashes, prefs['hash_alg'].name)(), default_backend())
+            sigopts = (padding.PKCS1v15(), getattr(hashes, prefs['hash'].name)(), default_backend())
 
         elif self.key_algorithm == PubKeyAlgorithm.DSA:
-            sigopts = (getattr(hashes, prefs['hash_alg'].name)(), default_backend())
+            sigopts = (getattr(hashes, prefs['hash'].name)(), default_backend())
 
         else:
             raise NotImplementedError(self.key_algorithm)
@@ -458,8 +465,9 @@ class PGPKey(PGPObject, Exportable):
         return sigv
 
     def encrypt(self, message, sessionkey=None, **kwargs):
-        prefs = {'cipher': SymmetricKeyAlgorithm.AES256,
-                 'hash': HashAlgorithm.SHA256}
+        prefs = {'cipher': self.cipherprefs[0],
+                 'hash': self.hashprefs[0],
+                 'compression': CompressionAlgorithm.ZIP}
         prefs.update(kwargs)
 
         if KeyFlags.EncryptCommunications not in self.usageflags:
@@ -471,6 +479,12 @@ class PGPKey(PGPObject, Exportable):
                     return sk.encrypt(message, sessionkey, **kwargs)
 
             raise PGPError("This key is not marked for encryption")
+
+        if prefs['cipher'] not in self.cipherprefs:
+            warnings.warn("Selected symmetric algorithm not in key preferences", stacklevel=2)
+
+        if prefs['hash'] not in self.hashprefs:
+            warnings.warn("Selected hash algorithm not in key preferences", stacklevel=2)
 
         if sessionkey is None:
             sessionkey = prefs['cipher'].gen_key()
