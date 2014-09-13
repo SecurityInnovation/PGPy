@@ -159,7 +159,6 @@ def pytest_generate_tests(metafunc):
     global argvals
     global ids
     global tdata
-    global adata
 
     params = []
     argvals = []
@@ -332,9 +331,9 @@ def pytest_generate_tests(metafunc):
         ids += sorted(set(f.split('.')[0] for f in os.listdir('.')))
 
     @CWD_As('tests/testdata/keys')
-    def pubkey():
+    def revkey():
         global tdata
-        tdata += [[os.path.abspath(f) for f in os.listdir('.') if '.pub.' in f and f.endswith('.asc')]]
+        tdata += [[os.path.abspath(f) for f in os.listdir('.') if '.rev.' in f and f.endswith('.asc')]]
 
     @CWD_As('tests/testdata/keys')
     def rsakey():
@@ -410,7 +409,6 @@ def pytest_generate_tests(metafunc):
         # zip sublists together
         tdata = list(zip(*tdata))
 
-        argvals = []
         for i, fa in enumerate(tdata):
             at = []
             for a, f in enumerate(fa):
@@ -428,7 +426,8 @@ def pytest_generate_tests(metafunc):
                 at.append(_b)
             argvals += [tuple(at)]
 
-        ids = [ '_'.join(re.split('\.', os.path.basename(f[0]))[:-1]) for f in tdata ]
+        if len(ids) == 0:
+            ids = [ '_'.join(re.split('\.', os.path.basename(f[0]))[:-1]) for f in tdata ]
 
     if params != []:
         para = ','.join(params)

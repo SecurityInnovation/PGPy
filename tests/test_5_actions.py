@@ -187,9 +187,9 @@ class TestPGPKey(object):
             warnings.simplefilter('ignore')
             assert rkey.verify(smsg)
 
-    def test_verify_key_selfsigs(self, pubkey):
+    def test_verify_key_selfsigs(self, revkey):
         k = PGPKey()
-        k.parse(pubkey)
+        k.parse(revkey)
 
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
@@ -206,9 +206,9 @@ class TestPGPKey(object):
             for sk in k.subkeys.values():
                 assert k.verify(sk)
 
-    def test_verify_key_allsigs(self, pubkey):
+    def test_verify_key_allsigs(self, revkey):
         k = PGPKey()
-        k.parse(pubkey)
+        k.parse(revkey)
 
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
@@ -365,6 +365,15 @@ class TestPGPKey(object):
         pytest.skip("not implemented yet")
 
     def test_onepass_sign_message(self, rsakey, dsakey, gpg_verify):
+        pytest.skip("not implemented yet")
+
+    def test_sign_userid(self):
+        pytest.skip("not implemented yet")
+
+    def test_sign_key(self):
+        pytest.skip("not implemented yet")
+
+    def test_sign_subkey(self):
         pytest.skip("not implemented yet")
 
     def test_decrypt_rsa_message(self, rsakey, rsamessage):

@@ -48,73 +48,76 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
         - Upload,   False, Submit to HKP key servers
 
     :Key Actions:
-        - Generate,  False, Generate RSA Keys
-        - Generate,  False, Generate DSA Keys
-        - Generate,  False, Generate ElGamal Keys
-        - Unprotect, True,  Unprotect private keys encrypted with IDEA*
-        - Unprotect, True,  Unprotect private keys encrypted with Triple-DES
-        - Unprotect, True,  Unprotect private keys encrypted with CAST5
-        - Unprotect, True,  Unprotect private keys encrypted with Blowfish
-        - Unprotect, True,  Unprotect private keys encrypted with AES
-        - Unprotect, False, Unprotect private keys encrypted with Twofish
-        - Protect,   None,  Protect private keys encrypted with IDEA
-        - Protect,   False, Protect private keys encrypted with Triple-DES
-        - Protect,   False, Protect private keys encrypted with CAST5
-        - Protect,   False, Protect private keys encrypted with Blowfish
-        - Protect,   False, Protect private keys encrypted with AES
-        - Protect,   False, Protect private keys encrypted with Twofish
-        - Sign,      True,  Generate detached signatures of binary documents using RSA
-        - Sign,      True,  Generate detached signatures of binary documents using DSA
-        - Sign,      True,  Generate inline signatures of canonical documents using RSA
-        - Sign,      True,  Generate inline signatures of canonical documents using DSA
-        - Sign,      False, One-Pass Sign messages using RSA
-        - Sign,      False, One-Pass Sign messages using DSA
-        - Sign,      False, Sign messages using RSA
-        - Sign,      False, Sign messages using DSA
-        - Sign,      False, Sign keys using RSA
-        - Sign,      False, Sign keys using DSA
-        - Sign,      False, Certify User IDs using RSA
-        - Sign,      False, Certify User IDs using DSA
-        - Sign,      False, Certify User Attribute packets using RSA
-        - Sign,      False, Certify User Attribute packets using DSA
-        - Sign,      False, Generate key binding signatures using RSA
-        - Sign,      False, Generate key binding signatures using DSA
-        - Sign,      False, Generate signatures directly on a key using RSA
-        - Sign,      False, Generate signatures directly on a key using DSA
-        - Sign,      False, Generate key/subkey/certification revocation signatures RSA
-        - Sign,      False, Generate key/subkey/certification revocation signatures DSA
-        - Sign,      False, Generate timestamp signatures using RSA
-        - Sign,      False, Generate timestamp signatures using DSA
-        - Sign,      False, Generate third party confirmation signatures using RSA
-        - Sign,      False, Generate third party confirmation signatures using DSA
-        - Verify,    True,  Verify detached signatures of binary documents using RSA
-        - Verify,    True,  Verify detached signatures of binary documents using DSA
-        - Verify,    True,  Verify inline signatures of canonical documents using RSA
-        - Verify,    True,  Verify inline signatures of canonical documents using DSA
-        - Verify,    True,  One-Pass verify messages using RSA
-        - Verify,    True,  One-Pass verify messages using DSA
-        - Verify,    True,  Verify messages using RSA
-        - Verify,    True,  Verify messages using DSA
-        - Verify,    True,  Verify key signatures using RSA
-        - Verify,    True,  Verify key signatures using DSA
-        - Verify,    True,  Verify User ID certification signatures using RSA
-        - Verify,    True,  Verify User ID certification signatures using DSA
-        - Verify,    True,  Verify User Attribute certification signatures using RSA
-        - Verify,    True,  Verify User Attribute certification signatures using DSA
-        - Verify,    True,  Verify key binding signatures using RSA
-        - Verify,    True,  Verify key binding signatures using DSA
-        - Verify,    True,  Verify signatures directly on a key using RSA
-        - Verify,    True,  Verify signatures directly on a key using DSA
-        - Verify,    True,  Verify key/subkey/certification revocation signatures RSA
-        - Verify,    True,  Verify key/subkey/certification revocation signatures DSA
-        - Verify,    False, Verify timestamp signatures using RSA
-        - Verify,    False, Verify timestamp signatures using DSA
-        - Verify,    False, Verify third party confirmation signatures using RSA
-        - Verify,    False, Verify third party confirmation signatures using DSA
-        - Encrypt,   True,  Encrypt data/messages using RSA
-        - Encrypt,   False, Encrypt data/messages using ElGamal
-        - Decrypt,   True,  Decrypt data/messages using RSA
-        - Decrypt,   False, Decrypt data/messages using ElGamal
+        - Generate,   False, Generate RSA Keys
+        - Generate,   False, Generate DSA Keys
+        - Generate,   False, Generate ElGamal Keys
+        - Unprotect,  True,  Unprotect private keys encrypted with IDEA*
+        - Unprotect,  True,  Unprotect private keys encrypted with Triple-DES
+        - Unprotect,  True,  Unprotect private keys encrypted with CAST5
+        - Unprotect,  True,  Unprotect private keys encrypted with Blowfish
+        - Unprotect,  True,  Unprotect private keys encrypted with AES
+        - Unprotect,  False, Unprotect private keys encrypted with Twofish
+        - Protect,    None,  Protect private keys encrypted with IDEA
+        - Protect,    False, Protect private keys encrypted with Triple-DES
+        - Protect,    False, Protect private keys encrypted with CAST5
+        - Protect,    False, Protect private keys encrypted with Blowfish
+        - Protect,    False, Protect private keys encrypted with AES
+        - Protect,    False, Protect private keys encrypted with Twofish
+        - Sign,       True,  Generate detached signatures of binary documents using RSA
+        - Sign,       True,  Generate detached signatures of binary documents using DSA
+        - Sign,       True,  Generate inline signatures of canonical documents using RSA
+        - Sign,       True,  Generate inline signatures of canonical documents using DSA
+        - Sign,       False, One-Pass Sign messages using RSA
+        - Sign,       False, One-Pass Sign messages using DSA
+        - Sign,       False, Sign messages using RSA
+        - Sign,       False, Sign messages using DSA
+        - Sign,       False, Sign keys using RSA
+        - Sign,       False, Sign keys using DSA
+        - Sign,       False, Certify User IDs using RSA
+        - Sign,       False, Certify User IDs using DSA
+        - Sign,       False, Certify User Attribute packets using RSA
+        - Sign,       False, Certify User Attribute packets using DSA
+        - Sign,       False, Generate key binding signatures using RSA
+        - Sign,       False, Generate key binding signatures using DSA
+        - Sign,       False, Generate signatures directly on a key using RSA
+        - Sign,       False, Generate signatures directly on a key using DSA
+        - Sign,       False, Generate key/subkey/certification revocation signatures RSA
+        - Sign,       False, Generate key/subkey/certification revocation signatures DSA
+        - Sign,       False, Generate timestamp signatures using RSA
+        - Sign,       False, Generate timestamp signatures using DSA
+        - Sign,       False, Generate third party confirmation signatures using RSA
+        - Sign,       False, Generate third party confirmation signatures using DSA
+        - Verify,     True,  Verify detached signatures of binary documents using RSA
+        - Verify,     True,  Verify detached signatures of binary documents using DSA
+        - Verify,     True,  Verify inline signatures of canonical documents using RSA
+        - Verify,     True,  Verify inline signatures of canonical documents using DSA
+        - Verify,     True,  One-Pass verify messages using RSA
+        - Verify,     True,  One-Pass verify messages using DSA
+        - Verify,     True,  Verify messages using RSA
+        - Verify,     True,  Verify messages using DSA
+        - Verify,     True,  Verify key signatures using RSA
+        - Verify,     True,  Verify key signatures using DSA
+        - Verify,     True,  Verify User ID certification signatures using RSA
+        - Verify,     True,  Verify User ID certification signatures using DSA
+        - Verify,     True,  Verify User Attribute certification signatures using RSA
+        - Verify,     True,  Verify User Attribute certification signatures using DSA
+        - Verify,     True,  Verify key binding signatures using RSA
+        - Verify,     True,  Verify key binding signatures using DSA
+        - Verify,     True,  Verify signatures directly on a key using RSA
+        - Verify,     True,  Verify signatures directly on a key using DSA
+        - Verify,     True,  Verify key/subkey/certification revocation signatures RSA
+        - Verify,     True,  Verify key/subkey/certification revocation signatures DSA
+        - Verify,     False, Verify timestamp signatures using RSA
+        - Verify,     False, Verify timestamp signatures using DSA
+        - Verify,     False, Verify third party confirmation signatures using RSA
+        - Verify,     False, Verify third party confirmation signatures using DSA
+        - Encrypt,    True,  Encrypt data/messages using RSA
+        - Encrypt,    False, Encrypt data/messages using ElGamal
+        - Decrypt,    True,  Decrypt data/messages using RSA
+        - Decrypt,    False, Decrypt data/messages using ElGamal
+        - Revocation, False, Designate Revocation Key
+        - Revocation, False, Revoke (Sub)Key with Self Signature
+        - Revocation, False, Revoke (Sub)Key using Designated Revocation Key
 
     :Other Actions:
         - Encrypt,   True,  Encrypt data/messages using symmetric ciphers with passphrases
