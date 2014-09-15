@@ -13,9 +13,11 @@ from pgpy.errors import PGPError
 from pgpy.constants import CompressionAlgorithm
 from pgpy.constants import SignatureType
 
+from pgpy.packet.packets import OnePassSignature
+
 class TestPGPMessage(object):
-    def test_new_message(self, lit, comp_alg, gpg_print):
-        msg = PGPMessage.new(lit, compression=comp_alg)
+    def test_new_message(self, comp_alg, gpg_print):
+        msg = PGPMessage.new('tests/testdata/lit', compression=comp_alg)
 
         assert msg.type == 'compressed' if comp_alg is not CompressionAlgorithm.Uncompressed else 'literal'
         assert msg.message.decode('latin-1') == 'This is stored, literally\!\n\n'
@@ -115,7 +117,6 @@ class TestPGPKey(object):
         rsa.parse(rsakey)
         dsa = PGPKey()
         dsa.parse(dsakey)
-
         ctmsg = PGPMessage()
         ctmsg.parse(ctmessage)
 
@@ -248,55 +249,8 @@ class TestPGPKey(object):
 
         os.remove('tests/testdata/lit.sig')
 
-    def test_sign_rsa_cleartext(self, rsakey, gpg_verify):
-        key = PGPKey()
-        key.parse(rsakey)
-
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore')
-            ctsmsg = key.sign('tests/testdata/lit', inline=True)
-
-        assert isinstance(ctsmsg, PGPMessage)
-        assert ctsmsg.type == 'cleartext'
-
-        with open('tests/testdata/lit.asc', 'w') as isigf:
-            isigf.write(str(ctsmsg))
-
-        # verify with PGPy
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore')
-            assert key.verify(ctsmsg)
-
-        # verify with GPG
-        assert gpg_verify('./lit.asc')
-
-        os.remove('tests/testdata/lit.asc')
-
-    def test_sign_dsa_cleartext(self, dsakey, gpg_verify):
-        key = PGPKey()
-        key.parse(dsakey)
-
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore')
-            ctsmsg = key.sign('tests/testdata/lit', inline=True)
-
-        assert isinstance(ctsmsg, PGPMessage)
-        assert ctsmsg.type == 'cleartext'
-
-        with open('tests/testdata/lit.asc', 'w') as isigf:
-            isigf.write(str(ctsmsg))
-
-        # verify with PGPy
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore')
-            assert key.verify(ctsmsg)
-
-        # verify with GPG
-        assert gpg_verify('./lit.asc')
-
-        os.remove('tests/testdata/lit.asc')
-
-    def test_sign_rsa_dsa_cleartext(self, rsakey, dsakey, gpg_verify):
+    def test_sign_cleartext(self, rsakey, dsakey, gpg_verify):
+        msg = PGPMessage.new('tests/testdata/lit_de', cleartext=True)
         rkey = PGPKey()
         rkey.parse(rsakey)
         dkey = PGPKey()
@@ -304,28 +258,88 @@ class TestPGPKey(object):
 
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
-            ctsmsg = rkey.sign('tests/testdata/lit_de', inline=True)
-            ctsmsg = dkey.sign(ctsmsg, inline=True)
+            msg.add_signature(rkey.sign(msg, inline=True))
+            msg.add_signature(dkey.sign(msg, inline=True))
 
         with open('tests/testdata/lit_de.asc', 'w') as isigf:
-            isigf.write(str(ctsmsg))
+            isigf.write(str(msg))
 
         # verify with PGPy
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
-            assert rkey.verify(ctsmsg)
-            assert dkey.verify(ctsmsg)
+            assert rkey.verify(msg)
+            assert dkey.verify(msg)
 
         # verify with GPG
         assert gpg_verify('./lit_de.asc')
 
         os.remove('tests/testdata/lit_de.asc')
 
+    def test_sign_timestamp(self, rsakey, dsakey, gpg_verify):
+        rkey = PGPKey()
+        rkey.parse(rsakey)
+        dkey = PGPKey()
+        dkey.parse(dsakey)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            rtsig = rkey.sign(None, sigtype=SignatureType.Timestamp)
+            dtsig = dkey.sign(None, sigtype=SignatureType.Timestamp)
+            # verify with PGPy only; GPG does not support timestamp signatures
+            assert rkey.verify(None, rtsig)
+            assert dkey.verify(None, dtsig)
+
     def test_sign_message(self, rsakey, dsakey, gpg_verify):
-        pytest.skip("not implemented yet")
+        msg = PGPMessage.new('tests/testdata/lit')
+        rkey = PGPKey()
+        rkey.parse(rsakey)
+        dkey = PGPKey()
+        dkey.parse(dsakey)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            msg.add_signature(rkey.sign(msg), onepass=False)
+            msg.add_signature(dkey.sign(msg), onepass=False)
+
+        assert not any(isinstance(pkt, OnePassSignature) for pkt in msg._contents)
+
+        with open('tests/testdata/lit.asc', 'w') as litf:
+            litf.write(str(msg))
+
+        # verify with PGPy
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            assert rkey.verify(msg)
+            assert dkey.verify(msg)
+
+        # verify with GPG
+        assert gpg_verify('./lit.asc')
 
     def test_onepass_sign_message(self, rsakey, dsakey, gpg_verify):
-        pytest.skip("not implemented yet")
+        msg = PGPMessage.new('tests/testdata/lit')
+        rkey = PGPKey()
+        rkey.parse(rsakey)
+        dkey = PGPKey()
+        dkey.parse(dsakey)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            msg.add_signature(rkey.sign(msg))
+            msg.add_signature(dkey.sign(msg))
+
+        with open('tests/testdata/lit.asc', 'w') as litf:
+            litf.write(str(msg))
+
+        # verify with PGPy
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            assert rkey.verify(msg)
+            assert dkey.verify(msg)
+
+        # verify with GPG
+        assert gpg_verify('./lit.asc')
+
+        os.remove('tests/testdata/lit.asc')
 
     def test_sign_userid(self):
         pytest.skip("not implemented yet")

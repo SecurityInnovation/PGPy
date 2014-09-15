@@ -43,6 +43,7 @@ from .packet.packets import IntegrityProtectedSKEData
 from .packet.packets import IntegrityProtectedSKEDataV1
 from .packet.packets import LiteralData
 from .packet.packets import OnePassSignature
+from .packet.packets import OnePassSignatureV3
 from .packet.packets import PKESessionKey
 from .packet.packets import PKESessionKeyV3
 from .packet.packets import Signature
@@ -338,7 +339,7 @@ class PGPKey(PGPObject, Exportable):
         if self.is_protected and (not self._key.unlocked):
             raise PGPError("This key is not unlocked")
 
-        if isinstance(subject, PGPKey) or (isinstance(subject, PGPMessage) and subject.type != 'cleartext'):
+        if isinstance(subject, PGPKey):
             raise NotImplementedError(repr(subject))
 
         if KeyFlags.Sign not in self.usageflags:
@@ -353,20 +354,26 @@ class PGPKey(PGPObject, Exportable):
 
         sig = PGPSignature.new(prefs['sigtype'], self.key_algorithm, prefs['hash'], self.fingerprint.keyid)
 
-        if prefs['inline']:
-            if not isinstance(subject, PGPMessage):
-                msg = PGPMessage()
-                msg._contents.append(self.load(subject).decode('latin-1'))
-
-            else:
-                msg = subject
-
-            msg._contents.append(sig)
-
-            sigdata = sig.hashdata(msg.message)
+        if isinstance(subject, PGPMessage):
+            sigdata = sig.hashdata(subject.message)
 
         else:
             sigdata = sig.hashdata(self.load(subject))
+
+
+        # if prefs['inline']:
+        #     if not isinstance(subject, PGPMessage):
+        #         msg = PGPMessage.new(self.load(subject).decode('latin-1'), cleartext=True)
+        #
+        #     else:
+        #         msg = subject
+        #
+        #     msg._contents.append(sig)
+        #
+        #     sigdata = sig.hashdata(msg.message)
+        #
+        # else:
+        #     sigdata = sig.hashdata(self.load(subject))
 
         h2 = prefs['hash'].hasher
         h2.update(sigdata)
@@ -386,16 +393,13 @@ class PGPKey(PGPObject, Exportable):
         sig._signature.signature.from_signer(signer.finalize())
         sig._signature.update_hlen()
 
-        if prefs['inline']:
-            return msg
-
         return sig
 
     def verify(self, subject, signature=None):
         sspairs = []
 
         # some type checking
-        if not isinstance(subject, (PGPMessage, PGPKey, PGPUID, PGPSignature, six.string_types, bytes, bytearray)):
+        if not isinstance(subject, (type(None), PGPMessage, PGPKey, PGPUID, PGPSignature, six.string_types, bytes, bytearray)):
             raise ValueError("Unexpected subject value: {:s}".format(str(type(subject))))
         if not isinstance(signature, (type(None), PGPSignature)):
             raise ValueError("Unexpected signature value: {:s}".format(str(type(signature))))
@@ -415,7 +419,7 @@ class PGPKey(PGPObject, Exportable):
                 _ids = {self.fingerprint.keyid} | set(self.subkeys)
                 return [ sig for sig in sigs if sig.signer in _ids ]
 
-            if isinstance(subject, PGPMessage) and subject.type in ['cleartext', 'signed']:
+            if isinstance(subject, PGPMessage):
                 sspairs += [ (sig, subject.message) for sig in _filter_sigs(subject.__sig__) ]
 
             if isinstance(subject, (PGPUID, PGPKey)):
@@ -430,7 +434,7 @@ class PGPKey(PGPObject, Exportable):
                 sspairs += [ (sig, subkey) for subkey in subject.subkeys.values() for sig in _filter_sigs(subkey.__sig__) ]
 
         if len(sspairs) == 0:
-            raise PGPError("Incorrect key")
+            raise PGPError("No signatures to verify")
 
         # finally, start verifying signatures
         sigv = SignatureVerification()
@@ -925,7 +929,7 @@ class PGPSignature(PGPObject, Exportable):
             if subject.is_ua:
                 _data += b'\xd1' + self.int_to_bytes(len(_s), 4) + _s
 
-        if len(_data) == 0:
+        if len(_data) == 0 and self.type is not SignatureType.Timestamp:
             raise NotImplementedError(self.type)
 
         # if this is a new signature, do update_hlen
@@ -959,6 +963,15 @@ class PGPSignature(PGPObject, Exportable):
         _data += b'\x04\xff'
         _data += self.int_to_bytes(hlen, 4)
         return bytes(_data)
+
+    def make_onepass(self):
+        onepass = OnePassSignatureV3()
+        onepass.sigtype = self.type
+        onepass.halg = self.hash_algorithm
+        onepass.pubalg = self.key_algorithm
+        onepass.signer = self.signer
+        onepass.update_hlen()
+        return onepass
 
     def parse(self, packet):
         unarmored = self.ascii_unarmor(self.load(packet))
@@ -1041,7 +1054,10 @@ class PGPMessage(PGPObject, Exportable):
 
     @property
     def __sig__(self):
-        return [pkt for pkt in self._contents if isinstance(pkt, PGPSignature)]
+        _m = iter(self._contents)
+        if self.is_compressed:
+            _m = itertools.chain(_m, iter([pkt for pkt in self._contents if isinstance(pkt, CompressedData)][0].packets))
+        return [i for i in _m if isinstance(i, PGPSignature)]
 
     @property
     def encrypters(self):
@@ -1049,7 +1065,7 @@ class PGPMessage(PGPObject, Exportable):
 
     @property
     def is_compressed(self):
-        return self.type == 'compressed'
+        return any(isinstance(pkt, CompressedData) for pkt in self._contents)
 
     @property
     def is_encrypted(self):
@@ -1075,10 +1091,10 @@ class PGPMessage(PGPObject, Exportable):
             return self._contents[0]
 
         if self.type in ['literal', 'compressed', 'signed']:
-            m = [pkt for pkt in self._contents if isinstance(pkt, (CompressedData, LiteralData))][0]
-
-            if isinstance(m, CompressedData):
-                return m.packets[0].contents
+            _m = self._contents
+            if self.is_compressed:
+                _m = [pkt for pkt in self._contents if isinstance(pkt, CompressedData)][0].packets
+            m = [pkt for pkt in _m if isinstance(pkt, LiteralData)][0]
 
             return m.contents
 
@@ -1116,7 +1132,7 @@ class PGPMessage(PGPObject, Exportable):
         self._contents = []
 
     def __bytes__(self):
-        return b''.join(p.__bytes__() for p in self._contents if isinstance(p, (Packet, PGPMessage, PGPSignature)))
+        return b''.join(p.__bytes__() for p in self._contents if hasattr(p, '__bytes__'))
 
     def __str__(self):
         if self.type == 'cleartext':
@@ -1131,40 +1147,63 @@ class PGPMessage(PGPObject, Exportable):
 
     @classmethod
     def new(cls, message, **kwargs):
-        prefs = {'sensitive': False,
+        prefs = {'cleartext': False,
+                 'sensitive': False,
                  'compression': CompressionAlgorithm.ZIP,
                  'format': 'b'}
         prefs.update(kwargs)
 
         msg = PGPMessage()
 
-        # load literal data
-        lit = LiteralData()
-        lit._contents = msg.load(message)
-        lit.format = prefs['format']
-
-        if os.path.isfile(message):
-            lit.filename = os.path.basename(message)
-            lit.mtime = datetime.utcfromtimestamp(os.stat(message).st_mtime)
+        if prefs['cleartext']:
+            msg._contents.append(msg.load(message).decode('latin-1'))
 
         else:
-            lit.mtime = datetime.utcnow()
+            # load literal data
+            lit = LiteralData()
+            lit._contents = msg.load(message)
+            lit.format = prefs['format']
 
-        if prefs['sensitive']:
-            lit.filename = '_CONSOLE'
+            if os.path.isfile(message):
+                lit.filename = os.path.basename(message)
+                lit.mtime = datetime.utcfromtimestamp(os.stat(message).st_mtime)
 
-        lit.update_hlen()
+            else:
+                lit.mtime = datetime.utcnow()
 
-        _m = lit
-        if prefs['compression'] is not CompressionAlgorithm.Uncompressed:
-            _m = CompressedData()
-            _m.calg = prefs['compression']
-            _m.packets.append(lit)
-            _m.update_hlen()
+            if prefs['sensitive']:
+                lit.filename = '_CONSOLE'
 
-        msg._contents.append(_m)
+            lit.update_hlen()
+
+            _m = lit
+            if prefs['compression'] is not CompressionAlgorithm.Uncompressed:
+                _m = CompressedData()
+                _m.calg = prefs['compression']
+                _m.packets.append(lit)
+                _m.update_hlen()
+
+            msg._contents.append(_m)
 
         return msg
+
+    def add_signature(self, sig, onepass=True):
+        if self.type == 'cleartext':
+            self._contents.append(sig)
+
+        elif isinstance(sig, PGPSignature):
+            if onepass:
+                _m = self._contents
+                if self.is_compressed:
+                    _m = [ pkt for pkt in self._contents if isinstance(pkt, CompressedData) ][0].packets
+
+                _m.insert(0, sig.make_onepass())
+                if isinstance(_m[1], OnePassSignature):
+                    _m[0].nested = True
+                _m.append(sig)
+
+            else:
+                self._contents.insert(0, sig)
 
     def encrypt(self, passphrase, sessionkey=None, **kwargs):
         prefs = {'cipher': SymmetricKeyAlgorithm.AES256,

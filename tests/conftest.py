@@ -84,10 +84,11 @@ def gpg_verify():
             return ("Good signature from" in gpgo and "BAD signature" not in gpgo)
 
         except subprocess.CalledProcessError as e:
-            print("/usr/bin/gpg returned {ret}\n"\
-                  "===========================\n"\
-                  "{out}".format(ret=e.returncode, out=e.output.decode()))
-            return False
+            # print("/usr/bin/gpg returned {ret}\n"\
+            #       "===========================\n"\
+            #       "{out}".format(ret=e.returncode, out=e.output.decode()))
+            gpgo = e.output.decode()
+            return ("Good signature from" in gpgo and "BAD signature" not in gpgo)
     return _gpg_verify
 
 
@@ -261,7 +262,7 @@ def pytest_generate_tests(metafunc):
         cas = [pgpy.constants.CompressionAlgorithm.Uncompressed, pgpy.constants.CompressionAlgorithm.ZIP,
                pgpy.constants.CompressionAlgorithm.ZLIB, pgpy.constants.CompressionAlgorithm.BZ2]
         argvals += [cas]
-        ids += [[c.name for c in cas]]
+        ids = [c.name for c in cas]
 
     @CWD_As('tests/testdata/subpackets')
     def sigsubpacket():
@@ -451,4 +452,11 @@ def pytest_generate_tests(metafunc):
         if len(params) == 1 and isinstance(argvals[0], tuple):
             argvals = [i[0] for i in argvals]
 
-        metafunc.parametrize(para, argvals, ids=ids, scope="class")
+        try:
+            metafunc.parametrize(para, argvals, ids=ids, scope="class")
+
+        except ValueError:
+            print("params: " + str(para))
+            print("argvals: " + str(argvals))
+            print("ids: " + str(ids))
+            raise

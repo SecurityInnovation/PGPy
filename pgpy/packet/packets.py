@@ -631,10 +631,14 @@ class OnePassSignatureV3(OnePassSignature):
     def signer(self):
         return self._signer
 
+    @signer.str
+    def signer(self, val):
+        self._signer = val
+
     @signer.bytes
     @signer.bytearray
     def signer(self, val):
-        self._signer = val.decode('latin-1')
+        self.signer = binascii.hexlify(val).upper().decode('latin-1')
 
     def __init__(self):
         super(OnePassSignatureV3, self).__init__()
@@ -650,7 +654,7 @@ class OnePassSignatureV3(OnePassSignature):
         _bytes.append(self.sigtype)
         _bytes.append(self.halg)
         _bytes.append(self.pubalg)
-        _bytes += self.signer.encode('latin-1')
+        _bytes += binascii.unhexlify(self.signer.encode('latin-1'))
         _bytes.append(0 if self.nested else 1)
         return bytes(_bytes)
 
