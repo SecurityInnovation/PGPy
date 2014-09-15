@@ -1132,7 +1132,6 @@ class PGPMessage(PGPObject, Exportable):
     @classmethod
     def new(cls, message, **kwargs):
         prefs = {'sensitive': False,
-                 'compress': True,
                  'compression': CompressionAlgorithm.ZIP,
                  'format': 'b'}
         prefs.update(kwargs)
@@ -1157,7 +1156,7 @@ class PGPMessage(PGPObject, Exportable):
         lit.update_hlen()
 
         _m = lit
-        if prefs['compress']:
+        if prefs['compression'] is not CompressionAlgorithm.Uncompressed:
             _m = CompressedData()
             _m.calg = prefs['compression']
             _m.packets.append(lit)
