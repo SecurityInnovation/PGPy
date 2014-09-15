@@ -237,7 +237,7 @@ class PGPKey(PGPObject, Exportable):
 
     @property
     def signers(self):
-        return set([sig.signer for sig in self.__sig__])
+        return set(sig.signer for sig in self.__sig__)
 
     @property
     def subkeys(self):
@@ -277,7 +277,7 @@ class PGPKey(PGPObject, Exportable):
         # one or more User IDs, followed by their signatures
         for uid in self._uids:
             _bytes += uid._uid.__bytes__()
-            _bytes += b''.join([s.__bytes__() for s in uid._signatures])
+            _bytes += b''.join(s.__bytes__() for s in uid._signatures)
         # subkeys
         for sk in self._children.values():
             _bytes += sk.__bytes__()
@@ -1045,7 +1045,7 @@ class PGPMessage(PGPObject, Exportable):
 
     @property
     def encrypters(self):
-        return set([m.encrypter for m in self._contents if isinstance(m, PKESessionKey)])
+        return set(m.encrypter for m in self._contents if isinstance(m, PKESessionKey))
 
     @property
     def is_compressed(self):
@@ -1089,7 +1089,7 @@ class PGPMessage(PGPObject, Exportable):
 
     @property
     def signers(self):
-        return set([m.signer for m in self._contents if isinstance(m, (Signature, OnePassSignature, PGPSignature))])
+        return set(m.signer for m in self._contents if isinstance(m, (Signature, OnePassSignature, PGPSignature)))
 
     @property
     def type(self):
@@ -1116,14 +1116,14 @@ class PGPMessage(PGPObject, Exportable):
         self._contents = []
 
     def __bytes__(self):
-        return b''.join([ p.__bytes__() for p in self._contents if isinstance(p, (Packet, PGPMessage, PGPSignature)) ])
+        return b''.join(p.__bytes__() for p in self._contents if isinstance(p, (Packet, PGPMessage, PGPSignature)))
 
     def __str__(self):
         if self.type == 'cleartext':
             return "-----BEGIN PGP SIGNED MESSAGE-----\n" \
                    "Hash: {hashes:s}\n\n" \
                    "{cleartext:s}\n" \
-                   "{signature:s}".format(hashes=','.join([s.hash_algorithm.name for s in self.__sig__]),
+                   "{signature:s}".format(hashes=','.join(s.hash_algorithm.name for s in self.__sig__),
                                           cleartext=self.dash_escape(self._contents[0]),
                                           signature=super(PGPMessage, self).__str__())
 
@@ -1287,7 +1287,7 @@ class PGPKeyring(collections.Container, collections.Iterable, collections.Sized)
         #
         # this list is sorted in the opposite direction from that, because they will be placed into self._aliases
         # from right to left.
-        pkids = sorted(list(set().union([m.pop(alias) for m in self._aliases if alias in m])),
+        pkids = sorted(list(set().union(m.pop(alias) for m in self._aliases if alias in m)),
                        key=lambda pkid: (self._keys[pkid].created, self._keys[pkid].is_public))
 
         # drop the now-sorted aliases into place

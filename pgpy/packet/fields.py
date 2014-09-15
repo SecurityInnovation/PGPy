@@ -95,8 +95,7 @@ class SubPackets(collections.MutableMapping, Field):
         pass
 
     def __contains__(self, key):
-        return any([key in [dk[0] for dk in self._hashed_sp.keys()],
-                    key in [dk[0] for dk in self._unhashed_sp.keys()]])
+        return any([key in [dk[0] for dk in itertools.chain(self._hashed_sp, self._unhashed_sp)]])
 
     def update_hlen(self):
         for sp in self:
@@ -202,7 +201,7 @@ class DSASignature(Signature):
             return b'\x02' + _der_flen(bf) + bf
 
         # construct the sequence of integers
-        fbytes = b''.join([_der_intf(i) for i in self])
+        fbytes = b''.join(_der_intf(i) for i in self)
 
         # now mark it as a sequence and return
         return b'\x30' + _der_flen(fbytes) + fbytes

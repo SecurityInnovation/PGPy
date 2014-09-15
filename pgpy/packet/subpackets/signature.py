@@ -92,7 +92,7 @@ class FlagList(Signature):
 
     def __bytes__(self):
         _bytes = super(FlagList, self).__bytes__()
-        _bytes += b''.join([self.int_to_bytes(b) for b in self.flags])
+        _bytes += b''.join(self.int_to_bytes(b) for b in self.flags)
         return _bytes
 
     def parse(self, packet):
@@ -538,7 +538,7 @@ class RevocationKey(Signature):
     @fingerprint.bytearray
     @fingerprint.bytes
     def fingerprint(self, val):
-        self.fingerprint = ''.join(['{:02x}'.format(c) for c in val]).upper()
+        self.fingerprint = ''.join('{:02x}'.format(c) for c in val).upper()
 
     def __init__(self):
         super(RevocationKey, self).__init__()

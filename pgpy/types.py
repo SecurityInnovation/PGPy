@@ -48,7 +48,7 @@ class FileLoader(object):
         win_badchars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
         badchars = itertools.chain(range(0, 32), range(127, 256), win_badchars if os.name == 'nt' else [])
 
-        checkchars = re.match('\A[^' + ''.join([ chr(c) for c in badchars ]) + ']+\Z', ppath, flags=re.ASCII)
+        checkchars = re.match('\A[^' + ''.join(chr(c) for c in badchars) + ']+\Z', ppath, flags=re.ASCII)
 
         if checkchars is not None:
             return True
@@ -142,11 +142,11 @@ class Exportable(six.with_metaclass(abc.ABCMeta, FileLoader)):
 
     def __str__(self):
         payload = base64.b64encode(self.__bytes__()).decode('latin-1')
-        payload = '\n'.join([ payload[i:(i + 64)] for i in range(0, len(payload), 64) ])
+        payload = '\n'.join(payload[i:(i + 64)] for i in range(0, len(payload), 64))
 
         return self.__armor_fmt__.format(
             block_type=self.magic,
-            headers=''.join([ '{key}: {val}\n'.format(key=key, val=val) for key, val in self.ascii_headers.items() ]),
+            headers=''.join('{key}: {val}\n'.format(key=key, val=val) for key, val in self.ascii_headers.items()),
             packet=payload,
             crc=base64.b64encode(Header.int_to_bytes(self.crc24(), 3)).decode('latin-1')
         )
@@ -522,7 +522,7 @@ class SignatureVerification(object):
         self._subjects.append(self._sigsubj(verified, signature, subject))
 
     def __bool__(self):
-        return all([s.verified for s in self._subjects])
+        return all(s.verified for s in self._subjects)
 
     def __nonzero__(self):  # pragma: no cover
         return self.__bool__()
@@ -549,10 +549,10 @@ class SignatureVerification(object):
 
 class FlagEnumMeta(EnumMeta):
     def __and__(self, other):
-        return set([f for f in self._member_map_.values() if f.value & other])
+        return { f for f in self._member_map_.values() if f.value & other }
 
     def __rand__(self, other):
-        return set([f for f in self._member_map_.values() if f.value & other])
+        return { f for f in self._member_map_.values() if f.value & other }
 
 
 class FlagEnum(six.with_metaclass(FlagEnumMeta, IntEnum)):
@@ -576,8 +576,10 @@ class Fingerprint(str):
 
         # store in the format: "AAAA BBBB CCCC DDDD EEEE  FFFF 0000 1111 2222 3333"
         #                                               ^^ note 2 spaces here
-        content = ''.join([ j for i in zip([ content[x:(x + 4)] for x in range(0, 40, 4) ],
-                                           [' '] * 4 + ['  '] + [' '] * 5) for j in i ][:-1])
+        spaces = [ ' ' if i != 4 else '  ' for i in range(10)  ]
+        chunks = [ ''.join(g) for g in six.moves.zip_longest(*[iter(content)] * 4) ]
+        content = ''.join(j for i in six.moves.zip_longest(chunks, spaces, fillvalue='') for j in i)
+
         return str.__new__(cls, content)
 
     def __eq__(self, other):
