@@ -334,6 +334,10 @@ class PGPKey(PGPObject, Exportable):
         if not self.is_primary:
             raise PGPError("Cannot add UIDs to subkeys!")
 
+        if prefs['sigtype'] not in [SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
+                                    SignatureType.Positive_Cert]:
+            raise PGPError("User IDs must be certified")
+
         uid = PGPUID()
         uid._uid = UserID()
         uid._uid.name = name

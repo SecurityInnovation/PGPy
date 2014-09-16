@@ -488,6 +488,5 @@ class TestPGPKey(object):
                                   trustdb='./tmp.trust.gpg')
 
             finally:
-                for f in glob.glob('tests/testdata/tmp.*'):
-                    os.remove(f)
+                [ os.remove(f) for f in glob.glob('tests/testdata/tmp.*') ]
                 os.remove('tests/testdata/{:s}.asc'.format(key.fingerprint.shortid))
