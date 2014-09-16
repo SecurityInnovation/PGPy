@@ -225,14 +225,11 @@ class Exportable(six.with_metaclass(abc.ABCMeta, FileLoader)):
             data = self.__bytes__()
 
         crc = self.__crc24_init__
-        # sig = [ ord(i) for i in data ] if type(data) is str else data
-        # sig = bytearray()
-        sig = bytearray(data)
 
-        while len(sig) > 0:
-            crc ^= sig.pop(0) << 16
+        for b in six.iterbytes(data):
+            crc ^= b << 16
 
-            for i in range(0, 8):
+            for i in range(8):
                 crc <<= 1
                 if crc & 0x1000000:
                     crc ^= self.__crc24_poly__

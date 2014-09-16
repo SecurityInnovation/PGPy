@@ -479,7 +479,9 @@ class TestPGPKey(object):
 
             try:
                 # verify with PGPy
-                sv = key.verify(key)
+                with warnings.catch_warnings():
+                    warnings.simplefilter('ignore')
+                    sv = key.verify(key)
                 assert sv
                 # verify with GPG
                 assert gpg_import('./{:s}.asc'.format(key.fingerprint.shortid),
