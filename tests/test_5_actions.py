@@ -12,6 +12,7 @@ from pgpy import PGPSignature
 from pgpy.errors import PGPError
 from pgpy.constants import CompressionAlgorithm
 from pgpy.constants import SignatureType
+from pgpy.constants import SymmetricKeyAlgorithm
 
 from pgpy.packet.packets import OnePassSignature
 
@@ -75,8 +76,27 @@ class TestPGPMessage(object):
 
         os.remove('tests/testdata/semsg.asc')
 
-    def test_encrypt_passphrase_add_passphrase(self, lit, gpg_decrypt):
-        pytest.skip("not implemented yet")
+    def test_encrypt_two_passphrase_message(self, lit, gpg_decrypt):
+        msg = PGPMessage.new(lit)
+        sk = SymmetricKeyAlgorithm.AES256.gen_key()
+        msg.encrypt("QwertyUiop1", sessionkey=sk)
+        msg.encrypt("QwertyUiop2", sessionkey=sk)
+        del sk
+
+        with open('tests/testdata/semsg.asc', 'w') as litf:
+            litf.write(str(msg))
+
+        # decrypt with PGPy
+        for passphrase in ["QwertyUiop1", "QwertyUiop2"]:
+            decmsg = msg.decrypt(passphrase)
+            assert isinstance(decmsg, PGPMessage)
+            assert decmsg.type == 'compressed'
+            assert decmsg.message == bytearray(b"This is stored, literally\\!\n\n")
+
+        # decrypt with GPG; it unfortunately only works with one password (the first one)
+        assert gpg_decrypt('./semsg.asc', "QwertyUiop1") == 'This is stored, literally\!\n\n'
+
+        os.remove('tests/testdata/semsg.asc')
 
 
 class TestPGPKey(object):

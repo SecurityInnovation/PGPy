@@ -1220,25 +1220,35 @@ class PGPMessage(PGPObject, Exportable):
 
         if sessionkey is None:
             sessionkey = prefs['cipher'].gen_key()
-        sesskey = skesk.encrypt_sk(passphrase, sessionkey)
+        skesk.encrypt_sk(passphrase, sessionkey)
         del passphrase
+
+        if not self.is_encrypted:
+            # now encrypt pt and place it inside an IntegrityProtectedSKEDataV1
+            skedata = IntegrityProtectedSKEDataV1()
+            skedata.encrypt(sessionkey, prefs['cipher'], self.__bytes__())
+
+            # now replace self._contents with the newly constructed encrypted message
+            self._contents = [skesk, skedata]
+
+        else:
+            self._contents.insert(-1, skesk)
         del sessionkey
-
-        # now encrypt pt and place it inside an IntegrityProtectedSKEDataV1
-        skedata = IntegrityProtectedSKEDataV1()
-        skedata.encrypt(sesskey, prefs['cipher'], self.__bytes__())
-
-        # now replace self._contents with the newly constructed encrypted message
-        self._contents = [skesk, skedata]
 
     def decrypt(self, passphrase):
         if not self.is_encrypted:
             raise PGPError("This message is not encrypted!")
 
         for skesk in [pkt for pkt in self._contents if isinstance(pkt, SKESessionKey)]:
-            symalg, key = skesk.decrypt_sk(passphrase)
-            del passphrase
-            break
+            try:
+                symalg, key = skesk.decrypt_sk(passphrase)
+
+            except ValueError:
+                pass
+
+            # else:
+            #     del passphrase
+            #     break
 
         # now that we have the session key, we can decrypt the actual message
         decmsg = PGPMessage()

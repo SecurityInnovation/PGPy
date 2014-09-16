@@ -419,7 +419,7 @@ class SKESessionKey(VersionedPacket):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def encrypt_sk(self, passphrase):
+    def encrypt_sk(self, passphrase, sk):
         raise NotImplementedError()
 
 
@@ -521,10 +521,6 @@ class SKESessionKeyV4(SKESessionKey):
         return (symalg, bytes(m))
 
     def encrypt_sk(self, passphrase, sk):
-        # if sk is None:
-        #     # generate the session key
-        #     sk = os.urandom(self.symalg.key_size // 8)
-
         # generate the salt and derive the key to encrypt sk with from it
         self.s2k.salt = bytearray(os.urandom(8))
         esk = self.s2k.derive_key(passphrase)
@@ -534,8 +530,6 @@ class SKESessionKeyV4(SKESessionKey):
 
         # update header length and return sk
         self.update_hlen()
-
-        return sk
 
 
 class OnePassSignature(VersionedPacket):

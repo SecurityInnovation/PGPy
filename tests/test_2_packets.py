@@ -3,8 +3,6 @@
 from __future__ import unicode_literals
 import pytest
 
-import sys
-
 from pgpy.errors import PGPDecryptionError
 
 from pgpy.packet import Packet
@@ -63,8 +61,6 @@ class TestPacket(object):
         else:
             # fallback to opaque
             assert isinstance(p, Opaque)
-
-        sys.stdout.write("[{cname:s}] ".format(cname=p.__class__.__name__))
 
     def test_decrypt_enckey(self, ekpacket, ukpacket):
         # parse the encrypted and decrypted version
