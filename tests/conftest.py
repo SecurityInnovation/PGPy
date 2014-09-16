@@ -154,10 +154,18 @@ def gpg_print():
             gpgo, gpge = gpgdec.communicate()
 
         finally:
-            return gpgo.decode() if gpgo is not None else ""
+            return gpgo.decode() if gpgo is not None else gpge.decode()
 
     return _gpg_print
 
+
+@pytest.fixture()
+def pgpdump():
+    def _pgpdump(infile):
+        _args = ['/usr/bin/pgpdump', '-agimplu', infile]
+        return subprocess.check_output(_args).decode()
+
+    return _pgpdump
 
 # pytest hooks
 

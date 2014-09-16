@@ -29,7 +29,7 @@ def ignored(*exceptions):
 
 
 class TestPGPMessage(object):
-    def test_new_message(self, comp_alg, gpg_print):
+    def test_new_message(self, comp_alg, gpg_print, pgpdump):
         msg = PGPMessage.new('tests/testdata/lit', compression=comp_alg)
 
         assert msg.type == 'compressed' if comp_alg is not CompressionAlgorithm.Uncompressed else 'literal'
@@ -38,7 +38,13 @@ class TestPGPMessage(object):
         with open('tests/testdata/cmsg.asc', 'w') as litf:
             litf.write(str(msg))
 
-        assert msg.message.decode('latin-1') == gpg_print('cmsg.asc')
+        try:
+            assert msg.message.decode('latin-1') == gpg_print('cmsg.asc')
+
+        except AssertionError:
+            import sys
+            sys.stdout.write(pgpdump('tests/testdata/cmsg.asc'))
+            assert False
         os.remove('tests/testdata/cmsg.asc')
 
     def test_message_change_compalg(self, lit, gpg_print):
