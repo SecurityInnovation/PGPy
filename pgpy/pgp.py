@@ -54,7 +54,6 @@ from .packet.packets import SKESessionKeyV4
 
 from .packet.types import Opaque
 
-from .packet.subpackets.signature import CreationTime
 from .packet.subpackets.signature import Issuer
 
 from .types import Exportable
@@ -313,17 +312,41 @@ class PGPKey(PGPObject, Exportable):
             for sk in itertools.chain([self], self.subkeys.values()):
                 sk._key.keymaterial.clear()
 
+    def add_uid(self, name, comment="", email="", **kwargs):
+        prefs = {'sigtype': SignatureType.Positive_Cert,
+                 'usage': [],
+                 'hashprefs': [],
+                 'cipherprefs': [],
+                 'compprefs': [],
+                 'primary': False}
+        prefs.update(kwargs)
+
+        uid = PGPUID()
+        uid._uid = UserID()
+        uid._uid.name = name
+        uid._uid.comment = comment
+        uid._uid.email = email
+        uid._uid.update_hlen()
+        uid._parent = self
+        uid._signatures.append(self.sign(uid, **prefs))
+
+        if not prefs['primary']:
+            self._uids.append(uid)
+        else:
+            self._uids.insert(0, uid)
+
     def sign(self, subject, **kwargs):
         # default options
         prefs = {'hash': self.hashprefs[0],
                  # inline implies sigtype is SignatureType.CanonicalDocument
                  'inline': False,
                  'sigtype': SignatureType.BinaryDocument,
-                 # usage and *prefs are only meaningful on a self-signature
+                 # usage, *prefs, and primary are only meaningful on a self-signature for a User ID or User Attribute
                  'usage': [],
                  'hashprefs': [],
                  'cipherprefs': [],
-                 'compprefs': []}
+                 'compprefs': [],
+                 'primary': False}
         prefs.update(kwargs)
 
         ##TODO: roll this into above, if possible
@@ -354,26 +377,24 @@ class PGPKey(PGPObject, Exportable):
 
         sig = PGPSignature.new(prefs['sigtype'], self.key_algorithm, prefs['hash'], self.fingerprint.keyid)
 
+        if sig.type in [SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
+                        SignatureType.Positive_Cert]:
+            sig._signature.subpackets.addnew('KeyFlags', hashed=True, flags=prefs['usage'])
+            sig._signature.subpackets.addnew('PreferredSymmetricAlgorithms', hashed=True, flags=prefs['cipherprefs'])
+            sig._signature.subpackets.addnew('PreferredHashAlgorithms', hashed=True, flags=prefs['hashprefs'])
+            sig._signature.subpackets.addnew('PreferredCompressionAlgorithms', hashed=True, flags=prefs['compprefs'])
+
+            if prefs['primary']:
+                sig._signature.subpackets.addnew('PrimaryUserID', hashed=True, primary=True)
+
         if isinstance(subject, PGPMessage):
             sigdata = sig.hashdata(subject.message)
 
+        elif isinstance(subject, PGPUID):
+            sigdata = sig.hashdata(subject)
+
         else:
             sigdata = sig.hashdata(self.load(subject))
-
-
-        # if prefs['inline']:
-        #     if not isinstance(subject, PGPMessage):
-        #         msg = PGPMessage.new(self.load(subject).decode('latin-1'), cleartext=True)
-        #
-        #     else:
-        #         msg = subject
-        #
-        #     msg._contents.append(sig)
-        #
-        #     sigdata = sig.hashdata(msg.message)
-        #
-        # else:
-        #     sigdata = sig.hashdata(self.load(subject))
 
         h2 = prefs['hash'].hasher
         h2.update(sigdata)
@@ -812,14 +833,8 @@ class PGPSignature(PGPObject, Exportable):
         sigpkt = SignatureV4()
         sigpkt.header.tag = 2
         sigpkt.header.version = 4
-
-        csp = CreationTime()
-        csp.created = datetime.utcnow()
-        sigpkt.subpackets['h_CreationTime'] = csp
-
-        isp = Issuer()
-        isp.issuer = bytearray(binascii.unhexlify(six.b(signer)))
-        sigpkt.subpackets['Issuer'] = isp
+        sigpkt.subpackets.addnew('CreationTime', hashed=True, created=datetime.utcnow())
+        sigpkt.subpackets.addnew('Issuer', _issuer=signer)
 
         sigpkt.sigtype = sigtype
         sigpkt.pubalg = pkalg

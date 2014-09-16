@@ -574,6 +574,10 @@ class Issuer(Signature):
     def issuer(self, val):
         self._issuer = binascii.hexlify(val).upper().decode('latin-1')
 
+    def __init__(self):
+        super(Issuer, self).__init__()
+        self.issuer = bytearray()
+
     def __bytes__(self):
         _bytes = super(Issuer, self).__bytes__()
         _bytes += binascii.unhexlify(self._issuer.encode())

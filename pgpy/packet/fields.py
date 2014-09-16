@@ -1,7 +1,7 @@
 """ fields.py
 """
 # Python 2.7 shenanigans
-from __future__ import division
+from __future__ import absolute_import, division
 
 import abc
 import collections
@@ -14,6 +14,7 @@ from cryptography.hazmat.primitives.asymmetric import dsa
 
 from .subpackets import Signature as SignatureSP
 from .subpackets import UserAttribute
+from .subpackets import signature
 
 from .types import MPI
 from .types import MPIs
@@ -96,6 +97,18 @@ class SubPackets(collections.MutableMapping, Field):
 
     def __contains__(self, key):
         return any([key in [dk[0] for dk in itertools.chain(self._hashed_sp, self._unhashed_sp)]])
+
+    def addnew(self, spname, hashed=False, **kwargs):
+        nsp = getattr(signature, spname)()
+        for p, v in kwargs.items():
+            if hasattr(nsp, p):
+                setattr(nsp, p, v)
+        nsp.update_hlen()
+        if hashed:
+            self['h_' + spname] = nsp
+
+        else:
+            self[spname] = nsp
 
     def update_hlen(self):
         for sp in self:

@@ -13,6 +13,8 @@ from pgpy.errors import PGPError
 from pgpy.constants import CompressionAlgorithm
 from pgpy.constants import SignatureType
 from pgpy.constants import SymmetricKeyAlgorithm
+from pgpy.constants import KeyFlags
+from pgpy.constants import HashAlgorithm
 
 from pgpy.packet.packets import OnePassSignature
 
@@ -416,5 +418,33 @@ class TestPGPKey(object):
     def test_encrypt_rsa_add_recipient(self, rsakey, gpg_decrypt):
         pytest.skip("not implemented yet")
 
-    def test_warnings(self):
-        pytest.skip("not implemented yet")
+    def test_add_uid(self, rsakey, dsakey):
+        rkey = PGPKey()
+        rkey.parse(rsakey)
+        dkey = PGPKey()
+        dkey.parse(dsakey)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            for key in [rkey, dkey]:
+                key.add_uid('Seconduser Aidee',
+                         comment='Temporary',
+                         email="seconduser.aidee@notarealemailaddress.com",
+                         usage=[KeyFlags.Authentication],
+                         hashprefs=[HashAlgorithm.SHA256, HashAlgorithm.SHA1],
+                         cipherprefs=[SymmetricKeyAlgorithm.AES128, SymmetricKeyAlgorithm.CAST5],
+                         compprefs=[CompressionAlgorithm.ZIP, CompressionAlgorithm.Uncompressed],
+                         primary=False)
+
+        for key in [rkey, dkey]:
+            u = [ k for k in key.userids if k.name == 'Seconduser Aidee' ][0]
+
+            assert u.is_uid
+            # assert not u.primary
+            assert u.name == 'Seconduser Aidee'
+            assert u.comment == 'Temporary'
+            assert u.email == 'seconduser.aidee@notarealemailaddress.com'
+            assert u._signatures[0].type == SignatureType.Positive_Cert
+            assert u._signatures[0].hashprefs == [HashAlgorithm.SHA256, HashAlgorithm.SHA1]
+            assert u._signatures[0].cipherprefs == [SymmetricKeyAlgorithm.AES128, SymmetricKeyAlgorithm.CAST5]
+            assert u._signatures[0].compprefs == [CompressionAlgorithm.ZIP, CompressionAlgorithm.Uncompressed]

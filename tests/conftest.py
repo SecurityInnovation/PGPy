@@ -79,10 +79,11 @@ def gpg_verify():
 
         try:
             gpgo = subprocess.check_output(gpg_args, stderr=subprocess.STDOUT).decode()
-            return ("Good signature from" in gpgo and "BAD signature" not in gpgo)
 
         except subprocess.CalledProcessError as e:
             gpgo = e.output.decode()
+
+        finally:
             return ("Good signature from" in gpgo and "BAD signature" not in gpgo)
     return _gpg_verify
 
@@ -127,16 +128,12 @@ def gpg_decrypt():
 def gpg_print():
     @CWD_As('tests/testdata')
     def _gpg_print(infile):
-        _gpg_args = ['/usr/bin/gpg', '-o-', infile]
-
+        _gpg_args = ['/usr/bin/gpg', '--no-default-keyring', '-o-', infile]
         try:
-            return subprocess.check_output(_gpg_args).decode()
+            return subprocess.check_output(_gpg_args, stderr=subprocess.STDOUT).decode()
 
         except subprocess.CalledProcessError as e:
             return e.output.decode()
-
-        finally:
-            pass
 
     return _gpg_print
 
