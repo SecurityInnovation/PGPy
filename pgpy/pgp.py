@@ -1218,7 +1218,7 @@ class PGPMessage(PGPObject, Exportable):
             lit.update_hlen()
 
             _m = lit
-            if prefs['compression'] is not CompressionAlgorithm.Uncompressed:
+            if prefs['compression'] != CompressionAlgorithm.Uncompressed:
                 _m = CompressedData()
                 _m.calg = prefs['compression']
                 _m.packets.append(lit)
