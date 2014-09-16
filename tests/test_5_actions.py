@@ -2,7 +2,7 @@
 """
 import pytest
 
-import contextlib
+import glob
 import os
 import warnings
 
@@ -18,14 +18,6 @@ from pgpy.constants import KeyFlags
 from pgpy.constants import HashAlgorithm
 
 from pgpy.packet.packets import OnePassSignature
-
-
-@contextlib.contextmanager
-def ignored(*exceptions):
-    try:
-        yield
-    except exceptions:
-        pass
 
 
 class TestPGPMessage(object):
@@ -496,9 +488,6 @@ class TestPGPKey(object):
                                   trustdb='./tmp.trust.gpg')
 
             finally:
-                with ignored(FileNotFoundError):
-                    os.remove('tests/testdata/tmp.pub.gpg')
-                    os.remove('tests/testdata/tmp.pub.gpg~')
-                    os.remove('tests/testdata/tmp.sec.gpg')
-                    os.remove('tests/testdata/tmp.trust.gpg')
-                    os.remove('tests/testdata/{:s}.asc'.format(key.fingerprint.shortid))
+                for f in glob.glob('tests/testdata/tmp.*'):
+                    os.remove(f)
+                os.remove('tests/testdata/{:s}.asc'.format(key.fingerprint.shortid))
