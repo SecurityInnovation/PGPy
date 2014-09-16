@@ -130,10 +130,14 @@ def gpg_print():
     def _gpg_print(infile):
         _gpg_args = ['/usr/bin/gpg', '--no-default-keyring', '-o-', infile]
         try:
-            return subprocess.check_output(_gpg_args, stderr=subprocess.STDOUT).decode()
+            # return subprocess.check_output(_gpg_args, stderr=subprocess.STDOUT).decode()
+            gpgdec = subprocess.Popen(_gpg_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            gpgo, gpge = gpgdec.communicate()
 
-        except subprocess.CalledProcessError as e:
-            return e.output.decode()
+        finally:
+            pass
+
+        return gpgo.decode() if gpgo is not None else ""
 
     return _gpg_print
 
