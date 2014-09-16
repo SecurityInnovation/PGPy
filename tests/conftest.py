@@ -82,9 +82,6 @@ def gpg_verify():
             return ("Good signature from" in gpgo and "BAD signature" not in gpgo)
 
         except subprocess.CalledProcessError as e:
-            # print("/usr/bin/gpg returned {ret}\n"\
-            #       "===========================\n"\
-            #       "{out}".format(ret=e.returncode, out=e.output.decode()))
             gpgo = e.output.decode()
             return ("Good signature from" in gpgo and "BAD signature" not in gpgo)
     return _gpg_verify
@@ -134,6 +131,9 @@ def gpg_print():
 
         try:
             return subprocess.check_output(_gpg_args).decode()
+
+        except subprocess.CalledProcessError as e:
+            return e.output.decode()
 
         finally:
             pass
