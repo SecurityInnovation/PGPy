@@ -84,8 +84,27 @@ def gpg_verify():
             gpgo = e.output.decode()
 
         finally:
-            return ("Good signature from" in gpgo and "BAD signature" not in gpgo)
+            return "Good signature from" in gpgo and "BAD signature" not in gpgo
     return _gpg_verify
+
+
+@pytest.fixture()
+def gpg_import():
+    @CWD_As('tests/testdata')
+    def _gpg_import(keypath, pubring='./testkeys.gpg', secring='./sectestkeys.gpg', trustdb='./trusttestkeys.gpg'):
+        _gpg_args = ['/usr/bin/gpg',
+                     '--no-default-keyring',
+                     '--keyring', pubring,
+                     '--secret-keyring', secring,
+                     '--trustdb-name', trustdb,
+                     '-vv', '--import', keypath]
+        try:
+            gpgo = subprocess.check_output(_gpg_args, stderr=subprocess.STDOUT).decode()
+
+        finally:
+            return 'invalid self-signature' not in gpgo
+
+    return _gpg_import
 
 
 @pytest.fixture
@@ -135,9 +154,7 @@ def gpg_print():
             gpgo, gpge = gpgdec.communicate()
 
         finally:
-            pass
-
-        return gpgo.decode() if gpgo is not None else ""
+            return gpgo.decode() if gpgo is not None else ""
 
     return _gpg_print
 

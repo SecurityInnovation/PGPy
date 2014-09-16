@@ -22,8 +22,10 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from .errors import PGPError
 
 from .constants import CompressionAlgorithm
+from .constants import Features
 from .constants import HashAlgorithm
 from .constants import KeyFlags
+from .constants import KeyServerPreferences
 from .constants import PacketTag
 from .constants import PubKeyAlgorithm
 from .constants import SignatureType
@@ -53,8 +55,6 @@ from .packet.packets import SKESessionKey
 from .packet.packets import SKESessionKeyV4
 
 from .packet.types import Opaque
-
-from .packet.subpackets.signature import Issuer
 
 from .types import Exportable
 from .types import PGPObject
@@ -182,6 +182,16 @@ class PGPKey(PGPObject, Exportable):
     @property
     def fingerprint(self):
         return self._key.fingerprint
+
+    @property
+    def hashdata(self):
+        # when signing a key, only the public portion of the keys is hashed
+        # if this is a private key, the private components of the key material need to be left out
+        if self.is_public:
+            return self._key.__bytes__()[len(self._key.header):]
+
+        publen = len(self._key) - len(self._key.header) - len(self._key.keymaterial) + 1 + self._key.keymaterial.publen()
+        return self._key.__bytes__()[len(self._key.header):publen]
 
     @property
     def hashprefs(self):
@@ -321,6 +331,9 @@ class PGPKey(PGPObject, Exportable):
                  'primary': False}
         prefs.update(kwargs)
 
+        if not self.is_primary:
+            raise PGPError("Cannot add UIDs to subkeys!")
+
         uid = PGPUID()
         uid._uid = UserID()
         uid._uid.name = name
@@ -348,10 +361,14 @@ class PGPKey(PGPObject, Exportable):
                  'compprefs': [],
                  'primary': False}
         prefs.update(kwargs)
+        _u = KeyFlags.Sign
 
-        ##TODO: roll this into above, if possible
         if prefs['inline']:
             prefs['sigtype'] = SignatureType.CanonicalDocument
+
+        if prefs['sigtype'] in [SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
+                                SignatureType.Positive_Cert]:
+            _u = KeyFlags.Certify
 
         if prefs['hash'] not in self.hashprefs:
             warnings.warn("Selected hash algorithm not in key preferences", stacklevel=2)
@@ -365,7 +382,8 @@ class PGPKey(PGPObject, Exportable):
         if isinstance(subject, PGPKey):
             raise NotImplementedError(repr(subject))
 
-        if KeyFlags.Sign not in self.usageflags:
+        if _u not in self.usageflags:
+            ##TODO: change warning/exception messages to match whether _u is KeyFlag.Sign or KeyFlag.Certify
             for sk in self.subkeys.values():
                 if KeyFlags.Sign in sk.usageflags:
                     warnings.warn("This key is not marked for signing, but subkey {:s} is. "
@@ -377,20 +395,24 @@ class PGPKey(PGPObject, Exportable):
 
         sig = PGPSignature.new(prefs['sigtype'], self.key_algorithm, prefs['hash'], self.fingerprint.keyid)
 
-        if sig.type in [SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
-                        SignatureType.Positive_Cert]:
-            sig._signature.subpackets.addnew('KeyFlags', hashed=True, flags=prefs['usage'])
-            sig._signature.subpackets.addnew('PreferredSymmetricAlgorithms', hashed=True, flags=prefs['cipherprefs'])
-            sig._signature.subpackets.addnew('PreferredHashAlgorithms', hashed=True, flags=prefs['hashprefs'])
-            sig._signature.subpackets.addnew('PreferredCompressionAlgorithms', hashed=True, flags=prefs['compprefs'])
-
-            if prefs['primary']:
-                sig._signature.subpackets.addnew('PrimaryUserID', hashed=True, primary=True)
-
         if isinstance(subject, PGPMessage):
             sigdata = sig.hashdata(subject.message)
 
         elif isinstance(subject, PGPUID):
+            if sig.type in [SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
+                            SignatureType.Positive_Cert] and subject._parent is self:
+                # flags and preferences
+                sig._signature.subpackets.addnew('KeyFlags', hashed=True, flags=prefs['usage'])
+                sig._signature.subpackets.addnew('PreferredSymmetricAlgorithms', hashed=True, flags=prefs['cipherprefs'])
+                sig._signature.subpackets.addnew('PreferredHashAlgorithms', hashed=True, flags=prefs['hashprefs'])
+                sig._signature.subpackets.addnew('PreferredCompressionAlgorithms', hashed=True, flags=prefs['compprefs'])
+                # implementation features
+                sig._signature.subpackets.addnew('Features', hashed=True, flags=[Features.ModificationDetection])
+                sig._signature.subpackets.addnew('KeyServerPreferences', hashed=True, flags=[KeyServerPreferences.NoModify])
+
+                if prefs['primary']:
+                    sig._signature.subpackets.addnew('PrimaryUserID', hashed=True, primary=True)
+
             sigdata = sig.hashdata(subject)
 
         else:
@@ -897,13 +919,16 @@ class PGPSignature(PGPObject, Exportable):
             """
             _s = b''
             if isinstance(subject, PGPUID):
-                _s = subject._parent._key.__bytes__()[len(subject._parent._key.header):]
+                # _s = subject._parent._key.__bytes__()[len(subject._parent._key.header):]
+                _s = subject._parent.hashdata
 
             elif isinstance(subject, PGPKey) and not subject.is_primary:
-                _s = subject._parent._key.__bytes__()[len(subject._parent._key.header):]
+                # _s = subject._parent._key.__bytes__()[len(subject._parent._key.header):]
+                _s = subject._parent.hashdata
 
             elif isinstance(subject, PGPKey) and subject.is_primary:
-                _s = subject._key.__bytes__()[len(subject._key.header):]
+                # _s = subject._key.__bytes__()[len(subject._key.header):]
+                _s = subject.hashdata
 
             if len(_s) > 0:
                 _data += b'\x99' + self.int_to_bytes(len(_s), 2) + _s
@@ -915,7 +940,8 @@ class PGPSignature(PGPObject, Exportable):
             the subkey using the same format as the main key (also using 0x99 as
             the first octet).
             """
-            _s = subject._key.__bytes__()[len(subject._key.header):]
+            # _s = subject._key.__bytes__()[len(subject._key.header):]
+            _s = subject.hashdata
             _data += b'\x99' + self.int_to_bytes(len(_s), 2) + _s
 
         if self.type in [SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,

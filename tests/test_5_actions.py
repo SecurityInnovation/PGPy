@@ -2,6 +2,7 @@
 """
 import pytest
 
+import contextlib
 import os
 import warnings
 
@@ -17,6 +18,15 @@ from pgpy.constants import KeyFlags
 from pgpy.constants import HashAlgorithm
 
 from pgpy.packet.packets import OnePassSignature
+
+
+@contextlib.contextmanager
+def ignored(*exceptions):
+    try:
+        yield
+    except exceptions:
+        pass
+
 
 class TestPGPMessage(object):
     def test_new_message(self, comp_alg, gpg_print):
@@ -207,6 +217,22 @@ class TestPGPKey(object):
         assert SignatureType.PrimaryKey_Binding in _svtypes
         assert SignatureType.SubkeyRevocation in _svtypes
         assert sv
+
+    def test_verify_rsavontestkey(self, rsakey):
+        k = PGPKey()
+        k.parse(rsakey)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            assert k.verify(k)
+
+    def test_verify_dsavontestkey(self, dsakey):
+        k = PGPKey()
+        k.parse(dsakey)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            assert k.verify(k)
 
     def test_verify_wrongkey(self):
         wrongkey = PGPKey()
@@ -418,29 +444,29 @@ class TestPGPKey(object):
     def test_encrypt_rsa_add_recipient(self, rsakey, gpg_decrypt):
         pytest.skip("not implemented yet")
 
-    def test_add_uid(self, rsakey, dsakey):
+    def test_add_uid(self, rsakey, dsakey, gpg_import):
         rkey = PGPKey()
         rkey.parse(rsakey)
         dkey = PGPKey()
         dkey.parse(dsakey)
 
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore')
-            for key in [rkey, dkey]:
-                key.add_uid('Seconduser Aidee',
-                         comment='Temporary',
-                         email="seconduser.aidee@notarealemailaddress.com",
-                         usage=[KeyFlags.Authentication],
-                         hashprefs=[HashAlgorithm.SHA256, HashAlgorithm.SHA1],
-                         cipherprefs=[SymmetricKeyAlgorithm.AES128, SymmetricKeyAlgorithm.CAST5],
-                         compprefs=[CompressionAlgorithm.ZIP, CompressionAlgorithm.Uncompressed],
-                         primary=False)
+        for key in [rkey, dkey]:
+            key.add_uid('Seconduser Aidee',
+                     comment='Temporary',
+                     email="seconduser.aidee@notarealemailaddress.com",
+                     usage=[KeyFlags.Authentication],
+                     hashprefs=[HashAlgorithm.SHA256, HashAlgorithm.SHA1],
+                     cipherprefs=[SymmetricKeyAlgorithm.AES128, SymmetricKeyAlgorithm.CAST5],
+                     compprefs=[CompressionAlgorithm.ZIP, CompressionAlgorithm.Uncompressed],
+                     primary=False)
 
         for key in [rkey, dkey]:
-            u = [ k for k in key.userids if k.name == 'Seconduser Aidee' ][0]
+            with open('tests/testdata/{:s}.asc'.format(key.fingerprint.shortid), 'w') as kf:
+                kf.write(str(key))
 
-            assert u.is_uid
             # assert not u.primary
+            u = [ k for k in key.userids if k.name == 'Seconduser Aidee' ][0]
+            assert u.is_uid
             assert u.name == 'Seconduser Aidee'
             assert u.comment == 'Temporary'
             assert u.email == 'seconduser.aidee@notarealemailaddress.com'
@@ -448,3 +474,21 @@ class TestPGPKey(object):
             assert u._signatures[0].hashprefs == [HashAlgorithm.SHA256, HashAlgorithm.SHA1]
             assert u._signatures[0].cipherprefs == [SymmetricKeyAlgorithm.AES128, SymmetricKeyAlgorithm.CAST5]
             assert u._signatures[0].compprefs == [CompressionAlgorithm.ZIP, CompressionAlgorithm.Uncompressed]
+
+            try:
+                # verify with PGPy
+                sv = key.verify(key)
+                assert sv
+                # verify with GPG
+                assert gpg_import('./{:s}.asc'.format(key.fingerprint.shortid),
+                                  pubring='./tmp.pub.gpg',
+                                  secring='./tmp.sec.gpg',
+                                  trustdb='./tmp.trust.gpg')
+
+            finally:
+                with ignored(FileNotFoundError):
+                    os.remove('tests/testdata/tmp.pub.gpg')
+                    os.remove('tests/testdata/tmp.pub.gpg~')
+                    os.remove('tests/testdata/tmp.sec.gpg')
+                    os.remove('tests/testdata/tmp.trust.gpg')
+                    os.remove('tests/testdata/{:s}.asc'.format(key.fingerprint.shortid))
