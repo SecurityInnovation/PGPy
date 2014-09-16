@@ -12,8 +12,6 @@ from distutils.version import LooseVersion
 
 from cryptography.hazmat.backends import openssl
 
-import pgpy
-
 openssl_ver = LooseVersion(openssl.backend.openssl_version_text().split(' ')[1])
 gpg_ver = LooseVersion()
 
@@ -259,10 +257,8 @@ def pytest_generate_tests(metafunc):
     def comp_alg():
         global argvals
         global ids
-        cas = [pgpy.constants.CompressionAlgorithm.Uncompressed, pgpy.constants.CompressionAlgorithm.ZIP,
-               pgpy.constants.CompressionAlgorithm.ZLIB, pgpy.constants.CompressionAlgorithm.BZ2]
-        argvals += [cas]
-        ids = [c.name for c in cas]
+        argvals += [[0, 1, 2, 3]]
+        ids = ['Uncompressed', 'ZIP', 'ZLIB', 'BZ2']
 
     @CWD_As('tests/testdata/subpackets')
     def sigsubpacket():
