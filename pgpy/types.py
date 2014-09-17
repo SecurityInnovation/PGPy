@@ -188,7 +188,7 @@ class Exportable(six.with_metaclass(abc.ABCMeta, FileLoader)):
                          # capture the armored CRC24 value
                          ^=(?P<crc>[A-Za-z0-9+/]{4})$\n
                          # finally, capture the armor tail line, which must match the armor header line
-                         ^-{5}END\ PGP\ (?P=magic)-{5}$\n
+                         ^-{5}END\ PGP\ (?P=magic)-{5}$\n?
                          """,
                      text, flags=re.MULTILINE | re.VERBOSE)
 
