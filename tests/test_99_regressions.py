@@ -120,7 +120,7 @@ class TestRegressions(object):
         pk = PGPKey()
         pk.parse(pub)
 
-        sigsubject = b"Hello!I'm a test document.I'm going to get signed a bunch of times.KBYE!"
+        sigsubject = bytearray(b"Hello!I'm a test document.I'm going to get signed a bunch of times.KBYE!")
 
         sig = PGPSignature.new(SignatureType.BinaryDocument, PubKeyAlgorithm.RSAEncryptOrSign, HashAlgorithm.SHA512,
                                sk.fingerprint.keyid)
