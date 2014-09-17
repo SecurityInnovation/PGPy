@@ -4,7 +4,7 @@ OpenPGP Implementation Progress
 OpenPGP RFCs
 ------------
 
-PGPy is focused on eventually reaching complete OpenPGP implementation, adhering to the base OpenPGP message format specification, and eventually, its extension RFCs.
+PGPy is focused on eventually reaching complete OpenPGP implementation, adhering to the base OpenPGP message format specification, and its extension RFCs.
 
 .. progress:: RFC 4880
     :text: PGPy is currently focused on achieving :rfc:`4880` compliance for OpenPGP, which is the latest complete OpenPGP Message Format specification. It supersedes RFC 1991 and RFC 2440.
@@ -67,12 +67,12 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
         - Sign,       True,  Generate detached signatures of binary documents using DSA
         - Sign,       True,  Generate inline signatures of canonical documents using RSA
         - Sign,       True,  Generate inline signatures of canonical documents using DSA
-        - Sign,       False, One-Pass Sign messages using RSA
-        - Sign,       False, One-Pass Sign messages using DSA
-        - Sign,       False, Sign messages using RSA
-        - Sign,       False, Sign messages using DSA
-        - Sign,       False, Sign keys using RSA
-        - Sign,       False, Sign keys using DSA
+        - Sign,       True,  One-Pass Sign messages using RSA
+        - Sign,       True,  One-Pass Sign messages using DSA
+        - Sign,       True,  Sign messages using RSA
+        - Sign,       True,  Sign messages using DSA
+        - Sign,       True,  Sign keys using RSA
+        - Sign,       True,  Sign keys using DSA
         - Sign,       False, Certify User IDs using RSA
         - Sign,       False, Certify User IDs using DSA
         - Sign,       False, Certify User Attribute packets using RSA
@@ -83,8 +83,8 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
         - Sign,       False, Generate signatures directly on a key using DSA
         - Sign,       False, Generate key/subkey/certification revocation signatures RSA
         - Sign,       False, Generate key/subkey/certification revocation signatures DSA
-        - Sign,       False, Generate timestamp signatures using RSA
-        - Sign,       False, Generate timestamp signatures using DSA
+        - Sign,       True,  Generate timestamp signatures using RSA
+        - Sign,       True,  Generate timestamp signatures using DSA
         - Sign,       False, Generate third party confirmation signatures using RSA
         - Sign,       False, Generate third party confirmation signatures using DSA
         - Verify,     True,  Verify detached signatures of binary documents using RSA
@@ -107,8 +107,8 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
         - Verify,     True,  Verify signatures directly on a key using DSA
         - Verify,     True,  Verify key/subkey/certification revocation signatures RSA
         - Verify,     True,  Verify key/subkey/certification revocation signatures DSA
-        - Verify,     False, Verify timestamp signatures using RSA
-        - Verify,     False, Verify timestamp signatures using DSA
+        - Verify,     True,  Verify timestamp signatures using RSA
+        - Verify,     True,  Verify timestamp signatures using DSA
         - Verify,     False, Verify third party confirmation signatures using RSA
         - Verify,     False, Verify third party confirmation signatures using DSA
         - Encrypt,    True,  Encrypt data/messages using RSA
@@ -175,4 +175,4 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
 
 .. note::
 
-    \* Cipher depends on the currently installed OpenSSL being compiled with support for it
+    \* Cipher availability depends on the currently installed OpenSSL being compiled with support for it
