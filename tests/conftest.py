@@ -1,6 +1,8 @@
 import pytest
 
+import contextlib
 import functools
+import glob
 import os
 import re
 import subprocess
@@ -63,80 +65,106 @@ class CWD_As(object):
 
         return setcwd
 
+
+_gpg_args = ['/usr/bin/gpg', '--options', './pgpy.gpg.conf']
+_gpg_env = os.environ.copy()
+_gpg_env['GNUPGHOME'] = os.path.abspath(os.path.abspath('tests/testdata'))
+
+# @CWD_As('tests/testdata')
+# def set_gpg_options(pubring='./testkeys.pub.gpg', secring='./testkeys.sec.gpg', trustdb='./testkeys.trust.gpg'):
+#     _gpg_options = \
+#         "# GnuPG options for PGPy testing\n" \
+#         "# always expert\n" \
+#         "expert\n" \
+#         "# keyring stuff\n" \
+#         "no-default-keyring\n" \
+#         "keyring {pubring:s}\n" \
+#         "secret-keyring {secring:s}\n" \
+#         "trustdb-name {trustdb:s}\n" \
+#         "# don't try to auto-locate keys except in the local keyring(s)\n" \
+#         "no-auto-key-locate\n" \
+#         "# don't use gpg-agent\n" \
+#         "no-use-agent\n" \
+#         "# some display options\n" \
+#         "list-options show-keyring\n" \
+#         "keyid-format long\n" \
+#         "no-greeting\n" \
+#         "verbose\n" \
+#         "verbose\n"
+#
+#     with open('pgp.gpg.conf', 'w') as pgpgconf:
+#         pgpgconf.write(_gpg_options.format(locals()))
+
+
 # fixtures
 @pytest.fixture()
-def gpg_verify():
-    @CWD_As('tests/testdata')
-    def _gpg_verify(gpg_subjpath, gpg_sigpath=None, keyring='./testkeys.gpg'):
-        _gpg_args = ['/usr/bin/gpg',
-                     '--no-default-keyring',
-                     '--keyring', keyring]
-        gpg_args = _gpg_args + ['-vv', '--verify']
-
-        if gpg_sigpath is not None:
-            gpg_args += [gpg_sigpath]
-        gpg_args += [gpg_subjpath]
+def write_clean():
+    @contextlib.contextmanager
+    def _write_clean(fpath, mode='w', data=''):
+        with open(fpath, mode) as wf:
+            wf.write(data)
+            wf.flush()
 
         try:
-            gpgo = subprocess.check_output(gpg_args, stderr=subprocess.STDOUT).decode()
-
-        except subprocess.CalledProcessError as e:
-            gpgo = e.output.decode()
+            yield
 
         finally:
-            return "Good signature from" in gpgo and "BAD signature" not in gpgo
-    return _gpg_verify
+            os.remove(fpath)
+
+    return _write_clean
 
 
 @pytest.fixture()
 def gpg_import():
-    @CWD_As('tests/testdata')
-    def _gpg_import(keypath, pubring='./testkeys.gpg', secring='./sectestkeys.gpg', trustdb='./trusttestkeys.gpg'):
-        _gpg_args = ['/usr/bin/gpg',
-                     '--no-default-keyring',
-                     '--keyring', pubring,
-                     '--secret-keyring', secring,
-                     '--trustdb-name', trustdb,
-                     '-vv', '--import', keypath]
+    @contextlib.contextmanager
+    def _gpg_import(keypath):
+        gpg_args = _gpg_args + ['--import', keypath]
+        gpgdec = subprocess.Popen(gpg_args, cwd='tests/testdata', env=_gpg_env,
+                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        gpgdec.wait()
+        gpgo, _ = gpgdec.communicate()
+
         try:
-            gpgo = subprocess.check_output(_gpg_args, stderr=subprocess.STDOUT).decode()
+            yield gpgo.decode()
 
         finally:
-            return 'invalid self-signature' not in gpgo
+            [os.remove(f) for f in glob.glob('tests/testdata/testkeys.*')]
 
     return _gpg_import
+
+
+@pytest.fixture()
+def gpg_verify():
+    @CWD_As('tests/testdata')
+    def _gpg_verify(gpg_subjpath, gpg_sigpath=None):
+        gpg_args = _gpg_args + [ a for a in ['--verify', gpg_sigpath, gpg_subjpath] if a is not None ]
+
+        gpgdec = subprocess.Popen(gpg_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=_gpg_env)
+        gpgo, _ = gpgdec.communicate()
+        gpgo = gpgo.decode()
+
+        return "Good signature from" in gpgo and "BAD signature" not in gpgo
+
+    return _gpg_verify
 
 
 @pytest.fixture
 def gpg_decrypt():
     @CWD_As('tests/testdata')
-    def _gpg_decrypt(gpg_encmsgpath, passphrase=None, keyring='./testkeys.gpg', secring='./testkeys.sec.gpg'):
-        _gpg_args = ['/usr/bin/gpg',
-                     '--no-default-keyring',
-                     '--keyring', keyring,
-                     '--secret-keyring', secring,
-                     '--decrypt']
-
+    def _gpg_decrypt(encmsgpath, passphrase=None):
+        gpg_args = _gpg_args + ['--decrypt', encmsgpath]
         _cokwargs = {'stdout': subprocess.PIPE,
-                     'stderr': subprocess.PIPE}
+                     'stderr': subprocess.PIPE,
+                     'env': _gpg_env}
         _comargs = ()
 
         if passphrase is not None:
-            _gpg_args[:-1] += ['--batch',
-                               '--passphrase-fd', '0',
-                               '--decrypt']
-
+            gpg_args = _gpg_args + ['--batch', '--passphrase-fd', '0', '--decrypt', encmsgpath]
             _cokwargs['stdin'] = subprocess.PIPE
             _comargs = (passphrase.encode(),)
 
-        _gpg_args += [gpg_encmsgpath]
-
-        try:
-            gpgdec = subprocess.Popen(_gpg_args, **_cokwargs)
-            gpgo, gpge = gpgdec.communicate(*_comargs)
-
-        finally:
-            pass
+        gpgdec = subprocess.Popen(gpg_args, **_cokwargs)
+        gpgo, gpge = gpgdec.communicate(*_comargs)
 
         return gpgo.decode() if gpgo is not None else gpge
 
@@ -147,14 +175,15 @@ def gpg_decrypt():
 def gpg_print():
     @CWD_As('tests/testdata')
     def _gpg_print(infile):
-        _gpg_args = ['/usr/bin/gpg', '--no-default-keyring', '-o-', infile]
-        try:
-            # return subprocess.check_output(_gpg_args, stderr=subprocess.STDOUT).decode()
-            gpgdec = subprocess.Popen(_gpg_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            gpgo, gpge = gpgdec.communicate()
+        gpg_args = _gpg_args + ['-o-', infile]
 
-        finally:
-            return gpgo.decode() if gpgo is not None else gpge.decode()
+        gpgdec = subprocess.Popen(gpg_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=_gpg_env)
+        gpgdec.wait()
+        gpgo, gpge = gpgdec.communicate()
+
+        if gpgo.decode() is not None:
+            return gpgo.decode()
+        return ''
 
     return _gpg_print
 

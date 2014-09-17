@@ -494,7 +494,8 @@ class PGPKey(PGPObject, Exportable):
 
             else:
                 if sig.key_algorithm == PubKeyAlgorithm.RSAEncryptOrSign:
-                    vargs = (sig.__sig__, padding.PKCS1v15(), getattr(hashes, sig.hash_algorithm.name)(), default_backend())
+                    vargs = ( b'\x00' * (self._key.keymaterial.n.byte_length() - len(sig.__sig__)) + sig.__sig__,
+                              padding.PKCS1v15(), getattr(hashes, sig.hash_algorithm.name)(), default_backend() )
 
                 elif sig.key_algorithm == PubKeyAlgorithm.DSA:
                     vargs = (sig.__sig__, getattr(hashes, sig.hash_algorithm.name)(), default_backend())

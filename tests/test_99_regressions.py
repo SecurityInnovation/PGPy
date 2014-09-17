@@ -4,10 +4,9 @@
 
 class TestRegressions(object):
     # regression tests for actions
-    def test_reg_bug_56(self, gpg_verify):
+    def test_reg_bug_56(self, write_clean, gpg_import, gpg_verify):
         # some imports only used by this regression test
-        import os
-
+        import hashlib
         from datetime import datetime
 
         from pgpy.pgp import PGPKey
@@ -17,8 +16,6 @@ class TestRegressions(object):
         from pgpy.constants import PubKeyAlgorithm
         from pgpy.constants import SignatureType
 
-        from pgpy.packet.types import MPI
-
         from cryptography.hazmat.backends import default_backend
         from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.asymmetric import padding
@@ -27,10 +24,8 @@ class TestRegressions(object):
         # re-create a signature that would have been encoded improperly as with issue #56
         # and see if it fails to verify or not
 
-        # this was the old seckeys/TestRSA-2048.key, but stripped down to just the PrivKey packet
+        # this was the old seckeys/TestRSA-2048.key
         sec = "-----BEGIN PGP PRIVATE KEY BLOCK-----\n" \
-              "Version: GnuPG/MacGPG2 v2.0.20 (Darwin)\n" \
-              "Comment: GPGTools - http://gpgtools.org\n" \
               "\n" \
               "lQOYBFOaNYoBCAC9FDOrASOxJoo3JhwCCln4wPy+A/UY1H0OYlc+MMolSwev2uDj\n" \
               "nnwmt8ziNTjLuLEh3AnKjDWA9xvY5NW2ZkB6Edo6HQkquKLH7AkpLd82kiTWHdOw\n" \
@@ -51,27 +46,75 @@ class TestRegressions(object):
               "FQnTEV8mEA48Nloq+Py+c/I0D5xaprUD/3hCl7D58DkvvoIsLyyXrDHhmi68QZMU\n" \
               "7TFqVEvo0J4kx19cmF27hXe+IEt42yQwaYTrS/KtKGywPvevQ8LEan5tUTIPnuks\n" \
               "jILtgIIaMg2z/UJ7jqmjZbuoVVmqeaPTxl9thIgfmL9SlOzjwrX/9ZfKEvwaHXFr\n" \
-              "ocveTSSnWCzIReI=\n" \
-              "=7xdD\n" \
+              "ocveTSSnWCzIReK0M1Rlc3RSU0EtMjA0OCAoVEVTVElORy1VU0UtT05MWSkgPGVt\n" \
+              "YWlsQGFkZHJlc3MudGxkPokBNwQTAQoAIQUCU5o1igIbIwULCQgHAwUVCgkICwUW\n" \
+              "AgMBAAIeAQIXgAAKCRDA8iEODxk9zYQPB/4+kZlIwLE27J7IiZSkk+4T5CPrASxo\n" \
+              "SsRMadUvoHc0eiZIlQD2Gu05oQcm4kZojJAzMv12rLtk+ZPwVOZU/TUxPYwuEyJP\n" \
+              "4keFJEW9P0GiURAvYQRQCbQ5IOlIkZ0tPotb010Ej3u5rHAiVCvh/cxF16UhkXkn\n" \
+              "f/wgDDWErfGIMaaruAIr0G05p4Q2G/NLgBccowSgFFfWprg3zfNPEQhH/qNs8O5m\n" \
+              "ByniMZk4n2TsKGlX6eT9RrfJVQhSLoQXxYikMtiZTki4yPUhTQev62KWHQcY6zNV\n" \
+              "2p9VQ24NUhVCIBnZ0CLkm38QFsS5flWVGat5kraHTXxvffz7yGHJiFkinQOYBFOa\n" \
+              "NYoBCADBPjB83l1O2m/Nr5KDm6/BwKfrRsoJDmMZ8nNHNUc/zK4RI4EFKkr35PSm\n" \
+              "gbA8yOlaSDWVz9zuKyOtb8Nohct2/lrac8zI+b4enZ/Z6qehoAdY1t4QYmA2PebK\n" \
+              "uerBXjIF1RWsPQDpu3GIZw4oBbdu5oUGB4I9yIepindM2b2I9dlY3ct4uhRbBmXP\n" \
+              "FcslmJ1K4pCurXvr4Po4DCcWqUmsGUQQbI1GUyAzSad7u9y3CRqhHFwzyFRRfl+/\n" \
+              "mgB2a6XvbGlG5Dkp1g7T/HIVJu+zv58AQkFw+ABuWNKCXa3TB51bkiBQlkRTSAu2\n" \
+              "tVZ8hVGZE+wUw0o9rLiy6mldFvbLABEBAAEAB/4g13LiJeBxwEn0CPy7hUAPi7B+\n" \
+              "Gd/IPju1czEITxO20hBbNU9+Ezv+eVji23OaQQL3pwIEXflMOOStWys4nlR/+qZy\n" \
+              "LfAFz/vxtBQwsuKeY1YcURgYbL+xOD/7ADHXfyy9NQOj7BI1pveamPkc8CvGm0LM\n" \
+              "TYZi/augsrmnw/GkTuhsKwNG5G21S2YC1/I+1QlwUSLoX68pLxp/FVR5PhTWLTua\n" \
+              "vzkXuPu6YGitPW9SKSqGSJCgtoDYKLBrXIqH2/UJAdVP94pXrGSu4CiqtR8kn3Vx\n" \
+              "oIfVs+IRihWVZ9ATh8I3xUM4VHCnVupW0jov19bY9oGXEBKf7pYJpe+dIeyBBADZ\n" \
+              "RmYfL/JSmU4HWzHmlEXjb9wnyPGls8eScfFVTZ6ULwUiqwgyOlTKqop3pIVeeIdM\n" \
+              "ZnDqYTeD5bf6URNoXKmHGuQxdyUVv0aTaLTOi/GNBOk/blvaE/m/h3fKj1AnNx1r\n" \
+              "AOKjY/5mJ557i2GIdfYOVYgnGJTiu1CXAcra6TqCoQQA469Hpf0fXAjDMATI4lfg\n" \
+              "8nU8q7OFskBp26gjGqH0pGHdEJ4wvIZcTo/G4qrN8oIpcBkKn/3jYltIbbR31zTe\n" \
+              "XuNztWcaJj0I1NhYJvDTtI8mreAvdeJPHimrCbU9HYog84aY/Ir2ogClP94tw/Tz\n" \
+              "9uQs+By8IhimXzFUqtYy7esEAJZW7MNE0MnWjAZzw/iJRhwb6gIzZC9H9iHDXXmG\n" \
+              "EHJ7hNnDBkViltm+ROCRPG2zh9xtaR9VBqipaEQNVZhdJXRybJ5Z+MIMeX+tGcSN\n" \
+              "WaYWB6PQhqSsV9ovnFsEzNynWz/HZ2qqT4AW1v19DqpYQbPmapDdmVPmR0AXTtQh\n" \
+              "WFYrPJ2JAR8EGAEKAAkFAlOaNYoCGwwACgkQwPIhDg8ZPc1uDwf/SGoiZHjUsTWm\n" \
+              "4gZgZCzAjOpZs7dKjLL8Wm5G3HTFIGX0O8HCzQJARWq05N6EYmI4nPXxu08ba30S\n" \
+              "ubybSeFU+iAPymqm2YNXrE2RwLWko78M0r9enUep6SvbGKnukPG7lz/33PsxIVyA\n" \
+              "TfMmcmzV4chyC7pICTwgHv/zC3S/k7GoS82Z39LO4R4aDa4aubNq6mx4eHUd0MSn\n" \
+              "Yud1IzRxD8cPxh9fCdoW0OpddqKNczAvO4bl5wwDafrEa7HpIX/sMVMZXo2h6Tki\n" \
+              "tdLCdEfktgEjS0hTsFtfwsXt9TKi1x3HJIbcm8t78ubpWXepB/iNKVzv4punFHhK\n" \
+              "iz54ZFyNdQ==\n" \
+              "=WLpc\n" \
               "-----END PGP PRIVATE KEY BLOCK-----\n"
 
         pub = "-----BEGIN PGP PUBLIC KEY BLOCK-----\n" \
-              "Version: GnuPG/MacGPG2 v2.0.20 (Darwin)\n" \
-              "Comment: GPGTools - http://gpgtools.org\n" \
               "\n" \
               "mQENBFOaNYoBCAC9FDOrASOxJoo3JhwCCln4wPy+A/UY1H0OYlc+MMolSwev2uDj\n" \
               "nnwmt8ziNTjLuLEh3AnKjDWA9xvY5NW2ZkB6Edo6HQkquKLH7AkpLd82kiTWHdOw\n" \
               "OH7OWQpz7z2z6e40wwHEduhyGcZ/Ja/A0+6GIb/2YFKlkwfnT92jtB94W//mL6wu\n" \
               "LOkZMoU/CS/QatervzAf9VCemvAR9NI0UJc7Y0RC1B/1cBTQAUg70EhjnmJkqyYx\n" \
               "yWqaXyfX10dsEX3+MyiP1kvUDfFwhdeL7E2H9sbFE5+MC9Eo99/Qezv3QoXzH2Tj\n" \
-              "bTun+QMVkbM92dj70KiExAJya9lSLZGCoOrDABEBAAE=\n" \
-              "=FBhs\n" \
+              "bTun+QMVkbM92dj70KiExAJya9lSLZGCoOrDABEBAAG0M1Rlc3RSU0EtMjA0OCAo\n" \
+              "VEVTVElORy1VU0UtT05MWSkgPGVtYWlsQGFkZHJlc3MudGxkPokBNwQTAQoAIQUC\n" \
+              "U5o1igIbIwULCQgHAwUVCgkICwUWAgMBAAIeAQIXgAAKCRDA8iEODxk9zYQPB/4+\n" \
+              "kZlIwLE27J7IiZSkk+4T5CPrASxoSsRMadUvoHc0eiZIlQD2Gu05oQcm4kZojJAz\n" \
+              "Mv12rLtk+ZPwVOZU/TUxPYwuEyJP4keFJEW9P0GiURAvYQRQCbQ5IOlIkZ0tPotb\n" \
+              "010Ej3u5rHAiVCvh/cxF16UhkXknf/wgDDWErfGIMaaruAIr0G05p4Q2G/NLgBcc\n" \
+              "owSgFFfWprg3zfNPEQhH/qNs8O5mByniMZk4n2TsKGlX6eT9RrfJVQhSLoQXxYik\n" \
+              "MtiZTki4yPUhTQev62KWHQcY6zNV2p9VQ24NUhVCIBnZ0CLkm38QFsS5flWVGat5\n" \
+              "kraHTXxvffz7yGHJiFkiuQENBFOaNYoBCADBPjB83l1O2m/Nr5KDm6/BwKfrRsoJ\n" \
+              "DmMZ8nNHNUc/zK4RI4EFKkr35PSmgbA8yOlaSDWVz9zuKyOtb8Nohct2/lrac8zI\n" \
+              "+b4enZ/Z6qehoAdY1t4QYmA2PebKuerBXjIF1RWsPQDpu3GIZw4oBbdu5oUGB4I9\n" \
+              "yIepindM2b2I9dlY3ct4uhRbBmXPFcslmJ1K4pCurXvr4Po4DCcWqUmsGUQQbI1G\n" \
+              "UyAzSad7u9y3CRqhHFwzyFRRfl+/mgB2a6XvbGlG5Dkp1g7T/HIVJu+zv58AQkFw\n" \
+              "+ABuWNKCXa3TB51bkiBQlkRTSAu2tVZ8hVGZE+wUw0o9rLiy6mldFvbLABEBAAGJ\n" \
+              "AR8EGAEKAAkFAlOaNYoCGwwACgkQwPIhDg8ZPc1uDwf/SGoiZHjUsTWm4gZgZCzA\n" \
+              "jOpZs7dKjLL8Wm5G3HTFIGX0O8HCzQJARWq05N6EYmI4nPXxu08ba30SubybSeFU\n" \
+              "+iAPymqm2YNXrE2RwLWko78M0r9enUep6SvbGKnukPG7lz/33PsxIVyATfMmcmzV\n" \
+              "4chyC7pICTwgHv/zC3S/k7GoS82Z39LO4R4aDa4aubNq6mx4eHUd0MSnYud1IzRx\n" \
+              "D8cPxh9fCdoW0OpddqKNczAvO4bl5wwDafrEa7HpIX/sMVMZXo2h6TkitdLCdEfk\n" \
+              "tgEjS0hTsFtfwsXt9TKi1x3HJIbcm8t78ubpWXepB/iNKVzv4punFHhKiz54ZFyN\n" \
+              "dQ==\n" \
+              "=lqIH\n" \
               "-----END PGP PUBLIC KEY BLOCK-----\n"
 
-        # load the key above
-        # sk = PrivKeyV4(Exportable.ascii_unarmor(sec)['body'])
-        # _pk = PubKeyV4(Exportable.ascii_unarmor(pub)['body'])
-
+        # load the keypair above
         sk = PGPKey()
         sk.parse(sec)
         pk = PGPKey()
@@ -79,41 +122,28 @@ class TestRegressions(object):
 
         sigsubject = b"Hello!I'm a test document.I'm going to get signed a bunch of times.KBYE!"
 
-        sig = PGPSignature.new(SignatureType.BinaryDocument, PubKeyAlgorithm.RSAEncryptOrSign,HashAlgorithm.SHA512,
+        sig = PGPSignature.new(SignatureType.BinaryDocument, PubKeyAlgorithm.RSAEncryptOrSign, HashAlgorithm.SHA512,
                                sk.fingerprint.keyid)
         sig._signature.subpackets['h_CreationTime'][-1].created = datetime(2014, 8, 6, 23, 28, 51)
-        hdata = sig.hashdata(bytearray(sigsubject))
+        sig._signature.subpackets.update_hlen()
+        hdata = sig.hashdata(sigsubject)
+        sig._signature.hash2 = hashlib.new('sha512', hdata).digest()[:2]
 
+        # create the signature
         signer = sk.__key__.__privkey__().signer(padding.PKCS1v15(), hashes.SHA512(), default_backend())
         signer.update(hdata)
-        s = signer.finalize()
-
-        # add signature bytes to sig
-        sig._signature.signature.md_mod_n = MPI(sig.bytes_to_int(s))
-
-        # update header length(s), then verify the signature
+        sig._signature.signature.from_signer(signer.finalize())
         sig._signature.update_hlen()
 
+        # check encoding
+        assert sig._signature.signature.md_mod_n.to_mpibytes()[2:3] != b'\x00'
+
         # with PGPy
-        pk.verify(bytearray(sigsubject), sig)
-        # with gpg
-        # write the subject
-        with open('tests/testdata/subj', 'w') as sf:
-            sf.write(sigsubject.decode('latin-1'))
-            sf.flush()
+        assert pk.verify(sigsubject, sig)
 
-        # write the signature
-        with open('tests/testdata/subj.asc', 'w') as sf:
-            sf.write(str(sig))
-            sf.flush()
-
-        # write the pubkey
-        with open('tests/testdata/pub.gpg', 'wb') as kr:
-            kr.write(pk.__bytes__())
-            kr.flush()
-
-        assert gpg_verify('subj', 'subj.asc', keyring='./pub.gpg')
-
-        os.remove('tests/testdata/subj')
-        os.remove('tests/testdata/subj.asc')
-        os.remove('tests/testdata/pub.gpg')
+        # with GnuPG
+        with write_clean('tests/testdata/subj', 'w', sigsubject.decode('latin-1')), \
+                write_clean('tests/testdata/subj.asc', 'w', str(sig)), \
+                write_clean('tests/testdata/pub.asc', 'w', str(pk)), \
+                gpg_import('pub.asc'):
+            assert gpg_verify('subj', 'subj.asc')
