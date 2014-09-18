@@ -16,7 +16,7 @@ class TestPGPKeyring(object):
         keys = kr.load(glob.glob('tests/testdata/*test.asc'))
 
         # keys
-        assert all([isinstance(k, Fingerprint) for k in keys])
+        assert all(isinstance(k, Fingerprint) for k in keys)
 
         # __len__
         assert len(keys) == 6

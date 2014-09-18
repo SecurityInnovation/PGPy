@@ -96,7 +96,7 @@ class SubPackets(collections.MutableMapping, Field):
         pass
 
     def __contains__(self, key):
-        return any([key in [dk[0] for dk in itertools.chain(self._hashed_sp, self._unhashed_sp)]])
+        return key in set(k for k, _ in itertools.chain(self._hashed_sp, self._unhashed_sp))
 
     def addnew(self, spname, hashed=False, **kwargs):
         nsp = getattr(signature, spname)()
