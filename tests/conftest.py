@@ -70,31 +70,6 @@ _gpg_args = ['/usr/bin/gpg', '--options', './pgpy.gpg.conf']
 _gpg_env = os.environ.copy()
 _gpg_env['GNUPGHOME'] = os.path.abspath(os.path.abspath('tests/testdata'))
 
-# @CWD_As('tests/testdata')
-# def set_gpg_options(pubring='./testkeys.pub.gpg', secring='./testkeys.sec.gpg', trustdb='./testkeys.trust.gpg'):
-#     _gpg_options = \
-#         "# GnuPG options for PGPy testing\n" \
-#         "# always expert\n" \
-#         "expert\n" \
-#         "# keyring stuff\n" \
-#         "no-default-keyring\n" \
-#         "keyring {pubring:s}\n" \
-#         "secret-keyring {secring:s}\n" \
-#         "trustdb-name {trustdb:s}\n" \
-#         "# don't try to auto-locate keys except in the local keyring(s)\n" \
-#         "no-auto-key-locate\n" \
-#         "# don't use gpg-agent\n" \
-#         "no-use-agent\n" \
-#         "# some display options\n" \
-#         "list-options show-keyring\n" \
-#         "keyid-format long\n" \
-#         "no-greeting\n" \
-#         "verbose\n" \
-#         "verbose\n"
-#
-#     with open('pgp.gpg.conf', 'w') as pgpgconf:
-#         pgpgconf.write(_gpg_options.format(locals()))
-
 
 # fixtures
 @pytest.fixture()
@@ -117,8 +92,8 @@ def write_clean():
 @pytest.fixture()
 def gpg_import():
     @contextlib.contextmanager
-    def _gpg_import(keypath):
-        gpg_args = _gpg_args + ['--import', keypath]
+    def _gpg_import(*keypaths):
+        gpg_args = _gpg_args + ['--import',] + list(keypaths)
         gpgdec = subprocess.Popen(gpg_args, cwd='tests/testdata', env=_gpg_env,
                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         gpgdec.wait()
@@ -136,14 +111,20 @@ def gpg_import():
 @pytest.fixture()
 def gpg_verify():
     @CWD_As('tests/testdata')
-    def _gpg_verify(gpg_subjpath, gpg_sigpath=None):
+    def _gpg_verify(gpg_subjpath, gpg_sigpath=None, keyid=None):
         gpg_args = _gpg_args + [ a for a in ['--verify', gpg_sigpath, gpg_subjpath] if a is not None ]
 
         gpgdec = subprocess.Popen(gpg_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=_gpg_env)
         gpgo, _ = gpgdec.communicate()
         gpgo = gpgo.decode()
+        sigs = dict(re.findall(r'^gpg: Signature made .+\ngpg: \s+ using [A-Z]+ key ([0-9A-F]+)\n'
+                               r'(?:gpg: using .+\n)*gpg: ([^\s]+) signature', gpgo, flags=re.MULTILINE))
 
-        return "Good signature from" in gpgo and "BAD signature" not in gpgo
+        if keyid is not None:
+            return sigs.get(keyid, '') == 'Good'
+
+        else:
+            return all(v == 'Good' for v in sigs.values())
 
     return _gpg_verify
 
@@ -196,6 +177,7 @@ def pgpdump():
 
     return _pgpdump
 
+
 # pytest hooks
 
 # pytest_configure
@@ -212,302 +194,8 @@ def pytest_configure(config):
 # pytest_generate_tests
 # called when each test method is collected to generate parametrizations
 def pytest_generate_tests(metafunc):
-    global argvals
-    global ids
-    global tdata
+    if metafunc.cls is not None and hasattr(metafunc.cls, 'params'):
+        funcargs = [ (k, v) for k, v in metafunc.cls.params.items() if k in metafunc.fixturenames ]
 
-    params = []
-    argvals = []
-    ids = []
-    tdata = []
-
-    def pheader():
-        # in 3.x this can be 'nonlocal' but that causes syntax errors in 2.7
-        global argvals
-        global ids
-
-        argvals += [[
-            # new format
-            # 1 byte length - 191
-            bytearray(b'\xc2' + b'\xbf' +                 (b'\x00' * 191)   + b'\xca\xfe\xba\xbe'),
-            # 2 byte length - 192
-            bytearray(b'\xc2' + b'\xc0\x00' +             (b'\x00' * 192)   + b'\xca\xfe\xba\xbe'),
-            # 2 byte length - 8383
-            bytearray(b'\xc2' + b'\xdf\xff' +             (b'\x00' * 8383)  + b'\xca\xfe\xba\xbe'),
-            # 5 byte length - 8384
-            bytearray(b'\xc2' + b'\xff\x00\x00 \xc0' +    (b'\x00' * 8384)  + b'\xca\xfe\xba\xbe'),
-            # old format
-            # 1 byte length - 255
-            bytearray(b'\x88' + b'\xff' +                 (b'\x00' * 255)   + b'\xca\xfe\xba\xbe'),
-            # 2 byte length - 256
-            bytearray(b'\x89' + b'\x01\x00' +             (b'\x00' * 256)   + b'\xca\xfe\xba\xbe'),
-            # 4 byte length - 65536
-            bytearray(b'\x8a' + b'\x00\x01\x00\x00' +     (b'\x00' * 65536) + b'\xca\xfe\xba\xbe'),
-        ]]
-
-        ids += ['new_1_191', 'new_2_192', 'new_2_8383', 'new_5_8384',
-               'old_1_255', 'old_2_256', 'old_4_65536']
-
-    def spheader():
-        global argvals
-        global ids
-
-        argvals += [[
-            # 1 byte length - 191
-            bytearray(b'\xbf'                 + b'\x00' + (b'\x00' * 190)),
-            # 2 byte length - 192
-            bytearray(b'\xc0\x00'             + b'\x00' + (b'\x00' * 191)),
-            # 2 byte length - 8383
-            bytearray(b'\xdf\xff'             + b'\x00' + (b'\x00' * 8382)),
-            # 5 byte length - 8384
-            bytearray(b'\xff\x00\x00 \xc0'    + b'\x00' + (b'\x00' * 0x8383)),
-            # 5 byte length - 65535
-            bytearray(b'\xff\x00\x00\xff\xff' + b'\x00' + (b'\x00' * 65534)),
-        ]]
-
-        ids += ['1_191', '2_192', '2_8383', '5_8384', '5_65535']
-
-    def sis2k():
-        global argvals
-        global ids
-
-        argvals += [[ (bytearray(i) +
-                      b'\xDE\xAD\xBE\xEF\xDE\xAD\xBE\xEF') # iv
-                      for i in product(b'\xff',                                         # usage
-                                       b'\x01\x02\x03\x04\x07\x08\x09\x0B\x0C\x0D',     # symmetric cipher algorithm
-                                       b'\x00',                                         # specifier (simple)
-                                       b'\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B') # hash algorithm
-                    ]]
-        ids = ['sis2k_' + str(i) for i in range(len(argvals[-1]))]
-
-    def sas2k():
-        global argvals
-        global ids
-
-        argvals += [[ (bytearray(i) +
-                      b'\xCA\xFE\xBA\xBE\xCA\xFE\xBA\xBE' + # salt
-                      b'\xDE\xAD\xBE\xEF\xDE\xAD\xBE\xEF')  # iv
-                      for i in product(b'\xff',                                         # usage
-                                       b'\x01\x02\x03\x04\x07\x08\x09\x0B\x0C\x0D',     # symmetric cipher algorithm
-                                       b'\x01',                                         # specifier (simple)
-                                       b'\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B') # hash algorithm
-                    ]]
-        ids += ['sis2k_' + str(i) for i in range(len(argvals[-1]))]
-
-    def is2k():
-        global argvals
-        global ids
-
-        argvals += [[ (bytearray(i) +
-                       b'\xCA\xFE\xBA\xBE\xCA\xFE\xBA\xBE' + # salt
-                       b'\x10' +                             # count
-                       b'\xDE\xAD\xBE\xEF\xDE\xAD\xBE\xEF')  # iv
-                      for i in product(b'\xff',                                         # usage
-                                       b'\x01\x02\x03\x04\x07\x08\x09\x0B\x0C\x0D',     # symmetric cipher algorithm
-                                       b'\x03',                                         # specifier (simple)
-                                       b'\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B') # hash algorithm
-                    ]]
-        ids += ['is2k_' + str(i) for i in range(len(argvals[-1]))]
-
-    def comp_alg():
-        global argvals
-        global ids
-        argvals += [[0, 1, 2, 3]]
-        ids = ['Uncompressed', 'ZIP', 'ZLIB', 'BZ2']
-
-    @CWD_As('tests/testdata/subpackets')
-    def sigsubpacket():
-        global tdata
-        tdata += [sorted([ os.path.abspath(f) for f in os.listdir('.') if f.endswith('signature') ])]
-
-    @CWD_As('tests/testdata/subpackets')
-    def uasubpacket():
-        global tdata
-        tdata += [sorted([ os.path.abspath(f) for f in os.listdir('.') if f.endswith('userattr') ])]
-
-    @CWD_As('tests/testdata/packets')
-    def packet():
-        global tdata
-        tdata += [sorted([ os.path.abspath(f) for f in os.listdir('.') ])]
-
-    @CWD_As('tests/testdata/packets')
-    def ekpacket():
-        global tdata
-        tdata += [sorted([ os.path.abspath(f) for f in os.listdir('.') if f.startswith('05.v4.enc') ])]
-
-    @CWD_As('tests/testdata/packets')
-    def ukpacket():
-        global tdata
-        tdata += [sorted([ os.path.abspath(f) for f in os.listdir('.') if f.startswith('05.v4.unc') ])]
-
-    @CWD_As('tests/testdata/blocks')
-    def block():
-        global tdata
-        tdata += [sorted([ os.path.abspath(f) for f in os.listdir('.') if f.endswith('.asc') ])]
-
-    @CWD_As('tests/testdata/blocks')
-    def rsasigblock():
-        global tdata
-        tdata += [[os.path.abspath('rsasignature.asc')]]
-
-    @CWD_As('tests/testdata/blocks')
-    def rsapubblock():
-        global tdata
-        tdata += [[os.path.abspath('rsapubkey.asc')]]
-
-    @CWD_As('tests/testdata/blocks')
-    def rsaprivblock():
-        global tdata
-        tdata += [[os.path.abspath('rsaseckey.asc')]]
-
-    @CWD_As('tests/testdata/blocks')
-    def clearblock():
-        global tdata
-        tdata += [[os.path.abspath(f) for f in os.listdir('.') if f.startswith('cleartext')]]
-
-    @CWD_As('tests/testdata/blocks')
-    def litblock():
-        global tdata
-        tdata += [[os.path.abspath('message.literal.asc')]]
-
-    @CWD_As('tests/testdata/blocks')
-    def compblock():
-        global tdata
-        tdata += [[os.path.abspath('message.compressed.asc')]]
-
-    @CWD_As('tests/testdata/blocks')
-    def onepassblock():
-        global tdata
-        tdata += [[os.path.abspath('message.onepass.asc'), os.path.abspath('message.two_onepass.asc')]]
-
-    @CWD_As('tests/testdata/blocks')
-    def encblock():
-        global tdata
-        tdata += [[os.path.abspath('message.encrypted.asc'), os.path.abspath('message.encrypted.signed.asc')]]
-
-    @CWD_As('tests/testdata/signatures')
-    def sigf():
-        global argvals
-        global ids
-        argvals += [ sorted(set(os.path.abspath(f.split('.')[0]) for f in os.listdir('.'))) ]
-        ids += sorted(set(f.split('.')[0] for f in os.listdir('.')))
-
-    @CWD_As('tests/testdata/keys')
-    def revkey():
-        global tdata
-        tdata += [[os.path.abspath(f) for f in os.listdir('.') if '.rev.' in f and f.endswith('.asc')]]
-
-    @CWD_As('tests/testdata/keys')
-    def rsakey():
-        global tdata
-        tdata += [[os.path.abspath('rsa.asc')]]
-
-    @CWD_As('tests/testdata/keys')
-    def dsakey():
-        global tdata
-        tdata += [[os.path.abspath('dsa.asc')]]
-
-    @CWD_As('tests/testdata/keys')
-    def encrsakey():
-        global tdata
-        tdata += [[os.path.abspath('rsa.cast5.asc')]]
-
-    @CWD_As('tests/testdata/messages')
-    def rsamessage():
-        global tdata
-        tdata += [sorted([os.path.abspath(f) for f in os.listdir('.') if f.startswith('message') and '.rsa.' in f])]
-
-    @CWD_As('tests/testdata/messages')
-    def dsamessage():
-        global tdata
-        tdata += [sorted([os.path.abspath(f) for f in os.listdir('.') if f.startswith('message') and '.dsa.' in f])]
-
-    @CWD_As('tests/testdata/messages')
-    def passmessage():
-        global tdata
-        tdata += [sorted([os.path.abspath(f) for f in os.listdir('.') if f.startswith('message') and '.pass.' in f])]
-
-    @CWD_As('tests/testdata/messages')
-    def ctmessage():
-        global tdata
-        tdata += [sorted([os.path.abspath(f) for f in os.listdir('.') if f.startswith('cleartext')])]
-
-    @CWD_As('tests/testdata')
-    def ascrings():
-        global argvals
-        global ids
-        argvals += [[[os.path.abspath('pubtest.asc'), os.path.abspath('sectest.asc')]]]
-        ids += ['ascrings']
-
-    @CWD_As('tests/testdata')
-    def lit():
-        global argvals
-        global ids
-        argvals += [[os.path.abspath('lit')]]
-        ids += ['lit']
-
-    @CWD_As('tests/testdata')
-    def lit2():
-        global argvals
-        global ids
-        argvals += [[os.path.abspath('lit2')]]
-        ids += ['lit2']
-
-    @CWD_As('tests/testdata')
-    def lit_de():
-        global argvals
-        global ids
-        argvals += [[os.path.abspath('lit_de')]]
-        ids += ['lit_de']
-
-    # run all inner functions that match fixturenames
-    # I organized it like this for easy code folding in PyCharm :)
-    for fn in metafunc.fixturenames:
-        if fn in locals():
-            params += [fn]
-            locals()[fn]()
-
-    if tdata != []:
-        # zip sublists together
-        tdata = list(zip(*tdata))
-
-        for i, fa in enumerate(tdata):
-            at = []
-            for a, f in enumerate(fa):
-                if not f.endswith('.asc'):
-                    _b = bytearray(os.path.getsize(f))
-                    with open(f, 'rb') as fo:
-                        fo.readinto(_b)
-
-                    _b += b'\xca\xfe\xba\xbe'
-
-                else:
-                    with open(f, 'r') as fo:
-                        _b = fo.read()
-
-                at.append(_b)
-            argvals += [tuple(at)]
-
-        if len(ids) == 0:
-            ids = [ '_'.join(re.split('\.', os.path.basename(f[0]))[:-1]) for f in tdata ]
-
-    if params != []:
-        para = ','.join(params)
-        al = set(len(a) for a in argvals)
-
-        # make sure argvals is a list of tuples if it isn't already
-        if not isinstance(argvals[0], tuple):
-            argvals = list(zip(*argvals))
-
-        # if there is only one param, it should actually just be a list of arguments
-        if len(params) == 1 and isinstance(argvals[0], tuple):
-            argvals = [i[0] for i in argvals]
-
-        try:
-            metafunc.parametrize(para, argvals, ids=ids, scope="class")
-
-        except ValueError:
-            print("params: " + str(para))
-            print("argvals: " + str(argvals))
-            print("ids: " + str(ids))
-            raise
+        metafunc.parametrize(','.join(k for k, _ in funcargs),
+                             list(zip(*[v for _, v in funcargs])) if len(funcargs) > 1 else [vi for _, v in funcargs for vi in v])

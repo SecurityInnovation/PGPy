@@ -1,14 +1,10 @@
 """ test parsing packets
 """
-from __future__ import unicode_literals
-import pytest
-
-from pgpy.errors import PGPDecryptionError
+import glob
+import os
 
 from pgpy.packet import Packet
 from pgpy.packet import Opaque
-
-from pgpy.constants import PubKeyAlgorithm
 
 
 _pclasses = {
@@ -31,7 +27,17 @@ _pclasses = {
     0x13: 'MDC',
 }
 
+
+def binload(f):
+    with open(f, 'rb') as ff:
+        return bytearray(ff.read())
+
+
 class TestPacket(object):
+    params = {
+        'packet': sorted([ binload(os.path.abspath(f)) + b'\xca\xfe\xba\xbe'
+                           for f in glob.glob('tests/testdata/packets/[0-9]*') ])
+    }
     def test_load(self, packet):
         b = packet[:]
         p = Packet(packet)
@@ -61,39 +67,3 @@ class TestPacket(object):
         else:
             # fallback to opaque
             assert isinstance(p, Opaque)
-
-    def test_decrypt_enckey(self, ekpacket, ukpacket):
-        # parse the encrypted and decrypted version
-        ep = Packet(ekpacket)
-        up = Packet(ukpacket)
-
-        # verify that we are comparing the same key
-        assert ep.fingerprint == up.fingerprint
-
-        # verify that ep's secmaterial fields are empty
-
-        if ep.pkalg == PubKeyAlgorithm.RSAEncryptOrSign:
-            assert ep.keymaterial.d == 0
-            assert ep.keymaterial.p == 0
-            assert ep.keymaterial.q == 0
-            assert ep.keymaterial.u == 0
-        if ep.pkalg in [PubKeyAlgorithm.DSA, PubKeyAlgorithm.ElGamal]:
-            assert ep.keymaterial.x == 0
-
-        # verify trying to unprotect using the wrong password doesn't work
-        # also try with a purposely unicode password
-        with pytest.raises(PGPDecryptionError):
-            ep.unprotect("TheWrongPassword")
-            ep.unprotect("Ma\u00F1ana")
-
-        # now unprotect with the correct password
-        ep.unprotect("QwertyUiop")
-
-        # and verify that it matches the unencrypted version
-        if ep.pkalg == PubKeyAlgorithm.RSAEncryptOrSign:
-            assert ep.keymaterial.d == up.keymaterial.d
-            assert ep.keymaterial.p == up.keymaterial.p
-            assert ep.keymaterial.q == up.keymaterial.q
-            assert ep.keymaterial.u == up.keymaterial.u
-        if ep.pkalg in [PubKeyAlgorithm.DSA, PubKeyAlgorithm.ElGamal]:
-            assert ep.keymaterial.x == up.keymaterial.x

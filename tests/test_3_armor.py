@@ -2,6 +2,8 @@
 """
 import pytest
 
+import glob
+
 from datetime import datetime
 
 from pgpy.constants import CompressionAlgorithm
@@ -15,20 +17,114 @@ from pgpy.pgp import PGPKey
 from pgpy.pgp import PGPMessage
 from pgpy.pgp import PGPSignature
 
-from pgpy.types import Exportable
-
 
 # generic block tests
 class TestBlocks(object):
+    params = {
+        'block': glob.glob('tests/testdata/blocks/*.asc')
+    }
+    attrs = {
+        'tests/testdata/blocks/message.compressed.asc':
+            [('type',         'compressed'),
+             ('is_signed',    False),
+             ('is_encrypted', False),
+             ('message',      b"This is stored, literally\\!\n\n")],
+        'tests/testdata/blocks/message.literal.asc':
+            [('type',         'literal'),
+             ('is_signed',    False),
+             ('is_encrypted', False),
+             ('message',      b"This is stored, literally\\!\n\n")],
+        'tests/testdata/blocks/message.onepass.asc':
+            [('type',         'signed'),
+             ('is_signed',    True),
+             ('is_encrypted', False),
+             ('message',      b"This is stored, literally\\!\n\n")],
+        'tests/testdata/blocks/message.two_onepass.asc':
+            [('type',         'signed'),
+             ('is_signed',    True),
+             ('is_encrypted', False),
+             ('message',      b"This is stored, literally\\!\n\n")],
+        'tests/testdata/blocks/message.signed.asc':
+            [('type',         'signed'),
+             ('is_signed',    True),
+             ('is_encrypted', False),
+             ('message',      b"This is stored, literally\\!\n\n")],
+        'tests/testdata/blocks/cleartext.asc':
+            [('type',         'cleartext'),
+             ('is_signed',    True),
+             ('is_encrypted', False),
+             ('message',      "This is stored, literally\\!\n")],
+        'tests/testdata/blocks/cleartext.twosigs.asc':
+            [('type',         'cleartext'),
+             ('is_signed',    True),
+             ('is_encrypted', False),
+             ('message',      "This is stored, literally\\!\n")],
+        'tests/testdata/blocks/message.encrypted.asc':
+            [('type',         'encrypted'),
+             ('is_signed',    False),
+             ('is_encrypted', True)],
+        'tests/testdata/blocks/message.encrypted.signed.asc':
+            [('type',         'encrypted'),
+             ('is_signed',    False),
+             ('is_encrypted', True)],
+        'tests/testdata/blocks/rsapubkey.asc':
+            [('fingerprint', "F429 4BC8 094A 7E05 85C8 5E86 3747 3B37 58C4 4F36"),
+             ('magic',       "PUBLIC KEY BLOCK"),
+             ('parent',      None),
+             ('cipherprefs', [SymmetricKeyAlgorithm.AES256, SymmetricKeyAlgorithm.AES192, SymmetricKeyAlgorithm.AES128]),
+             ('compprefs',   [CompressionAlgorithm.ZLIB]),
+             ('hashprefs',   [HashAlgorithm.SHA256]),
+             ('usageflags',  [KeyFlags.Certify])],
+        'tests/testdata/blocks/rsaseckey.asc':
+            [('fingerprint', "F429 4BC8 094A 7E05 85C8 5E86 3747 3B37 58C4 4F36"),
+             ('magic',       "PRIVATE KEY BLOCK"),
+             ('parent',      None),
+             ('cipherprefs', [SymmetricKeyAlgorithm.AES256, SymmetricKeyAlgorithm.AES192, SymmetricKeyAlgorithm.AES128,
+                              SymmetricKeyAlgorithm.CAST5, SymmetricKeyAlgorithm.TripleDES]),
+             ('compprefs',   [CompressionAlgorithm.ZLIB, CompressionAlgorithm.BZ2, CompressionAlgorithm.ZIP]),
+             ('hashprefs',   [HashAlgorithm.SHA256, HashAlgorithm.SHA1, HashAlgorithm.SHA384, HashAlgorithm.SHA512,
+                              HashAlgorithm.SHA224]),
+             ('usageflags',  [KeyFlags.Certify])],
+        'tests/testdata/blocks/rsasignature.asc':
+            [('__sig__',       b'\x70\x38\x79\xd0\x58\x70\x58\x7b\x50\xe6\xab\x8f\x9d\xc3\x46\x2c\x5a\x6b\x98\x96\xcf'
+                               b'\x3b\xa3\x79\x13\x08\x6d\x90\x9d\x67\xd2\x48\x7d\xd7\x1a\xa5\x98\xa7\x8f\xca\xe3\x24'
+                               b'\xd4\x19\xab\xe5\x45\xc5\xff\x21\x0c\x72\x88\x91\xe6\x67\xd7\xe5\x00\xb3\xf5\x55\x0b'
+                               b'\xd0\xaf\x77\xb3\x7e\xa4\x79\x59\x06\xa2\x05\x44\x9d\xd2\xa9\xcf\xb1\xf8\x03\xc1\x90'
+                               b'\x81\x87\x36\x1a\xa6\x5c\x79\x98\xfe\xdb\xdd\x23\x54\x69\x92\x2f\x0b\xc4\xee\x2a\x61'
+                               b'\x77\x35\x59\x6e\xb2\xe2\x1b\x80\x61\xaf\x2d\x7a\x64\x38\xfe\xe3\x95\xcc\xe8\xa4\x05'
+                               b'\x55\x5d'),
+            ('cipherprefs',    []),
+            ('compprefs',      []),
+            ('created',        datetime.utcfromtimestamp(1402615373)),
+            ('expired',        False),
+            ('exportable',     True),
+            ('features',       []),
+            ('hash2',          b'\xc4\x24'),
+            ('hash_algorithm', HashAlgorithm.SHA512),
+            ('hashprefs',      []),
+            ('key_algorithm',  PubKeyAlgorithm.RSAEncryptOrSign),
+            ('key_flags',      []),
+            ('keyserver',      ''),
+            ('keyserverprefs', []),
+            ('magic',          "SIGNATURE"),
+            ('notation',       {}),
+            ('revocable',      True),
+            ('revocation_key', None),
+            ('signer',         'FCAE54F74BA27CF7'),
+            ('type',           SignatureType.BinaryDocument)]
+    }
     def test_load(self, block):
-        if 'SIGNATURE' in block.splitlines()[0]:
+        with open(block) as bf:
+            bc = bf.read()
+
+        if 'SIGNATURE' in bc.splitlines()[0]:
             p = PGPSignature()
 
-        elif 'KEY' in block.splitlines()[0]:
+        elif 'KEY' in bc.splitlines()[0]:
             p = PGPKey()
 
 
-        elif 'MESSAGE' in block.splitlines()[0]:
+        elif 'MESSAGE' in bc.splitlines()[0]:
             p = PGPMessage()
 
         else:
@@ -36,184 +132,11 @@ class TestBlocks(object):
             assert False
 
         # load ASCII
-        p.parse(block)
+        p.parse(bc)
 
-        assert str(p) == block
+        assert str(p) == bc
 
-
-# PGPSignature specific tests
-class TestPGPSignature(object):
-    def test_load_rsa(self, rsasigblock):
-        p = PGPSignature()
-        p.parse(rsasigblock)
-
-        # check member and property output
-        assert p._signature is not None
-        assert p.__sig__ == b'\x70\x38\x79\xd0\x58\x70\x58\x7b\x50\xe6\xab\x8f\x9d\xc3\x46\x2c\x5a\x6b\x98\x96\xcf\x3b' \
-                            b'\xa3\x79\x13\x08\x6d\x90\x9d\x67\xd2\x48\x7d\xd7\x1a\xa5\x98\xa7\x8f\xca\xe3\x24\xd4\x19' \
-                            b'\xab\xe5\x45\xc5\xff\x21\x0c\x72\x88\x91\xe6\x67\xd7\xe5\x00\xb3\xf5\x55\x0b\xd0\xaf\x77' \
-                            b'\xb3\x7e\xa4\x79\x59\x06\xa2\x05\x44\x9d\xd2\xa9\xcf\xb1\xf8\x03\xc1\x90\x81\x87\x36\x1a' \
-                            b'\xa6\x5c\x79\x98\xfe\xdb\xdd\x23\x54\x69\x92\x2f\x0b\xc4\xee\x2a\x61\x77\x35\x59\x6e\xb2' \
-                            b'\xe2\x1b\x80\x61\xaf\x2d\x7a\x64\x38\xfe\xe3\x95\xcc\xe8\xa4\x05\x55\x5d'
-        assert p.cipherprefs == []
-        assert p.compprefs == []
-        assert p.created == datetime.utcfromtimestamp(1402615373)
-        assert p.expired is False
-        assert p.exportable is True
-        assert p.features == []
-        assert p.hash2 == b'\xc4\x24'
-        assert p.hash_algorithm == HashAlgorithm.SHA512
-        assert p.hashprefs == []
-        assert p.key_algorithm == PubKeyAlgorithm.RSAEncryptOrSign
-        assert p.key_flags == []
-        assert p.keyserver == ''
-        assert p.keyserverprefs == []
-        assert p.magic == "SIGNATURE"
-        assert p.notation == {}
-        assert p.revocable is True
-        assert p.revocation_key is None
-        # assert p.revoked is False  # not implemented yet
-        assert p.signer == 'FCAE54F74BA27CF7'
-        # assert p.target_signature is None  # not implemented yet
-        assert p.type == SignatureType.BinaryDocument
-        assert p.__bytes__() == bytes(Exportable.ascii_unarmor(rsasigblock)['body'])
-        assert str(p) == rsasigblock
-
-
-# PGPKey specific tests
-class TestPGPKey(object):
-    def test_load_rsapub(self, rsapubblock):
-        p = PGPKey()
-        r = p.parse(rsapubblock)
-
-        assert p.fingerprint == "F429 4BC8 094A 7E05 85C8 5E86 3747 3B37 58C4 4F36"
-        assert p.magic == "PUBLIC KEY BLOCK"
-        assert p.parent is None
-
-        assert len(p.userattributes) == 1
-        assert len(p.userids) == 1
-        assert len(p.signatures) == 0
-
-        # assert p.userids[0].primary
-        assert len(p.userattributes[0]._signatures) == 2
-        assert len(p.userids[0]._signatures) == 1
-
-        assert p.cipherprefs == [SymmetricKeyAlgorithm.AES256,
-                                 SymmetricKeyAlgorithm.AES192,
-                                 SymmetricKeyAlgorithm.AES128]
-        assert p.compprefs == [CompressionAlgorithm.ZLIB]
-        assert p.hashprefs == [HashAlgorithm.SHA256]
-        assert p.usageflags == [KeyFlags.Certify]
-
-        # check subkeys
-        assert len(p.subkeys) == 2
-        skfps = ["7CC4 6C3B E05F 9F9C 9144  CE8B 2A83 4D8E 5918 E886",
-                 "00EC FAF5 48AE B655 F861  8193 EEE0 97A0 17B9 79CA"]
-        skufs = [[KeyFlags.Sign],
-                 [KeyFlags.EncryptStorage, KeyFlags.EncryptCommunications]]
-        assert len(set([p] + [sk.parent for sk in p.subkeys.values()])) == 1
-        for sk, fp, ufs in zip(p.subkeys.values(), skfps, skufs):
-            assert sk.magic == "PUBLIC KEY BLOCK"
-            assert sk.ascii_headers == p.ascii_headers
-            assert sk.fingerprint == fp
-            ##TODO: some subkeys have 2; others have 1 (depending on if there is an embedded primary key binding signature)
-            assert len(sk.signatures) in [1, 2]
-            assert sk.usageflags == ufs
-
-        assert len(r['keys']) == 0
-        assert len(r['orphaned']) == 0
-
-    def test_load_rsapriv(self, rsaprivblock):
-        p = PGPKey()
-        r = p.parse(rsaprivblock)
-
-        assert p.fingerprint == "F429 4BC8 094A 7E05 85C8 5E86 3747 3B37 58C4 4F36"
-        assert p.magic == "PRIVATE KEY BLOCK"
-        assert p.parent is None
-
-        assert len(p.userattributes) == 0
-        assert len(p.userids) == 1
-
-        assert p.cipherprefs == [SymmetricKeyAlgorithm.AES256,
-                                 SymmetricKeyAlgorithm.AES192,
-                                 SymmetricKeyAlgorithm.AES128,
-                                 SymmetricKeyAlgorithm.CAST5,
-                                 SymmetricKeyAlgorithm.TripleDES]
-        assert p.compprefs == [CompressionAlgorithm.ZLIB,
-                               CompressionAlgorithm.BZ2,
-                               CompressionAlgorithm.ZIP]
-        assert p.usageflags == [KeyFlags.Certify]
-
-        # check subkeys
-        assert len(p.subkeys) == 2
-        skfps = ["7CC4 6C3B E05F 9F9C 9144  CE8B 2A83 4D8E 5918 E886",
-                 "00EC FAF5 48AE B655 F861  8193 EEE0 97A0 17B9 79CA"]
-        skufs = [[KeyFlags.Sign],
-                 [KeyFlags.EncryptStorage, KeyFlags.EncryptCommunications]]
-        assert len(set([p] + [sk.parent for sk in p.subkeys.values()])) == 1
-        for sk, fp, ufs in zip(p.subkeys.values(), skfps, skufs):
-            assert sk.magic == "PRIVATE KEY BLOCK"
-            assert sk.ascii_headers == p.ascii_headers
-            assert sk.fingerprint == fp
-            assert len(sk.signatures) in [1, 2]
-            assert sk.usageflags == ufs
-
-        assert len(r['keys']) == 0
-        assert len(r['orphaned']) == 0
-
-
-# PGPMessage specific tests
-class TestPGPMessage(object):
-    def test_cleartext(self, clearblock):
-        p = PGPMessage()
-        p.parse(clearblock)
-
-        assert p.type == 'cleartext'
-        assert p.is_signed
-        assert not p.is_encrypted
-
-        assert p.message == "This is stored, literally\\!\n"
-
-        assert all(isinstance(pkt, PGPSignature) for pkt in p._contents[1:])
-        assert len(p.__sig__) in [1, 2]
-
-    def test_literal(self, litblock):
-        p = PGPMessage()
-        p.parse(litblock)
-
-        assert p.type == 'literal'
-        assert not p.is_signed
-        assert not p.is_encrypted
-
-        assert p.message == bytearray(b"This is stored, literally\\!\n\n")
-
-        assert len(p.__sig__) == 0
-
-    def test_compressed(self, compblock):
-        p = PGPMessage()
-        p.parse(compblock)
-
-        assert p.type == 'compressed'
-        assert not p.is_signed
-        assert not p.is_encrypted
-
-        assert p.message == bytearray(b"This is stored, literally\\!\n\n")
-
-        assert len(p.__sig__) == 0
-
-    def test_onepass(self, onepassblock):
-        p = PGPMessage()
-        p.parse(onepassblock)
-
-        assert p.type == 'signed'
-        assert p.is_signed
-        assert not p.is_encrypted
-
-        assert p.message == bytearray(b"This is stored, literally\\!\n\n")
-
-    def test_encrypted(self, encblock):
-        p = PGPMessage()
-        p.parse(encblock)
-
-        assert p.type == 'encrypted'
-        assert p.is_encrypted
+        # now check attrs
+        assert block in self.attrs
+        for attr, val in self.attrs[block]:
+            assert getattr(p, attr) == val
