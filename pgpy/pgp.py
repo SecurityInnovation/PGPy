@@ -680,8 +680,7 @@ class PGPKey(PGPObject, Exportable):
 
             # A signature was parsed!
             if isinstance(pkt, Signature):
-                sig = PGPSignature()
-                sig._signature = pkt
+                sig = PGPSignature.from_sigpkt(pkt)
 
                 # A KeyRevocation signature *must immediately* follow a *primary* key *only*
                 if sig.type == SignatureType.KeyRevocation and isinstance(last, PGPKey) and last.is_primary:
@@ -867,6 +866,12 @@ class PGPSignature(PGPObject, Exportable):
         sigpkt.pubalg = pkalg
         sigpkt.halg = halg
 
+        sig._signature = sigpkt
+        return sig
+
+    @classmethod
+    def from_sigpkt(cls, sigpkt):
+        sig = PGPSignature()
         sig._signature = sigpkt
         return sig
 
@@ -1102,8 +1107,8 @@ class PGPMessage(PGPObject, Exportable):
     def __sig__(self):
         _m = iter(self._contents)
         if self.is_compressed:
-            _m = itertools.chain(_m, iter([pkt for pkt in self._contents if isinstance(pkt, CompressedData)][0].packets))
-        return [i for i in _m if isinstance(i, PGPSignature)]
+            _m = itertools.chain(_m, iter(next(pkt for pkt in self._contents if isinstance(pkt, CompressedData)).packets))
+        return [ PGPSignature.from_sigpkt(i) if isinstance(i, Signature) else i for i in _m if isinstance(i, (PGPSignature, Signature))]
 
     @property
     def encrypters(self):
@@ -1321,17 +1326,13 @@ class PGPMessage(PGPObject, Exportable):
                 pkt = Packet(data)
                 if not isinstance(pkt, Signature):
                     warnings.warn("Discarded unexpected packet: {:s}".format(pkt.__class__.__name__), stacklevel=2)
-                sig = PGPSignature()
-                sig._signature = pkt
-                self._contents.append(sig)
+                self._contents.append(PGPSignature.from_sigpkt(pkt))
 
         else:
             while len(data) > 0:
                 pkt = Packet(data)
                 if isinstance(pkt, Signature):
-                    sig = PGPSignature()
-                    sig._signature = pkt
-                    self._contents.append(sig)
+                    self._contents.append(PGPSignature.from_sigpkt(pkt))
 
                 else:
                     self._contents.append(pkt)
