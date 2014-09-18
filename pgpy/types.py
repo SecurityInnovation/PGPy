@@ -443,7 +443,7 @@ class MetaDispatchable(abc.ABCMeta):
                 rcls = cls
 
             elif issubclass(cls, tuple(MetaDispatchable._roots)):
-                rcls = [ root for root in MetaDispatchable._roots if issubclass(cls, root) ][0]
+                rcls = next(root for root in MetaDispatchable._roots if issubclass(cls, root))
 
             ##TODO: else raise an exception of some kind, but this should never happen
 

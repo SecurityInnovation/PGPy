@@ -708,7 +708,7 @@ class PGPKey(PGPObject, Exportable):
                     # extract the Primary Key Binding Signature as well if there is one
                     if 'EmbeddedSignature' in sig._signature.subpackets:
                         _sig = PGPSignature()
-                        _sig._signature = sig._signature.subpackets['EmbeddedSignature'][0]
+                        _sig._signature = next(iter(sig._signature.subpackets['EmbeddedSignature']))
                         _sig.parent = sig
                         lk._signatures.append(_sig)
                         del _sig
@@ -740,13 +740,13 @@ class PGPSignature(PGPObject, Exportable):
     def cipherprefs(self):
         if 'PreferredSymmetricAlgorithms' not in self._signature.subpackets:
             return []
-        return self._signature.subpackets['h_PreferredSymmetricAlgorithms'][0].flags
+        return next(iter(self._signature.subpackets['h_PreferredSymmetricAlgorithms'])).flags
 
     @property
     def compprefs(self):
         if 'PreferredCompressionAlgorithms' not in self._signature.subpackets:
             return []
-        return self._signature.subpackets['h_PreferredCompressionAlgorithms'][0].flags
+        return next(iter(self._signature.subpackets['h_PreferredCompressionAlgorithms'])).flags
 
     @property
     def created(self):
@@ -789,7 +789,7 @@ class PGPSignature(PGPObject, Exportable):
     def hashprefs(self):
         if 'PreferredHashAlgorithms' not in self._signature.subpackets:
             return []
-        return self._signature.subpackets['h_PreferredHashAlgorithms'][0].flags
+        return next(iter(self._signature.subpackets['h_PreferredHashAlgorithms'])).flags
 
     @property
     def hash_algorithm(self):
@@ -802,7 +802,7 @@ class PGPSignature(PGPObject, Exportable):
     @property
     def key_flags(self):
         if 'KeyFlags' in self._signature.subpackets:
-            return self._signature.subpackets['h_KeyFlags'][0].flags
+            return next(iter(self._signature.subpackets['h_KeyFlags'])).flags
         return []
 
     @property
@@ -1144,8 +1144,8 @@ class PGPMessage(PGPObject, Exportable):
         if self.type in ['literal', 'compressed', 'signed']:
             _m = self._contents
             if self.is_compressed:
-                _m = [pkt for pkt in self._contents if isinstance(pkt, CompressedData)][0].packets
-            m = [pkt for pkt in _m if isinstance(pkt, LiteralData)][0]
+                _m = next(pkt for pkt in self._contents if isinstance(pkt, CompressedData)).packets
+            m = next(pkt for pkt in _m if isinstance(pkt, LiteralData))
 
             return m.contents
 
@@ -1246,7 +1246,7 @@ class PGPMessage(PGPObject, Exportable):
             if onepass:
                 _m = self._contents
                 if self.is_compressed:
-                    _m = [ pkt for pkt in self._contents if isinstance(pkt, CompressedData) ][0].packets
+                    _m = next(pkt for pkt in self._contents if isinstance(pkt, CompressedData)).packets
 
                 _m.insert(0, sig.make_onepass())
                 if isinstance(_m[1], OnePassSignature):

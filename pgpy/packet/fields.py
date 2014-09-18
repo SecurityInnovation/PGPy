@@ -605,9 +605,6 @@ class PrivKey(PubKey):
         self.chksum = 0
 
     def __bytes__(self):
-        # select the parent class that is a public key to iterate over the public key fields first
-        # and then
-        # pubc = [c for c in self.__class__.mro() if issubclass(c, PubKey) and not issubclass(c, PrivKey)][0]
         pubitems = len(list(super(self.__class__, self).__iter__()))
         _bytes = bytearray()
         for n, i in enumerate(self):
