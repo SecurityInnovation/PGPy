@@ -3,6 +3,7 @@
 this is where the armorable PGP block objects live
 """
 import binascii
+import bisect
 import collections
 import contextlib
 import itertools
@@ -160,7 +161,7 @@ class PGPKey(PGPObject, Exportable):
     @property
     def cipherprefs(self):
         if self.is_primary or len(self._uids) > 0:
-            return self._uids[0]._signatures[0].cipherprefs
+            return self._uids[0].selfsig.cipherprefs
 
         elif self.parent is not None:
             return self.parent.cipherprefs
@@ -171,7 +172,7 @@ class PGPKey(PGPObject, Exportable):
     @property
     def compprefs(self):
         if self.is_primary or len(self._uids) > 0:
-            return self._uids[0]._signatures[0].compprefs
+            return self._uids[0].selfsig.compprefs
 
         elif self.parent is not None:
             return self.parent.compprefs
@@ -196,7 +197,7 @@ class PGPKey(PGPObject, Exportable):
     @property
     def hashprefs(self):
         if self.is_primary or len(self._uids) > 0:
-            return self._uids[0]._signatures[0].hashprefs
+            return self._uids[0].selfsig.hashprefs
 
         elif self.parent is not None:
             return self.parent.hashprefs
@@ -269,6 +270,10 @@ class PGPKey(PGPObject, Exportable):
     def userattributes(self):
         return [u for u in self._uids if isinstance(u._uid, UserAttribute)]
 
+    @classmethod
+    def generate(cls):
+        raise NotImplementedError()
+
     def __init__(self):
         super(PGPKey, self).__init__()
         self._key = None
@@ -293,10 +298,6 @@ class PGPKey(PGPObject, Exportable):
             _bytes += sk.__bytes__()
 
         return bytes(_bytes)
-
-    @classmethod
-    def generate(cls):
-        raise NotImplementedError()
 
     def protect(self):
         raise NotImplementedError()
@@ -345,12 +346,25 @@ class PGPKey(PGPObject, Exportable):
         uid._uid.email = email
         uid._uid.update_hlen()
         uid._parent = self
-        uid._signatures.append(self.sign(uid, **prefs))
+        uid.add_signature(self.sign(uid, **prefs))
 
         if not prefs['primary']:
             self._uids.append(uid)
         else:
             self._uids.insert(0, uid)
+
+    def del_uid(self, search):
+        uidict = dict( (p, i)
+                       for i, u in enumerate(self._uids)
+                       for p in filter(lambda i: i is not None, [u.name, u.comment, u.email]) )
+
+        if search not in uidict:
+            raise PGPError("uid '{:s}' not found".format(search))
+
+        # self._uids.pop(uidict[search])
+        self._uids.rotate(-1 * uidict[search])
+        self._uids.popleft()
+        self._uids.rotate(uidict[search] - 1)
 
     def sign(self, subject, **kwargs):
         # default options
@@ -367,8 +381,13 @@ class PGPKey(PGPObject, Exportable):
         prefs.update(kwargs)
         _u = KeyFlags.Sign
 
+        ##TODO: clean up this preference precedence deal
         if prefs['inline']:
+            # inline signature forces the CanonicalDocument signature type
             prefs['sigtype'] = SignatureType.CanonicalDocument
+        if isinstance(subject, PGPUID) and 'sigtype' not in kwargs:
+            # if this is a PGPUID, default to Generic_Cert
+            prefs['sigtype'] = SignatureType.Generic_Cert
 
         if prefs['sigtype'] in [SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
                                 SignatureType.Positive_Cert]:
@@ -718,7 +737,7 @@ class PGPKey(PGPObject, Exportable):
                 # or another Certification signature.
                 if sig.type in [SignatureType.Positive_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
                                 SignatureType.Generic_Cert, SignatureType.CertRevocation] and isinstance(lns, (PGPUID)):
-                    lns._signatures.append(sig)
+                    lns.add_signature(sig)
                     last = sig
                     continue
 
@@ -1077,6 +1096,11 @@ class PGPUID(object):
         return isinstance(self._uid, UserAttribute)
 
     @property
+    def selfsig(self):
+        if self._parent is not None:
+            return next(sig for sig in self._signatures if sig.signer == self._parent.fingerprint.keyid)
+
+    @property
     def signers(self):
         return set(s.signer for s in self.__sig__)
 
@@ -1092,6 +1116,14 @@ class PGPUID(object):
         self._uid = None
         self._signatures = collections.deque()
         self._parent = None
+
+    def add_signature(self, sig):
+        # self._signatures should be sorted by creation time, from newest to oldest
+        sigind = [s.created for s in self._signatures]
+        i = bisect.bisect_left(sigind, sig.created)
+        self._signatures.rotate(-1 * i)
+        self._signatures.appendleft(sig)
+        self._signatures.rotate(i + 1)
 
 
 class PGPMessage(PGPObject, Exportable):

@@ -69,6 +69,11 @@ class CWD_As(object):
 _gpg_args = ['/usr/bin/gpg', '--options', './pgpy.gpg.conf']
 _gpg_env = os.environ.copy()
 _gpg_env['GNUPGHOME'] = os.path.abspath(os.path.abspath('tests/testdata'))
+_gpg_kwargs = dict()
+_gpg_kwargs['cwd'] = 'tests/testdata'
+_gpg_kwargs['env'] = _gpg_env
+_gpg_kwargs['stdout'] = subprocess.PIPE
+_gpg_kwargs['stderr'] = subprocess.STDOUT
 
 
 # fixtures
@@ -94,8 +99,9 @@ def gpg_import():
     @contextlib.contextmanager
     def _gpg_import(*keypaths):
         gpg_args = _gpg_args + ['--import',] + list(keypaths)
-        gpgdec = subprocess.Popen(gpg_args, cwd='tests/testdata', env=_gpg_env,
-                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        gpg_kwargs = _gpg_kwargs.copy()
+
+        gpgdec = subprocess.Popen(gpg_args, **gpg_kwargs)
         gpgdec.wait()
         gpgo, _ = gpgdec.communicate()
 
@@ -109,12 +115,28 @@ def gpg_import():
 
 
 @pytest.fixture()
+def gpg_check_sigs():
+    def _gpg_check_sigs(*keyids):
+        gpg_args = _gpg_args + ['--check-sigs'] + list(keyids)
+        gpg_kwargs = _gpg_kwargs.copy()
+
+        gpgdec = subprocess.Popen(gpg_args, **gpg_kwargs)
+        gpgdec.wait()
+        gpgo, _ = gpgdec.communicate()
+        gpgo = gpgo.decode()
+        return 'sig-' not in gpgo
+
+    return _gpg_check_sigs
+
+
+@pytest.fixture()
 def gpg_verify():
-    @CWD_As('tests/testdata')
     def _gpg_verify(gpg_subjpath, gpg_sigpath=None, keyid=None):
         gpg_args = _gpg_args + [ a for a in ['--verify', gpg_sigpath, gpg_subjpath] if a is not None ]
+        gpg_kwargs = _gpg_kwargs.copy()
 
-        gpgdec = subprocess.Popen(gpg_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=_gpg_env)
+        gpgdec = subprocess.Popen(gpg_args, **gpg_kwargs)
+        gpgdec.wait()
         gpgo, _ = gpgdec.communicate()
         gpgo = gpgo.decode()
         sigs = dict(re.findall(r'^gpg: Signature made .+\ngpg: \s+ using [A-Z]+ key ([0-9A-F]+)\n'
@@ -131,21 +153,20 @@ def gpg_verify():
 
 @pytest.fixture
 def gpg_decrypt():
-    @CWD_As('tests/testdata')
     def _gpg_decrypt(encmsgpath, passphrase=None):
         gpg_args = _gpg_args + ['--decrypt', encmsgpath]
-        _cokwargs = {'stdout': subprocess.PIPE,
-                     'stderr': subprocess.PIPE,
-                     'env': _gpg_env}
+        gpg_kwargs = _gpg_kwargs.copy()
+        gpg_kwargs['stderr'] = subprocess.PIPE
         _comargs = ()
 
         if passphrase is not None:
             gpg_args = _gpg_args + ['--batch', '--passphrase-fd', '0', '--decrypt', encmsgpath]
-            _cokwargs['stdin'] = subprocess.PIPE
+            gpg_kwargs['stdin'] = subprocess.PIPE
             _comargs = (passphrase.encode(),)
 
-        gpgdec = subprocess.Popen(gpg_args, **_cokwargs)
+        gpgdec = subprocess.Popen(gpg_args, **gpg_kwargs)
         gpgo, gpge = gpgdec.communicate(*_comargs)
+        gpgdec.wait()
 
         return gpgo.decode() if gpgo is not None else gpge
 
@@ -154,11 +175,12 @@ def gpg_decrypt():
 
 @pytest.fixture
 def gpg_print():
-    @CWD_As('tests/testdata')
     def _gpg_print(infile):
         gpg_args = _gpg_args + ['-o-', infile]
+        gpg_kwargs = _gpg_kwargs.copy()
+        gpg_kwargs['stderr'] = subprocess.PIPE
 
-        gpgdec = subprocess.Popen(gpg_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=_gpg_env)
+        gpgdec = subprocess.Popen(gpg_args, **gpg_kwargs)
         gpgdec.wait()
         gpgo, gpge = gpgdec.communicate()
 

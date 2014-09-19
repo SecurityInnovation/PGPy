@@ -171,8 +171,6 @@ class TestBlocks(object):
         # load ASCII
         p.parse(bc)
 
-        assert str(p) == bc
-
         # now check attrs
         assert block in self.attrs
         for attr, val in self.attrs[block]:

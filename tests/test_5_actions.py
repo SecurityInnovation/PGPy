@@ -27,7 +27,6 @@ def _pgpmessage(f):
     msg.parse(f)
     return msg
 
-
 def _pgpkey(f):
     key = PGPKey()
     key.parse(f)
@@ -92,6 +91,9 @@ class TestPGPKey(object):
         'sigsig':     [ _pgpsignature(f) for f in sorted(glob.glob('tests/testdata/signatures/*.sig.asc')) ],
         'sigsubj':    sorted(glob.glob('tests/testdata/signatures/*.subj'))
     }
+    targettes = [ _pgpkey(f) for f in sorted(glob.glob('tests/testdata/keys/targette*.asc')) ]
+    ikeys = [os.path.join(*f.split(os.path.sep)[-2:]) for f in glob.glob('tests/testdata/keys/*.pub.asc')]
+
     def test_unlock(self, enc, sec):
         assert enc.is_protected
         assert not enc.is_unlocked
@@ -238,8 +240,22 @@ class TestPGPKey(object):
             # verify with PGPy only; GPG does not support timestamp signatures
             assert sec.verify(None, tsig)
 
-    def test_sign_userid(self):
-        pytest.skip("not implemented yet")
+    def test_sign_userid(self, sec, pub, write_clean, gpg_import, gpg_check_sigs):
+        for tk in self.targettes:
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore')
+                # sign tk's primary uid generically
+                tk.userids[0].add_signature(sec.sign(tk.userids[0]))
+
+                # verify with PGPy
+                assert pub.verify(tk.userids[0])
+
+            # verify with GnuPG
+            tkfp = '{:s}.asc'.format(tk.fingerprint.shortid)
+            ikeys = self.ikeys
+            ikeys.append(os.path.join('.', tkfp))
+            with write_clean(os.path.join('tests', 'testdata', tkfp), 'w', str(tk)), gpg_import(*ikeys):
+                assert gpg_check_sigs(tk.fingerprint.keyid)
 
     def test_sign_key(self):
         pytest.skip("not implemented yet")
@@ -305,7 +321,7 @@ class TestPGPKey(object):
                 with gpg_import(os.path.join(*kp.split(os.path.sep)[-2:])):
                     assert gpg_decrypt('./aemsg.asc') == 'This is stored, literally\!\n\n'
 
-    def test_add_uid(self, sec, write_clean, gpg_import):
+    def test_add_uid(self, sec, pub, write_clean, gpg_import):
         sec.add_uid('Seconduser Aidee',
                  comment='Temporary',
                  email="seconduser.aidee@notarealemailaddress.com",
@@ -315,23 +331,28 @@ class TestPGPKey(object):
                  compprefs=[CompressionAlgorithm.ZIP, CompressionAlgorithm.Uncompressed],
                  primary=False)
 
-        with write_clean('tests/testdata/{:s}.asc'.format(sec.fingerprint.shortid), 'w', str(sec)):
-            u = next(k for k in sec.userids if k.name == 'Seconduser Aidee')
-            # assert not u.primary
-            assert u.is_uid
-            assert u.name == 'Seconduser Aidee'
-            assert u.comment == 'Temporary'
-            assert u.email == 'seconduser.aidee@notarealemailaddress.com'
-            assert u._signatures[0].type == SignatureType.Positive_Cert
-            assert u._signatures[0].hashprefs == [HashAlgorithm.SHA256, HashAlgorithm.SHA1]
-            assert u._signatures[0].cipherprefs == [SymmetricKeyAlgorithm.AES128, SymmetricKeyAlgorithm.CAST5]
-            assert u._signatures[0].compprefs == [CompressionAlgorithm.ZIP, CompressionAlgorithm.Uncompressed]
+        u = next(k for k in sec.userids if k.name == 'Seconduser Aidee')
+        # assert not u.primary
+        assert u.is_uid
+        assert u.name == 'Seconduser Aidee'
+        assert u.comment == 'Temporary'
+        assert u.email == 'seconduser.aidee@notarealemailaddress.com'
+        assert u._signatures[0].type == SignatureType.Positive_Cert
+        assert u._signatures[0].hashprefs == [HashAlgorithm.SHA256, HashAlgorithm.SHA1]
+        assert u._signatures[0].cipherprefs == [SymmetricKeyAlgorithm.AES128, SymmetricKeyAlgorithm.CAST5]
+        assert u._signatures[0].compprefs == [CompressionAlgorithm.ZIP, CompressionAlgorithm.Uncompressed]
 
-            # verify with PGPy
-            with warnings.catch_warnings():
-                warnings.simplefilter('ignore')
-                assert sec.verify(sec)
+        # verify with PGPy
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            assert pub.verify(sec)
 
-            # verify with GPG
-            with gpg_import('./{:s}.asc'.format(sec.fingerprint.shortid)) as kio:
-                assert 'invalid self-signature' not in kio
+        # verify with GPG
+        tkfp = '{:s}.asc'.format(sec.fingerprint.shortid)
+        with write_clean(os.path.join('tests', 'testdata', tkfp), 'w', str(sec)), \
+                gpg_import(os.path.join('.', tkfp)) as kio:
+            assert 'invalid self-signature' not in kio
+
+        # remove Seconduser Aidee
+        sec.del_uid('Seconduser Aidee')
+        assert 'Seconduser Aidee' not in [u.name for u in sec.userids]
