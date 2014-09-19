@@ -257,10 +257,38 @@ class TestPGPKey(object):
             with write_clean(os.path.join('tests', 'testdata', tkfp), 'w', str(tk)), gpg_import(*ikeys):
                 assert gpg_check_sigs(tk.fingerprint.keyid)
 
+    def test_revoke_certification(self, sec, pub, write_clean, gpg_import, gpg_check_sigs):
+        for tk in self.targettes:
+            # we should have already signed the key in test_sign_userid above
+            assert sec.fingerprint.keyid in tk.userids[0].signers
+
+            with warnings.catch_warnings():
+                # revoke that certification!
+                tk.userids[0].add_signature(sec.sign(tk.userids[0], sigtype=SignatureType.CertRevocation))
+
+                # verify with PGPy
+                assert pub.verify(tk.userids[0])
+
+            # verify with GnuPG
+            tkfp = '{:s}.asc'.format(tk.fingerprint.shortid)
+            ikeys = self.ikeys
+            ikeys.append(os.path.join('.', tkfp))
+            with write_clean(os.path.join('tests', 'testdata', tkfp), 'w', str(tk)), gpg_import(*ikeys):
+                assert gpg_check_sigs(tk.fingerprint.keyid)
+
     def test_sign_key(self):
         pytest.skip("not implemented yet")
 
+    def test_revoke_key(self):
+        pytest.skip("not implemented yet")
+
     def test_sign_subkey(self):
+        pytest.skip("not implemented yet")
+
+    def test_revoke_subkey(self):
+        pytest.skip("not implemented yet")
+
+    def test_bind_subkey(self):
         pytest.skip("not implemented yet")
 
     def test_decrypt_rsa_message(self, rsa_encmsg):
