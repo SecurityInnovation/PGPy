@@ -12,6 +12,7 @@ from .pgp import PGPKey
 from .pgp import PGPKeyring
 from .pgp import PGPMessage
 from .pgp import PGPSignature
+from .pgp import PGPUID
 
 __all__ = [__author__,
            __copyright__,
@@ -22,5 +23,6 @@ __all__ = [__author__,
            PGPKey,
            PGPKeyring,
            PGPMessage,
-           PGPSignature
+           PGPSignature,
+           PGPUID
            ]

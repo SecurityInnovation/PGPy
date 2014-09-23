@@ -8,6 +8,7 @@ from pgpy import constants
 from pgpy import errors
 from pgpy.pgp import PGPKey
 from pgpy.pgp import PGPSignature
+from pgpy.pgp import PGPUID
 from pgpy.pgp import PGPMessage
 from pgpy.pgp import PGPKeyring
 
@@ -20,3 +21,4 @@ def test_exports():
     assert PGPSignature in members
     assert PGPMessage in members
     assert PGPKeyring in members
+    assert PGPUID in members

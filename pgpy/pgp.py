@@ -222,6 +222,12 @@ class PGPSignature(PGPObject, Exportable):
     def __repr__(self):
         return "<PGPSignature [{:s}] object at 0x{:02x}>".format(self.type.name, id(self))
 
+    def __lt__(self, other):
+        return self.created < other.created
+
+    def __gt__(self, other):
+        return self.created > other.created
+
     def hashdata(self, subject):
         _data = bytearray()
 
@@ -427,6 +433,21 @@ class PGPUID(object):
         if self.is_ua:
             return self._uid.subpackets.__bytes__()
 
+    @classmethod
+    def new_uid(cls, name, comment="", email=""):
+        uid = PGPUID()
+        uid._uid = UserID()
+        uid._uid.name = name
+        uid._uid.comment = comment
+        uid._uid.email = email
+        uid._uid.update_hlen()
+
+        return uid
+
+    @classmethod
+    def new_uattr(cls):
+        raise NotImplementedError()
+
     def __init__(self):
         self._uid = None
         self._signatures = collections.deque()
@@ -434,11 +455,10 @@ class PGPUID(object):
 
     def add_signature(self, sig):
         # self._signatures should be sorted by creation time, from newest to oldest
-        sigind = [s.created for s in self._signatures]
-        i = bisect.bisect_left(sigind, sig.created)
-        self._signatures.rotate(-1 * i)
+        i = bisect.bisect_left(self._signatures, sig)
+        self._signatures.rotate(- i)
         self._signatures.appendleft(sig)
-        self._signatures.rotate(i + 1)
+        self._signatures.rotate(i)
 
 
 class PGPMessage(PGPObject, Exportable):
@@ -449,13 +469,6 @@ class PGPMessage(PGPObject, Exportable):
     @staticmethod
     def dash_escape(text):
         return re.subn(r'^-', '- -', text, flags=re.MULTILINE)[0]
-
-    # @property
-    # def __sig__(self):
-    #     _m = iter(self._signatures)
-    #     if self.is_compressed:
-    #         _m = itertools.chain(_m, iter(self._message.packets))
-    #     return [ PGPSignature.from_sigpkt(i) if isinstance(i, Signature) else i for i in _m if isinstance(i, (PGPSignature, Signature))]
 
     @property
     def encrypters(self):
@@ -610,7 +623,10 @@ class PGPMessage(PGPObject, Exportable):
             other = PGPSignature.from_sigpkt(other)
 
         if isinstance(other, PGPSignature):
-            self._signatures.append(other)
+            i = bisect.bisect_left(self._signatures, other)
+            self._signatures.rotate(- i)
+            self._signatures.appendleft(other)
+            self._signatures.rotate(i)
             return self
 
         if isinstance(other, (PKESessionKey, SKESessionKey)):
@@ -1010,7 +1026,7 @@ class PGPKey(PGPObject, Exportable):
             for sk in itertools.chain([self], self.subkeys.values()):
                 sk._key.keymaterial.clear()
 
-    def add_uid(self, name, comment="", email="", **kwargs):
+    def add_uid(self, uid, **kwargs):
         prefs = {'sigtype': SignatureType.Positive_Cert,
                  'usage': [],
                  'hashprefs': [],
@@ -1019,41 +1035,27 @@ class PGPKey(PGPObject, Exportable):
                  'primary': False}
         prefs.update(kwargs)
 
-        if not self.is_primary:
-            raise PGPError("Cannot add UIDs to subkeys!")
-
-        if prefs['sigtype'] not in [SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
-                                    SignatureType.Positive_Cert]:
-            raise PGPError("User IDs must be certified")
-
-        uid = PGPUID()
-        uid._uid = UserID()
-        uid._uid.name = name
-        uid._uid.comment = comment
-        uid._uid.email = email
-        uid._uid.update_hlen()
         uid._parent = self
         uid.add_signature(self.sign(uid, **prefs))
 
         if not prefs['primary']:
             self._uids.append(uid)
+
         else:
-            self._uids.insert(0, uid)
+            self._uids.appendleft(uid)
 
     def del_uid(self, search):
-        uidict = dict( (p, i)
-                       for i, u in enumerate(self._uids)
-                       for p in filter(lambda i: i is not None, [u.name, u.comment, u.email]) )
+        i = next( (i for i, u in enumerate(self._uids)
+                   if search in filter(lambda a: a is not None, (u.name, u.comment, u.email))),
+                 None)
 
-        if search not in uidict:
+        if i is None:
             raise PGPError("uid '{:s}' not found".format(search))
 
-        # self._uids.pop(uidict[search])
-        self._uids.rotate(-1 * uidict[search])
+        self._uids.rotate(- i)
         self._uids.popleft()
-        self._uids.rotate(uidict[search] - 1)
+        self._uids.rotate(i)
 
-    # @functools.singledispatch
     @KeyAction(KeyFlags.Sign, KeyFlags.Certify, is_unlocked=True, is_public=False)
     def sign(self, subject, **prefs):
         hash_algo = prefs.pop('hash', next(iter(self.hashprefs)))

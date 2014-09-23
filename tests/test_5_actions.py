@@ -9,6 +9,7 @@ import warnings
 from pgpy import PGPKey
 from pgpy import PGPMessage
 from pgpy import PGPSignature
+from pgpy import PGPUID
 
 from pgpy.errors import PGPError
 from pgpy.constants import CompressionAlgorithm
@@ -361,14 +362,14 @@ class TestPGPKey(object):
                     assert gpg_decrypt('./aemsg.asc') == 'This is stored, literally\!\n\n'
 
     def test_add_uid(self, sec, pub, write_clean, gpg_import):
-        sec.add_uid('Seconduser Aidee',
-                 comment='Temporary',
-                 email="seconduser.aidee@notarealemailaddress.com",
-                 usage=[KeyFlags.Authentication],
-                 hashprefs=[HashAlgorithm.SHA256, HashAlgorithm.SHA1],
-                 cipherprefs=[SymmetricKeyAlgorithm.AES128, SymmetricKeyAlgorithm.CAST5],
-                 compprefs=[CompressionAlgorithm.ZIP, CompressionAlgorithm.Uncompressed],
-                 primary=False)
+        nuid = PGPUID.new_uid('Seconduser Aidee', comment='Temporary',
+                              email='seconduser.aidee@notarealemailaddress.com')
+        sec.add_uid(nuid,
+                    usage=[KeyFlags.Authentication],
+                    hashprefs=[HashAlgorithm.SHA256, HashAlgorithm.SHA1],
+                    cipherprefs=[SymmetricKeyAlgorithm.AES128, SymmetricKeyAlgorithm.CAST5],
+                    compprefs=[CompressionAlgorithm.ZIP, CompressionAlgorithm.Uncompressed],
+                    primary=False)
 
         u = next(k for k in sec.userids if k.name == 'Seconduser Aidee')
         # assert not u.primary
