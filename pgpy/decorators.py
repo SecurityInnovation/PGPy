@@ -1,10 +1,13 @@
 """ decorators.py
 """
+import contextlib
+import functools
+import warnings
+
+from .errors import PGPError
 
 
 class TypedProperty(property):
-    """
-    """
     def __init__(self, fget=None, fset=None, fdel=None, doc=None, **kwargs):
         for k in kwargs:
             setattr(self, k, kwargs[k])
@@ -83,3 +86,50 @@ class TypedProperty(property):
             return 'fset' + item in self.__dict__
 
         return _typedsetter
+
+
+class KeyAction(object):
+    def __init__(self, *usage, **conditions):
+        self.flags = set(usage)
+        self.conditions = conditions
+
+    @contextlib.contextmanager
+    def usage(self, key):
+        def _preiter(first, iterable):
+            yield first
+            for item in iterable:
+                yield item
+
+        em = {}
+        em['keyid'] = key.fingerprint.keyid
+        em['flags'] = ', '.join(flag.name for flag in self.flags)
+
+        for _key in _preiter(key, key.subkeys.values()):
+            if self.flags & _key.usageflags:
+                break
+
+        else:
+            raise PGPError("Key {keyid:s} does not have the required usage flag {flags:s}".format(**em))
+
+        if _key is not key:
+            em['subkeyid'] = _key.fingerprint.keyid
+            warnings.warn("Key {keyid:s} does not have the required usage flag {flags:s}; using subkey {subkeyid:s}"
+                          "".format(**em), stacklevel=2)
+
+        yield _key
+
+
+    def __call__(self, action):
+        @functools.wraps(action)
+        def _action(key, *args, **kwargs):
+            with self.usage(key) as _key:
+                # check properties
+                for prop, expected in self.conditions.items():
+                    if getattr(_key, prop) != expected:
+                        raise PGPError("Expected: {prop:s} == {eval:s}. Got: {got:s}"
+                                       "".format(prop=prop, eval=str(expected), got=str(getattr(key, prop))))
+
+                # do the thing
+                return action(_key, *args, **kwargs)
+
+        return _action

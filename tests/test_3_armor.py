@@ -31,7 +31,7 @@ class TestBlocks(object):
              ('is_compressed', True),
              ('is_encrypted',  False),
              ('is_signed',     False),
-             ('type',          'compressed'),
+             ('type',          'literal'),
              ('message',       b"This is stored, literally\\!\n\n")],
         'tests/testdata/blocks/message.literal.asc':
             [('encrypters',    set()),
@@ -49,7 +49,7 @@ class TestBlocks(object):
              ('is_compressed', False),
              ('is_encrypted',  False),
              ('is_signed',     True),
-             ('type',          'signed'),
+             ('type',          'literal'),
              ('message',       b"This is stored, literally\\!\n\n")],
         'tests/testdata/blocks/message.two_onepass.asc':
             [('encrypters',    set()),
@@ -58,7 +58,7 @@ class TestBlocks(object):
              ('is_compressed', False),
              ('is_encrypted',  False),
              ('is_signed',     True),
-             ('type',          'signed'),
+             ('type',          'literal'),
              ('message',       b"This is stored, literally\\!\n\n")],
         'tests/testdata/blocks/message.signed.asc':
             [('encrypters',    set()),
@@ -67,7 +67,7 @@ class TestBlocks(object):
              ('is_compressed', False),
              ('is_encrypted',  False),
              ('is_signed',     True),
-             ('type',         'signed'),
+             ('type',         'literal'),
              ('message',      b"This is stored, literally\\!\n\n")],
         'tests/testdata/blocks/cleartext.asc':
             [('encrypters',    set()),
@@ -110,7 +110,7 @@ class TestBlocks(object):
              ('cipherprefs', [SymmetricKeyAlgorithm.AES256, SymmetricKeyAlgorithm.AES192, SymmetricKeyAlgorithm.AES128]),
              ('compprefs',   [CompressionAlgorithm.ZLIB]),
              ('hashprefs',   [HashAlgorithm.SHA256]),
-             ('usageflags',  [KeyFlags.Certify])],
+             ('usageflags',  {KeyFlags.Certify})],
         'tests/testdata/blocks/rsaseckey.asc':
             [('fingerprint', "F429 4BC8 094A 7E05 85C8 5E86 3747 3B37 58C4 4F36"),
              ('magic',       "PRIVATE KEY BLOCK"),
@@ -120,7 +120,7 @@ class TestBlocks(object):
              ('compprefs',   [CompressionAlgorithm.ZLIB, CompressionAlgorithm.BZ2, CompressionAlgorithm.ZIP]),
              ('hashprefs',   [HashAlgorithm.SHA256, HashAlgorithm.SHA1, HashAlgorithm.SHA384, HashAlgorithm.SHA512,
                               HashAlgorithm.SHA224]),
-             ('usageflags',  [KeyFlags.Certify])],
+             ('usageflags',  {KeyFlags.Certify})],
         'tests/testdata/blocks/rsasignature.asc':
             [('__sig__',       b'\x70\x38\x79\xd0\x58\x70\x58\x7b\x50\xe6\xab\x8f\x9d\xc3\x46\x2c\x5a\x6b\x98\x96\xcf'
                                b'\x3b\xa3\x79\x13\x08\x6d\x90\x9d\x67\xd2\x48\x7d\xd7\x1a\xa5\x98\xa7\x8f\xca\xe3\x24'
@@ -170,6 +170,9 @@ class TestBlocks(object):
 
         # load ASCII
         p.parse(bc)
+
+        # check str output
+        # assert str(p) == bc
 
         # now check attrs
         assert block in self.attrs

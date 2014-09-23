@@ -22,6 +22,11 @@ from .types import FlagEnum
 _hashtunedata = bytearray([10, 11, 12, 13, 14, 15, 16, 17] * 128 * 100)
 
 
+class ClassProperty(property):
+    def __get__(self, cls, owner):
+        return self.fget.__get__(None, owner)()
+
+
 class Backend(Enum):
     OpenSSL = openssl.backend
 
@@ -248,6 +253,16 @@ class SignatureType(IntEnum):
     CertRevocation = 0x30
     Timestamp = 0x40
     ThirdParty_Confirmation = 0x50
+
+    @ClassProperty
+    @classmethod
+    def certifications(cls):
+        return {SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
+                SignatureType.Positive_Cert, SignatureType.CertRevocation}
+
+    @property
+    def is_certification(self):
+        return self in SignatureType.certifications
 
 
 class KeyServerPreferences(IntEnum):

@@ -32,7 +32,10 @@ from .constants import PubKeyAlgorithm
 from .constants import SignatureType
 from .constants import SymmetricKeyAlgorithm
 
+from .decorators import KeyAction
+
 from .packet import Key
+from .packet import MDC
 from .packet import Packet
 from .packet import Primary
 from .packet import Private
@@ -60,694 +63,6 @@ from .packet.types import Opaque
 from .types import Exportable
 from .types import PGPObject
 from .types import SignatureVerification
-
-
-class PGPKey(PGPObject, Exportable):
-    """
-    11.1.  Transferable Public Keys
-
-    OpenPGP users may transfer public keys.  The essential elements of a
-    transferable public key are as follows:
-
-     - One Public-Key packet
-
-     - Zero or more revocation signatures
-     - One or more User ID packets
-
-     - After each User ID packet, zero or more Signature packets
-       (certifications)
-
-     - Zero or more User Attribute packets
-
-     - After each User Attribute packet, zero or more Signature packets
-       (certifications)
-
-     - Zero or more Subkey packets
-
-     - After each Subkey packet, one Signature packet, plus optionally a
-       revocation
-
-    The Public-Key packet occurs first.  Each of the following User ID
-    packets provides the identity of the owner of this public key.  If
-    there are multiple User ID packets, this corresponds to multiple
-    means of identifying the same unique individual user; for example, a
-    user may have more than one email address, and construct a User ID
-    for each one.
-
-    Immediately following each User ID packet, there are zero or more
-    Signature packets.  Each Signature packet is calculated on the
-    immediately preceding User ID packet and the initial Public-Key
-    packet.  The signature serves to certify the corresponding public key
-    and User ID.  In effect, the signer is testifying to his or her
-    belief that this public key belongs to the user identified by this
-    User ID.
-
-    Within the same section as the User ID packets, there are zero or
-    more User Attribute packets.  Like the User ID packets, a User
-    Attribute packet is followed by zero or more Signature packets
-    calculated on the immediately preceding User Attribute packet and the
-    initial Public-Key packet.
-
-    User Attribute packets and User ID packets may be freely intermixed
-    in this section, so long as the signatures that follow them are
-    maintained on the proper User Attribute or User ID packet.
-
-    After the User ID packet or Attribute packet, there may be zero or
-    more Subkey packets.  In general, subkeys are provided in cases where
-    the top-level public key is a signature-only key.  However, any V4
-    key may have subkeys, and the subkeys may be encryption-only keys,
-    signature-only keys, or general-purpose keys.  V3 keys MUST NOT have
-    subkeys.
-
-    Each Subkey packet MUST be followed by one Signature packet, which
-    should be a subkey binding signature issued by the top-level key.
-    For subkeys that can issue signatures, the subkey binding signature
-    MUST contain an Embedded Signature subpacket with a primary key
-    binding signature (0x19) issued by the subkey on the top-level key.
-
-    Subkey and Key packets may each be followed by a revocation Signature
-    packet to indicate that the key is revoked.  Revocation signatures
-    are only accepted if they are issued by the key itself, or by a key
-    that is authorized to issue revocations via a Revocation Key
-    subpacket in a self-signature by the top-level key.
-
-    Transferable public-key packet sequences may be concatenated to allow
-    transferring multiple public keys in one operation.
-
-    11.2.  Transferable Secret Keys
-
-    OpenPGP users may transfer secret keys.  The format of a transferable
-    secret key is the same as a transferable public key except that
-    secret-key and secret-subkey packets are used instead of the public
-    key and public-subkey packets.  Implementations SHOULD include self-
-    signatures on any user IDs and subkeys, as this allows for a complete
-    public key to be automatically extracted from the transferable secret
-    key.  Implementations MAY choose to omit the self-signatures,
-    especially if a transferable public key accompanies the transferable
-    secret key.
-    """
-    @property
-    def __key__(self):
-        return self._key.keymaterial
-
-    @property
-    def __sig__(self):
-        return self.signatures
-
-    @property
-    def created(self):
-        return self._key.created
-
-    @property
-    def cipherprefs(self):
-        if self.is_primary or len(self._uids) > 0:
-            return self._uids[0].selfsig.cipherprefs
-
-        elif self.parent is not None:
-            return self.parent.cipherprefs
-
-        else:
-            raise PGPError("Incomplete key")
-
-    @property
-    def compprefs(self):
-        if self.is_primary or len(self._uids) > 0:
-            return self._uids[0].selfsig.compprefs
-
-        elif self.parent is not None:
-            return self.parent.compprefs
-
-        else:
-            raise PGPError("Incomplete key")
-
-    @property
-    def fingerprint(self):
-        return self._key.fingerprint
-
-    @property
-    def hashdata(self):
-        # when signing a key, only the public portion of the keys is hashed
-        # if this is a private key, the private components of the key material need to be left out
-        if self.is_public:
-            return self._key.__bytes__()[len(self._key.header):]
-
-        publen = len(self._key) - len(self._key.header) - len(self._key.keymaterial) + 1 + self._key.keymaterial.publen()
-        return self._key.__bytes__()[len(self._key.header):publen]
-
-    @property
-    def hashprefs(self):
-        if self.is_primary or len(self._uids) > 0:
-            return self._uids[0].selfsig.hashprefs
-
-        elif self.parent is not None:
-            return self.parent.hashprefs
-
-        else:
-            raise PGPError("Incomplete key")
-
-    @property
-    def is_primary(self):
-        return isinstance(self._key, Primary) and not isinstance(self._key, Sub)
-
-    @property
-    def is_protected(self):
-        if self.is_public:
-            return False
-
-        return self._key.protected
-
-    @property
-    def is_public(self):
-        return isinstance(self._key, Public) and not isinstance(self._key, Private)
-
-    @property
-    def is_unlocked(self):
-        if self.is_public:
-            return True
-
-        return self._key.unlocked
-
-    @property
-    def key_algorithm(self):
-        return self._key.pkalg
-
-    @property
-    def magic(self):
-        return '{:s} KEY BLOCK'.format('PUBLIC' if (isinstance(self._key, Public) and not isinstance(self._key, Private)) else
-                                       'PRIVATE' if isinstance(self._key, Private) else '')
-
-    @property
-    def parent(self):
-        if isinstance(self, Primary):
-            return None
-        return self._parent
-
-    @property
-    def signatures(self):
-        return list(self._signatures)
-
-    @property
-    def signers(self):
-        return set(sig.signer for sig in self.__sig__)
-
-    @property
-    def subkeys(self):
-        return self._children
-
-    @property
-    def usageflags(self):
-        if self.is_primary:
-            return self._uids[0]._signatures[0].key_flags
-
-        else:
-            return self._signatures[0].key_flags
-
-    @property
-    def userids(self):
-        return [u for u in self._uids if isinstance(u._uid, UserID)]
-
-    @property
-    def userattributes(self):
-        return [u for u in self._uids if isinstance(u._uid, UserAttribute)]
-
-    @classmethod
-    def generate(cls):
-        raise NotImplementedError()
-
-    def __init__(self):
-        super(PGPKey, self).__init__()
-        self._key = None
-        self._children = collections.OrderedDict()
-        self._parent = None
-        self._signatures = collections.deque()
-        self._uids = collections.deque()
-
-    def __bytes__(self):
-        _bytes = bytearray()
-        # us
-        _bytes += self._key.__bytes__()
-        # our signatures; ignore embedded signatures
-        for sig in [ s for s in self.signatures if not s.embedded ]:
-            _bytes += sig.__bytes__()
-        # one or more User IDs, followed by their signatures
-        for uid in self._uids:
-            _bytes += uid._uid.__bytes__()
-            _bytes += b''.join(s.__bytes__() for s in uid._signatures)
-        # subkeys
-        for sk in self._children.values():
-            _bytes += sk.__bytes__()
-
-        return bytes(_bytes)
-
-    def protect(self):
-        raise NotImplementedError()
-
-    @contextlib.contextmanager
-    def unlock(self, passphrase):
-        if self.is_public:
-            ##TODO: we can't unprotect public keys because only private key material is ever protected
-            return
-
-        if not self.is_protected:
-            ##TODO: we can't unprotect private keys that are not protected, because there is no ciphertext to decrypt
-            return
-
-        try:
-            for sk in itertools.chain([self], self.subkeys.values()):
-                sk._key.unprotect(passphrase)
-            del passphrase
-            yield
-
-        finally:
-            # clean up here by deleting the previously decrypted secret key material
-            for sk in itertools.chain([self], self.subkeys.values()):
-                sk._key.keymaterial.clear()
-
-    def add_uid(self, name, comment="", email="", **kwargs):
-        prefs = {'sigtype': SignatureType.Positive_Cert,
-                 'usage': [],
-                 'hashprefs': [],
-                 'cipherprefs': [],
-                 'compprefs': [],
-                 'primary': False}
-        prefs.update(kwargs)
-
-        if not self.is_primary:
-            raise PGPError("Cannot add UIDs to subkeys!")
-
-        if prefs['sigtype'] not in [SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
-                                    SignatureType.Positive_Cert]:
-            raise PGPError("User IDs must be certified")
-
-        uid = PGPUID()
-        uid._uid = UserID()
-        uid._uid.name = name
-        uid._uid.comment = comment
-        uid._uid.email = email
-        uid._uid.update_hlen()
-        uid._parent = self
-        uid.add_signature(self.sign(uid, **prefs))
-
-        if not prefs['primary']:
-            self._uids.append(uid)
-        else:
-            self._uids.insert(0, uid)
-
-    def del_uid(self, search):
-        uidict = dict( (p, i)
-                       for i, u in enumerate(self._uids)
-                       for p in filter(lambda i: i is not None, [u.name, u.comment, u.email]) )
-
-        if search not in uidict:
-            raise PGPError("uid '{:s}' not found".format(search))
-
-        # self._uids.pop(uidict[search])
-        self._uids.rotate(-1 * uidict[search])
-        self._uids.popleft()
-        self._uids.rotate(uidict[search] - 1)
-
-    def sign(self, subject, **kwargs):
-        # default options
-        prefs = {'hash': self.hashprefs[0],
-                 # inline implies sigtype is SignatureType.CanonicalDocument
-                 'inline': False,
-                 'sigtype': SignatureType.BinaryDocument,
-                 # usage, *prefs, and primary are only meaningful on a self-signature for a User ID or User Attribute
-                 'usage': [],
-                 'hashprefs': [],
-                 'cipherprefs': [],
-                 'compprefs': [],
-                 'primary': False}
-        prefs.update(kwargs)
-        _u = KeyFlags.Sign
-
-        ##TODO: clean up this preference precedence deal
-        if prefs['inline']:
-            # inline signature forces the CanonicalDocument signature type
-            prefs['sigtype'] = SignatureType.CanonicalDocument
-        if isinstance(subject, PGPUID) and 'sigtype' not in kwargs:
-            # if this is a PGPUID, default to Generic_Cert
-            prefs['sigtype'] = SignatureType.Generic_Cert
-
-        if prefs['sigtype'] in [SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
-                                SignatureType.Positive_Cert]:
-            _u = KeyFlags.Certify
-
-        if prefs['hash'] not in self.hashprefs:
-            warnings.warn("Selected hash algorithm not in key preferences", stacklevel=2)
-
-        if self.is_public:
-            raise PGPError("Can't sign with a public key")
-
-        if self.is_protected and (not self._key.unlocked):
-            raise PGPError("This key is not unlocked")
-
-        if isinstance(subject, PGPKey):
-            raise NotImplementedError(repr(subject))
-
-        if _u not in self.usageflags:
-            ##TODO: change warning/exception messages to match whether _u is KeyFlag.Sign or KeyFlag.Certify
-            for sk in self.subkeys.values():
-                if KeyFlags.Sign in sk.usageflags:
-                    warnings.warn("This key is not marked for signing, but subkey {:s} is. "
-                                  "Using that subkey...".format(sk.fingerprint.keyid),
-                                  stacklevel=2)
-                    return sk.sign(subject, **kwargs)
-
-            raise PGPError("This key is not marked for signing")
-
-        sig = PGPSignature.new(prefs['sigtype'], self.key_algorithm, prefs['hash'], self.fingerprint.keyid)
-
-        if isinstance(subject, PGPMessage):
-            sigdata = sig.hashdata(subject.message)
-
-        elif isinstance(subject, PGPUID):
-            if sig.type in [SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
-                            SignatureType.Positive_Cert] and subject._parent is self:
-                # flags and preferences
-                sig._signature.subpackets.addnew('KeyFlags', hashed=True, flags=prefs['usage'])
-                sig._signature.subpackets.addnew('PreferredSymmetricAlgorithms', hashed=True, flags=prefs['cipherprefs'])
-                sig._signature.subpackets.addnew('PreferredHashAlgorithms', hashed=True, flags=prefs['hashprefs'])
-                sig._signature.subpackets.addnew('PreferredCompressionAlgorithms', hashed=True, flags=prefs['compprefs'])
-                # implementation features
-                sig._signature.subpackets.addnew('Features', hashed=True, flags=[Features.ModificationDetection])
-                sig._signature.subpackets.addnew('KeyServerPreferences', hashed=True, flags=[KeyServerPreferences.NoModify])
-
-                if prefs['primary']:
-                    sig._signature.subpackets.addnew('PrimaryUserID', hashed=True, primary=True)
-
-            sigdata = sig.hashdata(subject)
-
-        else:
-            sigdata = sig.hashdata(self.load(subject))
-
-        h2 = prefs['hash'].hasher
-        h2.update(sigdata)
-        sig._signature.hash2 = bytearray(h2.digest()[:2])
-
-        if self.key_algorithm == PubKeyAlgorithm.RSAEncryptOrSign:
-            sigopts = (padding.PKCS1v15(), getattr(hashes, prefs['hash'].name)(), default_backend())
-
-        elif self.key_algorithm == PubKeyAlgorithm.DSA:
-            sigopts = (getattr(hashes, prefs['hash'].name)(), default_backend())
-
-        else:
-            raise NotImplementedError(self.key_algorithm)
-
-        signer = self.__key__.__privkey__().signer(*sigopts)
-        signer.update(sigdata)
-        sig._signature.signature.from_signer(signer.finalize())
-        sig._signature.update_hlen()
-
-        return sig
-
-    def verify(self, subject, signature=None):
-        sspairs = []
-
-        # some type checking
-        if not isinstance(subject, (type(None), PGPMessage, PGPKey, PGPUID, PGPSignature, six.string_types, bytes, bytearray)):
-            raise ValueError("Unexpected subject value: {:s}".format(str(type(subject))))
-        if not isinstance(signature, (type(None), PGPSignature)):
-            raise ValueError("Unexpected signature value: {:s}".format(str(type(signature))))
-
-        # load the signature subject if necessary
-        if isinstance(subject, (six.string_types, bytes, bytearray)):
-            subject = self.load(subject)
-
-        # collect signature(s)
-        if isinstance(signature, PGPSignature):
-            if signature.signer != self.fingerprint.keyid and signature.signer not in self.subkeys:
-                raise PGPError("Incorrect key. Expected: {:s}".format(signature.signer))
-            sspairs.append((signature, subject))
-
-        if hasattr(subject, '__sig__'):
-            def _filter_sigs(sigs):
-                _ids = {self.fingerprint.keyid} | set(self.subkeys)
-                return [ sig for sig in sigs if sig.signer in _ids ]
-
-            if isinstance(subject, PGPMessage):
-                sspairs += [ (sig, subject.message) for sig in _filter_sigs(subject.__sig__) ]
-
-            if isinstance(subject, (PGPUID, PGPKey)):
-                sspairs += [ (sig, subject) for sig in _filter_sigs(subject.__sig__) ]
-
-            if isinstance(subject, PGPKey):
-                # user ids
-                sspairs += [ (sig, uid) for uid in subject.userids for sig in _filter_sigs(uid.__sig__) ]
-                # user attributes
-                sspairs += [ (sig, ua) for ua in subject.userattributes for sig in _filter_sigs(ua.__sig__) ]
-                # subkey/primarykey binding signatures
-                sspairs += [ (sig, subkey) for subkey in subject.subkeys.values() for sig in _filter_sigs(subkey.__sig__) ]
-
-        if len(sspairs) == 0:
-            raise PGPError("No signatures to verify")
-
-        # finally, start verifying signatures
-        sigv = SignatureVerification()
-        for sig, subj in sspairs:
-            if self.fingerprint.keyid != sig.signer:
-                warnings.warn("Signature was signed with this key's subkey: {:s}. "
-                              "Verifying with subkey...".format(sig.signer),
-                              stacklevel=2)
-                sigv &= self.subkeys[sig.signer].verify(subj, sig)
-
-            else:
-                if sig.key_algorithm == PubKeyAlgorithm.RSAEncryptOrSign:
-                    vargs = ( b'\x00' * (self._key.keymaterial.n.byte_length() - len(sig.__sig__)) + sig.__sig__,
-                              padding.PKCS1v15(), getattr(hashes, sig.hash_algorithm.name)(), default_backend() )
-
-                elif sig.key_algorithm == PubKeyAlgorithm.DSA:
-                    vargs = (sig.__sig__, getattr(hashes, sig.hash_algorithm.name)(), default_backend())
-
-                else:
-                    raise NotImplementedError(sig.key_algorithm)
-
-                sigdata = sig.hashdata(subj)
-                verifier = self.__key__.__pubkey__().verifier(*vargs)
-                verifier.update(sigdata)
-                verified = False
-
-                try:
-                    verifier.verify()
-
-                except InvalidSignature:
-                    pass
-
-                else:
-                    verified = True
-
-                finally:
-                    sigv.add_sigsubj(sig, subj, verified)
-                    del sigdata, verifier, verified
-
-        return sigv
-
-    def encrypt(self, message, sessionkey=None, **kwargs):
-        prefs = {'cipher': self.cipherprefs[0],
-                 'hash': self.hashprefs[0]}
-        prefs.update(kwargs)
-
-        if KeyFlags.EncryptCommunications not in self.usageflags:
-            for sk in self.subkeys.values():
-                if KeyFlags.EncryptCommunications in sk.usageflags:
-                    warnings.warn("This key is not marked for encrypting communications, but subkey {:s} is. "
-                                  "Using that subkey...".format(sk.fingerprint.keyid),
-                                  stacklevel=2)
-                    return sk.encrypt(message, sessionkey, **kwargs)
-
-            raise PGPError("This key is not marked for encryption")
-
-        if prefs['cipher'] not in self.cipherprefs:
-            warnings.warn("Selected symmetric algorithm not in key preferences", stacklevel=2)
-
-        if prefs['hash'] not in self.hashprefs:
-            warnings.warn("Selected hash algorithm not in key preferences", stacklevel=2)
-
-        if message.is_compressed and message._contents[0].calg not in self.compprefs:
-            warnings.warn("Selected hash algorithm not in key preferences", stacklevel=2)
-
-        if sessionkey is None:
-            sessionkey = prefs['cipher'].gen_key()
-
-        # set up a new PKESessionKeyV3
-        pkesk = PKESessionKeyV3()
-        pkesk.encrypter = bytearray(binascii.unhexlify(self.fingerprint.keyid.encode('latin-1')))
-        pkesk.pkalg = self.key_algorithm
-        pkesk.encrypt_sk(self.__key__.__pubkey__(), prefs['cipher'], sessionkey)
-
-        if message.is_encrypted:
-            _m = message
-
-        else:
-            _m = PGPMessage()
-            skedata = IntegrityProtectedSKEDataV1()
-            skedata.encrypt(sessionkey, prefs['cipher'], message.__bytes__())
-            _m._contents = [skedata]
-
-        _m._contents.insert(0, pkesk)
-
-        return _m
-
-    def decrypt(self, message):
-        if not isinstance(message, PGPMessage):
-            _message = PGPMessage()
-            _message.parse(message)
-            message = _message
-            del _message
-
-        if not message.is_encrypted:
-            warnings.warn("This message is not encrypted", stacklevel=2)
-            return message
-
-        if self.fingerprint.keyid not in message.issuers:
-            sks = set(self.subkeys)
-            mis = set(message.issuers)
-            if sks & mis:
-                skid = list(sks & mis)[0]
-                warnings.warn("Message was encrypted with this key's subkey: {:s}. "
-                              "Decrypting with that...".format(skid),
-                              stacklevel=2)
-                return self.subkeys[skid].decrypt(message)
-
-            raise PGPError("Cannot decrypt the provided message with this key")
-
-        for pkesk in [pkt for pkt in message._contents if isinstance(pkt, PKESessionKey)]:
-            if pkesk.pkalg == self.key_algorithm and pkesk.encrypter == self.fingerprint.keyid:
-                alg, key = pkesk.decrypt_sk(self.__key__.__privkey__())
-                break
-
-        # now that we have the symmetric cipher used and the key, we can decrypt the actual message
-        decmsg = PGPMessage()
-        decmsg.parse(message.message.decrypt(key, alg))
-
-        return decmsg
-
-    def parse(self, packet):
-        unarmored = self.ascii_unarmor(self.load(packet))
-        data = unarmored['body']
-
-        if unarmored['magic'] is not None and 'KEY' not in unarmored['magic']:
-            raise ValueError('Expected: KEY. Got: {}'.format(str(unarmored['magic'])))
-
-        if unarmored['headers'] is not None:
-            self.ascii_headers = unarmored['headers']
-
-        # parse packets
-        # keys will hold other keys parsed here
-        keys = collections.OrderedDict()
-        # orphaned will hold all non-opaque orphaned packets
-        orphaned = collections.OrderedDict()
-
-        # parsing hints
-        # last non-signature placed
-        last = None  # last PGP*thing placed
-        lns = None   # last non-signature PGP*thing placed
-        lpk = None   # last primary key parsed
-        lk = None    # last key parsed
-        pkt = None   # packet just parsed
-
-        while len(data) > 0:
-            pkt = Packet(data)
-
-            # discard opaque packets
-            if isinstance(pkt, Opaque):
-                warnings.warn("Discarded unsupported packet: {:s}".format(repr(pkt)), stacklevel=2)
-                del pkt
-                continue
-
-            # load a key packet
-            if isinstance(pkt, Key):
-                key = self if self._key is None else PGPKey()
-                key._key = pkt
-                key.ascii_headers = self.ascii_headers
-
-                lk = key
-                if key.is_primary:
-                    lpk = key
-                    keys[key.fingerprint.keyid] = key
-
-                elif (not key.is_primary) and lpk is not None and \
-                        (isinstance(lns, PGPUID) or (isinstance(lns, PGPKey)) and not lk.is_primary):
-                    key._parent = lpk
-                    lpk._children[key.fingerprint.keyid] = key
-
-                else:
-                    ##TODO: most other possibilities at this point is an error condition
-                    ##TODO: the other possibility is a subkey that has been separated from its primary, on purpose
-                    pass
-
-                last = key
-                lns = key
-                continue
-
-            # don't bother trying to load anything else until we've loaded a key
-            # this could be useful in cases where a large block is being loaded and it's led off
-            # with key packet versions that we don't understand yet (currently, v2 and v3 key packets)
-            if lpk is None:
-                continue
-
-            # A user id/attribute was parsed!
-            # Discounting signatures, they must follow either a primary key or another user id/attribute
-            if isinstance(pkt, (UserID, UserAttribute)) and isinstance(lns, (PGPKey, PGPUID)):
-                uid = PGPUID()
-                uid._uid = pkt
-                uid._parent = lpk
-                lpk._uids.append(uid)
-                last = uid
-                lns = uid
-                continue
-
-            # A signature was parsed!
-            if isinstance(pkt, Signature):
-                sig = PGPSignature.from_sigpkt(pkt)
-
-                # A KeyRevocation signature *must immediately* follow a *primary* key *only*
-                if sig.type == SignatureType.KeyRevocation and isinstance(last, PGPKey) and last.is_primary:
-                    lk._signatures.append(sig)
-                    last = sig
-                    continue
-
-                # A signature directly on a key follows the key that is its subject
-                if sig.type == SignatureType.DirectlyOnKey and isinstance(lns, PGPKey):
-                    lk._signatures.append(sig)
-                    last = sig
-                    continue
-
-                # A SubkeyRevocation signature comes after a subkey
-                if sig.type == SignatureType.SubkeyRevocation and not lk.is_primary:
-                    lk._signatures.appendleft(sig)
-                    last = sig
-                    continue
-
-                # Subkey Binding signatures come after subkeys
-                if sig.type == SignatureType.Subkey_Binding and not lk.is_primary:
-                    lk._signatures.append(sig)
-                    last = sig
-
-                    # extract the Primary Key Binding Signature as well if there is one
-                    if 'EmbeddedSignature' in sig._signature.subpackets:
-                        _sig = PGPSignature()
-                        _sig._signature = next(iter(sig._signature.subpackets['EmbeddedSignature']))
-                        _sig.parent = sig
-                        lk._signatures.append(_sig)
-                        del _sig
-                    continue
-
-                # Certification and Certification Revocation signatures *must* follow either a User ID or User Attribute packet,
-                # or another Certification signature.
-                if sig.type in [SignatureType.Positive_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
-                                SignatureType.Generic_Cert, SignatureType.CertRevocation] and isinstance(lns, (PGPUID)):
-                    lns.add_signature(sig)
-                    last = sig
-                    continue
-
-            # if we get this far, the packet was orphaned! Add it to orphaned and warn.
-            warnings.warn("Warning: Orphaned packet detected! {:s}".format(repr(pkt)), stacklevel=2)
-            orphaned[(pkt.header.tag, len([k for k, v in orphaned.keys() if k == pkt.header.tag]))] = pkt
-
-        # remove the reference to self from keys
-        del keys[self.fingerprint.keyid]
-        return {'keys': keys, 'orphaned': orphaned}
 
 
 class PGPSignature(PGPObject, Exportable):
@@ -999,8 +314,8 @@ class PGPSignature(PGPObject, Exportable):
             if subject.is_ua:
                 _data += b'\xd1' + self.int_to_bytes(len(_s), 4) + _s
 
-        if len(_data) == 0 and self.type is not SignatureType.Timestamp:
-            raise NotImplementedError(self.type)
+        # if len(_data) == 0 and self.type is not SignatureType.Timestamp:
+        #     raise NotImplementedError(self.type)
 
         # if this is a new signature, do update_hlen
         if 0 in list(self._signature.signature):
@@ -1135,28 +450,28 @@ class PGPMessage(PGPObject, Exportable):
     def dash_escape(text):
         return re.subn(r'^-', '- -', text, flags=re.MULTILINE)[0]
 
-    @property
-    def __sig__(self):
-        _m = iter(self._contents)
-        if self.is_compressed:
-            _m = itertools.chain(_m, iter(next(pkt for pkt in self._contents if isinstance(pkt, CompressedData)).packets))
-        return [ PGPSignature.from_sigpkt(i) if isinstance(i, Signature) else i for i in _m if isinstance(i, (PGPSignature, Signature))]
+    # @property
+    # def __sig__(self):
+    #     _m = iter(self._signatures)
+    #     if self.is_compressed:
+    #         _m = itertools.chain(_m, iter(self._message.packets))
+    #     return [ PGPSignature.from_sigpkt(i) if isinstance(i, Signature) else i for i in _m if isinstance(i, (PGPSignature, Signature))]
 
     @property
     def encrypters(self):
-        return set(m.encrypter for m in self._contents if isinstance(m, PKESessionKey))
+        return set(m.encrypter for m in self._sessionkeys if isinstance(m, PKESessionKey))
 
     @property
     def is_compressed(self):
-        return any(isinstance(pkt, CompressedData) for pkt in self._contents)
+        return self._compression != CompressionAlgorithm.Uncompressed
 
     @property
     def is_encrypted(self):
-        return self.type == 'encrypted'
+        return isinstance(self._message, (SKEData, IntegrityProtectedSKEData))
 
     @property
     def is_signed(self):
-        return self.type in ['cleartext', 'signed']
+        return len(self._signatures) > 0
 
     @property
     def issuers(self):
@@ -1170,63 +485,147 @@ class PGPMessage(PGPObject, Exportable):
 
     @property
     def message(self):
-        if self.type == 'cleartext':
-            return self._contents[0]
+        if self.type in ['cleartext', 'encrypted']:
+            return self._message
 
-        if self.type in ['literal', 'compressed', 'signed']:
-            _m = self._contents
-            if self.is_compressed:
-                _m = next(pkt for pkt in self._contents if isinstance(pkt, CompressedData)).packets
-            m = next(pkt for pkt in _m if isinstance(pkt, LiteralData))
+        if self.type == 'literal':
+            return self._message.contents
 
-            return m.contents
+        if self.type == 'compressed':
+            return next(pkt for pkt in self._message.packets if isinstance(pkt, LiteralData)).contents
 
-        if self.type == 'encrypted':
-            return self._contents[-1]
-
-        raise NotImplementedError(self.type)
+    @property
+    def signatures(self):
+        return list(self._signatures)
 
     @property
     def signers(self):
-        return set(m.signer for m in self._contents if isinstance(m, (Signature, OnePassSignature, PGPSignature)))
+        return set(m.signer for m in self._signatures)
 
     @property
     def type(self):
         ##TODO: it might be better to use an Enum for the output of this
-        if isinstance(self._contents[0], six.string_types):
+        if isinstance(self._message, six.string_types):
             return 'cleartext'
 
-        if isinstance(self._contents[0], LiteralData):
+        if isinstance(self._message, LiteralData):
             return 'literal'
 
-        if isinstance(self._contents[0], CompressedData):
-            return 'compressed'
-
-        if isinstance(self._contents[0], (PGPSignature, OnePassSignature)):
-            return 'signed'
-
-        if isinstance(self._contents[0], (PKESessionKey, SKESessionKey, SKEData, IntegrityProtectedSKEData)):
+        if isinstance(self._message, (SKEData, IntegrityProtectedSKEData)):
             return 'encrypted'
 
         return 'unknown'
 
     def __init__(self):
         super(PGPMessage, self).__init__()
-        self._contents = []
+        self._compression = CompressionAlgorithm.Uncompressed
+        self._message = None
+        self._mdc = None
+        self._signatures = collections.deque()
+        self._sessionkeys = []
 
     def __bytes__(self):
-        return b''.join(p.__bytes__() for p in self._contents if hasattr(p, '__bytes__'))
+        if self.is_compressed:
+            comp = CompressedData()
+            comp.calg = self._compression
+            comp.packets = [pkt for pkt in self]
+            comp.update_hlen()
+            return comp.__bytes__()
+
+        return b''.join(pkt.__bytes__() for pkt in self)
 
     def __str__(self):
         if self.type == 'cleartext':
             return "-----BEGIN PGP SIGNED MESSAGE-----\n" \
                    "Hash: {hashes:s}\n\n" \
                    "{cleartext:s}\n" \
-                   "{signature:s}".format(hashes=','.join(s.hash_algorithm.name for s in self.__sig__),
-                                          cleartext=self.dash_escape(self._contents[0]),
+                   "{signature:s}".format(hashes=','.join(s.hash_algorithm.name for s in self.signatures),
+                                          cleartext=self.dash_escape(self._message),
                                           signature=super(PGPMessage, self).__str__())
 
         return super(PGPMessage, self).__str__()
+
+    def __iter__(self):
+        if self.type == 'cleartext':
+            for sig in self._signatures:
+                yield sig
+
+        elif self.is_encrypted:
+            for pkt in self._sessionkeys:
+                yield pkt
+            yield self.message
+
+        else:
+            ##TODO: is it worth coming up with a way of disabling one-pass signing?
+            # for onepass in iter(ops for ops in self._signatures if isinstance(ops, OnePassSignature)):
+            #     yield onepass
+            for sig in self._signatures:
+                ops = sig.make_onepass()
+                if not sig is self._signatures[-1]:
+                    ops.nested = True
+                yield ops
+
+            yield self._message
+            if self._mdc is not None:
+                yield self._mdc
+
+            for sig in self._signatures:
+                yield sig
+
+    def __add__(self, other):
+        # raise NotImplementedError(str(type(other)))
+        msg = PGPMessage()
+        msg._message = self._message
+        msg._mdc = self._mdc
+        msg._signatures = collections.deque(list(self._signatures)[:])
+        msg._sessionkeys = self._sessionkeys[:]
+        msg += other
+        return msg
+
+    def __iadd__(self, other):
+        if isinstance(other, CompressedData):
+            self._compression = CompressedData.calg
+            for pkt in other.packets:
+                self += pkt
+            return self
+
+        if isinstance(other, (six.string_types, LiteralData, SKEData, IntegrityProtectedSKEData)):
+            if self._message is None:
+                self._message = other
+                return self
+
+            else:
+                raise NotImplementedError(str(type(self._message)))
+
+        if isinstance(other, MDC):
+            if self._mdc is None:
+                self._mdc = other
+                return self
+
+        if isinstance(other, OnePassSignature):
+            # these are "generated" on the fly during composition
+            return self
+
+        if isinstance(other, Signature):
+            other = PGPSignature.from_sigpkt(other)
+
+        if isinstance(other, PGPSignature):
+            self._signatures.append(other)
+            return self
+
+        if isinstance(other, (PKESessionKey, SKESessionKey)):
+            self._sessionkeys.append(other)
+            return self
+
+        if isinstance(other, PGPMessage):
+            self._message = other._message
+            self._mdc = other._mdc
+            self._compression = other._compression
+            self._sessionkeys += other._sessionkeys
+            self._signatures += other._signatures
+            return self
+
+        raise NotImplementedError(str(type(other)))
 
     @classmethod
     def new(cls, message, **kwargs):
@@ -1236,15 +635,13 @@ class PGPMessage(PGPObject, Exportable):
                  'format': 'b'}
         prefs.update(kwargs)
 
-        msg = PGPMessage()
-
         if prefs['cleartext']:
-            msg._contents.append(msg.load(message).decode('latin-1'))
+            _m = cls.load(message).decode('latin-1')
 
         else:
             # load literal data
             lit = LiteralData()
-            lit._contents = msg.load(message)
+            lit._contents = cls.load(message)
             lit.format = prefs['format']
 
             if os.path.isfile(message):
@@ -1266,63 +663,46 @@ class PGPMessage(PGPObject, Exportable):
                 _m.packets.append(lit)
                 _m.update_hlen()
 
-            msg._contents.append(_m)
+        msg = PGPMessage() + _m
+        msg._compression = prefs['compression']
 
         return msg
 
-    def add_signature(self, sig, onepass=True):
-        if self.type == 'cleartext':
-            self._contents.append(sig)
-
-        elif isinstance(sig, PGPSignature):
-            if onepass:
-                _m = self._contents
-                if self.is_compressed:
-                    _m = next(pkt for pkt in self._contents if isinstance(pkt, CompressedData)).packets
-
-                _m.insert(0, sig.make_onepass())
-                if isinstance(_m[1], OnePassSignature):
-                    _m[0].nested = True
-                _m.append(sig)
-
-            else:
-                self._contents.insert(0, sig)
-
-    def encrypt(self, passphrase, sessionkey=None, **kwargs):
-        prefs = {'cipher': SymmetricKeyAlgorithm.AES256,
-                 'hash': HashAlgorithm.SHA256}
-        prefs.update(kwargs)
+    def encrypt(self, passphrase, sessionkey=None, **prefs):
+        cipher_algo = prefs.pop('cipher', SymmetricKeyAlgorithm.AES256)
+        hash_algo = prefs.pop('hash', HashAlgorithm.SHA256)
 
         # set up a new SKESessionKeyV4
         skesk = SKESessionKeyV4()
         skesk.s2k.usage = 255
         skesk.s2k.specifier = 3
-        skesk.s2k.halg = prefs['hash']
-        skesk.s2k.encalg = prefs['cipher']
+        skesk.s2k.halg = hash_algo
+        skesk.s2k.encalg = cipher_algo
         skesk.s2k.count = skesk.s2k.halg.tuned_count
 
         if sessionkey is None:
-            sessionkey = prefs['cipher'].gen_key()
+            sessionkey = cipher_algo.gen_key()
         skesk.encrypt_sk(passphrase, sessionkey)
         del passphrase
 
-        if not self.is_encrypted:
-            # now encrypt pt and place it inside an IntegrityProtectedSKEDataV1
-            skedata = IntegrityProtectedSKEDataV1()
-            skedata.encrypt(sessionkey, prefs['cipher'], self.__bytes__())
 
-            # now replace self._contents with the newly constructed encrypted message
-            self._contents = [skesk, skedata]
+        msg = PGPMessage() + skesk
+
+        if not self.is_encrypted:
+            skedata = IntegrityProtectedSKEDataV1()
+            skedata.encrypt(sessionkey, cipher_algo, self.__bytes__())
+            msg += skedata
 
         else:
-            self._contents.insert(-1, skesk)
-        del sessionkey
+            msg += self
+
+        return msg
 
     def decrypt(self, passphrase):
         if not self.is_encrypted:
             raise PGPError("This message is not encrypted!")
 
-        for skesk in [pkt for pkt in self._contents if isinstance(pkt, SKESessionKey)]:
+        for skesk in iter(sk for sk in self._sessionkeys if isinstance(sk, SKESessionKey)):
             try:
                 symalg, key = skesk.decrypt_sk(passphrase)
 
@@ -1353,21 +733,723 @@ class PGPMessage(PGPObject, Exportable):
         if unarmored['magic'] == 'SIGNATURE':
             # the composition for this will be the 'cleartext' as a str,
             # followed by one or more signatures (each one loaded into a PGPSignature)
-            self._contents.append(self.dash_unescape(unarmored['cleartext']))
+            self += self.dash_unescape(unarmored['cleartext'])
             while len(data) > 0:
                 pkt = Packet(data)
                 if not isinstance(pkt, Signature):
                     warnings.warn("Discarded unexpected packet: {:s}".format(pkt.__class__.__name__), stacklevel=2)
-                self._contents.append(PGPSignature.from_sigpkt(pkt))
+                    continue
+                self += PGPSignature.from_sigpkt(pkt)
 
         else:
             while len(data) > 0:
-                pkt = Packet(data)
-                if isinstance(pkt, Signature):
-                    self._contents.append(PGPSignature.from_sigpkt(pkt))
+                self += Packet(data)
+
+
+class PGPKey(PGPObject, Exportable):
+    """
+    11.1.  Transferable Public Keys
+
+    OpenPGP users may transfer public keys.  The essential elements of a
+    transferable public key are as follows:
+
+     - One Public-Key packet
+
+     - Zero or more revocation signatures
+     - One or more User ID packets
+
+     - After each User ID packet, zero or more Signature packets
+       (certifications)
+
+     - Zero or more User Attribute packets
+
+     - After each User Attribute packet, zero or more Signature packets
+       (certifications)
+
+     - Zero or more Subkey packets
+
+     - After each Subkey packet, one Signature packet, plus optionally a
+       revocation
+
+    The Public-Key packet occurs first.  Each of the following User ID
+    packets provides the identity of the owner of this public key.  If
+    there are multiple User ID packets, this corresponds to multiple
+    means of identifying the same unique individual user; for example, a
+    user may have more than one email address, and construct a User ID
+    for each one.
+
+    Immediately following each User ID packet, there are zero or more
+    Signature packets.  Each Signature packet is calculated on the
+    immediately preceding User ID packet and the initial Public-Key
+    packet.  The signature serves to certify the corresponding public key
+    and User ID.  In effect, the signer is testifying to his or her
+    belief that this public key belongs to the user identified by this
+    User ID.
+
+    Within the same section as the User ID packets, there are zero or
+    more User Attribute packets.  Like the User ID packets, a User
+    Attribute packet is followed by zero or more Signature packets
+    calculated on the immediately preceding User Attribute packet and the
+    initial Public-Key packet.
+
+    User Attribute packets and User ID packets may be freely intermixed
+    in this section, so long as the signatures that follow them are
+    maintained on the proper User Attribute or User ID packet.
+
+    After the User ID packet or Attribute packet, there may be zero or
+    more Subkey packets.  In general, subkeys are provided in cases where
+    the top-level public key is a signature-only key.  However, any V4
+    key may have subkeys, and the subkeys may be encryption-only keys,
+    signature-only keys, or general-purpose keys.  V3 keys MUST NOT have
+    subkeys.
+
+    Each Subkey packet MUST be followed by one Signature packet, which
+    should be a subkey binding signature issued by the top-level key.
+    For subkeys that can issue signatures, the subkey binding signature
+    MUST contain an Embedded Signature subpacket with a primary key
+    binding signature (0x19) issued by the subkey on the top-level key.
+
+    Subkey and Key packets may each be followed by a revocation Signature
+    packet to indicate that the key is revoked.  Revocation signatures
+    are only accepted if they are issued by the key itself, or by a key
+    that is authorized to issue revocations via a Revocation Key
+    subpacket in a self-signature by the top-level key.
+
+    Transferable public-key packet sequences may be concatenated to allow
+    transferring multiple public keys in one operation.
+
+    11.2.  Transferable Secret Keys
+
+    OpenPGP users may transfer secret keys.  The format of a transferable
+    secret key is the same as a transferable public key except that
+    secret-key and secret-subkey packets are used instead of the public
+    key and public-subkey packets.  Implementations SHOULD include self-
+    signatures on any user IDs and subkeys, as this allows for a complete
+    public key to be automatically extracted from the transferable secret
+    key.  Implementations MAY choose to omit the self-signatures,
+    especially if a transferable public key accompanies the transferable
+    secret key.
+    """
+    @property
+    def __key__(self):
+        return self._key.keymaterial
+
+    @property
+    def __sig__(self):
+        return self.signatures
+
+    @property
+    def created(self):
+        return self._key.created
+
+    @property
+    def cipherprefs(self):
+        if self.is_primary or len(self._uids) > 0:
+            return self._uids[0].selfsig.cipherprefs
+
+        elif self.parent is not None:
+            return self.parent.cipherprefs
+
+        else:
+            raise PGPError("Incomplete key")
+
+    @property
+    def compprefs(self):
+        if self.is_primary or len(self._uids) > 0:
+            return self._uids[0].selfsig.compprefs
+
+        elif self.parent is not None:
+            return self.parent.compprefs
+
+        else:
+            raise PGPError("Incomplete key")
+
+    @property
+    def fingerprint(self):
+        return self._key.fingerprint
+
+    @property
+    def hashdata(self):
+        # when signing a key, only the public portion of the keys is hashed
+        # if this is a private key, the private components of the key material need to be left out
+        if self.is_public:
+            return self._key.__bytes__()[len(self._key.header):]
+
+        publen = len(self._key) - len(self._key.header) - len(self._key.keymaterial) + 1 + self._key.keymaterial.publen()
+        return self._key.__bytes__()[len(self._key.header):publen]
+
+    @property
+    def hashprefs(self):
+        if self.is_primary or len(self._uids) > 0:
+            return self._uids[0].selfsig.hashprefs
+
+        elif self.parent is not None:
+            return self.parent.hashprefs
+
+        else:
+            raise PGPError("Incomplete key")
+
+    @property
+    def is_primary(self):
+        return isinstance(self._key, Primary) and not isinstance(self._key, Sub)
+
+    @property
+    def is_protected(self):
+        if self.is_public:
+            return False
+
+        return self._key.protected
+
+    @property
+    def is_public(self):
+        return isinstance(self._key, Public) and not isinstance(self._key, Private)
+
+    @property
+    def is_unlocked(self):
+        if self.is_public:
+            return True
+
+        if not self.is_protected:
+            return True
+
+        return self._key.unlocked
+
+    @property
+    def key_algorithm(self):
+        return self._key.pkalg
+
+    @property
+    def magic(self):
+        return '{:s} KEY BLOCK'.format('PUBLIC' if (isinstance(self._key, Public) and not isinstance(self._key, Private)) else
+                                       'PRIVATE' if isinstance(self._key, Private) else '')
+
+    @property
+    def parent(self):
+        if isinstance(self, Primary):
+            return None
+        return self._parent
+
+    @property
+    def signatures(self):
+        return list(self._signatures)
+
+    @property
+    def signers(self):
+        return set(sig.signer for sig in self.__sig__)
+
+    @property
+    def subkeys(self):
+        return self._children
+
+    @property
+    def usageflags(self):
+        if self.is_primary:
+            return set(self._uids[0].selfsig.key_flags)
+
+        else:
+            return set(self._signatures[0].key_flags)
+
+    @property
+    def userids(self):
+        return [u for u in self._uids if isinstance(u._uid, UserID)]
+
+    @property
+    def userattributes(self):
+        return [u for u in self._uids if isinstance(u._uid, UserAttribute)]
+
+    @classmethod
+    def generate(cls):
+        raise NotImplementedError()
+
+    def __init__(self):
+        super(PGPKey, self).__init__()
+        self._key = None
+        self._children = collections.OrderedDict()
+        self._parent = None
+        self._signatures = collections.deque()
+        self._uids = collections.deque()
+
+    def __bytes__(self):
+        _bytes = bytearray()
+        # us
+        _bytes += self._key.__bytes__()
+        # our signatures; ignore embedded signatures
+        for sig in [ s for s in self.signatures if not s.embedded ]:
+            _bytes += sig.__bytes__()
+        # one or more User IDs, followed by their signatures
+        for uid in self._uids:
+            _bytes += uid._uid.__bytes__()
+            _bytes += b''.join(s.__bytes__() for s in uid._signatures)
+        # subkeys
+        for sk in self._children.values():
+            _bytes += sk.__bytes__()
+
+        return bytes(_bytes)
+
+    def protect(self):
+        raise NotImplementedError()
+
+    @contextlib.contextmanager
+    def unlock(self, passphrase):
+        if self.is_public:
+            ##TODO: we can't unprotect public keys because only private key material is ever protected
+            return
+
+        if not self.is_protected:
+            ##TODO: we can't unprotect private keys that are not protected, because there is no ciphertext to decrypt
+            return
+
+        try:
+            for sk in itertools.chain([self], self.subkeys.values()):
+                sk._key.unprotect(passphrase)
+            del passphrase
+            yield
+
+        finally:
+            # clean up here by deleting the previously decrypted secret key material
+            for sk in itertools.chain([self], self.subkeys.values()):
+                sk._key.keymaterial.clear()
+
+    def add_uid(self, name, comment="", email="", **kwargs):
+        prefs = {'sigtype': SignatureType.Positive_Cert,
+                 'usage': [],
+                 'hashprefs': [],
+                 'cipherprefs': [],
+                 'compprefs': [],
+                 'primary': False}
+        prefs.update(kwargs)
+
+        if not self.is_primary:
+            raise PGPError("Cannot add UIDs to subkeys!")
+
+        if prefs['sigtype'] not in [SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
+                                    SignatureType.Positive_Cert]:
+            raise PGPError("User IDs must be certified")
+
+        uid = PGPUID()
+        uid._uid = UserID()
+        uid._uid.name = name
+        uid._uid.comment = comment
+        uid._uid.email = email
+        uid._uid.update_hlen()
+        uid._parent = self
+        uid.add_signature(self.sign(uid, **prefs))
+
+        if not prefs['primary']:
+            self._uids.append(uid)
+        else:
+            self._uids.insert(0, uid)
+
+    def del_uid(self, search):
+        uidict = dict( (p, i)
+                       for i, u in enumerate(self._uids)
+                       for p in filter(lambda i: i is not None, [u.name, u.comment, u.email]) )
+
+        if search not in uidict:
+            raise PGPError("uid '{:s}' not found".format(search))
+
+        # self._uids.pop(uidict[search])
+        self._uids.rotate(-1 * uidict[search])
+        self._uids.popleft()
+        self._uids.rotate(uidict[search] - 1)
+
+    # @functools.singledispatch
+    @KeyAction(KeyFlags.Sign, KeyFlags.Certify, is_unlocked=True, is_public=False)
+    def sign(self, subject, **prefs):
+        hash_algo = prefs.pop('hash', next(iter(self.hashprefs)))
+        default_type = SignatureType.Generic_Cert if isinstance(subject, PGPUID) else SignatureType.BinaryDocument
+        sig_type = prefs.pop('sigtype', default_type)
+
+        # if isinstance(subject, PGPUID):
+        #     assert prefs['sigtype'] in SignatureType.certifications
+        # default options
+        # prefs = {'hash': self.hashprefs[0],
+        #          # inline implies sigtype is SignatureType.CanonicalDocument
+        #          'inline': False,
+        #          'sigtype': SignatureType.BinaryDocument,
+        #          # usage, *prefs, and primary are only meaningful on a self-signature for a User ID or User Attribute
+        #          'usage': [],
+        #          'hashprefs': [],
+        #          'cipherprefs': [],
+        #          'compprefs': [],
+        #          'primary': False}.update(prefs)
+        # prefs.update(kwargs)
+        # _u = KeyFlags.Sign
+
+        # ##TODO: clean up this preference precedence deal
+        # if prefs['inline']:
+        #     # inline signature forces the CanonicalDocument signature type
+        #     # prefs['sigtype'] = SignatureType.CanonicalDocument
+        #     assert prefs['sigtype'] == SignatureType.CanonicalDocument
+        # if isinstance(subject, PGPUID) and prefs['sigtype'] not in SignatureType.certifications:
+        #     # if this is a PGPUID, default to Generic_Cert
+        #     # prefs['sigtype'] = SignatureType.Generic_Cert
+        #     assert prefs['sigtype'] in SignatureType.certifications
+
+        # if prefs['sigtype'] in [SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
+        #                         SignatureType.Positive_Cert]:
+        #     _u = KeyFlags.Certify
+
+        # if prefs['hash'] not in self.hashprefs:
+        #     warnings.warn("Selected hash algorithm not in key preferences", stacklevel=2)
+        #
+        # if self.is_public:
+        #     raise PGPError("Can't sign with a public key")
+        #
+        # if self.is_protected and (not self._key.unlocked):
+        #     raise PGPError("This key is not unlocked")
+        #
+        # if isinstance(subject, PGPKey):
+        #     raise NotImplementedError(repr(subject))
+        #
+        # if _u not in self.usageflags:
+        #     ##TODO: change warning/exception messages to match whether _u is KeyFlag.Sign or KeyFlag.Certify
+        #     for sk in self.subkeys.values():
+        #         if KeyFlags.Sign in sk.usageflags:
+        #             warnings.warn("This key is not marked for signing, but subkey {:s} is. "
+        #                           "Using that subkey...".format(sk.fingerprint.keyid),
+        #                           stacklevel=2)
+        #             return sk.sign(subject, **prefs)
+        #
+        #     raise PGPError("This key is not marked for signing")
+
+        sig = PGPSignature.new(sig_type, self.key_algorithm, hash_algo, self.fingerprint.keyid)
+
+        if isinstance(subject, PGPMessage):
+            sigdata = sig.hashdata(subject.message)
+
+        elif isinstance(subject, PGPUID):
+            if sig.type in [SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
+                            SignatureType.Positive_Cert] and subject._parent is self:
+                # flags and preferences
+                sig._signature.subpackets.addnew('KeyFlags', hashed=True, flags=prefs['usage'])
+                sig._signature.subpackets.addnew('PreferredSymmetricAlgorithms', hashed=True, flags=prefs['cipherprefs'])
+                sig._signature.subpackets.addnew('PreferredHashAlgorithms', hashed=True, flags=prefs['hashprefs'])
+                sig._signature.subpackets.addnew('PreferredCompressionAlgorithms', hashed=True, flags=prefs['compprefs'])
+                # implementation features
+                sig._signature.subpackets.addnew('Features', hashed=True, flags=[Features.ModificationDetection])
+                sig._signature.subpackets.addnew('KeyServerPreferences', hashed=True, flags=[KeyServerPreferences.NoModify])
+
+                if prefs['primary']:
+                    sig._signature.subpackets.addnew('PrimaryUserID', hashed=True, primary=True)
+
+            sigdata = sig.hashdata(subject)
+
+        else:
+            sigdata = sig.hashdata(self.load(subject))
+
+        h2 = hash_algo.hasher
+        h2.update(sigdata)
+        sig._signature.hash2 = bytearray(h2.digest()[:2])
+
+        if self.key_algorithm == PubKeyAlgorithm.RSAEncryptOrSign:
+            sigopts = (padding.PKCS1v15(), getattr(hashes, hash_algo.name)(), default_backend())
+
+        elif self.key_algorithm == PubKeyAlgorithm.DSA:
+            sigopts = (getattr(hashes, hash_algo.name)(), default_backend())
+
+        else:
+            raise NotImplementedError(self.key_algorithm)
+
+        signer = self.__key__.__privkey__().signer(*sigopts)
+        signer.update(sigdata)
+        sig._signature.signature.from_signer(signer.finalize())
+        sig._signature.update_hlen()
+
+        return sig
+
+    def verify(self, subject, signature=None):
+        sspairs = []
+
+        # some type checking
+        if not isinstance(subject, (type(None), PGPMessage, PGPKey, PGPUID, PGPSignature, six.string_types, bytes, bytearray)):
+            raise ValueError("Unexpected subject value: {:s}".format(str(type(subject))))
+        if not isinstance(signature, (type(None), PGPSignature)):
+            raise ValueError("Unexpected signature value: {:s}".format(str(type(signature))))
+
+        # load the signature subject if necessary
+        if isinstance(subject, (six.string_types, bytes, bytearray)):
+            subject = self.load(subject)
+
+        def _filter_sigs(sigs):
+            _ids = {self.fingerprint.keyid} | set(self.subkeys)
+            return [ sig for sig in sigs if sig.signer in _ids ]
+
+        # collect signature(s)
+        if isinstance(signature, PGPSignature):
+            if signature.signer != self.fingerprint.keyid and signature.signer not in self.subkeys:
+                raise PGPError("Incorrect key. Expected: {:s}".format(signature.signer))
+            sspairs.append((signature, subject))
+
+        if isinstance(subject, PGPMessage):
+            sspairs += [ (sig, subject.message) for sig in _filter_sigs(subject.signatures) ]
+
+        if isinstance(subject, (PGPUID, PGPKey)):
+            sspairs += [ (sig, subject) for sig in _filter_sigs(subject.__sig__) ]
+
+        if isinstance(subject, PGPKey):
+            # user ids
+            sspairs += [ (sig, uid) for uid in subject.userids for sig in _filter_sigs(uid.__sig__) ]
+            # user attributes
+            sspairs += [ (sig, ua) for ua in subject.userattributes for sig in _filter_sigs(ua.__sig__) ]
+            # subkey/primarykey binding signatures
+            sspairs += [ (sig, subkey) for subkey in subject.subkeys.values() for sig in _filter_sigs(subkey.__sig__) ]
+
+        if len(sspairs) == 0:
+            raise PGPError("No signatures to verify")
+
+        # finally, start verifying signatures
+        sigv = SignatureVerification()
+        for sig, subj in sspairs:
+            if self.fingerprint.keyid != sig.signer:
+                warnings.warn("Signature was signed with this key's subkey: {:s}. "
+                              "Verifying with subkey...".format(sig.signer),
+                              stacklevel=2)
+                sigv &= self.subkeys[sig.signer].verify(subj, sig)
+
+            else:
+                if sig.key_algorithm == PubKeyAlgorithm.RSAEncryptOrSign:
+                    vargs = ( b'\x00' * (self._key.keymaterial.n.byte_length() - len(sig.__sig__)) + sig.__sig__,
+                              padding.PKCS1v15(), getattr(hashes, sig.hash_algorithm.name)(), default_backend() )
+
+                elif sig.key_algorithm == PubKeyAlgorithm.DSA:
+                    vargs = (sig.__sig__, getattr(hashes, sig.hash_algorithm.name)(), default_backend())
 
                 else:
-                    self._contents.append(pkt)
+                    raise NotImplementedError(sig.key_algorithm)
+
+                sigdata = sig.hashdata(subj)
+
+                # temporary testing
+                def _hash2(sd):
+                    _h = sig.hash_algorithm.hasher
+                    _h.update(sd)
+                    return _h.digest()[:2]
+
+                verifier = self.__key__.__pubkey__().verifier(*vargs)
+                verifier.update(sigdata)
+                verified = False
+
+                try:
+                    verifier.verify()
+
+                except InvalidSignature:
+                    pass
+
+                else:
+                    verified = True
+
+                finally:
+                    sigv.add_sigsubj(sig, subj, verified)
+                    del sigdata, verifier, verified
+
+        return sigv
+
+    @KeyAction(KeyFlags.EncryptCommunications, is_public=True)
+    def encrypt(self, message, sessionkey=None, **prefs):
+        cipher_algo = prefs.pop('cipher', next(iter(self.cipherprefs)))
+        hash_algo = prefs.pop('hash', next(iter(self.hashprefs)))
+
+
+        # if KeyFlags.EncryptCommunications not in self.usageflags:
+        #     for sk in self.subkeys.values():
+        #         if KeyFlags.EncryptCommunications in sk.usageflags:
+        #             warnings.warn("This key is not marked for encrypting communications, but subkey {:s} is. "
+        #                           "Using that subkey...".format(sk.fingerprint.keyid),
+        #                           stacklevel=2)
+        #             return sk.encrypt(message, sessionkey, **kwargs)
+        #
+        #     raise PGPError("This key is not marked for encryption")
+
+        if cipher_algo not in self.cipherprefs:
+            warnings.warn("Selected symmetric algorithm not in key preferences", stacklevel=2)
+
+        if hash_algo not in self.hashprefs:
+            warnings.warn("Selected hash algorithm not in key preferences", stacklevel=2)
+
+        if message.is_compressed and message._compression not in self.compprefs:
+            warnings.warn("Selected compression algorithm not in key preferences", stacklevel=2)
+
+        if sessionkey is None:
+            sessionkey = cipher_algo.gen_key()
+
+        # set up a new PKESessionKeyV3
+        pkesk = PKESessionKeyV3()
+        pkesk.encrypter = bytearray(binascii.unhexlify(self.fingerprint.keyid.encode('latin-1')))
+        pkesk.pkalg = self.key_algorithm
+        pkesk.encrypt_sk(self.__key__.__pubkey__(), cipher_algo, sessionkey)
+
+        if message.is_encrypted:
+            _m = message
+
+        else:
+            _m = PGPMessage()
+            skedata = IntegrityProtectedSKEDataV1()
+            skedata.encrypt(sessionkey, cipher_algo, message.__bytes__())
+            _m += skedata
+
+        _m += pkesk
+
+        return _m
+
+    def decrypt(self, message):
+        if not isinstance(message, PGPMessage):
+            _message = PGPMessage()
+            _message.parse(message)
+            message = _message
+            del _message
+
+        if not message.is_encrypted:
+            warnings.warn("This message is not encrypted", stacklevel=2)
+            return message
+
+        if self.fingerprint.keyid not in message.issuers:
+            sks = set(self.subkeys)
+            mis = set(message.issuers)
+            if sks & mis:
+                skid = list(sks & mis)[0]
+                warnings.warn("Message was encrypted with this key's subkey: {:s}. "
+                              "Decrypting with that...".format(skid),
+                              stacklevel=2)
+                return self.subkeys[skid].decrypt(message)
+
+            raise PGPError("Cannot decrypt the provided message with this key")
+
+        pkesk = next(pk for pk in message._sessionkeys if pk.pkalg == self.key_algorithm and pk.encrypter == self.fingerprint.keyid)
+        alg, key = pkesk.decrypt_sk(self.__key__.__privkey__())
+
+        # now that we have the symmetric cipher used and the key, we can decrypt the actual message
+        decmsg = PGPMessage()
+        decmsg.parse(message.message.decrypt(key, alg))
+
+        return decmsg
+
+    def parse(self, packet):
+        unarmored = self.ascii_unarmor(self.load(packet))
+        data = unarmored['body']
+
+        if unarmored['magic'] is not None and 'KEY' not in unarmored['magic']:
+            raise ValueError('Expected: KEY. Got: {}'.format(str(unarmored['magic'])))
+
+        if unarmored['headers'] is not None:
+            self.ascii_headers = unarmored['headers']
+
+        # parse packets
+        # keys will hold other keys parsed here
+        keys = collections.OrderedDict()
+        # orphaned will hold all non-opaque orphaned packets
+        orphaned = collections.OrderedDict()
+
+        # parsing hints
+        # last non-signature placed
+        last = None  # last PGP*thing placed
+        lns = None   # last non-signature PGP*thing placed
+        lpk = None   # last primary key parsed
+        lk = None    # last key parsed
+        pkt = None   # packet just parsed
+
+        while len(data) > 0:
+            pkt = Packet(data)
+
+            # discard opaque packets
+            if isinstance(pkt, Opaque):
+                warnings.warn("Discarded unsupported packet: {:s}".format(repr(pkt)), stacklevel=2)
+                del pkt
+                continue
+
+            # load a key packet
+            if isinstance(pkt, Key):
+                key = self if self._key is None else PGPKey()
+                key._key = pkt
+                key.ascii_headers = self.ascii_headers
+
+                lk = key
+                if key.is_primary:
+                    lpk = key
+                    keys[key.fingerprint.keyid] = key
+
+                elif (not key.is_primary) and lpk is not None and \
+                        (isinstance(lns, PGPUID) or (isinstance(lns, PGPKey)) and not lk.is_primary):
+                    key._parent = lpk
+                    lpk._children[key.fingerprint.keyid] = key
+
+                else:
+                    ##TODO: most other possibilities at this point is an error condition
+                    ##TODO: the other possibility is a subkey that has been separated from its primary, on purpose
+                    pass
+
+                last = key
+                lns = key
+                continue
+
+            # don't bother trying to load anything else until we've loaded a key
+            # this could be useful in cases where a large block is being loaded and it's led off
+            # with key packet versions that we don't understand yet (currently, v2 and v3 key packets)
+            if lpk is None:
+                continue
+
+            # A user id/attribute was parsed!
+            # Discounting signatures, they must follow either a primary key or another user id/attribute
+            if isinstance(pkt, (UserID, UserAttribute)) and isinstance(lns, (PGPKey, PGPUID)):
+                uid = PGPUID()
+                uid._uid = pkt
+                uid._parent = lpk
+                lpk._uids.append(uid)
+                last = uid
+                lns = uid
+                continue
+
+            # A signature was parsed!
+            if isinstance(pkt, Signature):
+                sig = PGPSignature.from_sigpkt(pkt)
+
+                # A KeyRevocation signature *must immediately* follow a *primary* key *only*
+                if sig.type == SignatureType.KeyRevocation and isinstance(last, PGPKey) and last.is_primary:
+                    lk._signatures.append(sig)
+                    last = sig
+                    continue
+
+                # A signature directly on a key follows the key that is its subject
+                if sig.type == SignatureType.DirectlyOnKey and isinstance(lns, PGPKey):
+                    lk._signatures.append(sig)
+                    last = sig
+                    continue
+
+                # A SubkeyRevocation signature comes after a subkey
+                if sig.type == SignatureType.SubkeyRevocation and not lk.is_primary:
+                    lk._signatures.appendleft(sig)
+                    last = sig
+                    continue
+
+                # Subkey Binding signatures come after subkeys
+                if sig.type == SignatureType.Subkey_Binding and not lk.is_primary:
+                    lk._signatures.append(sig)
+                    last = sig
+
+                    # extract the Primary Key Binding Signature as well if there is one
+                    if 'EmbeddedSignature' in sig._signature.subpackets:
+                        _sig = PGPSignature()
+                        _sig._signature = next(iter(sig._signature.subpackets['EmbeddedSignature']))
+                        _sig.parent = sig
+                        lk._signatures.append(_sig)
+                        del _sig
+                    continue
+
+                # Certification and Certification Revocation signatures *must* follow either a User ID or User Attribute packet,
+                # or another Certification signature.
+                if sig.type in [SignatureType.Positive_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
+                                SignatureType.Generic_Cert, SignatureType.CertRevocation] and isinstance(lns, (PGPUID)):
+                    lns.add_signature(sig)
+                    last = sig
+                    continue
+
+            # if we get this far, the packet was orphaned! Add it to orphaned and warn.
+            warnings.warn("Warning: Orphaned packet detected! {:s}".format(repr(pkt)), stacklevel=2)
+            orphaned[(pkt.header.tag, len([k for k, v in orphaned.keys() if k == pkt.header.tag]))] = pkt
+
+        # remove the reference to self from keys
+        del keys[self.fingerprint.keyid]
+        return {'keys': keys, 'orphaned': orphaned}
 
 
 class PGPKeyring(collections.Container, collections.Iterable, collections.Sized):
