@@ -118,7 +118,6 @@ class KeyAction(object):
 
         yield _key
 
-
     def __call__(self, action):
         @functools.wraps(action)
         def _action(key, *args, **kwargs):
