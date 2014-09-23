@@ -574,7 +574,7 @@ class PGPMessage(PGPObject, Exportable):
             #     yield onepass
             for sig in self._signatures:
                 ops = sig.make_onepass()
-                if not sig is self._signatures[-1]:
+                if sig is not self._signatures[-1]:
                     ops.nested = True
                 yield ops
 
@@ -700,7 +700,6 @@ class PGPMessage(PGPObject, Exportable):
             sessionkey = cipher_algo.gen_key()
         skesk.encrypt_sk(passphrase, sessionkey)
         del passphrase
-
 
         msg = PGPMessage() + skesk
 
@@ -1047,7 +1046,7 @@ class PGPKey(PGPObject, Exportable):
     def del_uid(self, search):
         i = next( (i for i, u in enumerate(self._uids)
                    if search in filter(lambda a: a is not None, (u.name, u.comment, u.email))),
-                 None)
+                  None)
 
         if i is None:
             raise PGPError("uid '{:s}' not found".format(search))
@@ -1251,7 +1250,6 @@ class PGPKey(PGPObject, Exportable):
     def encrypt(self, message, sessionkey=None, **prefs):
         cipher_algo = prefs.pop('cipher', next(iter(self.cipherprefs)))
         hash_algo = prefs.pop('hash', next(iter(self.hashprefs)))
-
 
         # if KeyFlags.EncryptCommunications not in self.usageflags:
         #     for sk in self.subkeys.values():
