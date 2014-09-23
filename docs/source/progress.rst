@@ -73,16 +73,20 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
         - Sign,       True,  Sign messages using DSA
         - Sign,       True,  Sign keys using RSA
         - Sign,       True,  Sign keys using DSA
-        - Sign,       False, Certify User IDs using RSA
-        - Sign,       False, Certify User IDs using DSA
-        - Sign,       False, Certify User Attribute packets using RSA
-        - Sign,       False, Certify User Attribute packets using DSA
+        - Sign,       True,  Certify User IDs using RSA
+        - Sign,       True,  Certify User IDs using DSA
+        - Sign,       True,  Certify User Attribute packets using RSA
+        - Sign,       True,  Certify User Attribute packets using DSA
         - Sign,       False, Generate key binding signatures using RSA
         - Sign,       False, Generate key binding signatures using DSA
         - Sign,       False, Generate signatures directly on a key using RSA
         - Sign,       False, Generate signatures directly on a key using DSA
-        - Sign,       False, Generate key/subkey/certification revocation signatures RSA
-        - Sign,       False, Generate key/subkey/certification revocation signatures DSA
+        - Sign,       True,  Revoke certifications using RSA
+        - Sign,       True,  Revoke certifications using DSA
+        - Sign,       False, Revoke key using RSA
+        - Sign,       False, Revoke key using DSA
+        - Sign,       False, Revoke subkey using RSA
+        - Sign,       False, Revoke subkey using DSA
         - Sign,       True,  Generate timestamp signatures using RSA
         - Sign,       True,  Generate timestamp signatures using DSA
         - Sign,       False, Generate third party confirmation signatures using RSA
