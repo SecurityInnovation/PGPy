@@ -6,7 +6,7 @@ from .types import UserAttribute
 
 from ...constants import ImageEncoding
 
-from ...decorators import TypedProperty
+from ...decorators import sdproperty
 
 
 class Image(UserAttribute):
@@ -45,36 +45,36 @@ class Image(UserAttribute):
     """
     __typeid__ = 0x01
 
-    @TypedProperty
+    @sdproperty
     def version(self):
         return self._version
 
-    @version.int
-    def version(self, val):
+    @version.register(int)
+    def version_(self, val):
         self._version = val
 
-    @TypedProperty
+    @sdproperty
     def iencoding(self):
         return self._iencoding
 
-    @iencoding.ImageEncoding
-    def iencoding(self, val):
+    @iencoding.register(ImageEncoding)
+    def iencoding_ie(self, val):
         self._iencoding = val
 
-    @iencoding.int
-    def iencoding(self, val):
+    @iencoding.register(int)
+    def iencoding_int(self, val):
         try:
             self.iencoding = ImageEncoding(val)
 
         except ValueError:
             self._iencoding = val
 
-    @TypedProperty
+    @sdproperty
     def image(self):
         return self._image
 
-    @image.bytearray
-    @image.bytes
+    @image.register(bytes)
+    @image.register(bytearray)
     def image(self, val):
         self._image = bytearray(val)
 

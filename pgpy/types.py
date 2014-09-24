@@ -20,7 +20,7 @@ import six
 
 from ._author import __version__
 
-from .decorators import TypedProperty
+from .decorators import sdproperty
 
 # for Python 2.7
 if six.PY2:
@@ -299,17 +299,17 @@ class Header(Field):
 
         return _new_length(l) if nhf else _old_length(l, llen)
 
-    @TypedProperty
+    @sdproperty
     def length(self):
         return self._len
 
-    @length.int
-    def length(self, val):
+    @length.register(int)
+    def length_int(self, val):
         self._len = val
 
-    @length.bytearray
-    @length.bytes
-    def length(self, val):
+    @length.register(six.binary_type)
+    @length.register(bytearray)
+    def length_bin(self, val):
         def _new_len(b):
             fo = b[0]
 
@@ -339,7 +339,7 @@ class Header(Field):
 
         _new_len(val) if self._lenfmt == 1 else _old_len(val)
 
-    @TypedProperty
+    @sdproperty
     def llen(self):
         l = self.length
         lf = self._lenfmt
@@ -360,8 +360,8 @@ class Header(Field):
             ##TODO: what if _llen needs to be (re)computed?
             return self._llen
 
-    @llen.int
-    def llen(self, val):
+    @llen.register(int)
+    def llen_int(self, val):
         if self._lenfmt == 0:
             self._llen = {0: 1, 1: 2, 2: 4, 3: 0}[val]
 

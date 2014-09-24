@@ -4,88 +4,56 @@ import contextlib
 import functools
 import warnings
 
+from singledispatch import singledispatch
+
 from .errors import PGPError
 
 
-class TypedProperty(property):
-    def __init__(self, fget=None, fset=None, fdel=None, doc=None, **kwargs):
-        for k in kwargs:
-            setattr(self, k, kwargs[k])
+def classproperty(fget):
+    class ClassProperty(object):
+        def __init__(self, fget):
+            self.fget = fget
+            self.__doc__ = fget.__doc__
 
-        super(TypedProperty, self).__init__(fget, fset, fdel, doc)
+        def __get__(self, cls, owner):
+            return self.fget(owner)
 
-    def __set__(self, obj, val):
-        ##TODO: being able to detect subclasses would be cool
-        if 'fset' + val.__class__.__name__ in self.__dict__:
-            getattr(self, 'fset' + val.__class__.__name__)(obj, val)
+        def __set__(self, obj, value):
+            raise AttributeError("Read-only attribute")
 
-        # Python 2.7 shenanigans
-        ##TODO: this is not ideal; fix it
-        elif bytes is str and val.__class__.__name__ in ['str', 'unicode']:
-            if 'fsetstr' in self.__dict__:
-                self.fsetstr(obj, str(val))
-            else:
-                self.fsetbytes(obj, val)
+        def __delete__(self, obj):
+            raise AttributeError("Read-only attribute")
 
-        else:
-            super(TypedProperty, self).__set__(obj, val)
+    return ClassProperty(fget)
 
-    def __getattr__(self, item):
-        def _typedsetter(ftypedsetter):
-            """
-            This is a catch-all method for TypedProperty
-            So, when you decorate a class like so:
-            class A(object):
-                @TypedProperty
-                def a(self):
-                    return self._a
-                @a.setter
-                def a(self, val):
-                    self._a = val
-                @a.bytes
-                def a(self, val):
-                    self._a = int.from_bytes(val, 'big')
 
-            @a.fsetbytes is set automagically and when val's type is 'bytes',
-            that setter is called instead of the default one
+def sdmethod(meth):
+    sd = singledispatch(meth)
 
-            This should work with anything, because fset{x} is set by the setter, and selected by __class__.__name__
-            """
-            cur_setters = dict((k, v) for k, v in self.__dict__.items())  # if k[:4] == 'fset' and k != 'fset'
-            if isinstance(ftypedsetter, TypedProperty):
-                # ftypedsetter at this point is a TypedProperty
-                # in this instance, something like this happened:
-                # class A(object):
-                #     @TypedProperty
-                #     def x(self):
-                #         return self._x
-                #     @x.bytearray
-                #     @x.bytes
-                #     def x(self, val):
-                #         self._x = int.from_bytes(val, 'big')
-                #
-                # so we need to replace ftypedsetter with the function already wrapped in the instance in ftypedsetter
-                # it should be the only key in ftypedsetter.__dict__ that isn't in self.__dict__
-                diff = dict(set(ftypedsetter.__dict__.items()) - set(self.__dict__.items()))
-                if len(diff) > 0:
-                    ftypedsetter = list(diff.values())[0]
-                    cur_setters.update(diff.items())
+    def wrapper(obj, *args, **kwargs):
+        return sd.dispatch(args[0].__class__)(obj, *args, **kwargs)
 
-            cur_setters['fset' + item] = ftypedsetter
+    wrapper.register = sd.register
+    wrapper.dispatch = sd.dispatch
+    wrapper.registry = sd.registry
+    wrapper._clear_cache = sd._clear_cache
+    functools.update_wrapper(wrapper, meth)
+    return wrapper
 
-            return type(self)(self.fget, self.fset, self.fdel, self.__doc__, **cur_setters)
 
-        # this fixes some python 2.7/3.2 shenanigans
-        if item == '__isabstractmethod__':
-            raise AttributeError(item)
+def sdproperty(fget):
+    def defset(obj, val):
+        raise TypeError(str(val.__class__))
 
-        if item in self.__dict__ or item in ['fset', 'fget', 'fdel', '__doc__']:
-            return self.__dict__[item]
+    class _(property):
+        def register(self, cls=None, fset=None):
+            return self.fset.register(cls, fset)
 
-        if 'fset' + item in self.__dict__:
-            return 'fset' + item in self.__dict__
+        def setter(self, fset):
+            self.register(object, fset)
+            return type(self)(self.fget, self.fset, self.fdel, self.__doc__)
 
-        return _typedsetter
+    return _(fget, sdmethod(defset))
 
 
 class KeyAction(object):

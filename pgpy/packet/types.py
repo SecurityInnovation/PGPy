@@ -6,7 +6,7 @@ import abc
 
 import six
 
-from ..decorators import TypedProperty
+from ..decorators import sdproperty
 
 from ..types import Dispatchable
 from ..types import Field
@@ -14,12 +14,12 @@ from ..types import Header as _Header
 
 
 class Header(_Header):
-    @TypedProperty
+    @sdproperty
     def tag(self):
         return self._tag
 
-    @tag.int
-    def tag(self, val):
+    @tag.register(int)
+    def tag_int(self, val):
         self._tag = (val & 0x3F) if self._lenfmt else ((val & 0x3C) >> 2)
 
     @property
@@ -94,12 +94,12 @@ class Header(_Header):
 
 
 class VersionedHeader(Header):
-    @TypedProperty
+    @sdproperty
     def version(self):
         return self._version
 
-    @version.int
-    def version(self, val):
+    @version.register(int)
+    def version_int(self, val):
         self._version = val
 
     def __init__(self):
@@ -164,12 +164,12 @@ class VersionedPacket(Packet):
 class Opaque(Packet):
     __typeid__ = None
 
-    @TypedProperty
+    @sdproperty
     def payload(self):
         return self._payload
 
-    @payload.bytearray
-    @payload.bytes
+    @payload.register(bytearray)
+    @payload.register(bytes)
     def payload(self, val):
         self._payload = val
 

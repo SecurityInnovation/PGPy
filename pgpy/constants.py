@@ -15,16 +15,12 @@ import six
 from cryptography.hazmat.backends import openssl
 from cryptography.hazmat.primitives.ciphers import algorithms
 
+from .decorators import classproperty
 from .types import FlagEnum
 
 
 # this is 100 KiB
 _hashtunedata = bytearray([10, 11, 12, 13, 14, 15, 16, 17] * 128 * 100)
-
-
-class ClassProperty(property):
-    def __get__(self, cls, owner):
-        return self.fget.__get__(None, owner)()
 
 
 class Backend(Enum):
@@ -254,8 +250,7 @@ class SignatureType(IntEnum):
     Timestamp = 0x40
     ThirdParty_Confirmation = 0x50
 
-    @ClassProperty
-    @classmethod
+    @classproperty
     def certifications(cls):
         return {SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
                 SignatureType.Positive_Cert, SignatureType.CertRevocation}

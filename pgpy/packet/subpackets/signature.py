@@ -8,6 +8,8 @@ import calendar
 from datetime import datetime
 from datetime import timedelta
 
+import six
+
 from .types import EmbeddedSignatureHeader
 from .types import Signature
 
@@ -22,23 +24,23 @@ from ...constants import RevocationKeyClass
 from ...constants import RevocationReason
 from ...constants import SymmetricKeyAlgorithm
 
-from ...decorators import TypedProperty
+from ...decorators import sdproperty
 
 from ...types import Fingerprint
 
 
 class URI(Signature):
-    @TypedProperty
+    @sdproperty
     def uri(self):
         return self._uri
 
-    @uri.str
-    def uri(self, val):
+    @uri.register(str)
+    def uri_(self, val):
         self._uri = val
 
-    @uri.bytearray
-    @uri.bytes
-    def uri(self, val):
+    @uri.register(bytes)
+    @uri.register(bytearray)
+    def uri_(self, val):
         self.uri = val.decode('latin-1')
 
     def __init__(self):
@@ -59,31 +61,31 @@ class URI(Signature):
 class FlagList(Signature):
     __flags__ = None
 
-    @TypedProperty
+    @sdproperty
     def flags(self):
         return self._flags
 
-    @flags.list
-    def flags(self, val):
+    @flags.register(list)
+    def flags_(self, val):
         self._flags = val
 
-    @flags.CompressionAlgorithm
-    @flags.HashAlgorithm
-    @flags.PubKeyAlgorithm
-    @flags.SymmetricKeyAlgorithm
-    def flags(self, val):
+    @flags.register(CompressionAlgorithm)
+    @flags.register(HashAlgorithm)
+    @flags.register(PubKeyAlgorithm)
+    @flags.register(SymmetricKeyAlgorithm)
+    def flags_(self, val):
         self.flags.append(val)
 
-    @flags.int
-    def flags(self, val):
+    @flags.register(int)
+    def flags_(self, val):
         if self.__flags__ is None:
             raise AttributeError("Error: __flags__ not set!")
 
         self.flags.append(self.__flags__(val))
 
-    @flags.bytearray
-    @flags.bytes
-    def flags(self, val):
+    @flags.register(bytes)
+    @flags.register(bytearray)
+    def flags_(self, val):
         self.flags = self.bytes_to_int(val)
 
     def __init__(self):
@@ -105,27 +107,28 @@ class FlagList(Signature):
 class ByteFlag(Signature):
     __flags__ = None
 
-    @TypedProperty
+    @sdproperty
     def flags(self):
         return self._flags
 
-    @flags.list
-    def flags(self, val):
+    @flags.register(set)
+    @flags.register(list)
+    def flags_(self, val):
         self._flags = val
 
-    @flags.KeyFlags
-    def flags(self, val):
+    @flags.register(_KeyFlags)
+    def flags_(self, val):
         self.flags.append(val)
 
-    @flags.int
-    def flags(self, val):
+    @flags.register(int)
+    def flags_(self, val):
         if self.__flags__ is None:
             raise AttributeError("Error: __flags__ not set!")
         self.flags += self.__flags__ & val
 
-    @flags.bytearray
-    @flags.bytes
-    def flags(self, val):
+    @flags.register(bytes)
+    @flags.register(bytearray)
+    def flags_(self, val):
         self.flags = self.bytes_to_int(val)
 
     def __init__(self):
@@ -145,26 +148,26 @@ class ByteFlag(Signature):
 
 
 class Boolean(Signature):
-    @TypedProperty
-    def bool(self):
+    @sdproperty
+    def bflag(self):
         return self._bool
 
-    @bool.bool
-    def bool(self, val):
+    @bflag.register(bool)
+    def bflag_(self, val):
         self._bool = val
 
-    @bool.bytearray
-    @bool.bytes
-    def bool(self, val):
+    @bflag.register(bytes)
+    @bflag.register(bytearray)
+    def bflag_(self, val):
         self.bool = bool(self.bytes_to_int(val))
 
     def __init__(self):
         super(Boolean, self).__init__()
-        self.bool = False
+        self.bflag = False
 
     def __bytes__(self):
         _bytes = super(Boolean, self).__bytes__()
-        _bytes += self.int_to_bytes(int(self.bool))
+        _bytes += self.int_to_bytes(int(self.bflag))
         return _bytes
 
     def __bool__(self):  # pragma: no cover
@@ -173,11 +176,11 @@ class Boolean(Signature):
 
     # Python 2.7
     def __nonzero__(self):  # pragma: no cover
-        return self.bool
+        return self.__bool__()
 
     def parse(self, packet):
         super(Boolean, self).parse(packet)
-        self.bool = packet[:1]
+        self.bflag = packet[:1]
         del packet[:1]
 
 
@@ -193,21 +196,21 @@ class CreationTime(Signature):
    """
     __typeid__ = 0x02
 
-    @TypedProperty
+    @sdproperty
     def created(self):
         return self._created
 
-    @created.datetime
-    def created(self, val):
+    @created.register(datetime)
+    def created_(self, val):
         self._created = val
 
-    @created.int
-    def created(self, val):
+    @created.register(int)
+    def created_(self, val):
         self.created = datetime.utcfromtimestamp(val)
 
-    @created.bytearray
-    @created.bytes
-    def created(self, val):
+    @created.register(bytes)
+    @created.register(bytearray)
+    def created_(self, val):
         self.created = self.bytes_to_int(val)
 
     def __init__(self):
@@ -237,21 +240,21 @@ class SignatureExpirationTime(Signature):
     """
     __typeid__ = 0x03
 
-    @TypedProperty
+    @sdproperty
     def expires(self):
         return self._expires
 
-    @expires.timedelta
-    def expires(self, val):
+    @expires.register(timedelta)
+    def expires_(self, val):
         self._expires = val
 
-    @expires.int
-    def expires(self, val):
+    @expires.register(int)
+    def expires_(self, val):
         self.expires = timedelta(seconds=val)
 
-    @expires.bytearray
-    @expires.bytes
-    def expires(self, val):
+    @expires.register(bytes)
+    @expires.register(bytearray)
+    def expires_(self, val):
         self.expires = self.bytes_to_int(val)
 
     def __init__(self):
@@ -323,31 +326,31 @@ class TrustSignature(Signature):
     """
     __typeid__ = 0x05
 
-    @TypedProperty
+    @sdproperty
     def level(self):
         return self._level
 
-    @level.int
-    def level(self, val):
+    @level.register(int)
+    def level_(self, val):
         self._level = val
 
-    @level.bytearray
-    @level.bytes
-    def level(self, val):
+    @level.register(bytes)
+    @level.register(bytearray)
+    def level_(self, val):
         self.level = self.bytes_to_int(val)
 
-    @TypedProperty
+    @sdproperty
     def amount(self):
         return self._amount
 
-    @amount.int
-    def amount(self, val):
+    @amount.register(int)
+    def amount_(self, val):
         # clamp 'val' to the range 0-255
         self._amount = max(0, min(val, 255))
 
-    @amount.bytearray
-    @amount.bytes
-    def amount(self, val):
+    @amount.register(bytes)
+    @amount.register(bytearray)
+    def amount_(self, val):
         self.amount = self.bytes_to_int(val)
 
     def __init__(self):
@@ -385,17 +388,17 @@ class RegularExpression(Signature):
     """
     __typeid__ = 0x06
 
-    @TypedProperty
+    @sdproperty
     def regex(self):
         return self._regex
 
-    @regex.str
-    def regex(self, val):
+    @regex.register(str)
+    def regex_(self, val):
         self._regex = val
 
-    @regex.bytearray
-    @regex.bytes
-    def regex(self, val):
+    @regex.register(bytes)
+    @regex.register(bytearray)
+    def regex_(self, val):
         self.regex = val.decode('latin-1')
 
     def __init__(self):
@@ -485,59 +488,60 @@ class RevocationKey(Signature):
     """
     __typeid__ = 0x0C
 
-    @TypedProperty
+    @sdproperty
     def keyclass(self):
         return self._keyclass
 
-    @keyclass.list
-    def keyclass(self, val):
+    @keyclass.register(list)
+    def keyclass_(self, val):
         self._keyclass = val
 
-    @keyclass.RevocationKeyClass
-    def keyclass(self, val):
+    @keyclass.register(RevocationKeyClass)
+    def keyclass_(self, val):
         self.keyclass.append(val)
 
-    @keyclass.int
-    def keyclass(self, val):
+    @keyclass.register(int)
+    def keyclass_(self, val):
         self.keyclass += RevocationKeyClass & val
 
-    @keyclass.bytearray
-    @keyclass.bytes
-    def keyclass(self, val):
+    @keyclass.register(bytes)
+    @keyclass.register(bytearray)
+    def keyclass_(self, val):
         self.keyclass = self.bytes_to_int(val)
 
-    @TypedProperty
+    @sdproperty
     def algorithm(self):
         return self._algorithm
 
-    @algorithm.PubKeyAlgorithm
-    def algorithm(self, val):
+    @algorithm.register(PubKeyAlgorithm)
+    def algorithm_(self, val):
         self._algorithm = val
 
-    @algorithm.int
-    def algorithm(self, val):
+    @algorithm.register(int)
+    def algorithm_(self, val):
         self.algorithm = PubKeyAlgorithm(val)
 
-    @algorithm.bytearray
-    @algorithm.bytes
-    def algorithm(self, val):
+    @algorithm.register(bytes)
+    @algorithm.register(bytearray)
+    def algorithm_(self, val):
         self.algorithm = self.bytes_to_int(val)
 
-    @TypedProperty
+    @sdproperty
     def fingerprint(self):
         return self._fingerprint
 
-    @fingerprint.Fingerprint
-    def fingerprint(self, val):
+    @fingerprint.register(Fingerprint)
+    def fingerprint_(self, val):
         self._fingerprint = val
 
-    @fingerprint.str
-    def fingerprint(self, val):
+    @fingerprint.register(str)
+    @fingerprint.register(six.text_type)
+    def fingerprint_(self, val):
         self.fingerprint = Fingerprint(val)
 
-    @fingerprint.bytearray
-    @fingerprint.bytes
-    def fingerprint(self, val):
+    @fingerprint.register(bytes)
+    @fingerprint.register(bytearray)
+    def fingerprint_(self, val):
         self.fingerprint = ''.join('{:02x}'.format(c) for c in val).upper()
 
     def __init__(self):
@@ -566,12 +570,12 @@ class RevocationKey(Signature):
 class Issuer(Signature):
     __typeid__ = 0x10
 
-    @TypedProperty
+    @sdproperty
     def issuer(self):
         return self._issuer
 
-    @issuer.bytearray
-    def issuer(self, val):
+    @issuer.register(bytearray)
+    def issuer_(self, val):
         self._issuer = binascii.hexlify(val).upper().decode('latin-1')
 
     def __init__(self):
@@ -592,50 +596,51 @@ class Issuer(Signature):
 class NotationData(Signature):
     __typeid__ = 0x14
 
-    @TypedProperty
+    @sdproperty
     def flags(self):
         return self._flags
 
-    @flags.list
-    def flags(self, val):
+    @flags.register(list)
+    def flags_(self, val):
         self._flags = val
 
-    @flags.NotationDataFlags
-    def flags(self, val):
+    @flags.register(NotationDataFlags)
+    def flags_(self, val):
         self.flags.append(val)
 
-    @flags.int
-    def flags(self, val):
+    @flags.register(int)
+    def flags_(self, val):
         self.flags += NotationDataFlags & val
 
-    @flags.bytearray
-    @flags.bytes
-    def flags(self, val):
+    @flags.register(bytes)
+    @flags.register(bytearray)
+    def flags_(self, val):
         self.flags = self.bytes_to_int(val)
 
-    @TypedProperty
+    @sdproperty
     def name(self):
         return self._name
 
-    @name.str
-    def name(self, val):
+    @name.register(str)
+    @name.register(six.text_type)
+    def name_(self, val):
         self._name = val
 
-    @name.bytearray
-    @name.bytes
-    def name(self, val):
+    @name.register(bytes)
+    @name.register(bytearray)
+    def name_(self, val):
         self.name = val.decode('latin-1')
 
-    @TypedProperty
+    @sdproperty
     def value(self):
         return self._value
 
-    @value.str
-    def value(self, val):
+    @value.register(str)
+    def value_(self, val):
         self._value = val
 
-    @value.bytearray
-    @value.bytes
+    @value.register(bytes)
+    @value.register(bytearray)
     def value(self, val):
         if NotationDataFlags.HumanReadable in self.flags:
             self.value = val.decode('latin-1')
@@ -694,17 +699,17 @@ class PreferredKeyServer(URI):
 class PrimaryUserID(Signature):
     __typeid__ = 0x19
 
-    @TypedProperty
+    @sdproperty
     def primary(self):
         return self._primary
 
-    @primary.bool
-    def primary(self, val):
+    @primary.register(bool)
+    def primary_(self, val):
         self._primary = val
 
-    @primary.bytearray
-    @primary.bytes
-    def primary(self, val):
+    @primary.register(bytes)
+    @primary.register(bytearray)
+    def primary_(self, val):
         self.primary = bool(self.bytes_to_int(val))
 
     def __init__(self):
@@ -734,17 +739,17 @@ class KeyFlags(ByteFlag):
 class SignersUserID(Signature):
     __typeid__ = 0x1C
 
-    @TypedProperty
+    @sdproperty
     def userid(self):
         return self._userid
 
-    @userid.str
-    def userid(self, val):
+    @userid.register(str)
+    def userid_(self, val):
         self._userid = val
 
-    @userid.bytearray
-    @userid.bytes
-    def userid(self, val):
+    @userid.register(bytes)
+    @userid.register(bytearray)
+    def userid_(self, val):
         self.userid = val.decode('latin-1')
 
     def __init__(self):
@@ -765,34 +770,35 @@ class SignersUserID(Signature):
 class ReasonForRevocation(Signature):
     __typeid__ = 0x1D
 
-    @TypedProperty
+    @sdproperty
     def code(self):
         return self._code
 
-    @code.RevocationReason
-    def code(self, val):
+    @code.register(RevocationReason)
+    def code_(self, val):
         self._code = val
 
-    @code.int
-    def code(self, val):
+    @code.register(int)
+    def code_(self, val):
         self.code = RevocationReason(val)
 
-    @code.bytearray
-    @code.bytes
-    def code(self, val):
+    @code.register(bytes)
+    @code.register(bytearray)
+    def code_(self, val):
         self.code = self.bytes_to_int(val)
 
-    @TypedProperty
+    @sdproperty
     def string(self):
         return self._string
 
-    @string.str
-    def string(self, val):
+    @string.register(str)
+    @string.register(six.text_type)
+    def string_(self, val):
         self._string = val
 
-    @string.bytearray
-    @string.bytes
-    def string(self, val):
+    @string.register(bytes)
+    @string.register(bytearray)
+    def string_(self, val):
         self.string = val.decode('latin-1')
 
     def __init__(self):
@@ -825,11 +831,11 @@ class Features(ByteFlag):
 class EmbeddedSignature(Signature):
     __typeid__ = 0x20
 
-    @TypedProperty
+    @sdproperty
     def _sig(self):
         return self._sigpkt
 
-    @_sig.SignatureV4
+    @_sig.setter
     def _sig(self, val):
         self._sig = val
 

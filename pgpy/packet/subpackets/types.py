@@ -4,31 +4,32 @@ import abc
 
 from ..types import VersionedHeader
 
-from ...decorators import TypedProperty
+from ...decorators import sdproperty
+
 from ...types import Dispatchable
 from ...types import Header as _Header
 
 
 class Header(_Header):
-    @TypedProperty
+    @sdproperty
     def critical(self):
         return self._critical
 
-    @critical.bool
-    def critical(self, val):
+    @critical.register(bool)
+    def critical_(self, val):
         self._critical = val
 
-    @TypedProperty
+    @sdproperty
     def typeid(self):
         return self._typeid
 
-    @typeid.int
-    def typeid(self, val):
+    @typeid.register(int)
+    def typeid_(self, val):
         self._typeid = val & 0x7f
 
-    @typeid.bytearray
-    @typeid.bytes
-    def typeid(self, val):
+    @typeid.register(bytes)
+    @typeid.register(bytearray)
+    def typeid_(self, val):
         v = self.bytes_to_int(val)
         self.typeid = v
         self.critical = bool(v & 0x80)
@@ -106,13 +107,13 @@ class UserAttribute(SubPacket):
 class Opaque(Signature, UserAttribute):
     __typeid__ = None
 
-    @TypedProperty
+    @sdproperty
     def payload(self):
         return self._payload
 
-    @payload.bytearray
-    @payload.bytes
-    def payload(self, val):
+    @payload.register(bytes)
+    @payload.register(bytearray)
+    def payload_(self, val):
         self._payload = val
 
     def __init__(self):

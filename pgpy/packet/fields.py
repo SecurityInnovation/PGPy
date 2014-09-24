@@ -23,7 +23,7 @@ from ..constants import HashAlgorithm
 from ..constants import String2KeyType
 from ..constants import SymmetricKeyAlgorithm
 
-from ..decorators import TypedProperty
+from ..decorators import sdproperty
 
 from ..errors import PGPDecryptionError
 
@@ -444,48 +444,48 @@ class String2Key(Field):
     After the hashing is done, the data is unloaded from the hash
     context(s) as with the other S2K algorithms.
     """
-    @TypedProperty
+    @sdproperty
     def encalg(self):
         return self._encalg
 
-    @encalg.SymmetricKeyAlgorithm
-    def encalg(self, val):
+    @encalg.register(SymmetricKeyAlgorithm)
+    def encalg_(self, val):
         self._encalg = val
 
-    @encalg.int
-    def encalg(self, val):
+    @encalg.register(int)
+    def encalg_(self, val):
         self.encalg = SymmetricKeyAlgorithm(val)
 
-    @TypedProperty
+    @sdproperty
     def specifier(self):
         return self._specifier
 
-    @specifier.String2KeyType
-    def specifier(self, val):
+    @specifier.register(String2KeyType)
+    def specifier_(self, val):
         self._specifier = val
 
-    @specifier.int
-    def specifier(self, val):
+    @specifier.register(int)
+    def specifier_(self, val):
         self.specifier = String2KeyType(val)
 
-    @TypedProperty
+    @sdproperty
     def halg(self):
         return self._halg
 
-    @halg.HashAlgorithm
-    def halg(self, val):
+    @halg.register(HashAlgorithm)
+    def halg_(self, val):
         self._halg = val
 
-    @halg.int
-    def halg(self, val):
+    @halg.register(int)
+    def halg_(self, val):
         self.halg = HashAlgorithm(val)
 
-    @TypedProperty
+    @sdproperty
     def count(self):
         return (16 + (self._count & 15)) << ((self._count >> 4) + 6)
 
-    @count.int
-    def count(self, val):
+    @count.register(int)
+    def count_(self, val):
         self._count = val
 
     def __init__(self):
