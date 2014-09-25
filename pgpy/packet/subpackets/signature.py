@@ -35,10 +35,10 @@ class URI(Signature):
         return self._uri
 
     @uri.register(str)
+    @uri.register(six.text_type)
     def uri_(self, val):
         self._uri = val
 
-    @uri.register(bytes)
     @uri.register(bytearray)
     def uri_(self, val):
         self.uri = val.decode('latin-1')
@@ -83,7 +83,6 @@ class FlagList(Signature):
 
         self.flags.append(self.__flags__(val))
 
-    @flags.register(bytes)
     @flags.register(bytearray)
     def flags_(self, val):
         self.flags = self.bytes_to_int(val)
@@ -126,7 +125,6 @@ class ByteFlag(Signature):
             raise AttributeError("Error: __flags__ not set!")
         self.flags += self.__flags__ & val
 
-    @flags.register(bytes)
     @flags.register(bytearray)
     def flags_(self, val):
         self.flags = self.bytes_to_int(val)
@@ -156,7 +154,6 @@ class Boolean(Signature):
     def bflag_(self, val):
         self._bool = val
 
-    @bflag.register(bytes)
     @bflag.register(bytearray)
     def bflag_(self, val):
         self.bool = bool(self.bytes_to_int(val))
@@ -208,7 +205,6 @@ class CreationTime(Signature):
     def created_(self, val):
         self.created = datetime.utcfromtimestamp(val)
 
-    @created.register(bytes)
     @created.register(bytearray)
     def created_(self, val):
         self.created = self.bytes_to_int(val)
@@ -252,7 +248,6 @@ class SignatureExpirationTime(Signature):
     def expires_(self, val):
         self.expires = timedelta(seconds=val)
 
-    @expires.register(bytes)
     @expires.register(bytearray)
     def expires_(self, val):
         self.expires = self.bytes_to_int(val)
@@ -334,7 +329,6 @@ class TrustSignature(Signature):
     def level_(self, val):
         self._level = val
 
-    @level.register(bytes)
     @level.register(bytearray)
     def level_(self, val):
         self.level = self.bytes_to_int(val)
@@ -348,7 +342,6 @@ class TrustSignature(Signature):
         # clamp 'val' to the range 0-255
         self._amount = max(0, min(val, 255))
 
-    @amount.register(bytes)
     @amount.register(bytearray)
     def amount_(self, val):
         self.amount = self.bytes_to_int(val)
@@ -393,10 +386,10 @@ class RegularExpression(Signature):
         return self._regex
 
     @regex.register(str)
+    @regex.register(six.text_type)
     def regex_(self, val):
         self._regex = val
 
-    @regex.register(bytes)
     @regex.register(bytearray)
     def regex_(self, val):
         self.regex = val.decode('latin-1')
@@ -504,7 +497,6 @@ class RevocationKey(Signature):
     def keyclass_(self, val):
         self.keyclass += RevocationKeyClass & val
 
-    @keyclass.register(bytes)
     @keyclass.register(bytearray)
     def keyclass_(self, val):
         self.keyclass = self.bytes_to_int(val)
@@ -521,7 +513,6 @@ class RevocationKey(Signature):
     def algorithm_(self, val):
         self.algorithm = PubKeyAlgorithm(val)
 
-    @algorithm.register(bytes)
     @algorithm.register(bytearray)
     def algorithm_(self, val):
         self.algorithm = self.bytes_to_int(val)
@@ -539,7 +530,6 @@ class RevocationKey(Signature):
     def fingerprint_(self, val):
         self.fingerprint = Fingerprint(val)
 
-    @fingerprint.register(bytes)
     @fingerprint.register(bytearray)
     def fingerprint_(self, val):
         self.fingerprint = ''.join('{:02x}'.format(c) for c in val).upper()
@@ -612,7 +602,6 @@ class NotationData(Signature):
     def flags_(self, val):
         self.flags += NotationDataFlags & val
 
-    @flags.register(bytes)
     @flags.register(bytearray)
     def flags_(self, val):
         self.flags = self.bytes_to_int(val)
@@ -626,7 +615,6 @@ class NotationData(Signature):
     def name_(self, val):
         self._name = val
 
-    @name.register(bytes)
     @name.register(bytearray)
     def name_(self, val):
         self.name = val.decode('latin-1')
@@ -636,10 +624,10 @@ class NotationData(Signature):
         return self._value
 
     @value.register(str)
+    @value.register(six.text_type)
     def value_(self, val):
         self._value = val
 
-    @value.register(bytes)
     @value.register(bytearray)
     def value(self, val):
         if NotationDataFlags.HumanReadable in self.flags:
@@ -707,7 +695,6 @@ class PrimaryUserID(Signature):
     def primary_(self, val):
         self._primary = val
 
-    @primary.register(bytes)
     @primary.register(bytearray)
     def primary_(self, val):
         self.primary = bool(self.bytes_to_int(val))
@@ -744,10 +731,10 @@ class SignersUserID(Signature):
         return self._userid
 
     @userid.register(str)
+    @userid.register(six.text_type)
     def userid_(self, val):
         self._userid = val
 
-    @userid.register(bytes)
     @userid.register(bytearray)
     def userid_(self, val):
         self.userid = val.decode('latin-1')
@@ -782,7 +769,6 @@ class ReasonForRevocation(Signature):
     def code_(self, val):
         self.code = RevocationReason(val)
 
-    @code.register(bytes)
     @code.register(bytearray)
     def code_(self, val):
         self.code = self.bytes_to_int(val)
@@ -796,7 +782,6 @@ class ReasonForRevocation(Signature):
     def string_(self, val):
         self._string = val
 
-    @string.register(bytes)
     @string.register(bytearray)
     def string_(self, val):
         self.string = val.decode('latin-1')
