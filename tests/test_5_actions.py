@@ -13,14 +13,12 @@ from pgpy import PGPUID
 
 from pgpy.errors import PGPError
 from pgpy.constants import CompressionAlgorithm
+from pgpy.constants import ImageEncoding
 from pgpy.constants import PubKeyAlgorithm
 from pgpy.constants import SignatureType
 from pgpy.constants import SymmetricKeyAlgorithm
 from pgpy.constants import KeyFlags
 from pgpy.constants import HashAlgorithm
-
-from pgpy.packet.packets import OnePassSignature
-from pgpy.packet.packets import PKESessionKey
 
 
 def _pgpmessage(f):
@@ -362,8 +360,9 @@ class TestPGPKey(object):
                     assert gpg_decrypt('./aemsg.asc') == 'This is stored, literally\!\n\n'
 
     def test_add_uid(self, sec, pub, write_clean, gpg_import):
-        nuid = PGPUID.new_uid('Seconduser Aidee', comment='Temporary',
-                              email='seconduser.aidee@notarealemailaddress.com')
+        nuid = PGPUID.new(name='Seconduser Aidee',
+                          comment='Temporary',
+                          email='seconduser.aidee@notarealemailaddress.com')
         sec.add_uid(nuid,
                     usage=[KeyFlags.Authentication],
                     hashprefs=[HashAlgorithm.SHA256, HashAlgorithm.SHA1],
@@ -396,3 +395,31 @@ class TestPGPKey(object):
         # remove Seconduser Aidee
         sec.del_uid('Seconduser Aidee')
         assert 'Seconduser Aidee' not in [u.name for u in sec.userids]
+
+    def test_add_photo(self, sec, pub, write_clean, gpg_import):
+        photo = bytearray(os.path.getsize('tests/testdata/simple.jpg'))
+        with open('tests/testdata/simple.jpg', 'rb') as pf:
+            pf.readinto(photo)
+
+        nphoto = PGPUID.new(photo=photo)
+
+        sec.add_uid(nphoto)
+
+        u = sec.userattributes[-1]
+        assert u.is_ua
+        assert u.image.iencoding == ImageEncoding.JPEG
+        assert u.image.image == photo
+
+        # verify with PGPy
+        with warnings.catch_warnings(record=True) as w:
+            assert pub.verify(sec)
+        assert all(i.filename == __file__ for i in w)
+
+        # verify with GPG
+        tkfp = '{:s}.asc'.format(sec.fingerprint.shortid)
+        with write_clean(os.path.join('tests', 'testdata', tkfp), 'w', str(sec)), \
+                gpg_import(os.path.join('.', tkfp)) as kio:
+            assert 'invalid self-signature' not in kio
+
+        # remove the new photo
+        sec._uids.pop()._parent = None

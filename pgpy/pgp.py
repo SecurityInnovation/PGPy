@@ -25,6 +25,7 @@ from .errors import PGPError
 from .constants import CompressionAlgorithm
 from .constants import Features
 from .constants import HashAlgorithm
+from .constants import ImageEncoding
 from .constants import KeyFlags
 from .constants import KeyServerPreferences
 from .constants import PacketTag
@@ -434,19 +435,25 @@ class PGPUID(object):
             return self._uid.subpackets.__bytes__()
 
     @classmethod
-    def new_uid(cls, name, comment="", email=""):
+    def new(cls, *, photo=None, name=None, comment="", email="", **kwargs):
         uid = PGPUID()
-        uid._uid = UserID()
-        uid._uid.name = name
-        uid._uid.comment = comment
-        uid._uid.email = email
-        uid._uid.update_hlen()
+        if photo is not None:
+            uid._uid = UserAttribute()
+            uid._uid.image.image = bytearray(photo)
+            uid._uid.image.iencoding = ImageEncoding.encodingof(photo)
+            uid._uid.update_hlen()
+
+        if name is not None:
+            uid._uid = UserID()
+            uid._uid.name = name
+            uid._uid.comment = comment
+            uid._uid.email = email
+            uid._uid.update_hlen()
+
+        if uid._uid is None:
+            raise ValueError()
 
         return uid
-
-    @classmethod
-    def new_uattr(cls):
-        raise NotImplementedError()
 
     def __init__(self):
         self._uid = None
@@ -1052,7 +1059,7 @@ class PGPKey(PGPObject, Exportable):
             raise PGPError("uid '{:s}' not found".format(search))
 
         self._uids.rotate(- i)
-        self._uids.popleft()
+        self._uids.popleft()._parent = None
         self._uids.rotate(i)
 
     @KeyAction(KeyFlags.Sign, KeyFlags.Certify, is_unlocked=True, is_public=False)

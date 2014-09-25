@@ -1,4 +1,4 @@
-""" regression testing
+""" I've got 99 problems but regression testing ain't one
 """
 
 

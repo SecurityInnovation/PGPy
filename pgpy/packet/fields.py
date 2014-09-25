@@ -15,6 +15,7 @@ from cryptography.hazmat.primitives.asymmetric import dsa
 from .subpackets import Signature as SignatureSP
 from .subpackets import UserAttribute
 from .subpackets import signature
+from .subpackets import userattribute
 
 from .types import MPI
 from .types import MPIs
@@ -33,6 +34,8 @@ from ..types import Field
 
 
 class SubPackets(collections.MutableMapping, Field):
+    _spmodule = signature
+
     def __init__(self):
         self._hashed_sp = collections.OrderedDict()
         self._unhashed_sp = collections.OrderedDict()
@@ -99,7 +102,7 @@ class SubPackets(collections.MutableMapping, Field):
         return key in set(k for k, _ in itertools.chain(self._hashed_sp, self._unhashed_sp))
 
     def addnew(self, spname, hashed=False, **kwargs):
-        nsp = getattr(signature, spname)()
+        nsp = getattr(self._spmodule, spname)()
         for p, v in kwargs.items():
             if hasattr(nsp, p):
                 setattr(nsp, p, v)
@@ -141,6 +144,8 @@ class UserAttributeSubPackets(SubPackets):
     except that there isn't a length specifier. So, parse will only parse one packet,
     appending that one packet to self.__unhashed_sp.
     """
+    _spmodule = userattribute
+
     def __bytes__(self):
         return b''.join(uhsp.__bytes__() for uhsp in self._unhashed_sp.values())
 

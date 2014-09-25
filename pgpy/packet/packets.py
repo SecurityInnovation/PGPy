@@ -1235,7 +1235,9 @@ class UserAttribute(Packet):
 
     @property
     def image(self):
-        return self.subpackets['Image']
+        if 'Image' not in self.subpackets:
+            self.subpackets.addnew('Image')
+        return next(iter(self.subpackets['Image']))
 
     def __init__(self):
         super(UserAttribute, self).__init__()
@@ -1253,6 +1255,10 @@ class UserAttribute(Packet):
         plen = len(packet)
         while self.header.length > (plen - len(packet)):
             self.subpackets.parse(packet)
+
+    def update_hlen(self):
+        self.subpackets.update_hlen()
+        super(UserAttribute, self).update_hlen()
 
 
 class IntegrityProtectedSKEData(VersionedPacket):

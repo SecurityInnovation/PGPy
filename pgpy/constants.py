@@ -2,6 +2,7 @@
 """
 import bz2
 import hashlib
+import imghdr
 import os
 import time
 import zlib
@@ -231,6 +232,13 @@ class RevocationReason(IntEnum):
 class ImageEncoding(IntEnum):
     Unknown = 0x00
     JPEG = 0x01
+
+    @classmethod
+    def encodingof(cls, imagebytes):
+        type = imghdr.what(None, h=imagebytes)
+        if type == 'jpeg':
+            return ImageEncoding.JPEG
+        return ImageEncoding.Unknown
 
 
 class SignatureType(IntEnum):
