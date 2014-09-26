@@ -708,6 +708,12 @@ class PrimaryUserID(Signature):
         _bytes += self.int_to_bytes(int(self.primary))
         return _bytes
 
+    def __bool__(self):
+        return self.primary
+
+    def __nonzero__(self):
+        return self.__bool__()
+
     def parse(self, packet):
         super(PrimaryUserID, self).parse(packet)
         self.primary = packet[:1]

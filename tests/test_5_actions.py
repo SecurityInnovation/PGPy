@@ -250,8 +250,8 @@ class TestPGPKey(object):
     def test_sign_userid(self, sec, pub, write_clean, gpg_import, gpg_check_sigs):
         for tk in self.targettes:
             with warnings.catch_warnings(record=True) as w:
-                # sign tk's primary uid generically
-                tk.userids[0].add_signature(sec.sign(tk.userids[0]))
+                # sign tk's first uid generically
+                tk.userids[0] += sec.sign(tk.userids[0])
 
                 # verify with PGPy
                 assert pub.verify(tk.userids[0])
@@ -271,7 +271,7 @@ class TestPGPKey(object):
 
             with warnings.catch_warnings(record=True) as w:
                 # revoke that certification!
-                tk.userids[0].add_signature(sec.sign(tk.userids[0], sigtype=SignatureType.CertRevocation))
+                tk.userids[0] += sec.sign(tk.userids[0], sigtype=SignatureType.CertRevocation)
 
                 # verify with PGPy
                 assert pub.verify(tk.userids[0])

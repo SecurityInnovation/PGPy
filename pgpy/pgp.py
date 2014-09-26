@@ -6,7 +6,9 @@ import binascii
 import bisect
 import collections
 import contextlib
+import functools
 import itertools
+import operator
 import os
 import re
 import warnings
@@ -204,11 +206,11 @@ class PGPSignature(PGPObject, Exportable):
         sig._signature = sigpkt
         return sig
 
-    @classmethod
-    def from_sigpkt(cls, sigpkt):
-        sig = PGPSignature()
-        sig._signature = sigpkt
-        return sig
+    # @classmethod
+    # def from_sigpkt(cls, sigpkt):
+    #     sig = PGPSignature()
+    #     sig._signature = sigpkt
+    #     return sig
 
     def __init__(self):
         super(PGPSignature, self).__init__()
@@ -228,6 +230,19 @@ class PGPSignature(PGPObject, Exportable):
 
     def __gt__(self, other):
         return self.created > other.created
+
+    def __add__(self, other):
+        if isinstance(other, Signature):
+            if self._signature is None:
+                self._signature = other
+                return self
+
+        ##TODO: this is not a great way to do this
+        if other.__class__.__name__ == 'EmbeddedSignature':
+            self._signature = other
+            return self
+
+        raise TypeError
 
     def hashdata(self, subject):
         _data = bytearray()
@@ -390,10 +405,6 @@ class PGPUID(object):
         return list(self._signatures)
 
     @property
-    def primary(self):
-        raise NotImplementedError()
-
-    @property
     def name(self):
         return self._uid.name if isinstance(self._uid, UserID) else ""
 
@@ -410,6 +421,10 @@ class PGPUID(object):
         return self._uid.image if isinstance(self._uid, UserAttribute) else None
 
     @property
+    def is_primary(self):
+        return bool(next(iter(self.selfsig._signature.subpackets['h_PrimaryUserID']), False))
+
+    @property
     def is_uid(self):
         return isinstance(self._uid, UserID)
 
@@ -420,7 +435,7 @@ class PGPUID(object):
     @property
     def selfsig(self):
         if self._parent is not None:
-            return next(sig for sig in self._signatures if sig.signer == self._parent.fingerprint.keyid)
+            return next(sig for sig in reversed(self._signatures) if sig.signer == self._parent.fingerprint.keyid)
 
     @property
     def signers(self):
@@ -435,7 +450,7 @@ class PGPUID(object):
             return self._uid.subpackets.__bytes__()
 
     @classmethod
-    def new(cls, *, photo=None, name=None, comment="", email="", **kwargs):
+    def new(cls, photo=None, name=None, comment="", email="", **kwargs):
         uid = PGPUID()
         if photo is not None:
             uid._uid = UserAttribute()
@@ -460,12 +475,36 @@ class PGPUID(object):
         self._signatures = collections.deque()
         self._parent = None
 
-    def add_signature(self, sig):
-        # self._signatures should be sorted by creation time, from newest to oldest
-        i = bisect.bisect_left(self._signatures, sig)
-        self._signatures.rotate(- i)
-        self._signatures.appendleft(sig)
-        self._signatures.rotate(i)
+    def __repr__(self):
+        return "<PGPUID [{:s}][{}] at 0x[:02X]>".format(self._uid.__class__.__name__, self.selfsig.created, id(self))
+
+    def __lt__(self, other):
+        if (self.is_uid and other.is_uid) or (self.is_ua and other.is_ua):
+            return self.selfsig < other.selfsig
+
+        if self.is_uid and other.is_ua:
+            return True
+
+        if self.is_ua and other.is_uid:
+            return False
+
+    def __add__(self, other):
+        if isinstance(other, PGPSignature):
+            i = bisect.bisect_left(self._signatures, other)
+            self._signatures.rotate(- i)
+            self._signatures.appendleft(other)
+            self._signatures.rotate(i)
+
+        elif isinstance(other, UserID) and self._uid is None:
+            self._uid = other
+
+        elif isinstance(other, UserAttribute) and self._uid is None:
+            self._uid = other
+
+        else:
+            raise TypeError("unsupported operand type(s) for +=: '{:s}' and '{:s}'"
+                            "".format(self.__class__.__name__, other.__class__.__name__))
+        return self
 
 
 class PGPMessage(PGPObject, Exportable):
@@ -593,16 +632,6 @@ class PGPMessage(PGPObject, Exportable):
                 yield sig
 
     def __add__(self, other):
-        # raise NotImplementedError(str(type(other)))
-        msg = PGPMessage()
-        msg._message = self._message
-        msg._mdc = self._mdc
-        msg._signatures = collections.deque(list(self._signatures)[:])
-        msg._sessionkeys = self._sessionkeys[:]
-        msg += other
-        return msg
-
-    def __iadd__(self, other):
         if isinstance(other, CompressedData):
             self._compression = CompressedData.calg
             for pkt in other.packets:
@@ -627,7 +656,7 @@ class PGPMessage(PGPObject, Exportable):
             return self
 
         if isinstance(other, Signature):
-            other = PGPSignature.from_sigpkt(other)
+            other = PGPSignature() + other
 
         if isinstance(other, PGPSignature):
             i = bisect.bisect_left(self._signatures, other)
@@ -761,7 +790,7 @@ class PGPMessage(PGPObject, Exportable):
                 if not isinstance(pkt, Signature):
                     warnings.warn("Discarded unexpected packet: {:s}".format(pkt.__class__.__name__), stacklevel=2)
                     continue
-                self += PGPSignature.from_sigpkt(pkt)
+                self += PGPSignature() + pkt
 
         else:
             while len(data) > 0:
@@ -973,11 +1002,11 @@ class PGPKey(PGPObject, Exportable):
 
     @property
     def userids(self):
-        return [u for u in self._uids if isinstance(u._uid, UserID)]
+        return [u for u in self._uids if u.is_uid]
 
     @property
     def userattributes(self):
-        return [u for u in self._uids if isinstance(u._uid, UserAttribute)]
+        return [u for u in self._uids if u.is_ua]
 
     @classmethod
     def generate(cls):
@@ -1008,6 +1037,43 @@ class PGPKey(PGPObject, Exportable):
 
         return bytes(_bytes)
 
+    def __repr__(self):
+        return "<PGPKey [{:s}][0x{:s}] at 0x{:02X}>" \
+               "".format(self._key.__class__.__name__, self.fingerprint.keyid, id(self))
+
+    def __contains__(self, item):
+        if isinstance(item, PGPKey):
+            return item.fingerprint.keyid in self._children
+        raise TypeError(type(item))
+
+    def __add__(self, other):
+        if isinstance(other, Key) and self._key is None:
+            self._key = other
+            return self
+
+        if isinstance(other, PGPKey) and not other.is_primary and other.is_public == self.is_public:
+            other._parent = self
+            self._children[other.fingerprint.keyid] = other
+            return self
+
+        def _biadd(target, item):
+            i = bisect.bisect_left(target, other)
+            target.rotate(- i)
+            target.appendleft(other)
+            target.rotate(i)
+
+        if isinstance(other, PGPSignature):
+            _biadd(self._signatures, other)
+            return self
+
+        if isinstance(other, PGPUID):
+            other._parent = self
+            _biadd(self._uids, other)
+            return self
+
+        raise TypeError("unsupported operand type(s) for +=: '{:s}' and '{:s}'"
+                        "".format(self.__class__.__name__, other.__class__.__name__))
+
     def protect(self):
         raise NotImplementedError()
 
@@ -1032,7 +1098,7 @@ class PGPKey(PGPObject, Exportable):
             for sk in itertools.chain([self], self.subkeys.values()):
                 sk._key.keymaterial.clear()
 
-    def add_uid(self, uid, **kwargs):
+    def add_uid(self, uid, selfsign=True, **kwargs):
         prefs = {'sigtype': SignatureType.Positive_Cert,
                  'usage': [],
                  'hashprefs': [],
@@ -1042,13 +1108,10 @@ class PGPKey(PGPObject, Exportable):
         prefs.update(kwargs)
 
         uid._parent = self
-        uid.add_signature(self.sign(uid, **prefs))
+        if selfsign:
+            uid += self.sign(uid, **prefs)
 
-        if not prefs['primary']:
-            self._uids.append(uid)
-
-        else:
-            self._uids.appendleft(uid)
+        self += uid
 
     def del_uid(self, search):
         i = next( (i for i, u in enumerate(self._uids)
@@ -1331,8 +1394,8 @@ class PGPKey(PGPObject, Exportable):
 
         return decmsg
 
-    def parse(self, packet):
-        unarmored = self.ascii_unarmor(self.load(packet))
+    def parse(self, data):
+        unarmored = self.ascii_unarmor(self.load(data))
         data = unarmored['body']
 
         if unarmored['magic'] is not None and 'KEY' not in unarmored['magic']:
@@ -1346,116 +1409,70 @@ class PGPKey(PGPObject, Exportable):
         keys = collections.OrderedDict()
         # orphaned will hold all non-opaque orphaned packets
         orphaned = collections.OrderedDict()
+        # last holds the last non-signature thing processed
 
-        # parsing hints
-        # last non-signature placed
-        last = None  # last PGP*thing placed
-        lns = None   # last non-signature PGP*thing placed
-        lpk = None   # last primary key parsed
-        lk = None    # last key parsed
-        pkt = None   # packet just parsed
+        ##TODO: this is a bit messy
+        getpkt = lambda d: Packet(d) if len(d) > 0 else None
+        getpkt = iter(functools.partial(getpkt, data), None)
+        getpkt = six.moves.filterfalse(lambda p: isinstance(p, Opaque), getpkt)
+        class pktgrouper(object):
+            def __init__(self):
+                self.last = None
+            def __call__(self, pkt):
+                if not isinstance(pkt, Signature):
+                    self.last = id(pkt)
+                return self.last
+        groups = iter(group for _, group in itertools.groupby(getpkt, key=pktgrouper()))
+        while True:
+            for group in groups:
+                pkt = next(group)
 
-        while len(data) > 0:
-            pkt = Packet(data)
+                # deal with pkt first
+                if isinstance(pkt, Key):
+                    pgpobj = (self if self._key is None else PGPKey()) + pkt
 
-            # discard opaque packets
-            if isinstance(pkt, Opaque):
-                warnings.warn("Discarded unsupported packet: {:s}".format(repr(pkt)), stacklevel=2)
-                del pkt
-                continue
-
-            # load a key packet
-            if isinstance(pkt, Key):
-                key = self if self._key is None else PGPKey()
-                key._key = pkt
-                key.ascii_headers = self.ascii_headers
-
-                lk = key
-                if key.is_primary:
-                    lpk = key
-                    keys[key.fingerprint.keyid] = key
-
-                elif (not key.is_primary) and lpk is not None and \
-                        (isinstance(lns, PGPUID) or (isinstance(lns, PGPKey)) and not lk.is_primary):
-                    key._parent = lpk
-                    lpk._children[key.fingerprint.keyid] = key
+                elif isinstance(pkt, (UserID, UserAttribute)):
+                    pgpobj = PGPUID() + pkt
 
                 else:
-                    ##TODO: most other possibilities at this point is an error condition
-                    ##TODO: the other possibility is a subkey that has been separated from its primary, on purpose
-                    pass
+                    break
 
-                last = key
-                lns = key
-                continue
+                # add signatures to whatever we got
+                [ operator.iadd(pgpobj, PGPSignature() + sig) for sig in group ]
 
-            # don't bother trying to load anything else until we've loaded a key
-            # this could be useful in cases where a large block is being loaded and it's led off
-            # with key packet versions that we don't understand yet (currently, v2 and v3 key packets)
-            if lpk is None:
-                continue
+                # and file away pgpobj
+                if isinstance(pgpobj, PGPKey) and pgpobj.is_primary:
+                    keys[(pgpobj.fingerprint.keyid, pgpobj.is_public)] = pgpobj
 
-            # A user id/attribute was parsed!
-            # Discounting signatures, they must follow either a primary key or another user id/attribute
-            if isinstance(pkt, (UserID, UserAttribute)) and isinstance(lns, (PGPKey, PGPUID)):
-                uid = PGPUID()
-                uid._uid = pkt
-                uid._parent = lpk
-                lpk._uids.append(uid)
-                last = uid
-                lns = uid
-                continue
+                elif isinstance(pgpobj, PGPKey) and not pgpobj.is_primary:
+                    # parent is likely the most recently parsed primary key
+                    keys[next(reversed(keys))] += pgpobj
 
-            # A signature was parsed!
-            if isinstance(pkt, Signature):
-                sig = PGPSignature.from_sigpkt(pkt)
+                    bsigs = [ pkb for skb in pgpobj._signatures if skb.type == SignatureType.Subkey_Binding
+                                  for pkb in skb._signature.subpackets['EmbeddedSignature'] ]
+                    for es in bsigs:
+                        esig = PGPSignature() + es
+                        esig.parent = es
+                        pgpobj += esig
 
-                # A KeyRevocation signature *must immediately* follow a *primary* key *only*
-                if sig.type == SignatureType.KeyRevocation and isinstance(last, PGPKey) and last.is_primary:
-                    lk._signatures.append(sig)
-                    last = sig
-                    continue
+                elif isinstance(pgpobj, PGPUID):
+                    # parent is likely the most recently parsed primary key
+                    keys[next(reversed(keys))] += pgpobj
 
-                # A signature directly on a key follows the key that is its subject
-                if sig.type == SignatureType.DirectlyOnKey and isinstance(lns, PGPKey):
-                    lk._signatures.append(sig)
-                    last = sig
-                    continue
+                else:
+                    break
+            else:
+                # finished normally
+                break
 
-                # A SubkeyRevocation signature comes after a subkey
-                if sig.type == SignatureType.SubkeyRevocation and not lk.is_primary:
-                    lk._signatures.appendleft(sig)
-                    last = sig
-                    continue
-
-                # Subkey Binding signatures come after subkeys
-                if sig.type == SignatureType.Subkey_Binding and not lk.is_primary:
-                    lk._signatures.append(sig)
-                    last = sig
-
-                    # extract the Primary Key Binding Signature as well if there is one
-                    if 'EmbeddedSignature' in sig._signature.subpackets:
-                        _sig = PGPSignature()
-                        _sig._signature = next(iter(sig._signature.subpackets['EmbeddedSignature']))
-                        _sig.parent = sig
-                        lk._signatures.append(_sig)
-                        del _sig
-                    continue
-
-                # Certification and Certification Revocation signatures *must* follow either a User ID or User Attribute packet,
-                # or another Certification signature.
-                if sig.type in [SignatureType.Positive_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
-                                SignatureType.Generic_Cert, SignatureType.CertRevocation] and isinstance(lns, (PGPUID)):
-                    lns.add_signature(sig)
-                    last = sig
-                    continue
-
-            # if we get this far, the packet was orphaned! Add it to orphaned and warn.
+            # this will only be reached called if the inner loop hit a break
             warnings.warn("Warning: Orphaned packet detected! {:s}".format(repr(pkt)), stacklevel=2)
             orphaned[(pkt.header.tag, len([k for k, v in orphaned.keys() if k == pkt.header.tag]))] = pkt
+            for pkt in group:
+                orphaned[(pkt.header.tag, len([k for k, v in orphaned.keys() if k == pkt.header.tag]))] = pkt
 
         # remove the reference to self from keys
-        del keys[self.fingerprint.keyid]
+        [ keys.pop((getattr(self, 'fingerprint.keyid', '~'), None), t) for t in (True, False) ]
         return {'keys': keys, 'orphaned': orphaned}
 
 
