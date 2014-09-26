@@ -2,23 +2,22 @@
 """
 import inspect
 
-import pgpy.__init__
+import pgpy
 
-from pgpy import constants
-from pgpy import errors
-from pgpy.pgp import PGPKey
-from pgpy.pgp import PGPSignature
-from pgpy.pgp import PGPUID
-from pgpy.pgp import PGPMessage
-from pgpy.pgp import PGPKeyring
 
 def test_exports():
-    members = [ m for _, m in inspect.getmembers(pgpy.__init__) ]
+    _ignore = {'__all__', '__builtins__', '__cached__', '__doc__', '__file__', '__loader__', '__name__', '__package__',
+               '__path__', '__spec__'}
+    members = { n for n, _ in inspect.getmembers(pgpy) if n not in _ignore }
+    errors = { n for n, _ in inspect.getmembers(pgpy.errors) if n not in _ignore  }
+    constants = { n for n, _ in inspect.getmembers(pgpy.constants) if n not in _ignore  }
 
-    assert constants in members
-    assert errors in members
-    assert PGPKey in members
-    assert PGPSignature in members
-    assert PGPMessage in members
-    assert PGPKeyring in members
-    assert PGPUID in members
+    expected_members = {'PGPKey', 'PGPSignature', 'PGPUID', 'PGPMessage', 'PGPKeyring', 'constants', 'errors'}
+    expected_errors = {'PGPError', 'PGPDecryptionError', 'PGPOpenSSLCipherNotSupported', 'WontImplementError'}
+    expected_constants = {'CompressionAlgorithm', 'Features', 'HashAlgorithm', 'ImageEncoding', 'KeyFlags',
+                          'KeyServerPreferences', 'NotationDataFlags', 'PubKeyAlgorithm', 'RevocationKeyClass',
+                          'RevocationReason', 'SignatureType', 'SymmetricKeyAlgorithm', 'TrustFlags', 'TrustLevel'}
+
+    assert expected_members <= members
+    assert expected_errors <= errors
+    assert expected_constants <= constants
