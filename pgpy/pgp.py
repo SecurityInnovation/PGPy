@@ -68,6 +68,50 @@ from .types import PGPObject
 from .types import SignatureVerification
 
 
+def _deque_insort(seq, item):
+    i = bisect.bisect_left(seq, item)
+    seqlen = len(seq)
+
+    # go left if i is in the first half of the list
+    if i < (seqlen // 2):
+        seq.rotate(- i)
+        seq.appendleft(item)
+        seq.rotate(i)
+
+    # go right if i is in the second half
+    else:
+        i = (seqlen - i)
+        seq.rotate(i)
+        seq.append(item)
+        seq.rotate(- i)
+
+
+def _deque_popat(seq, i):
+    seqlen = len(seq)
+    # go left if i is in the first half of the list
+    if i < (seqlen // 2):
+        seq.rotate(- i)
+        item = seq.popleft()
+        seq.rotate(i)
+
+    else:
+        i = (seqlen - i)
+        seq.rotate(i)
+        item = seq.pop()
+        seq.rotate(- i)
+
+    return item
+
+
+def _deque_resort(seq, item):
+    # find where item is
+    i = bisect.bisect_left(seq, item)
+    if i != len(seq) and seq[i] == item:
+        _deque_insort(seq, _deque_popat(seq, i))
+        return
+    raise ValueError
+
+
 class PGPSignature(PGPObject, Exportable):
     @property
     def __sig__(self):
@@ -206,12 +250,6 @@ class PGPSignature(PGPObject, Exportable):
         sig._signature = sigpkt
         return sig
 
-    # @classmethod
-    # def from_sigpkt(cls, sigpkt):
-    #     sig = PGPSignature()
-    #     sig._signature = sigpkt
-    #     return sig
-
     def __init__(self):
         super(PGPSignature, self).__init__()
         self._signature = None
@@ -227,9 +265,6 @@ class PGPSignature(PGPObject, Exportable):
 
     def __lt__(self, other):
         return self.created < other.created
-
-    def __gt__(self, other):
-        return self.created > other.created
 
     def __add__(self, other):
         if isinstance(other, Signature):
@@ -476,11 +511,17 @@ class PGPUID(object):
         self._parent = None
 
     def __repr__(self):
-        return "<PGPUID [{:s}][{}] at 0x[:02X]>".format(self._uid.__class__.__name__, self.selfsig.created, id(self))
+        return "<PGPUID [{:s}][{}] at 0x{:02X}>".format(self._uid.__class__.__name__, self.selfsig.created, id(self))
 
     def __lt__(self, other):
-        if (self.is_uid and other.is_uid) or (self.is_ua and other.is_ua):
-            return self.selfsig < other.selfsig
+        if self.is_uid == other.is_uid:
+            if self.is_primary == other.is_primary:
+                return self.selfsig > other.selfsig
+
+            if self.is_primary:
+                return True
+
+            return False
 
         if self.is_uid and other.is_ua:
             return True
@@ -490,21 +531,24 @@ class PGPUID(object):
 
     def __add__(self, other):
         if isinstance(other, PGPSignature):
-            i = bisect.bisect_left(self._signatures, other)
-            self._signatures.rotate(- i)
-            self._signatures.appendleft(other)
-            self._signatures.rotate(i)
+            _deque_insort(self._signatures, other)
 
-        elif isinstance(other, UserID) and self._uid is None:
+            # is this a new self-signature?
+            if self._parent is not None and self in self._parent and other is self.selfsig and len(self._signatures) > 1:
+                _deque_resort(self._parent._uids, self)
+
+            return self
+
+        if isinstance(other, UserID) and self._uid is None:
             self._uid = other
+            return self
 
-        elif isinstance(other, UserAttribute) and self._uid is None:
+        if isinstance(other, UserAttribute) and self._uid is None:
             self._uid = other
+            return self
 
-        else:
-            raise TypeError("unsupported operand type(s) for +=: '{:s}' and '{:s}'"
-                            "".format(self.__class__.__name__, other.__class__.__name__))
-        return self
+        raise TypeError("unsupported operand type(s) for +=: '{:s}' and '{:s}'"
+                        "".format(self.__class__.__name__, other.__class__.__name__))
 
 
 class PGPMessage(PGPObject, Exportable):
@@ -659,10 +703,7 @@ class PGPMessage(PGPObject, Exportable):
             other = PGPSignature() + other
 
         if isinstance(other, PGPSignature):
-            i = bisect.bisect_left(self._signatures, other)
-            self._signatures.rotate(- i)
-            self._signatures.appendleft(other)
-            self._signatures.rotate(i)
+            _deque_insort(self._signatures, other)
             return self
 
         if isinstance(other, (PKESessionKey, SKESessionKey)):
@@ -1044,7 +1085,11 @@ class PGPKey(PGPObject, Exportable):
     def __contains__(self, item):
         if isinstance(item, PGPKey):
             return item.fingerprint.keyid in self._children
-        raise TypeError(type(item))
+
+        if isinstance(item, PGPUID):
+            return item in self._uids
+
+        raise TypeError
 
     def __add__(self, other):
         if isinstance(other, Key) and self._key is None:
@@ -1056,19 +1101,13 @@ class PGPKey(PGPObject, Exportable):
             self._children[other.fingerprint.keyid] = other
             return self
 
-        def _biadd(target, item):
-            i = bisect.bisect_left(target, other)
-            target.rotate(- i)
-            target.appendleft(other)
-            target.rotate(i)
-
         if isinstance(other, PGPSignature):
-            _biadd(self._signatures, other)
+            _deque_insort(self._signatures, other)
             return self
 
         if isinstance(other, PGPUID):
             other._parent = self
-            _biadd(self._uids, other)
+            _deque_insort(self._uids, other)
             return self
 
         raise TypeError("unsupported operand type(s) for +=: '{:s}' and '{:s}'"
@@ -1121,9 +1160,7 @@ class PGPKey(PGPObject, Exportable):
         if i is None:
             raise PGPError("uid '{:s}' not found".format(search))
 
-        self._uids.rotate(- i)
-        self._uids.popleft()._parent = None
-        self._uids.rotate(i)
+        _deque_popat(self._uids, i)
 
     @KeyAction(KeyFlags.Sign, KeyFlags.Certify, is_unlocked=True, is_public=False)
     def sign(self, subject, **prefs):
@@ -1411,20 +1448,17 @@ class PGPKey(PGPObject, Exportable):
         orphaned = collections.OrderedDict()
         # last holds the last non-signature thing processed
 
-        ##TODO: this is a bit messy
         getpkt = lambda d: Packet(d) if len(d) > 0 else None
         getpkt = iter(functools.partial(getpkt, data), None)
-        getpkt = six.moves.filterfalse(lambda p: isinstance(p, Opaque), getpkt)
         class pktgrouper(object):
             def __init__(self):
                 self.last = None
             def __call__(self, pkt):
-                if not isinstance(pkt, Signature):
-                    self.last = id(pkt)
+                if pkt.header.tag != PacketTag.Signature:
+                    self.last = '{:02X}_{:s}'.format(id(pkt), pkt.__class__.__name__)
                 return self.last
-        groups = iter(group for _, group in itertools.groupby(getpkt, key=pktgrouper()))
         while True:
-            for group in groups:
+            for group in iter(group for _, group in itertools.groupby(getpkt, key=pktgrouper()) if not _.endswith('Opaque')):
                 pkt = next(group)
 
                 # deal with pkt first
@@ -1438,7 +1472,7 @@ class PGPKey(PGPObject, Exportable):
                     break
 
                 # add signatures to whatever we got
-                [ operator.iadd(pgpobj, PGPSignature() + sig) for sig in group ]
+                [ operator.iadd(pgpobj, PGPSignature() + sig) for sig in group if not isinstance(sig, Opaque) ]
 
                 # and file away pgpobj
                 if isinstance(pgpobj, PGPKey) and pgpobj.is_primary:

@@ -241,6 +241,10 @@ class Signable(six.with_metaclass(abc.ABCMeta, object)):
     pass
 
 
+class SignatureContainer(object):
+    pass
+
+
 class PGPObject(six.with_metaclass(abc.ABCMeta, object)):
     __metaclass__ = abc.ABCMeta
 

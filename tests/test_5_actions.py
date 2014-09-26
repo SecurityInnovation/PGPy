@@ -423,3 +423,4 @@ class TestPGPKey(object):
 
         # remove the new photo
         sec._uids.pop()._parent = None
+        assert nphoto not in sec._uids
