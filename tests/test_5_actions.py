@@ -4,7 +4,9 @@ import pytest
 
 import glob
 import os
-import warnings
+
+from contextlib import contextmanager
+from warnings import catch_warnings
 
 from pgpy import PGPKey
 from pgpy import PGPMessage
@@ -117,6 +119,21 @@ class TestPGPKey(object):
     targettes = [ _pgpkey(f) for f in sorted(glob.glob('tests/testdata/keys/targette*.asc')) ]
     ikeys = [os.path.join(*f.split(os.path.sep)[-2:]) for f in glob.glob('tests/testdata/keys/*.pub.asc')]
 
+    @contextmanager
+    def assert_warnings(self):
+        with catch_warnings(record=True) as w:
+            try:
+                yield
+
+            finally:
+                for warning in w:
+                    try:
+                        assert warning.filename == __file__
+
+                    except AssertionError as e:
+                        e.args += (warning.message,)
+                        raise
+
     def test_unlock(self, enc, sec):
         assert enc.is_protected
         assert not enc.is_unlocked
@@ -130,40 +147,35 @@ class TestPGPKey(object):
         enc.unlock('ClearlyTheWrongPassword')
 
         # unlock with the correct passphrase
-        with enc.unlock('QwertyUiop'), warnings.catch_warnings(record=True) as w:
+        with enc.unlock('QwertyUiop'), self.assert_warnings():
             assert enc.is_unlocked
             # sign lit
             sig = enc.sign('tests/testdata/lit')
             # verify with the unlocked key and its unprotected friend
             assert enc.verify('tests/testdata/lit', sig)
             assert sec.verify('tests/testdata/lit', sig)
-        assert all(i.filename == __file__ for i in w)
 
     def test_verify_detached(self, sigkey, sigsig, sigsubj):
         assert sigkey.verify(sigsubj, sigsig)
 
     def test_verify_message(self, msg):
-        with warnings.catch_warnings(record=True) as w:
+        with self.assert_warnings():
             for pub in self.params['pub']:
                 # assert pub.verify(msg)
                 sv = pub.verify(msg)
                 if not sv:
                     pytest.fail(','.join(repr(ssj) for ssj in sv.bad_signatures))
 
-        assert all(i.filename == __file__ for i in w)
-
     def test_verify_self(self, pub):
-        with warnings.catch_warnings(record=True) as w:
+        with self.assert_warnings():
             assert pub.verify(pub)
-        assert all(i.filename == __file__ for i in w)
 
     def test_verify_revochiio(self):
         k = PGPKey()
         k.parse('tests/testdata/revochiio.asc')
 
-        with warnings.catch_warnings(record=True) as w:
+        with self.assert_warnings():
             sv = k.verify(k)
-        assert all(i.filename == __file__ for i in w)
 
         assert len(sv._subjects) == 13
         _svtypes = [ s.signature.type for s in sv._subjects ]
@@ -187,18 +199,16 @@ class TestPGPKey(object):
             wrongkey.verify('tests/testdata/signatures/debian-sid.subj', sig)
 
     def test_verify_invalid(self, sec):
-        with warnings.catch_warnings(record=True) as w:
+        with self.assert_warnings():
             sig = sec.sign('tests/testdata/lit')
             assert not sec.verify('tests/testdata/lit2', sig)
-        assert all(i.filename == __file__ for i in w)
 
     def test_sign_detach(self, sec, write_clean, gpg_import, gpg_verify):
-        with warnings.catch_warnings(record=True) as w:
+        with self.assert_warnings():
             sig = sec.sign('tests/testdata/lit')
 
             # Verify with PGPy
             assert sec.verify('tests/testdata/lit', sig)
-        assert all(i.filename == __file__ for i in w)
 
         # verify with GPG
         with write_clean('tests/testdata/lit.sig', 'w', str(sig)), \
@@ -208,7 +218,7 @@ class TestPGPKey(object):
     def test_sign_cleartext(self, write_clean, gpg_import, gpg_verify):
         msg = PGPMessage.new('tests/testdata/lit_de', cleartext=True)
 
-        with warnings.catch_warnings(record=True) as w:
+        with self.assert_warnings():
             for sec in self.params['sec']:
                 msg += sec.sign(msg)
 
@@ -217,7 +227,6 @@ class TestPGPKey(object):
             # verify with PGPy
             for pub in self.params['pub']:
                 assert pub.verify(msg)
-        assert all(i.filename == __file__ for i in w)
 
         # verify with GPG
         with write_clean('tests/testdata/lit_de.asc', 'w', str(msg)), \
@@ -226,14 +235,13 @@ class TestPGPKey(object):
 
     def test_onepass_sign_message(self, write_clean, gpg_import, gpg_verify):
         msg = PGPMessage.new('tests/testdata/lit')
-        with warnings.catch_warnings(record=True) as w:
+        with self.assert_warnings():
             for sec in self.params['sec']:
                 msg += sec.sign(msg)
 
             # verify with PGPy
             for pub in self.params['pub']:
                 assert pub.verify(msg)
-        assert all(i.filename == __file__ for i in w)
 
         # verify with GPG
         with write_clean('tests/testdata/lit.asc', 'w', str(msg)), \
@@ -241,21 +249,19 @@ class TestPGPKey(object):
             assert gpg_verify('./lit.asc')
 
     def test_sign_timestamp(self, sec):
-        with warnings.catch_warnings(record=True) as w:
+        with self.assert_warnings():
             tsig = sec.sign(None, sigtype=SignatureType.Timestamp)
             # verify with PGPy only; GPG does not support timestamp signatures
             assert sec.verify(None, tsig)
-        assert all(i.filename == __file__ for i in w)
 
     def test_sign_userid(self, sec, pub, write_clean, gpg_import, gpg_check_sigs):
         for tk in self.targettes:
-            with warnings.catch_warnings(record=True) as w:
+            with self.assert_warnings():
                 # sign tk's first uid generically
                 tk.userids[0] += sec.sign(tk.userids[0])
 
                 # verify with PGPy
                 assert pub.verify(tk.userids[0])
-            assert all(i.filename == __file__ for i in w)
 
             # verify with GnuPG
             tkfp = '{:s}.asc'.format(tk.fingerprint.shortid)
@@ -269,13 +275,12 @@ class TestPGPKey(object):
             # we should have already signed the key in test_sign_userid above
             assert sec.fingerprint.keyid in tk.userids[0].signers
 
-            with warnings.catch_warnings(record=True) as w:
+            with self.assert_warnings():
                 # revoke that certification!
                 tk.userids[0] += sec.sign(tk.userids[0], sigtype=SignatureType.CertRevocation)
 
                 # verify with PGPy
                 assert pub.verify(tk.userids[0])
-            assert all(i.filename == __file__ for i in w)
 
             # verify with GnuPG
             tkfp = '{:s}.asc'.format(tk.fingerprint.shortid)
@@ -284,8 +289,38 @@ class TestPGPKey(object):
             with write_clean(os.path.join('tests', 'testdata', tkfp), 'w', str(tk)), gpg_import(*ikeys):
                 assert gpg_check_sigs(tk.fingerprint.keyid)
 
-    def test_sign_key(self):
-        pytest.skip("not implemented yet")
+    def test_sign_key(self, sec, pub, write_clean, gpg_import, gpg_check_sigs):
+        # let's add an 0x1f signature to a key that specifies only symmetric key preferences
+        with self.assert_warnings():
+            pub += sec.sign(pub, sigtype=SignatureType.DirectlyOnKey, cipherprefs=[SymmetricKeyAlgorithm.AES256,
+                                                                                   SymmetricKeyAlgorithm.AES192,
+                                                                                   SymmetricKeyAlgorithm.Camellia256,
+                                                                                   SymmetricKeyAlgorithm.Camellia192])
+
+            # verify with PGPy
+            assert pub.verify(pub)
+
+        # verify with GPG
+        kfp = '{:s}.asc'.format(pub.fingerprint.shortid)
+        with write_clean(os.path.join('tests', 'testdata', kfp), 'w', str(kfp)), \
+                gpg_import(os.path.join('.', kfp)) as kio:
+            assert 'invalid self-signature' not in kio
+
+    def test_add_revocation_key(self, sec, pub, write_clean, gpg_import, gpg_check_sigs):
+        # this is a fake revocation key id
+        revoker = 'C001 CAFE BABE FA11 DEAD  DAED 11AF EBAB EFAC 100C'
+        # add a revocation key signature to a key
+        with self.assert_warnings():
+            pub += sec.sign(pub, sigtype=SignatureType.DirectlyOnKey, revocable=False, revoker=revoker)
+
+            # verify with PGPy
+            assert pub.verify(pub)
+
+        # verify with GPG
+        kfp = '{:s}.asc'.format(pub.fingerprint.shortid)
+        with write_clean(os.path.join('tests', 'testdata', kfp), 'w', str(kfp)), \
+                gpg_import(os.path.join('.', kfp)) as kio:
+            assert 'invalid self-signature' not in kio
 
     def test_revoke_key(self):
         pytest.skip("not implemented yet")
@@ -303,9 +338,8 @@ class TestPGPKey(object):
         key = PGPKey()
         key.parse('tests/testdata/keys/rsa.1.sec.asc')
 
-        with warnings.catch_warnings(record=True) as w:
+        with self.assert_warnings():
             decmsg = key.decrypt(rsa_encmsg)
-        assert all(i.filename == __file__ for i in w)
 
         assert isinstance(decmsg, PGPMessage)
         assert decmsg.message == bytearray(b"This is stored, literally\\!\n\n")
@@ -317,8 +351,7 @@ class TestPGPKey(object):
         sec.parse('tests/testdata/keys/rsa.1.sec.asc')
         msg = PGPMessage.new('tests/testdata/lit')
 
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter('ignore')
+        with self.assert_warnings():
             encmsg = pub.encrypt(msg)
             assert isinstance(encmsg, PGPMessage)
             assert encmsg.is_encrypted
@@ -328,7 +361,6 @@ class TestPGPKey(object):
             assert isinstance(decmsg, PGPMessage)
             assert not decmsg.is_encrypted
             assert decmsg.message == bytearray(b'This is stored, literally\!\n\n')
-        assert all(i.filename == __file__ for i in w)
 
         # decrypt with GPG
         with write_clean('tests/testdata/aemsg.asc', 'w', str(encmsg)), gpg_import('keys/rsa.1.sec.asc'):
@@ -337,8 +369,7 @@ class TestPGPKey(object):
     def test_encrypt_rsa_multi(self, write_clean, gpg_import, gpg_decrypt):
         msg = PGPMessage.new('tests/testdata/lit')
 
-        with warnings.catch_warnings(record=True) as w:
-
+        with self.assert_warnings():
             sk = SymmetricKeyAlgorithm.AES256.gen_key()
             for rkey in [ k for k in self.params['pub'] if k.key_algorithm == PubKeyAlgorithm.RSAEncryptOrSign ]:
                 msg = rkey.encrypt(msg, sessionkey=sk)
@@ -352,7 +383,6 @@ class TestPGPKey(object):
 
                 assert not decmsg.is_encrypted
                 assert decmsg.message == b'This is stored, literally\!\n\n'
-        assert all(i.filename == __file__ for i in w)
 
         with write_clean('tests/testdata/aemsg.asc', 'w', str(msg)):
             for kp in glob.glob('tests/testdata/keys/rsa*.sec.asc'):
@@ -382,9 +412,8 @@ class TestPGPKey(object):
         assert u._signatures[0].compprefs == [CompressionAlgorithm.ZIP, CompressionAlgorithm.Uncompressed]
 
         # verify with PGPy
-        with warnings.catch_warnings(record=True) as w:
+        with self.assert_warnings():
             assert pub.verify(sec)
-        assert all(i.filename == __file__ for i in w)
 
         # verify with GPG
         tkfp = '{:s}.asc'.format(sec.fingerprint.shortid)
@@ -411,9 +440,8 @@ class TestPGPKey(object):
         assert u.image.image == photo
 
         # verify with PGPy
-        with warnings.catch_warnings(record=True) as w:
+        with self.assert_warnings():
             assert pub.verify(sec)
-        assert all(i.filename == __file__ for i in w)
 
         # verify with GPG
         tkfp = '{:s}.asc'.format(sec.fingerprint.shortid)

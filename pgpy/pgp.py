@@ -1219,8 +1219,7 @@ class PGPKey(PGPObject, Exportable):
             sigdata = sig.hashdata(subject.message)
 
         elif isinstance(subject, PGPUID):
-            if sig.type in [SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
-                            SignatureType.Positive_Cert] and subject._parent is self:
+            if sig.type in SignatureType.certifications and subject._parent is self:
                 # flags and preferences
                 sig._signature.subpackets.addnew('KeyFlags', hashed=True, flags=prefs['usage'])
                 sig._signature.subpackets.addnew('PreferredSymmetricAlgorithms', hashed=True, flags=prefs['cipherprefs'])
@@ -1234,6 +1233,26 @@ class PGPKey(PGPObject, Exportable):
                     sig._signature.subpackets.addnew('PrimaryUserID', hashed=True, primary=True)
 
             sigdata = sig.hashdata(subject)
+
+        elif isinstance(subject, PGPKey):
+            if sig.type == SignatureType.DirectlyOnKey:
+                valid_flags = [('usage', 'KeyFlags'),
+                               ('cipherprefs', 'PreferredSymmetricAlgorithms'),
+                               ('hashprefs', 'PreferredHashAlgorithms'),
+                               ('compprefs', 'PreferredCompressionAlgorithms'),]
+                getflags = iter((prefs.pop(f, None), sp) for f, sp in valid_flags)
+                for flags, sp in iter(i for i in getflags if i[0] is not None):
+                    sig._signature.subpackets.addnew(sp, hashed=True, flags=flags)
+
+                revocable = prefs.pop('revocable', None)
+                if revocable is not None:
+                    sig._signature.subpackets.addnew('Revocable', hashed=True, bflag=revocable)
+
+                revoker = prefs.pop('revoker', None)
+                if revoker is not None:
+                    sig._signature.subpackets.addnew('RevocationKey', hashed=True, fingerprint=revoker)
+
+                sigdata = sig.hashdata(subject)
 
         else:
             sigdata = sig.hashdata(self.load(subject))
@@ -1350,24 +1369,14 @@ class PGPKey(PGPObject, Exportable):
         cipher_algo = prefs.pop('cipher', next(iter(self.cipherprefs)))
         hash_algo = prefs.pop('hash', next(iter(self.hashprefs)))
 
-        # if KeyFlags.EncryptCommunications not in self.usageflags:
-        #     for sk in self.subkeys.values():
-        #         if KeyFlags.EncryptCommunications in sk.usageflags:
-        #             warnings.warn("This key is not marked for encrypting communications, but subkey {:s} is. "
-        #                           "Using that subkey...".format(sk.fingerprint.keyid),
-        #                           stacklevel=2)
-        #             return sk.encrypt(message, sessionkey, **kwargs)
-        #
-        #     raise PGPError("This key is not marked for encryption")
-
         if cipher_algo not in self.cipherprefs:
-            warnings.warn("Selected symmetric algorithm not in key preferences", stacklevel=2)
+            warnings.warn("Selected symmetric algorithm not in key preferences", stacklevel=3)
 
         if hash_algo not in self.hashprefs:
-            warnings.warn("Selected hash algorithm not in key preferences", stacklevel=2)
+            warnings.warn("Selected hash algorithm not in key preferences", stacklevel=3)
 
         if message.is_compressed and message._compression not in self.compprefs:
-            warnings.warn("Selected compression algorithm not in key preferences", stacklevel=2)
+            warnings.warn("Selected compression algorithm not in key preferences", stacklevel=3)
 
         if sessionkey is None:
             sessionkey = cipher_algo.gen_key()

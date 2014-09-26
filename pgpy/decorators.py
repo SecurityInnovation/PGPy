@@ -83,7 +83,7 @@ class KeyAction(object):
         if _key is not key:
             em['subkeyid'] = _key.fingerprint.keyid
             warnings.warn("Key {keyid:s} does not have the required usage flag {flags:s}; using subkey {subkeyid:s}"
-                          "".format(**em), stacklevel=2)
+                          "".format(**em), stacklevel=4)
 
         yield _key
 

@@ -8,8 +8,6 @@ import re
 import subprocess
 import sys
 
-from itertools import product
-
 from distutils.version import LooseVersion
 
 from cryptography.hazmat.backends import openssl

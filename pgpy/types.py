@@ -578,6 +578,9 @@ class Fingerprint(str):
         return str(self).replace(' ', '')[-8:]
 
     def __new__(cls, content):
+        if isinstance(content, Fingerprint):
+            return content
+
         # validate input before continuing: this should be a string of 40 hex digits
         content = content.upper().replace(' ', '')
         if not bool(re.match(r'^[A-Z0-9]{40}$', content)):
@@ -585,9 +588,9 @@ class Fingerprint(str):
 
         # store in the format: "AAAA BBBB CCCC DDDD EEEE  FFFF 0000 1111 2222 3333"
         #                                               ^^ note 2 spaces here
-        spaces = [ ' ' if i != 4 else '  ' for i in range(10)  ]
+        spaces = [ ' ' if i != 4 else '  ' for i in range(10) ]
         chunks = [ ''.join(g) for g in six.moves.zip_longest(*[iter(content)] * 4) ]
-        content = ''.join(j for i in six.moves.zip_longest(chunks, spaces, fillvalue='') for j in i)
+        content = ''.join(j for i in six.moves.zip_longest(chunks, spaces, fillvalue='') for j in i).strip()
 
         return str.__new__(cls, content)
 
@@ -606,5 +609,5 @@ class Fingerprint(str):
     def __hash__(self):
         return hash(str(self.replace(' ', '')))
 
-    def __int__(self):
-        return int(self.replace(' ', ''), 16)
+    def __bytes__(self):
+        return binascii.unhexlify(self.replace(' ', ''))

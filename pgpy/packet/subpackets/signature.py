@@ -521,14 +521,11 @@ class RevocationKey(Signature):
     def fingerprint(self):
         return self._fingerprint
 
-    @fingerprint.register(Fingerprint)
-    def fingerprint_(self, val):
-        self._fingerprint = val
-
     @fingerprint.register(str)
     @fingerprint.register(six.text_type)
+    @fingerprint.register(Fingerprint)
     def fingerprint_(self, val):
-        self.fingerprint = Fingerprint(val)
+        self._fingerprint = Fingerprint(val)
 
     @fingerprint.register(bytearray)
     def fingerprint_(self, val):
@@ -544,7 +541,8 @@ class RevocationKey(Signature):
         _bytes = super(RevocationKey, self).__bytes__()
         _bytes += self.int_to_bytes(sum(self.keyclass))
         _bytes += self.int_to_bytes(self.algorithm.value)
-        _bytes += self.int_to_bytes(int(self.fingerprint), 20)
+        # _bytes += self.int_to_bytes(int(self.fingerprint), 20)
+        _bytes += self.fingerprint.__bytes__()
         return _bytes
 
     def parse(self, packet):
