@@ -113,6 +113,7 @@ class FileLoader(object):
         return _bytes
 
     def __init__(self):
+        super(FileLoader, self).__init__()
         self._path = ''
 
 
@@ -242,6 +243,7 @@ class Signable(six.with_metaclass(abc.ABCMeta, object)):
 
 
 class SignatureContainer(object):
+    ##TODO: this
     pass
 
 
@@ -370,6 +372,7 @@ class Header(Field):
             self._llen = {0: 1, 1: 2, 2: 4, 3: 0}[val]
 
     def __init__(self):
+        super(Header, self).__init__()
         self._len = 1
         self._llen = 1
         self._lenfmt = 1
@@ -521,6 +524,7 @@ class SignatureVerification(object):
             yield s
 
     def __init__(self):
+        super(SignatureVerification, self).__init__()
         self._subjects = []
 
     def add_sigsubj(self, signature, subject=None, verified=False):

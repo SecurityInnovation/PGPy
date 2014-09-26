@@ -320,15 +320,12 @@ class PGPSignature(PGPObject, Exportable):
             """
             _s = b''
             if isinstance(subject, PGPUID):
-                # _s = subject._parent._key.__bytes__()[len(subject._parent._key.header):]
                 _s = subject._parent.hashdata
 
             elif isinstance(subject, PGPKey) and not subject.is_primary:
-                # _s = subject._parent._key.__bytes__()[len(subject._parent._key.header):]
                 _s = subject._parent.hashdata
 
             elif isinstance(subject, PGPKey) and subject.is_primary:
-                # _s = subject._key.__bytes__()[len(subject._key.header):]
                 _s = subject.hashdata
 
             if len(_s) > 0:
@@ -341,7 +338,6 @@ class PGPSignature(PGPObject, Exportable):
             the subkey using the same format as the main key (also using 0x99 as
             the first octet).
             """
-            # _s = subject._key.__bytes__()[len(subject._key.header):]
             _s = subject.hashdata
             _data += b'\x99' + self.int_to_bytes(len(_s), 2) + _s
 
@@ -370,9 +366,6 @@ class PGPSignature(PGPObject, Exportable):
 
             if subject.is_ua:
                 _data += b'\xd1' + self.int_to_bytes(len(_s), 4) + _s
-
-        # if len(_data) == 0 and self.type is not SignatureType.Timestamp:
-        #     raise NotImplementedError(self.type)
 
         # if this is a new signature, do update_hlen
         if 0 in list(self._signature.signature):
@@ -506,6 +499,7 @@ class PGPUID(object):
         return uid
 
     def __init__(self):
+        super(PGPUID, self).__init__()
         self._uid = None
         self._signatures = collections.deque()
         self._parent = None
@@ -660,8 +654,6 @@ class PGPMessage(PGPObject, Exportable):
 
         else:
             ##TODO: is it worth coming up with a way of disabling one-pass signing?
-            # for onepass in iter(ops for ops in self._signatures if isinstance(ops, OnePassSignature)):
-            #     yield onepass
             for sig in self._signatures:
                 ops = sig.make_onepass()
                 if sig is not self._signatures[-1]:
@@ -1512,6 +1504,7 @@ class PGPKey(PGPObject, Exportable):
 
 class PGPKeyring(collections.Container, collections.Iterable, collections.Sized):
     def __init__(self, *args):
+        super(PGPKeyring, self).__init__()
         self._keys = {}
         self._pubkeys = collections.deque()
         self._privkeys = collections.deque()

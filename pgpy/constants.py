@@ -187,6 +187,7 @@ class HashAlgorithm(IntEnum):
     SHA224 = 0x0B
 
     def __init__(self, *args):
+        super(self.__class__, self).__init__()
         self._tuned_count = 0
 
     @property

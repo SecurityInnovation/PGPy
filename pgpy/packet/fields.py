@@ -37,6 +37,7 @@ class SubPackets(collections.MutableMapping, Field):
     _spmodule = signature
 
     def __init__(self):
+        super(SubPackets, self).__init__()
         self._hashed_sp = collections.OrderedDict()
         self._unhashed_sp = collections.OrderedDict()
 
@@ -175,6 +176,7 @@ class Signature(MPIs):
 
 class RSASignature(Signature):
     def __init__(self):
+        super(RSASignature, self).__init__()
         self.md_mod_n = MPI(0)
 
     def __iter__(self):
@@ -192,6 +194,7 @@ class RSASignature(Signature):
 
 class DSASignature(Signature):
     def __init__(self):
+        super(DSASignature, self).__init__()
         self.r = MPI(0)
         self.s = MPI(0)
 
@@ -283,6 +286,7 @@ class PubKey(MPIs):
 
 class RSAPub(PubKey):
     def __init__(self):
+        super(RSAPub, self).__init__()
         self.n = MPI(0)
         self.e = MPI(0)
 
@@ -300,6 +304,7 @@ class RSAPub(PubKey):
 
 class DSAPub(PubKey):
     def __init__(self):
+        super(DSAPub, self).__init__()
         self.p = MPI(0)
         self.q = MPI(0)
         self.g = MPI(0)
@@ -326,6 +331,7 @@ class DSAPub(PubKey):
 
 class ElGPub(PubKey):
     def __init__(self):
+        super(ElGPub, self).__init__()
         self.p = MPI(0)
         self.g = MPI(0)
         self.y = MPI(0)
@@ -494,6 +500,7 @@ class String2Key(Field):
         self._count = val
 
     def __init__(self):
+        super(String2Key, self).__init__()
         self.usage = 0
         self.encalg = 0
         self.specifier = 0
@@ -605,6 +612,7 @@ class String2Key(Field):
 
 class PrivKey(PubKey):
     def __init__(self):
+        super(PrivKey, self).__init__()
         self.s2k = String2Key()
         self.encbytes = bytearray()
         self.chksum = 0
@@ -678,8 +686,7 @@ class PrivKey(PubKey):
 
 class RSAPriv(PrivKey, RSAPub):
     def __init__(self):
-        RSAPub.__init__(self)
-        PrivKey.__init__(self)
+        super(RSAPriv, self).__init__()
         self.d = MPI(0)
         self.p = MPI(0)
         self.q = MPI(0)
@@ -749,8 +756,7 @@ class RSAPriv(PrivKey, RSAPub):
 
 class DSAPriv(PrivKey, DSAPub):
     def __init__(self):
-        DSAPub.__init__(self)
-        PrivKey.__init__(self)
+        super(DSAPriv, self).__init__()
         self.x = 0
 
     def __iter__(self):
@@ -796,8 +802,7 @@ class DSAPriv(PrivKey, DSAPub):
 
 class ElGPriv(PrivKey, ElGPub):
     def __init__(self):
-        ElGPub.__init__(self)
-        PrivKey.__init__(self)
+        super(ElGPriv, self).__init__()
         self.x = MPI(0)
 
     def __iter__(self):
