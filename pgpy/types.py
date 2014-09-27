@@ -610,4 +610,4 @@ class Fingerprint(str):
         return hash(str(self.replace(' ', '')))
 
     def __bytes__(self):
-        return binascii.unhexlify(self.replace(' ', ''))
+        return binascii.unhexlify(six.b(self.replace(' ', '')))
