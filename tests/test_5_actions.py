@@ -17,6 +17,7 @@ from pgpy.errors import PGPError
 from pgpy.constants import CompressionAlgorithm
 from pgpy.constants import ImageEncoding
 from pgpy.constants import PubKeyAlgorithm
+from pgpy.constants import RevocationReason
 from pgpy.constants import SignatureType
 from pgpy.constants import SymmetricKeyAlgorithm
 from pgpy.constants import KeyFlags
@@ -322,14 +323,52 @@ class TestPGPKey(object):
                 gpg_import(os.path.join('.', kfp)) as kio:
             assert 'invalid self-signature' not in kio
 
-    def test_revoke_key(self):
-        pytest.skip("not implemented yet")
+    def test_revoke_key(self, sec, pub, write_clean, gpg_import, gpg_check_sigs):
+        with self.assert_warnings():
+            rsig = sec.sign(pub, sigtype=SignatureType.KeyRevocation, reason=RevocationReason.Retired,
+                            comment="But you're so oooold")
+            assert 'ReasonForRevocation' in rsig._signature.subpackets
+            pub += rsig
+
+            # verify with PGPy
+            assert pub.verify(pub)
+
+        # verify with GPG
+        kfp = '{:s}.asc'.format(pub.fingerprint.shortid)
+        with write_clean(os.path.join('tests', 'testdata', kfp), 'w', str(kfp)), \
+                gpg_import(os.path.join('.', kfp)) as kio:
+            assert 'invalid self-signature' not in kio
+
+        # and remove it, for good measure
+        pub._signatures.remove(rsig)
+        assert rsig not in pub
 
     def test_sign_subkey(self):
         pytest.skip("not implemented yet")
 
-    def test_revoke_subkey(self):
-        pytest.skip("not implemented yet")
+    def test_revoke_subkey(self, sec, pub, write_clean, gpg_import, gpg_check_sigs):
+        subkey = next(iter(pub.subkeys.values()))
+        with self.assert_warnings():
+            # revoke the first subkey
+            rsig = sec.sign(subkey, sigtype=SignatureType.SubkeyRevocation)
+            assert 'ReasonForRevocation' in rsig._signature.subpackets
+            subkey += rsig
+
+            # verify with PGPy
+            assert pub.verify(subkey)
+            sv = pub.verify(pub)
+            assert sv
+            assert SignatureType.SubkeyRevocation in iter(s.type for _, s, _ in sv.good_signatures)
+
+        # verify with GPG
+        kfp = '{:s}.asc'.format(pub.fingerprint.shortid)
+        with write_clean(os.path.join('tests', 'testdata', kfp), 'w', str(kfp)), \
+                gpg_import(os.path.join('.', kfp)) as kio:
+            assert 'invalid self-signature' not in kio
+
+        # and remove it, for good measure
+        subkey._signatures.remove(rsig)
+        assert rsig not in subkey
 
     def test_bind_subkey(self):
         pytest.skip("not implemented yet")

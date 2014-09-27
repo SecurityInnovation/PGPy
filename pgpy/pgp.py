@@ -32,6 +32,7 @@ from .constants import KeyFlags
 from .constants import KeyServerPreferences
 from .constants import PacketTag
 from .constants import PubKeyAlgorithm
+from .constants import RevocationReason
 from .constants import SignatureType
 from .constants import SymmetricKeyAlgorithm
 
@@ -463,7 +464,7 @@ class PGPUID(object):
     @property
     def selfsig(self):
         if self._parent is not None:
-            return next(sig for sig in reversed(self._signatures) if sig.signer == self._parent.fingerprint.keyid)
+            return next((sig for sig in reversed(self._signatures) if sig.signer == self._parent.fingerprint.keyid), None)
 
     @property
     def signers(self):
@@ -1081,6 +1082,9 @@ class PGPKey(PGPObject, Exportable):
         if isinstance(item, PGPUID):
             return item in self._uids
 
+        if isinstance(item, PGPSignature):
+            return item in self._signatures
+
         raise TypeError
 
     def __add__(self, other):
@@ -1157,106 +1161,79 @@ class PGPKey(PGPObject, Exportable):
     @KeyAction(KeyFlags.Sign, KeyFlags.Certify, is_unlocked=True, is_public=False)
     def sign(self, subject, **prefs):
         hash_algo = prefs.pop('hash', next(iter(self.hashprefs)))
-        default_type = SignatureType.Generic_Cert if isinstance(subject, PGPUID) else SignatureType.BinaryDocument
+        default_types = [(PGPUID, [], SignatureType.Generic_Cert),
+                         (PGPMessage, [getattr(subject, 'type', None) == 'cleartext'], SignatureType.CanonicalDocument)]
+        default_type = next(iter(dt for c, c_, dt in default_types if isinstance(subject, c) and all(c_)), SignatureType.BinaryDocument)
         sig_type = prefs.pop('sigtype', default_type)
-
-        # if isinstance(subject, PGPUID):
-        #     assert prefs['sigtype'] in SignatureType.certifications
-        # default options
-        # prefs = {'hash': self.hashprefs[0],
-        #          # inline implies sigtype is SignatureType.CanonicalDocument
-        #          'inline': False,
-        #          'sigtype': SignatureType.BinaryDocument,
-        #          # usage, *prefs, and primary are only meaningful on a self-signature for a User ID or User Attribute
-        #          'usage': [],
-        #          'hashprefs': [],
-        #          'cipherprefs': [],
-        #          'compprefs': [],
-        #          'primary': False}.update(prefs)
-        # prefs.update(kwargs)
-        # _u = KeyFlags.Sign
-
-        # ##TODO: clean up this preference precedence deal
-        # if prefs['inline']:
-        #     # inline signature forces the CanonicalDocument signature type
-        #     # prefs['sigtype'] = SignatureType.CanonicalDocument
-        #     assert prefs['sigtype'] == SignatureType.CanonicalDocument
-        # if isinstance(subject, PGPUID) and prefs['sigtype'] not in SignatureType.certifications:
-        #     # if this is a PGPUID, default to Generic_Cert
-        #     # prefs['sigtype'] = SignatureType.Generic_Cert
-        #     assert prefs['sigtype'] in SignatureType.certifications
-
-        # if prefs['sigtype'] in [SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
-        #                         SignatureType.Positive_Cert]:
-        #     _u = KeyFlags.Certify
-
-        # if prefs['hash'] not in self.hashprefs:
-        #     warnings.warn("Selected hash algorithm not in key preferences", stacklevel=2)
-        #
-        # if self.is_public:
-        #     raise PGPError("Can't sign with a public key")
-        #
-        # if self.is_protected and (not self._key.unlocked):
-        #     raise PGPError("This key is not unlocked")
-        #
-        # if isinstance(subject, PGPKey):
-        #     raise NotImplementedError(repr(subject))
-        #
-        # if _u not in self.usageflags:
-        #     ##TODO: change warning/exception messages to match whether _u is KeyFlag.Sign or KeyFlag.Certify
-        #     for sk in self.subkeys.values():
-        #         if KeyFlags.Sign in sk.usageflags:
-        #             warnings.warn("This key is not marked for signing, but subkey {:s} is. "
-        #                           "Using that subkey...".format(sk.fingerprint.keyid),
-        #                           stacklevel=2)
-        #             return sk.sign(subject, **prefs)
-        #
-        #     raise PGPError("This key is not marked for signing")
 
         sig = PGPSignature.new(sig_type, self.key_algorithm, hash_algo, self.fingerprint.keyid)
 
-        if isinstance(subject, PGPMessage):
-            sigdata = sig.hashdata(subject.message)
+        ##TODO: I'm still not completely satisfied with this giant mess, but it's at least a little cleaner than before
+        legal = collections.namedtuple('legal', ['id', 'types', 'criteria', 'sigtypes'])
+        allowed_combos = [legal(id=None, types=type(None), criteria=[], sigtypes={SignatureType.Timestamp}),
+                          legal(id='load', types=six.string_types, criteria=[], sigtypes={SignatureType.BinaryDocument}),
+                          legal(id='msg', types=PGPMessage, criteria=[getattr(subject, 'type', None) == 'cleartext'],
+                                sigtypes={SignatureType.CanonicalDocument}),
+                          legal(id='msg', types=PGPMessage, criteria=[getattr(subject, 'type', None) != 'cleartext'],
+                                sigtypes={SignatureType.BinaryDocument}),
+                          legal(id='revoke', types=PGPUID, criteria=[], sigtypes={SignatureType.CertRevocation}),
+                          legal(id='revoke', types=PGPKey, criteria=[getattr(subject, 'is_primary', False)],
+                                sigtypes={SignatureType.KeyRevocation}),
+                          legal(id='revoke', types=PGPKey, criteria=[not getattr(subject, 'is_primary', False)],
+                                sigtypes={SignatureType.SubkeyRevocation}),
+                          legal(id='selfcertify', types=(PGPUID, PGPKey),
+                                criteria=[ (getattr(subject, 'fingerprint', None) if isinstance(subject, PGPKey)
+                                            else getattr(getattr(subject, '_parent', None), 'fingerprint', None)) == self.fingerprint],
+                                sigtypes=SignatureType.certifications ^ {SignatureType.CertRevocation}),
+                          legal(id='certify', types=PGPUID, criteria=[],
+                                sigtypes=SignatureType.certifications ^ {SignatureType.CertRevocation}),
+                          legal(id='directkey', types=PGPKey, criteria=[], sigtypes={SignatureType.DirectlyOnKey})]
 
-        elif isinstance(subject, PGPUID):
-            if sig.type in SignatureType.certifications and subject._parent is self:
-                # flags and preferences
-                sig._signature.subpackets.addnew('KeyFlags', hashed=True, flags=prefs['usage'])
-                sig._signature.subpackets.addnew('PreferredSymmetricAlgorithms', hashed=True, flags=prefs['cipherprefs'])
-                sig._signature.subpackets.addnew('PreferredHashAlgorithms', hashed=True, flags=prefs['hashprefs'])
-                sig._signature.subpackets.addnew('PreferredCompressionAlgorithms', hashed=True, flags=prefs['compprefs'])
-                # implementation features
-                sig._signature.subpackets.addnew('Features', hashed=True, flags=[Features.ModificationDetection])
-                sig._signature.subpackets.addnew('KeyServerPreferences', hashed=True, flags=[KeyServerPreferences.NoModify])
+        combo = next((c for c in allowed_combos if isinstance(subject, c.types) and all(c.criteria) and sig.type in c.sigtypes), None)
 
-                if prefs['primary']:
-                    sig._signature.subpackets.addnew('PrimaryUserID', hashed=True, primary=True)
+        if combo is None:
+            raise PGPError('SignatureType.{:s} not supported on subject type {}'.format(sig.type.name, str(type(subject))))
 
-            sigdata = sig.hashdata(subject)
+        if combo.id == 'load':
+            subject = self.load(subject)
 
-        elif isinstance(subject, PGPKey):
-            if sig.type == SignatureType.DirectlyOnKey:
-                valid_flags = [('usage', 'KeyFlags'),
-                               ('cipherprefs', 'PreferredSymmetricAlgorithms'),
-                               ('hashprefs', 'PreferredHashAlgorithms'),
-                               ('compprefs', 'PreferredCompressionAlgorithms'),]
-                getflags = iter((prefs.pop(f, None), sp) for f, sp in valid_flags)
-                for flags, sp in iter(i for i in getflags if i[0] is not None):
-                    sig._signature.subpackets.addnew(sp, hashed=True, flags=flags)
+        if combo.id == 'msg':
+            subject = subject.message
 
-                revocable = prefs.pop('revocable', None)
-                if revocable is not None:
-                    sig._signature.subpackets.addnew('Revocable', hashed=True, bflag=revocable)
+        if combo.id == 'revoke':
+            reason = prefs.pop('reason', RevocationReason.NotSpecified)
+            comment = prefs.pop('comment', '')
+            sig._signature.subpackets.addnew('ReasonForRevocation', hashed=True, code=reason, string=comment)
 
-                revoker = prefs.pop('revoker', None)
-                if revoker is not None:
-                    sig._signature.subpackets.addnew('RevocationKey', hashed=True, fingerprint=revoker)
+        if combo.id in ['selfcertify', 'directkey']:
+            flag_opts = [('usage', 'KeyFlags'),
+                         ('cipherprefs', 'PreferredSymmetricAlgorithms'),
+                         ('hashprefs', 'PreferredHashAlgorithms'),
+                         ('compprefs', 'PreferredCompressionAlgorithms'),]
+            for flags, sp in iter((prefs.pop(f, []), sp) for f, sp in flag_opts):
+                sig._signature.subpackets.addnew(sp, hashed=True, flags=flags)
 
-                sigdata = sig.hashdata(subject)
+        if combo.id in ['selfcertify', 'certify', 'directkey']:
+            revocable = prefs.pop('revocable', None)
+            if revocable is not None:
+                sig._signature.subpackets.addnew('Revocable', hashed=True, bflag=revocable)
 
-        else:
-            sigdata = sig.hashdata(self.load(subject))
+            exportable = prefs.pop('exportable', None)
+            if exportable is not None:
+                sig._signature.subpackets.addnew('Exportable', hashed=True, bflag=exportable)
 
+        if combo.id == 'selfcertify' and isinstance(subject, PGPUID):
+            primary = prefs.pop('primary', None)
+            if primary is not None:
+                sig._signature.subpackets.addnew('PrimaryUserID', hashed=True, primary=primary)
+
+        if combo.id == 'directkey':
+            revoker = prefs.pop('revoker', None)
+            if revoker is not None:
+                sig._signature.subpackets.addnew('RevocationKey', hashed=True, fingerprint=revoker)
+
+
+        sigdata = sig.hashdata(subject)
         h2 = hash_algo.hasher
         h2.update(sigdata)
         sig._signature.hash2 = bytearray(h2.digest()[:2])
