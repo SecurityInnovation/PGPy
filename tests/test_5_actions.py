@@ -293,10 +293,12 @@ class TestPGPKey(object):
     def test_sign_key(self, sec, pub, write_clean, gpg_import, gpg_check_sigs):
         # let's add an 0x1f signature to a key that specifies only symmetric key preferences
         with self.assert_warnings():
-            pub += sec.sign(pub, sigtype=SignatureType.DirectlyOnKey, cipherprefs=[SymmetricKeyAlgorithm.AES256,
-                                                                                   SymmetricKeyAlgorithm.AES192,
-                                                                                   SymmetricKeyAlgorithm.Camellia256,
-                                                                                   SymmetricKeyAlgorithm.Camellia192])
+            pub += sec.sign(pub,
+                            sigtype=SignatureType.DirectlyOnKey,
+                            cipherprefs=[SymmetricKeyAlgorithm.AES256,
+                                         SymmetricKeyAlgorithm.AES192,
+                                         SymmetricKeyAlgorithm.Camellia256,
+                                         SymmetricKeyAlgorithm.Camellia192])
 
             # verify with PGPy
             assert pub.verify(pub)
@@ -343,8 +345,33 @@ class TestPGPKey(object):
         pub._signatures.remove(rsig)
         assert rsig not in pub
 
-    def test_sign_subkey(self):
-        pytest.skip("not implemented yet")
+    def test_sign_subkey(self, sec, pub, write_clean, gpg_import, gpg_check_sigs):
+        subkey = next(iter(pub.subkeys.values()))
+        with self.assert_warnings():
+            # sign the first subkey with an 0x1f signature
+            rsig = sec.sign(subkey,
+                            sigtype=SignatureType.DirectlyOnKey,
+                            cipherprefs=[SymmetricKeyAlgorithm.AES256,
+                                         SymmetricKeyAlgorithm.AES192,
+                                         SymmetricKeyAlgorithm.Camellia256,
+                                         SymmetricKeyAlgorithm.Camellia192])
+            subkey += rsig
+
+            # verify with PGPy
+            assert pub.verify(subkey)
+            sv = pub.verify(pub)
+            assert sv
+            assert rsig in iter(s.signature for s in sv.good_signatures)
+
+        # verify with GPG
+        kfp = '{:s}.asc'.format(pub.fingerprint.shortid)
+        with write_clean(os.path.join('tests', 'testdata', kfp), 'w', str(kfp)), \
+                gpg_import(os.path.join('.', kfp)) as kio:
+            assert 'invalid self-signature' not in kio
+
+        # and remove it, for good measure
+        subkey._signatures.remove(rsig)
+        assert rsig not in subkey
 
     def test_revoke_subkey(self, sec, pub, write_clean, gpg_import, gpg_check_sigs):
         subkey = next(iter(pub.subkeys.values()))
@@ -358,7 +385,7 @@ class TestPGPKey(object):
             assert pub.verify(subkey)
             sv = pub.verify(pub)
             assert sv
-            assert SignatureType.SubkeyRevocation in iter(s.type for _, s, _ in sv.good_signatures)
+            assert rsig in iter(s.signature for s in sv.good_signatures)
 
         # verify with GPG
         kfp = '{:s}.asc'.format(pub.fingerprint.shortid)
