@@ -1179,12 +1179,20 @@ class PGPKey(PGPObject, Exportable):
                           legal(id='revoke', types=PGPUID, criteria=[], sigtypes={SignatureType.CertRevocation}),
                           legal(id='revoke', types=PGPKey, criteria=[getattr(subject, 'is_primary', False)],
                                 sigtypes={SignatureType.KeyRevocation}),
-                          legal(id='revoke', types=PGPKey, criteria=[not getattr(subject, 'is_primary', False)],
+                          legal(id='revoke', types=PGPKey, criteria=[getattr(subject, 'is_primary', None) is False],
                                 sigtypes={SignatureType.SubkeyRevocation}),
                           legal(id='selfcertify', types=(PGPUID, PGPKey),
                                 criteria=[ (getattr(subject, 'fingerprint', None) if isinstance(subject, PGPKey)
                                             else getattr(getattr(subject, '_parent', None), 'fingerprint', None)) == self.fingerprint],
                                 sigtypes=SignatureType.certifications ^ {SignatureType.CertRevocation}),
+                          legal(id='bind_sub', types=PGPKey,
+                                criteria=[getattr(subject, 'is_primary', None) is False,
+                                          getattr(getattr(subject, '_parent', None), 'fingerprint', None) == self.fingerprint],
+                                sigtypes={SignatureType.Subkey_Binding}),
+                          # legal(id='bind_pri', types=PGPKey,
+                          #       criteria=[getattr(subject, 'is_primary', None) is True,
+                          #                 getattr(self, '_parent', None) is not None,
+                          #                 getattr(subject, 'fingerprint', None) == self._parent.fingerprint]),
                           legal(id='certify', types=PGPUID, criteria=[],
                                 sigtypes=SignatureType.certifications ^ {SignatureType.CertRevocation}),
                           legal(id='directkey', types=PGPKey, criteria=[], sigtypes={SignatureType.DirectlyOnKey})]
@@ -1205,9 +1213,16 @@ class PGPKey(PGPObject, Exportable):
             comment = prefs.pop('comment', '')
             sig._signature.subpackets.addnew('ReasonForRevocation', hashed=True, code=reason, string=comment)
 
+        if combo.id in ['selfcertify', 'directkey', 'bind_sub']:
+            usage_flags = prefs.pop('usage', [])
+            sig._signature.subpackets.addnew('KeyFlags', hashed=True, flags=usage_flags)
+
+        # if combo.id == 'bind_sub' and subject.key_algorithm.can_sign:
+        #     esig = self.subkeys[subject.fingerprint.keyid].sign(self, sigtype=SignatureType.PrimaryKey_Binding)
+        #     sig._signature.subpackets.addnew('EmbeddedSignature', hashed=False, _sig=esig._signature)
+
         if combo.id in ['selfcertify', 'directkey']:
-            flag_opts = [('usage', 'KeyFlags'),
-                         ('cipherprefs', 'PreferredSymmetricAlgorithms'),
+            flag_opts = [('cipherprefs', 'PreferredSymmetricAlgorithms'),
                          ('hashprefs', 'PreferredHashAlgorithms'),
                          ('compprefs', 'PreferredCompressionAlgorithms'),]
             for flags, sp in iter((prefs.pop(f, []), sp) for f, sp in flag_opts):

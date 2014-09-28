@@ -397,8 +397,30 @@ class TestPGPKey(object):
         subkey._signatures.remove(rsig)
         assert rsig not in subkey
 
-    def test_bind_subkey(self):
-        pytest.skip("not implemented yet")
+    def test_bind_subkey(self, sec, pub, write_clean, gpg_import, gpg_check_sigs):
+        # this is temporary, until subkey generation works
+        # replace the first subkey's binding signature with a new one
+        subkey = next(iter(pub.subkeys.values()))
+        old_usage = subkey.usageflags
+        subkey._signatures.clear()
+
+        with self.assert_warnings():
+            bsig = sec.sign(subkey,
+                            sigtype=SignatureType.Subkey_Binding,
+                            usage=old_usage)
+            subkey += bsig
+
+            # verify with PGPy
+            assert pub.verify(subkey)
+            sv = pub.verify(pub)
+            assert sv
+            assert bsig in iter(s.signature for s in sv.good_signatures)
+
+        # verify with GPG
+        kfp = '{:s}.asc'.format(pub.fingerprint.shortid)
+        with write_clean(os.path.join('tests', 'testdata', kfp), 'w', str(pub)), \
+                gpg_import(os.path.join('.', kfp)) as kio:
+            assert 'invalid self-signature' not in kio
 
     def test_decrypt_rsa_message(self, rsa_encmsg):
         key = PGPKey()
