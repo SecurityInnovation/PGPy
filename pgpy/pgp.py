@@ -1236,6 +1236,8 @@ class PGPKey(PGPObject, Armorable):
                 sig._signature.subpackets.addnew('Exportable', hashed=True, bflag=exportable)
 
         if combo.id == 'selfcertify' and isinstance(subject, PGPUID):
+            sig._signature.subpackets.addnew('Features', hashed=True, flags=[Features.ModificationDetection])
+            
             primary = prefs.pop('primary', None)
             if primary is not None:
                 sig._signature.subpackets.addnew('PrimaryUserID', hashed=True, primary=primary)
