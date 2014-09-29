@@ -1199,7 +1199,8 @@ class PGPKey(PGPObject, Armorable):
                                 sigtypes=SignatureType.certifications ^ {SignatureType.CertRevocation}),
                           legal(id='directkey', types=PGPKey, criteria=[], sigtypes={SignatureType.DirectlyOnKey})]
 
-        combo = next((c for c in allowed_combos if isinstance(subject, c.types) and all(c.criteria) and sig.type in c.sigtypes), None)
+        combo = next((c for c in allowed_combos
+                      if isinstance(subject, c.types) and all(c.criteria) and sig.type in c.sigtypes), None)
 
         if combo is None:
             raise PGPError('SignatureType.{:s} not supported on subject type {}'.format(sig.type.name, str(type(subject))))
@@ -1609,22 +1610,21 @@ class PGPKeyring(collections.Container, collections.Iterable, collections.Sized)
                 self._add_key(subkey)
 
     def load(self, *args):
-        def _do_load(arg):
-            if isinstance(arg, (list, tuple)):
-                for item in arg:
-                    _do_load(item)
-
-            else:
-                _key = PGPKey()
-                keys = _key.parse(arg)
-
-                for key in itertools.chain([_key], keys['keys'].values()):
-                    self._add_key(key)
-                    for fp in [k.fingerprint for k in itertools.chain([key], key.subkeys.values())]:
-                        loaded.add(fp)
+        def _preiter(first, iterable):
+            yield first
+            for item in iterable:
+                yield item
 
         loaded = set()
-        _do_load(args)
+        for key in [ item for ilist in iter(ilist if isinstance(ilist, (tuple, list)) else [ilist] for ilist in args)
+                     for item in ilist ]:
+            _key = PGPKey()
+            keys = _key.parse(key)
+
+            for ik in _preiter(_key, keys['keys'].values()):
+                self._add_key(ik)
+                loaded |= {ik.fingerprint} | {isk.fingerprint for isk in ik.subkeys.values()}
+
         return list(loaded)
 
     @contextlib.contextmanager
