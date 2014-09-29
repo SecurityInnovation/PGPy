@@ -1059,12 +1059,12 @@ class PGPKey(PGPObject, Armorable):
         # us
         _bytes += self._key.__bytes__()
         # our signatures; ignore embedded signatures
-        for sig in [ s for s in self.signatures if not s.embedded ]:
+        for sig in [ s for s in self.signatures if not s.embedded and s.exportable ]:
             _bytes += sig.__bytes__()
         # one or more User IDs, followed by their signatures
         for uid in self._uids:
             _bytes += uid._uid.__bytes__()
-            _bytes += b''.join(s.__bytes__() for s in uid._signatures)
+            _bytes += b''.join(s.__bytes__() for s in uid._signatures if s.exportable)
         # subkeys
         for sk in self._children.values():
             _bytes += sk.__bytes__()
