@@ -459,44 +459,35 @@ class String2Key(Field):
     def encalg(self):
         return self._encalg
 
-    @encalg.register(SymmetricKeyAlgorithm)
-    def encalg_(self, val):
-        self._encalg = val
-
     @encalg.register(int)
-    def encalg_(self, val):
-        self.encalg = SymmetricKeyAlgorithm(val)
+    @encalg.register(SymmetricKeyAlgorithm)
+    def encalg_int(self, val):
+        self._encalg = SymmetricKeyAlgorithm(val)
 
     @sdproperty
     def specifier(self):
         return self._specifier
 
-    @specifier.register(String2KeyType)
-    def specifier_(self, val):
-        self._specifier = val
-
     @specifier.register(int)
-    def specifier_(self, val):
-        self.specifier = String2KeyType(val)
+    @specifier.register(String2KeyType)
+    def specifier_int(self, val):
+        self._specifier = String2KeyType(val)
 
     @sdproperty
     def halg(self):
         return self._halg
 
-    @halg.register(HashAlgorithm)
-    def halg_(self, val):
-        self._halg = val
-
     @halg.register(int)
-    def halg_(self, val):
-        self.halg = HashAlgorithm(val)
+    @halg.register(HashAlgorithm)
+    def halg_int(self, val):
+        self._halg = HashAlgorithm(val)
 
     @sdproperty
     def count(self):
         return (16 + (self._count & 15)) << ((self._count >> 4) + 6)
 
     @count.register(int)
-    def count_(self, val):
+    def count_int(self, val):
         self._count = val
 
     def __init__(self):

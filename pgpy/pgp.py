@@ -30,7 +30,6 @@ from .constants import Features
 from .constants import HashAlgorithm
 from .constants import ImageEncoding
 from .constants import KeyFlags
-from .constants import KeyServerPreferences
 from .constants import PacketTag
 from .constants import PubKeyAlgorithm
 from .constants import RevocationReason
@@ -1222,9 +1221,9 @@ class PGPKey(PGPObject, Armorable):
             sig._signature.subpackets.addnew('EmbeddedSignature', hashed=False, _sig=esig._signature)
 
         if combo.id in ['selfcertify', 'directkey']:
-            flag_opts = [('cipherprefs', 'PreferredSymmetricAlgorithms'),
-                         ('hashprefs', 'PreferredHashAlgorithms'),
-                         ('compprefs', 'PreferredCompressionAlgorithms'),]
+            flag_opts = [ ('cipherprefs', 'PreferredSymmetricAlgorithms'),
+                          ('hashprefs', 'PreferredHashAlgorithms'),
+                          ('compprefs', 'PreferredCompressionAlgorithms'), ]
             for flags, sp in iter((prefs.pop(f, []), sp) for f, sp in flag_opts):
                 sig._signature.subpackets.addnew(sp, hashed=True, flags=flags)
 
@@ -1248,7 +1247,6 @@ class PGPKey(PGPObject, Armorable):
             revoker = prefs.pop('revoker', None)
             if revoker is not None:
                 sig._signature.subpackets.addnew('RevocationKey', hashed=True, fingerprint=revoker)
-
 
         sigdata = sig.hashdata(subject)
         h2 = hash_algo.hasher
@@ -1445,13 +1443,16 @@ class PGPKey(PGPObject, Armorable):
 
         getpkt = lambda d: Packet(d) if len(d) > 0 else None
         getpkt = iter(functools.partial(getpkt, data), None)
+
         class pktgrouper(object):
             def __init__(self):
                 self.last = None
+
             def __call__(self, pkt):
                 if pkt.header.tag != PacketTag.Signature:
                     self.last = '{:02X}_{:s}'.format(id(pkt), pkt.__class__.__name__)
                 return self.last
+
         while True:
             for group in iter(group for _, group in itertools.groupby(getpkt, key=pktgrouper()) if not _.endswith('Opaque')):
                 pkt = next(group)
@@ -1478,7 +1479,7 @@ class PGPKey(PGPObject, Armorable):
                     keys[next(reversed(keys))] += pgpobj
 
                     bsigs = [ pkb for skb in pgpobj._signatures if skb.type == SignatureType.Subkey_Binding
-                                  for pkb in skb._signature.subpackets['EmbeddedSignature'] ]
+                              for pkb in skb._signature.subpackets['EmbeddedSignature'] ]
                     for es in bsigs:
                         esig = PGPSignature() + es
                         esig.parent = es

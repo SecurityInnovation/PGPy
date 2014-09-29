@@ -140,24 +140,18 @@ class PKESessionKeyV3(PKESessionKey):
     def pkalg(self):
         return self._pkalg
 
+    @pkalg.register(int)
     @pkalg.register(PubKeyAlgorithm)
     def pkalg_(self, val):
-        self._pkalg = val
+        self._pkalg = PubKeyAlgorithm(val)
 
         _c = {PubKeyAlgorithm.RSAEncryptOrSign: RSACipherText,
               PubKeyAlgorithm.RSAEncrypt: RSACipherText,
               PubKeyAlgorithm.ElGamal: ElGCipherText,
               PubKeyAlgorithm.FormerlyElGamalEncryptOrSign: ElGCipherText}
 
-        if val in _c:
-            self.ct = _c[val]()
-
-        else:
-            self.ct = None
-
-    @pkalg.register(int)
-    def pkalg_(self, val):
-        self.pkalg = PubKeyAlgorithm(val)
+        ct = _c.get(self._pkalg, None)
+        self.ct = ct() if ct is not None else ct
 
     def __init__(self):
         super(PKESessionKeyV3, self).__init__()
@@ -297,43 +291,34 @@ class SignatureV4(Signature):
     def sigtype(self):
         return self._sigtype
 
+    @sigtype.register(int)
     @sigtype.register(SignatureType)
     def sigtype_(self, val):
-        self._sigtype = val
-
-    @sigtype.register(int)
-    def sigtype_(self, val):
-        self.sigtype = SignatureType(val)
+        self._sigtype = SignatureType(val)
 
     @sdproperty
     def pubalg(self):
         return self._pubalg
 
+    @pubalg.register(int)
     @pubalg.register(PubKeyAlgorithm)
-    def pubalg_(self, val):
-        self._pubalg = val
-        if val in [PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.RSAEncrypt, PubKeyAlgorithm.RSASign]:
+    def pubalg_int(self, val):
+        self._pubalg = PubKeyAlgorithm(val)
+        if self._pubalg in [PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.RSAEncrypt, PubKeyAlgorithm.RSASign]:
             self.signature = RSASignature()
 
-        elif val == PubKeyAlgorithm.DSA:
+        elif self._pubalg == PubKeyAlgorithm.DSA:
             self.signature = DSASignature()
-
-    @pubalg.register(int)
-    def pubalg_(self, val):
-        self.pubalg = PubKeyAlgorithm(val)
 
     @sdproperty
     def halg(self):
         return self._halg
 
-    @halg.register(HashAlgorithm)
-    def halg_(self, val):
-        self._halg = val
-
     @halg.register(int)
-    def halg_(self, val):
+    @halg.register(HashAlgorithm)
+    def halg_int(self, val):
         try:
-            self.halg = HashAlgorithm(val)
+            self._halg = HashAlgorithm(val)
 
         except ValueError:
             self._halg = val
@@ -564,43 +549,34 @@ class OnePassSignatureV3(OnePassSignature):
     def sigtype(self):
         return self._sigtype
 
+    @sigtype.register(int)
     @sigtype.register(SignatureType)
     def sigtype_(self, val):
-        self._sigtype = val
-
-    @sigtype.register(int)
-    def sigtype_(self, val):
-        self.sigtype = SignatureType(val)
+        self._sigtype = SignatureType(val)
 
     @sdproperty
     def pubalg(self):
         return self._pubalg
 
+    @pubalg.register(int)
     @pubalg.register(PubKeyAlgorithm)
-    def pubalg_(self, val):
-        self._pubalg = val
-        if val in [PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.RSAEncrypt, PubKeyAlgorithm.RSASign]:
+    def pubalg_int(self, val):
+        self._pubalg = PubKeyAlgorithm(val)
+        if self._pubalg in [PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.RSAEncrypt, PubKeyAlgorithm.RSASign]:
             self.signature = RSASignature()
 
-        elif val == PubKeyAlgorithm.DSA:
+        elif self._pubalg == PubKeyAlgorithm.DSA:
             self.signature = DSASignature()
-
-    @pubalg.register(int)
-    def pubalg_(self, val):
-        self.pubalg = PubKeyAlgorithm(val)
 
     @sdproperty
     def halg(self):
         return self._halg
 
+    @halg.register(int)
     @halg.register(HashAlgorithm)
     def halg_(self, val):
-        self._halg = val
-
-    @halg.register(int)
-    def halg_(self, val):
         try:
-            self.halg = HashAlgorithm(val)
+            self._halg = HashAlgorithm(val)
 
         except ValueError:
             self._halg = val
@@ -611,12 +587,12 @@ class OnePassSignatureV3(OnePassSignature):
 
     @signer.register(str)
     @signer.register(six.text_type)
-    def signer_(self, val):
+    def signer_str(self, val):
         self._signer = val
 
     @signer.register(bytes)
     @signer.register(bytearray)
-    def signer_(self, val):
+    def signer_bin(self, val):
         self.signer = binascii.hexlify(val).upper().decode('latin-1')
 
     def __init__(self):
@@ -677,25 +653,26 @@ class PubKeyV4(PubKey):
         return self._created
 
     @created.register(datetime)
-    def created_(self, val):
+    def created_datetime(self, val):
         self._created = val
 
     @created.register(int)
-    def created_(self, val):
+    def created_int(self, val):
         self.created = datetime.utcfromtimestamp(val)
 
     @created.register(bytes)
     @created.register(bytearray)
-    def created_(self, val):
+    def created_bin(self, val):
         self.created = self.bytes_to_int(val)
 
     @sdproperty
     def pkalg(self):
         return self._pkalg
 
+    @pkalg.register(int)
     @pkalg.register(PubKeyAlgorithm)
-    def pkalg_(self, val):
-        self._pkalg = val
+    def pkalg_int(self, val):
+        self._pkalg = PubKeyAlgorithm(val)
 
         _c = {
             # True means public
@@ -716,15 +693,8 @@ class PubKeyV4(PubKey):
 
         k = (self.public, self.pkalg)
 
-        if k in _c:
-            self.keymaterial = _c[k]()
-
-        else:
-            self.keymaterial = None
-
-    @pkalg.register(int)
-    def pkalg_(self, val):
-        self.pkalg = PubKeyAlgorithm(val)
+        km = _c.get(k, None)
+        self.keymaterial = km() if km is not None else km
 
     @property
     def public(self):
@@ -848,13 +818,10 @@ class CompressedData(Packet):
     def calg(self):
         return self._calg
 
-    @calg.register(CompressionAlgorithm)
-    def calg_(self, val):
-        self._calg = val
-
     @calg.register(int)
-    def calg_(self, val):
-        self.calg = CompressionAlgorithm(val)
+    @calg.register(CompressionAlgorithm)
+    def calg_int(self, val):
+        self._calg = CompressionAlgorithm(val)
 
     def __init__(self):
         super(CompressedData, self).__init__()
@@ -944,7 +911,6 @@ class SKEData(Packet):
     def decrypt(self, key, alg):
         pt = _decrypt(bytes(self.ct), bytes(key), alg)
 
-
         iv = bytes(pt[:alg.block_size // 8])
         del pt[:alg.block_size // 8]
 
@@ -1015,16 +981,16 @@ class LiteralData(Packet):
         return self._mtime
 
     @mtime.register(datetime)
-    def mtime_(self, val):
+    def mtime_datetime(self, val):
         self._mtime = val
 
     @mtime.register(int)
-    def mtime_(self, val):
+    def mtime_int(self, val):
         self.mtime = datetime.utcfromtimestamp(val)
 
     @mtime.register(bytes)
     @mtime.register(bytearray)
-    def mtime_(self, val):
+    def mtime_bin(self, val):
         self.mtime = self.bytes_to_int(val)
 
     @property
@@ -1093,24 +1059,21 @@ class Trust(Packet):
     def trustlevel(self):
         return self._trustlevel
 
+    @trustlevel.register(int)
     @trustlevel.register(TrustLevel)
     def trustlevel_(self, val):
-        self._trustlevel = val
-
-    @trustlevel.register(int)
-    def trustlevel_(self, val):
-        self.trustlevel = TrustLevel(val & 0x0F)
+        self._trustlevel = TrustLevel(val & 0x0F)
 
     @sdproperty
     def trustflags(self):
         return self._trustflags
 
     @trustflags.register(list)
-    def trustflags_(self, val):
+    def trustflags_list(self, val):
         self._trustflags = val
 
     @trustflags.register(int)
-    def trustflags_(self, val):
+    def trustflags_int(self, val):
         self._trustflags = TrustFlags & val
 
     def __init__(self):

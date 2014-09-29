@@ -16,7 +16,7 @@ class Header(_Header):
         return self._critical
 
     @critical.register(bool)
-    def critical_(self, val):
+    def critical_bool(self, val):
         self._critical = val
 
     @sdproperty
@@ -24,12 +24,12 @@ class Header(_Header):
         return self._typeid
 
     @typeid.register(int)
-    def typeid_(self, val):
+    def typeid_int(self, val):
         self._typeid = val & 0x7f
 
     @typeid.register(bytes)
     @typeid.register(bytearray)
-    def typeid_(self, val):
+    def typeid_bin(self, val):
         v = self.bytes_to_int(val)
         self.typeid = v
         self.critical = bool(v & 0x80)
