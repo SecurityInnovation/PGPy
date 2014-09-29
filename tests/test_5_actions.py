@@ -108,14 +108,13 @@ class TestPGPMessage(object):
         assert encmsg.type == 'encrypted'
         assert len(encmsg._sessionkeys) == 2
 
-        ##TODO: this
-        # # decrypt with PGPy
-        # for passphrase in ["QwertyUiop", "AsdfGhjkl"]:
-        #     decmsg = encmsg.decrypt(passphrase)
-        #     assert isinstance(decmsg, PGPMessage)
-        #     assert decmsg.type == lit.type
-        #     assert decmsg.is_compressed
-        #     assert decmsg.message == lit.message
+        # decrypt with PGPy
+        for passphrase in ["QwertyUiop", "AsdfGhjkl"]:
+            decmsg = encmsg.decrypt(passphrase)
+            assert isinstance(decmsg, PGPMessage)
+            assert decmsg.type == lit.type
+            assert decmsg.is_compressed
+            assert decmsg.message == lit.message
 
 
 class TestPGPKey(object):

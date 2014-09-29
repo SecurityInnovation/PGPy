@@ -22,6 +22,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 
+from .errors import PGPDecryptionError
 from .errors import PGPError
 
 from .constants import CompressionAlgorithm
@@ -790,17 +791,18 @@ class PGPMessage(PGPObject, Armorable):
         for skesk in iter(sk for sk in self._sessionkeys if isinstance(sk, SKESessionKey)):
             try:
                 symalg, key = skesk.decrypt_sk(passphrase)
+                decmsg = PGPMessage()
+                decmsg.parse(self.message.decrypt(key, symalg))
 
-            except ValueError:
-                pass
+            except (TypeError, ValueError, NotImplementedError, PGPDecryptionError):
+                continue
 
-            # else:
-            #     del passphrase
-            #     break
+            else:
+                del passphrase
+                break
 
-        # now that we have the session key, we can decrypt the actual message
-        decmsg = PGPMessage()
-        decmsg.parse(self.message.decrypt(key, symalg))
+        else:
+            raise PGPDecryptionError("Decryption failed")
 
         return decmsg
 
@@ -1237,7 +1239,7 @@ class PGPKey(PGPObject, Armorable):
 
         if combo.id == 'selfcertify' and isinstance(subject, PGPUID):
             sig._signature.subpackets.addnew('Features', hashed=True, flags=[Features.ModificationDetection])
-            
+
             primary = prefs.pop('primary', None)
             if primary is not None:
                 sig._signature.subpackets.addnew('PrimaryUserID', hashed=True, primary=primary)

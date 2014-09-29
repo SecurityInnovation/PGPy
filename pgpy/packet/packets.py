@@ -12,6 +12,7 @@ from datetime import datetime
 import six
 
 from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import constant_time
 from cryptography.hazmat.primitives.asymmetric import padding
 
 from .fields import DSAPriv
@@ -51,23 +52,6 @@ from ..symenc import _decrypt
 from ..symenc import _encrypt
 
 from ..types import Fingerprint
-
-
-class _SKEData(object):
-    # this is a mixin class to provide the same decrypt function to both SKEData and IntegrityProtectedSKEDataV1
-    def decrypt(self, key, alg):
-        pt = _decrypt(bytes(self.ct), bytes(key), alg)
-
-        iv = pt[:alg.block_size // 8]
-        del pt[:alg.block_size // 8]
-
-        ivl2 = pt[:2]
-        del pt[:2]
-
-        if iv[-2:] != ivl2:
-            raise PGPDecryptionError("Decryption failed")
-
-        return pt
 
 
 class PKESessionKey(VersionedPacket):
@@ -896,7 +880,7 @@ class CompressedData(Packet):
             self.packets.append(Packet(cdata))
 
 
-class SKEData(Packet, _SKEData):
+class SKEData(Packet):
     """
     5.7.  Symmetrically Encrypted Data Packet (Tag 9)
 
@@ -956,6 +940,21 @@ class SKEData(Packet, _SKEData):
         super(SKEData, self).parse(packet)
         self.ct = packet[:self.header.length]
         del packet[:self.header.length]
+
+    def decrypt(self, key, alg):
+        pt = _decrypt(bytes(self.ct), bytes(key), alg)
+
+
+        iv = bytes(pt[:alg.block_size // 8])
+        del pt[:alg.block_size // 8]
+
+        ivl2 = bytes(pt[:2])
+        del pt[:2]
+
+        if not constant_time.bytes_eq(iv[-2:], ivl2):
+            raise PGPDecryptionError("Decryption failed")
+
+        return pt
 
 
 class Marker(Packet):
@@ -1266,7 +1265,7 @@ class IntegrityProtectedSKEData(VersionedPacket):
     __ver__ = 0
 
 
-class IntegrityProtectedSKEDataV1(IntegrityProtectedSKEData, _SKEData):
+class IntegrityProtectedSKEDataV1(IntegrityProtectedSKEData):
     """
     5.13.  Sym. Encrypted Integrity Protected Data Packet (Tag 18)
 
@@ -1394,6 +1393,26 @@ class IntegrityProtectedSKEDataV1(IntegrityProtectedSKEData, _SKEData):
         data += mdc.__bytes__()
         self.ct = _encrypt(data, key, alg)
         self.update_hlen()
+
+    def decrypt(self, key, alg):
+        # iv, ivl2, pt = super(IntegrityProtectedSKEDataV1, self).decrypt(key, alg)
+        pt = _decrypt(bytes(self.ct), bytes(key), alg)
+
+        # do the MDC checks
+        _expected_mdcbytes = b'\xd3\x14' + hashlib.new('SHA1', pt[:-20]).digest()
+        if not constant_time.bytes_eq(bytes(pt[-22:]), _expected_mdcbytes):
+            raise PGPDecryptionError("Decryption failed")
+
+        iv = bytes(pt[:alg.block_size // 8])
+        del pt[:alg.block_size // 8]
+
+        ivl2 = bytes(pt[:2])
+        del pt[:2]
+
+        if not constant_time.bytes_eq(iv[-2:], ivl2):
+            raise PGPDecryptionError("Decryption failed")
+
+        return pt
 
 
 class MDC(Packet):
