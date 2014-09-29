@@ -14,8 +14,6 @@ import re
 from enum import EnumMeta
 from enum import IntEnum
 
-import requests
-
 import six
 
 from ._author import __version__
@@ -28,7 +26,16 @@ if six.PY2:
     re.ASCII = 0
 
 
-class FileLoader(object):
+class Armorable(six.with_metaclass(abc.ABCMeta)):
+    __crc24_init__ = 0x0B704CE
+    __crc24_poly__ = 0x1864CFB
+
+    __armor_fmt__ = '-----BEGIN PGP {block_type}-----\n' \
+                    '{headers}\n' \
+                    '{packet}\n' \
+                    '={crc}\n' \
+                    '-----END PGP {block_type}-----\n'
+
     @staticmethod
     def is_ascii(text):
         if not isinstance(text, (str, bytes, bytearray)):
@@ -55,85 +62,13 @@ class FileLoader(object):
 
         return False
 
-    @classmethod
-    def load(cls, lf):
-        _bytes = bytearray()
-
-        # None means nothing to load
-        if lf is None:
-            pass
-
-        # This is a file-like object
-        elif hasattr(lf, "readinto") and hasattr(lf, "fileno"):
-            _bytes = bytearray(os.stat(lf.fileno).st_size)
-            lf.readinto(_bytes)
-
-        elif hasattr(lf, "read"):
-            _bytes = bytearray(lf.read())
-
-        # this could be a path
-        elif cls.is_path(lf):
-            lf = os.path.expanduser(lf)
-            # this is a URI
-            if "://" in lf:
-                r = requests.get(lf, verify=True)
-
-                if not r.ok:
-                    raise FileNotFoundError(lf)
-
-                _bytes = r.content
-
-            # this is an existing file
-            elif os.path.isfile(lf):
-                with open(lf, 'rb') as lf:
-                    _bytes = bytearray(lf.read())
-
-            # this is a new file
-            elif os.path.isdir(os.path.dirname(lf)):
-                pass
-
-            # this is all wrong
-            else:
-                raise FileNotFoundError(lf)
-
-        # this is probably data we want to load directly
-        elif isinstance(lf, bytearray):
-            _bytes = lf
-
-        elif isinstance(lf, six.binary_type):
-            _bytes = bytearray(lf)
-
-        elif isinstance(lf, six.text_type):
-            _bytes = bytearray(lf.encode('latin-1'))
-
-        # something else entirely
-        else:
-            raise TypeError(type(lf))
-
-        return _bytes
-
-    def __init__(self):
-        super(FileLoader, self).__init__()
-        self._path = ''
-
-
-class Exportable(six.with_metaclass(abc.ABCMeta, FileLoader)):
-    __crc24_init__ = 0x0B704CE
-    __crc24_poly__ = 0x1864CFB
-
-    __armor_fmt__ = '-----BEGIN PGP {block_type}-----\n' \
-                    '{headers}\n' \
-                    '{packet}\n' \
-                    '={crc}\n' \
-                    '-----END PGP {block_type}-----\n'
-
     @abc.abstractproperty
     def magic(self):
         """The magic string identifier for the current PGP type"""
         return ""
 
     def __init__(self):
-        super(Exportable, self).__init__()
+        super(Armorable, self).__init__()
         self.ascii_headers = collections.OrderedDict()
         self.ascii_headers['Version'] = 'PGPy v' + __version__  # Default value
 
@@ -162,7 +97,7 @@ class Exportable(six.with_metaclass(abc.ABCMeta, FileLoader)):
         :raises:
         """
         m = {'magic': None, 'headers': None, 'body': bytearray(), 'crc': None}
-        if not FileLoader.is_ascii(text):
+        if not Armorable.is_ascii(text):
             m['body'] = bytearray(text)
             return m
 
@@ -235,16 +170,6 @@ class Exportable(six.with_metaclass(abc.ABCMeta, FileLoader)):
                     crc ^= self.__crc24_poly__
 
         return crc & 0xFFFFFF
-
-
-class Signable(six.with_metaclass(abc.ABCMeta, object)):
-    ##TODO: this
-    pass
-
-
-class SignatureContainer(object):
-    ##TODO: this
-    pass
 
 
 class PGPObject(six.with_metaclass(abc.ABCMeta, object)):

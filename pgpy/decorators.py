@@ -90,6 +90,16 @@ class KeyAction(object):
     def __call__(self, action):
         @functools.wraps(action)
         def _action(key, *args, **kwargs):
+            ignore_usage = kwargs.pop('ignore_usage', False)
+            if ignore_usage:
+                for prop, expected in self.conditions.items():
+                    if getattr(key, prop) != expected:
+                        raise PGPError("Expected: {prop:s} == {eval:s}. Got: {got:s}"
+                                       "".format(prop=prop, eval=str(expected), got=str(getattr(key, prop))))
+
+                # do the thing
+                return action(key, *args, **kwargs)
+
             with self.usage(key) as _key:
                 # check properties
                 for prop, expected in self.conditions.items():

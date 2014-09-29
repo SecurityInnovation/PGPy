@@ -26,18 +26,30 @@ from pgpy.constants import HashAlgorithm
 
 def _pgpmessage(f):
     msg = PGPMessage()
-    msg.parse(f)
+    with open(f, 'r') as ff:
+        msg.parse(ff.read())
+    return msg
+
+def _pgpmessage_new(f):
+    with open(f, 'r') as ff:
+        msg = PGPMessage.new(ff.read())
     return msg
 
 def _pgpkey(f):
     key = PGPKey()
-    key.parse(f)
+    with open(f, 'r') as ff:
+        key.parse(ff.read())
     return key
 
 def _pgpsignature(f):
     sig = PGPSignature()
-    sig.parse(f)
+    with open(f, 'r') as ff:
+        sig.parse(ff.read())
     return sig
+
+def _read(f, mode='r'):
+    with open(f, mode) as ff:
+        return ff.read()
 
 
 class TestPGPMessage(object):
@@ -45,10 +57,11 @@ class TestPGPMessage(object):
         'comp_alg': [ CompressionAlgorithm.Uncompressed, CompressionAlgorithm.ZIP, CompressionAlgorithm.ZLIB,
                       CompressionAlgorithm.BZ2 ],
         'enc_msg':  [ _pgpmessage(f) for f in glob.glob('tests/testdata/messages/message*.pass*.asc') ],
-        'lit':      [ PGPMessage.new('tests/testdata/lit') ],
+        'lit':      [ _pgpmessage_new('tests/testdata/lit') ],
     }
     def test_new_message(self, comp_alg, write_clean, gpg_import, gpg_print):
-        msg = PGPMessage.new('tests/testdata/lit', compression=comp_alg)
+        with open('tests/testdata/lit', 'r') as litf:
+            msg = PGPMessage.new(litf.read(), compression=comp_alg)
 
         assert msg.type == 'literal'
         assert msg.message.decode('latin-1') == 'This is stored, literally\!\n\n'
@@ -115,7 +128,7 @@ class TestPGPKey(object):
         'rsa_encmsg': [ _pgpmessage(f) for f in sorted(glob.glob('tests/testdata/messages/message*.rsa*.asc')) ],
         'sigkey':     [ _pgpkey(f) for f in sorted(glob.glob('tests/testdata/signatures/*.key.asc')) ],
         'sigsig':     [ _pgpsignature(f) for f in sorted(glob.glob('tests/testdata/signatures/*.sig.asc')) ],
-        'sigsubj':    sorted(glob.glob('tests/testdata/signatures/*.subj'))
+        'sigsubj':    sorted(glob.glob('tests/testdata/signatures/*.subj')),
     }
     targettes = [ _pgpkey(f) for f in sorted(glob.glob('tests/testdata/keys/targette*.asc')) ]
     ikeys = [os.path.join(*f.split(os.path.sep)[-2:]) for f in glob.glob('tests/testdata/keys/*.pub.asc')]
@@ -140,9 +153,11 @@ class TestPGPKey(object):
         assert not enc.is_unlocked
         assert not sec.is_protected
 
+        lit = _read('tests/testdata/lit')
+
         # try to sign without unlocking
         with pytest.raises(PGPError):
-            enc.sign('tests/testdata/lit')
+            enc.sign(lit)
 
         # try to unlock with the wrong password
         enc.unlock('ClearlyTheWrongPassword')
@@ -151,13 +166,13 @@ class TestPGPKey(object):
         with enc.unlock('QwertyUiop'), self.assert_warnings():
             assert enc.is_unlocked
             # sign lit
-            sig = enc.sign('tests/testdata/lit')
+            sig = enc.sign(lit)
             # verify with the unlocked key and its unprotected friend
-            assert enc.verify('tests/testdata/lit', sig)
-            assert sec.verify('tests/testdata/lit', sig)
+            assert enc.verify(lit, sig)
+            assert sec.verify(lit, sig)
 
     def test_verify_detached(self, sigkey, sigsig, sigsubj):
-        assert sigkey.verify(sigsubj, sigsig)
+        assert sigkey.verify(_read(sigsubj), sigsig)
 
     def test_verify_message(self, msg):
         with self.assert_warnings():
@@ -173,7 +188,7 @@ class TestPGPKey(object):
 
     def test_verify_revochiio(self):
         k = PGPKey()
-        k.parse('tests/testdata/revochiio.asc')
+        k.parse(_read('tests/testdata/revochiio.asc'))
 
         with self.assert_warnings():
             sv = k.verify(k)
@@ -191,25 +206,26 @@ class TestPGPKey(object):
 
     def test_verify_wrongkey(self):
         wrongkey = PGPKey()
-        wrongkey.parse('tests/testdata/signatures/aptapproval-test.key.asc')
+        wrongkey.parse(_read('tests/testdata/signatures/aptapproval-test.key.asc'))
 
         sig = PGPSignature()
-        sig.parse('tests/testdata/signatures/debian-sid.sig.asc')
+        sig.parse(_read('tests/testdata/signatures/debian-sid.sig.asc'))
 
         with pytest.raises(PGPError):
-            wrongkey.verify('tests/testdata/signatures/debian-sid.subj', sig)
+            wrongkey.verify(_read('tests/testdata/signatures/debian-sid.subj'), sig)
 
     def test_verify_invalid(self, sec):
         with self.assert_warnings():
-            sig = sec.sign('tests/testdata/lit')
-            assert not sec.verify('tests/testdata/lit2', sig)
+            sig = sec.sign(_read('tests/testdata/lit'))
+            assert not sec.verify(_read('tests/testdata/lit2'), sig)
 
     def test_sign_detach(self, sec, write_clean, gpg_import, gpg_verify):
+        lit = _read('tests/testdata/lit')
         with self.assert_warnings():
-            sig = sec.sign('tests/testdata/lit')
+            sig = sec.sign(lit)
 
             # Verify with PGPy
-            assert sec.verify('tests/testdata/lit', sig)
+            assert sec.verify(lit, sig)
 
         # verify with GPG
         with write_clean('tests/testdata/lit.sig', 'w', str(sig)), \
@@ -217,7 +233,7 @@ class TestPGPKey(object):
             assert gpg_verify('./lit', './lit.sig', keyid=sig.signer)
 
     def test_sign_cleartext(self, write_clean, gpg_import, gpg_verify):
-        msg = PGPMessage.new('tests/testdata/lit_de', cleartext=True)
+        msg = PGPMessage.new(_read('tests/testdata/lit_de'), cleartext=True)
 
         with self.assert_warnings():
             for sec in self.params['sec']:
@@ -235,7 +251,7 @@ class TestPGPKey(object):
             assert gpg_verify('./lit_de.asc')
 
     def test_onepass_sign_message(self, write_clean, gpg_import, gpg_verify):
-        msg = PGPMessage.new('tests/testdata/lit')
+        msg = PGPMessage.new(_read('tests/testdata/lit'))
         with self.assert_warnings():
             for sec in self.params['sec']:
                 msg += sec.sign(msg)
@@ -424,7 +440,7 @@ class TestPGPKey(object):
 
     def test_decrypt_rsa_message(self, rsa_encmsg):
         key = PGPKey()
-        key.parse('tests/testdata/keys/rsa.1.sec.asc')
+        key.parse(_read('tests/testdata/keys/rsa.1.sec.asc'))
 
         with self.assert_warnings():
             decmsg = key.decrypt(rsa_encmsg)
@@ -434,10 +450,10 @@ class TestPGPKey(object):
 
     def test_encrypt_rsa_message(self, write_clean, gpg_import, gpg_decrypt):
         pub = PGPKey()
-        pub.parse('tests/testdata/keys/rsa.1.pub.asc')
+        pub.parse(_read('tests/testdata/keys/rsa.1.pub.asc'))
         sec = PGPKey()
-        sec.parse('tests/testdata/keys/rsa.1.sec.asc')
-        msg = PGPMessage.new('tests/testdata/lit')
+        sec.parse(_read('tests/testdata/keys/rsa.1.sec.asc'))
+        msg = PGPMessage.new(_read('tests/testdata/lit'))
 
         with self.assert_warnings():
             encmsg = pub.encrypt(msg)
@@ -455,7 +471,7 @@ class TestPGPKey(object):
             assert gpg_decrypt('./aemsg.asc') == 'This is stored, literally\!\n\n'
 
     def test_encrypt_rsa_multi(self, write_clean, gpg_import, gpg_decrypt):
-        msg = PGPMessage.new('tests/testdata/lit')
+        msg = PGPMessage.new(_read('tests/testdata/lit'))
 
         with self.assert_warnings():
             sk = SymmetricKeyAlgorithm.AES256.gen_key()

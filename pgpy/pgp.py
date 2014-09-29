@@ -64,7 +64,7 @@ from .packet.packets import SKESessionKeyV4
 
 from .packet.types import Opaque
 
-from .types import Exportable
+from .types import Armorable
 from .types import PGPObject
 from .types import SignatureVerification
 
@@ -113,7 +113,7 @@ def _deque_resort(seq, item):
     raise ValueError
 
 
-class PGPSignature(PGPObject, Exportable):
+class PGPSignature(PGPObject, Armorable):
     @property
     def __sig__(self):
         return self._signature.signature.__sig__()
@@ -296,8 +296,7 @@ class PGPSignature(PGPObject, Exportable):
             For binary document signatures (type 0x00), the document data is
             hashed directly.
             """
-            _s = self.load(subject)
-            _data += _s
+            _data += bytearray(subject)
 
         if self.type == SignatureType.CanonicalDocument:
             """
@@ -410,7 +409,7 @@ class PGPSignature(PGPObject, Exportable):
         return onepass
 
     def parse(self, packet):
-        unarmored = self.ascii_unarmor(self.load(packet))
+        unarmored = self.ascii_unarmor(packet)
         data = unarmored['body']
 
         if unarmored['magic'] is not None and unarmored['magic'] != 'SIGNATURE':
@@ -546,7 +545,7 @@ class PGPUID(object):
                         "".format(self.__class__.__name__, other.__class__.__name__))
 
 
-class PGPMessage(PGPObject, Exportable):
+class PGPMessage(PGPObject, Armorable):
     @staticmethod
     def dash_unescape(text):
         return re.subn(r'^- -', '-', text, flags=re.MULTILINE)[0]
@@ -722,12 +721,13 @@ class PGPMessage(PGPObject, Exportable):
         prefs.update(kwargs)
 
         if prefs['cleartext']:
-            _m = cls.load(message).decode('latin-1')
+            # _m = cls.load(message).decode('latin-1')
+            _m = message
 
         else:
             # load literal data
             lit = LiteralData()
-            lit._contents = cls.load(message)
+            lit._contents = bytearray(six.b(message))
             lit.format = prefs['format']
 
             if os.path.isfile(message):
@@ -805,7 +805,7 @@ class PGPMessage(PGPObject, Exportable):
         return decmsg
 
     def parse(self, packet):
-        unarmored = self.ascii_unarmor(self.load(packet))
+        unarmored = self.ascii_unarmor(packet)
         data = unarmored['body']
 
         if unarmored['magic'] is not None and unarmored['magic'] not in ['MESSAGE', 'SIGNATURE']:
@@ -831,7 +831,7 @@ class PGPMessage(PGPObject, Exportable):
                 self += Packet(data)
 
 
-class PGPKey(PGPObject, Exportable):
+class PGPKey(PGPObject, Armorable):
     """
     11.1.  Transferable Public Keys
 
@@ -1182,17 +1182,18 @@ class PGPKey(PGPObject, Exportable):
                           legal(id='revoke', types=PGPKey, criteria=[getattr(subject, 'is_primary', None) is False],
                                 sigtypes={SignatureType.SubkeyRevocation}),
                           legal(id='selfcertify', types=(PGPUID, PGPKey),
-                                criteria=[ (getattr(subject, 'fingerprint', None) if isinstance(subject, PGPKey)
-                                            else getattr(getattr(subject, '_parent', None), 'fingerprint', None)) == self.fingerprint],
+                                criteria=[ (getattr(subject, 'fingerprint', None) if isinstance(subject, PGPKey) else
+                                            getattr(getattr(subject, '_parent', None), 'fingerprint', None)) == self.fingerprint],
                                 sigtypes=SignatureType.certifications ^ {SignatureType.CertRevocation}),
                           legal(id='bind_sub', types=PGPKey,
                                 criteria=[getattr(subject, 'is_primary', None) is False,
                                           getattr(getattr(subject, '_parent', None), 'fingerprint', None) == self.fingerprint],
                                 sigtypes={SignatureType.Subkey_Binding}),
-                          # legal(id='bind_pri', types=PGPKey,
-                          #       criteria=[getattr(subject, 'is_primary', None) is True,
-                          #                 getattr(self, '_parent', None) is not None,
-                          #                 getattr(subject, 'fingerprint', None) == self._parent.fingerprint]),
+                          legal(id='bind_pri', types=PGPKey,
+                                criteria=[getattr(subject, 'is_primary', None) is True,
+                                          getattr(self, '_parent', None) is not None,
+                                          getattr(subject, 'fingerprint', None) == getattr(self._parent, 'fingerprint', False)],
+                                sigtypes={SignatureType.PrimaryKey_Binding}),
                           legal(id='certify', types=PGPUID, criteria=[],
                                 sigtypes=SignatureType.certifications ^ {SignatureType.CertRevocation}),
                           legal(id='directkey', types=PGPKey, criteria=[], sigtypes={SignatureType.DirectlyOnKey})]
@@ -1201,9 +1202,6 @@ class PGPKey(PGPObject, Exportable):
 
         if combo is None:
             raise PGPError('SignatureType.{:s} not supported on subject type {}'.format(sig.type.name, str(type(subject))))
-
-        if combo.id == 'load':
-            subject = self.load(subject)
 
         if combo.id == 'msg':
             subject = subject.message
@@ -1217,9 +1215,9 @@ class PGPKey(PGPObject, Exportable):
             usage_flags = prefs.pop('usage', [])
             sig._signature.subpackets.addnew('KeyFlags', hashed=True, flags=usage_flags)
 
-        # if combo.id == 'bind_sub' and subject.key_algorithm.can_sign:
-        #     esig = self.subkeys[subject.fingerprint.keyid].sign(self, sigtype=SignatureType.PrimaryKey_Binding)
-        #     sig._signature.subpackets.addnew('EmbeddedSignature', hashed=False, _sig=esig._signature)
+        if combo.id == 'bind_sub' and subject.key_algorithm.can_sign:
+            esig = self.subkeys[subject.fingerprint.keyid].sign(self, ignore_usage=True, sigtype=SignatureType.PrimaryKey_Binding)
+            sig._signature.subpackets.addnew('EmbeddedSignature', hashed=False, _sig=esig._signature)
 
         if combo.id in ['selfcertify', 'directkey']:
             flag_opts = [('cipherprefs', 'PreferredSymmetricAlgorithms'),
@@ -1279,8 +1277,8 @@ class PGPKey(PGPObject, Exportable):
             raise ValueError("Unexpected signature value: {:s}".format(str(type(signature))))
 
         # load the signature subject if necessary
-        if isinstance(subject, (six.string_types, bytes, bytearray)):
-            subject = self.load(subject)
+        # if isinstance(subject, (six.string_types, bytes, bytearray)):
+        #     subject = self.load(subject)
 
         def _filter_sigs(sigs):
             _ids = {self.fingerprint.keyid} | set(self.subkeys)
@@ -1425,7 +1423,7 @@ class PGPKey(PGPObject, Exportable):
         return decmsg
 
     def parse(self, data):
-        unarmored = self.ascii_unarmor(self.load(data))
+        unarmored = self.ascii_unarmor(data)
         data = unarmored['body']
 
         if unarmored['magic'] is not None and 'KEY' not in unarmored['magic']:

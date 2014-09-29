@@ -826,7 +826,9 @@ class EmbeddedSignature(Signature):
 
     @_sig.setter
     def _sig(self, val):
-        self._sig = val
+        val.header = EmbeddedSignatureHeader()
+        val.update_hlen()
+        self._sigpkt = val
 
     @property
     def sigtype(self):

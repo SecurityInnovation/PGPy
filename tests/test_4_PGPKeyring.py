@@ -13,7 +13,11 @@ from pgpy.types import Fingerprint
 class TestPGPKeyring(object):
     def test_load(self):
         kr = PGPKeyring()
-        keys = kr.load(glob.glob('tests/testdata/*test.asc'))
+        kc = []
+        for kf in glob.glob('tests/testdata/*test.asc'):
+            with open(kf, 'r') as kff:
+                kc.append(kff.read())
+        keys = kr.load(kc)
 
         # keys
         assert all(isinstance(k, Fingerprint) for k in keys)
@@ -57,7 +61,11 @@ class TestPGPKeyring(object):
         assert rvt[1].is_public
 
     def test_select_fingerprint(self):
-        kr = PGPKeyring(glob.glob('tests/testdata/*test.asc'))
+        kc = []
+        for kf in glob.glob('tests/testdata/*test.asc'):
+            with open(kf, 'r') as kff:
+                kc.append(kff.read())
+        kr = PGPKeyring(kc)
 
         with kr.key("F429 4BC8 094A 7E05 85C8 5E86 3747 3B37 58C4 4F36") as rsa:
             assert rsa.userids[0].name == "RSA von TestKey"
@@ -66,7 +74,11 @@ class TestPGPKeyring(object):
             assert dsa.userids[0].name == "DSA von TestKey"
 
     def test_select_keyid(self):
-        kr = PGPKeyring(glob.glob('tests/testdata/*test.asc'))
+        kc = []
+        for kf in glob.glob('tests/testdata/*test.asc'):
+            with open(kf, 'r') as kff:
+                kc.append(kff.read())
+        kr = PGPKeyring(kc)
 
         with kr.key("37473B3758C44F36") as rsa:
             assert rsa.userids[0].name == "RSA von TestKey"
@@ -75,7 +87,11 @@ class TestPGPKeyring(object):
             assert dsa.userids[0].name == "DSA von TestKey"
 
     def test_select_shortid(self):
-        kr = PGPKeyring(glob.glob('tests/testdata/*test.asc'))
+        kc = []
+        for kf in glob.glob('tests/testdata/*test.asc'):
+            with open(kf, 'r') as kff:
+                kc.append(kff.read())
+        kr = PGPKeyring(kc)
 
         with kr.key("58C44F36") as rsa:
             assert rsa.userids[0].name == "RSA von TestKey"
@@ -84,7 +100,11 @@ class TestPGPKeyring(object):
             assert dsa.userids[0].name == "DSA von TestKey"
 
     def test_select_name(self):
-        kr = PGPKeyring(glob.glob('tests/testdata/*test.asc'))
+        kc = []
+        for kf in glob.glob('tests/testdata/*test.asc'):
+            with open(kf, 'r') as kff:
+                kc.append(kff.read())
+        kr = PGPKeyring(kc)
 
         with kr.key("RSA von TestKey") as rsa:
             assert rsa.userids[0].name == "RSA von TestKey"
@@ -93,7 +113,11 @@ class TestPGPKeyring(object):
             assert dsa.userids[0].name == "DSA von TestKey"
 
     def test_select_comment(self):
-        kr = PGPKeyring(glob.glob('tests/testdata/*test.asc'))
+        kc = []
+        for kf in glob.glob('tests/testdata/*test.asc'):
+            with open(kf, 'r') as kff:
+                kc.append(kff.read())
+        kr = PGPKeyring(kc)
 
         with kr.key("2048-bit RSA") as rsa:
             assert rsa.userids[0].name == "RSA von TestKey"
@@ -102,7 +126,11 @@ class TestPGPKeyring(object):
             assert dsa.userids[0].name == "DSA von TestKey"
 
     def test_select_email(self):
-        kr = PGPKeyring(glob.glob('tests/testdata/*test.asc'))
+        kc = []
+        for kf in glob.glob('tests/testdata/*test.asc'):
+            with open(kf, 'r') as kff:
+                kc.append(kff.read())
+        kr = PGPKeyring(kc)
 
         with kr.key("rsa@test.key") as rsa:
             assert rsa.userids[0].name == "RSA von TestKey"
@@ -111,18 +139,25 @@ class TestPGPKeyring(object):
             assert dsa.userids[0].name == "DSA von TestKey"
 
     def test_select_pgpsignature(self):
-        kr = PGPKeyring('tests/testdata/signatures/debian-sid.key.asc')
+        with open('tests/testdata/signatures/debian-sid.key.asc', 'r') as dskf:
+            kr = PGPKeyring(dskf.read())
         sig = PGPSignature()
-        sig.parse('tests/testdata/signatures/debian-sid.sig.asc')
+        with open('tests/testdata/signatures/debian-sid.sig.asc', 'r') as sigf:
+            sig.parse(sigf.read())
 
         with kr.key(sig) as sigkey:
             assert sigkey.fingerprint.keyid == sig.signer
 
     def test_select_pgpmessage(self):
-        kr = PGPKeyring(glob.glob('tests/testdata/*test.asc'))
+        kc = []
+        for kf in glob.glob('tests/testdata/*test.asc'):
+            with open(kf, 'r') as kff:
+                kc.append(kff.read())
+        kr = PGPKeyring(kc)
 
         m1 = PGPMessage()
-        m1.parse('tests/testdata/messages/message.rsa.cast5.asc')
+        with open('tests/testdata/messages/message.rsa.cast5.asc', 'r') as m1f:
+            m1.parse(m1f.read())
 
         with kr.key(m1) as rsakey:
             assert rsakey.fingerprint == "00EC FAF5 48AE B655 F861  8193 EEE0 97A0 17B9 79CA"
