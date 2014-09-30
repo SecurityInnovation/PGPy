@@ -169,7 +169,11 @@ class PKESessionKeyV3(PKESessionKey):
 
     def decrypt_sk(self, pk):
         if self.pkalg == PubKeyAlgorithm.RSAEncryptOrSign:
-            decargs = (self.ct.me_mod_n.to_mpibytes()[2:], padding.PKCS1v15(), default_backend())
+            # pad up ct with null bytes if necessary
+            ct = self.ct.me_mod_n.to_mpibytes()[2:]
+            ct = b'\x00' * ((pk.key_size // 8) - len(ct)) + ct
+
+            decargs = (ct, padding.PKCS1v15(), default_backend())
 
         else:
             raise NotImplementedError(self.pkalg)
