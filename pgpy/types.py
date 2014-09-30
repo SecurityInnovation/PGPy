@@ -46,7 +46,6 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
     @abc.abstractproperty
     def magic(self):
         """The magic string identifier for the current PGP type"""
-        return ""
 
     def __init__(self):
         super(Armorable, self).__init__()
@@ -55,7 +54,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
 
     @abc.abstractmethod
     def __bytes__(self):
-        return b''
+        """This method is too abstract to understand"""
 
     def __str__(self):
         payload = base64.b64encode(self.__bytes__()).decode('latin-1')
@@ -190,7 +189,7 @@ class PGPObject(six.with_metaclass(abc.ABCMeta, object)):
 class Field(PGPObject):
     @abc.abstractmethod
     def __len__(self):
-        return 0
+        """Return the length of the output of __bytes__"""
 
 
 class Header(Field):
@@ -443,15 +442,6 @@ class SignatureVerification(object):
         return self.__bool__()
 
     def __and__(self, other):
-        if not isinstance(other, SignatureVerification):
-            raise ValueError(type(other))
-
-        nsv = SignatureVerification()
-        nsv._subjects = self._subjects + other._subjects
-
-        return nsv
-
-    def __iand__(self, other):
         if not isinstance(other, SignatureVerification):
             raise ValueError(type(other))
 
