@@ -16,6 +16,7 @@ import warnings
 import six
 
 from datetime import datetime
+from datetime import timedelta
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
@@ -88,18 +89,9 @@ def _deque_insort(seq, item):
 
 
 def _deque_popat(seq, i):
-    seqlen = len(seq)
-    # go left if i is in the first half of the list
-    if i < (seqlen // 2):
-        seq.rotate(- i)
-        item = seq.popleft()
-        seq.rotate(i)
-
-    else:
-        i = (seqlen - i)
-        seq.rotate(i)
-        item = seq.pop()
-        seq.rotate(- i)
+    seq.rotate(- i)
+    item = seq.popleft()
+    seq.rotate(i)
 
     return item
 
@@ -180,6 +172,10 @@ class PGPSignature(PGPObject, Armorable):
     @property
     def key_algorithm(self):
         return self._signature.pubalg
+
+    @property
+    def key_expiration(self):
+        return next(iter(self._signature.subpackets.get('KeyExpirationTime', None)), None)
 
     @property
     def key_flags(self):
@@ -929,7 +925,7 @@ class PGPKey(PGPObject, Armorable):
         elif self.parent is not None:
             return self.parent.cipherprefs
 
-        else:
+        else:  # pragma: no cover
             raise PGPError("Incomplete key")
 
     @property
@@ -940,7 +936,7 @@ class PGPKey(PGPObject, Armorable):
         elif self.parent is not None:
             return self.parent.compprefs
 
-        else:
+        else:  # pragma: no cover
             raise PGPError("Incomplete key")
 
     @property
@@ -965,8 +961,19 @@ class PGPKey(PGPObject, Armorable):
         elif self.parent is not None:
             return self.parent.hashprefs
 
-        else:
+        else:  # pragma: no cover
             raise PGPError("Incomplete key")
+
+    @property
+    def is_expired(self):
+        try:
+            expires = min(sig.key_expiration.expires for sig in self.self_signatures if sig.key_expiration is not None)
+
+        except ValueError:
+            return False
+
+        else:
+            return datetime.utcnow() <= (self.created + expires)
 
     @property
     def is_primary(self):
@@ -1009,12 +1016,26 @@ class PGPKey(PGPObject, Armorable):
         return self._parent
 
     @property
+    def self_signatures(self):
+        for sig in self._signatures:
+            if sig.signer == self.fingerprint.keyid:
+                yield sig
+
+        if self.is_primary:
+            for sig in iter(u.selfsig for u in self.userids):
+                yield sig
+
+        else:
+            for sig in self.parent.self_signatures:
+                yield sig
+
+    @property
     def signatures(self):
         return list(self._signatures)
 
     @property
     def signers(self):
-        return set(sig.signer for sig in self.__sig__)
+        return {sig.signer for sig in self.__sig__}
 
     @property
     def subkeys(self):

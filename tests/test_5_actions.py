@@ -223,7 +223,7 @@ class TestPGPKey(object):
 
     def test_verify_revochiio(self):
         k = PGPKey()
-        k.parse(_read('tests/testdata/revochiio.asc'))
+        k.parse(_read('tests/testdata/blocks/revochiio.asc'))
 
         with self.assert_warnings():
             sv = k.verify(k)

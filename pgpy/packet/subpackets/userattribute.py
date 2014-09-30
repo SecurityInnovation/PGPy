@@ -57,16 +57,13 @@ class Image(UserAttribute):
     def iencoding(self):
         return self._iencoding
 
-    @iencoding.register(ImageEncoding)
-    def iencoding_ie(self, val):
-        self._iencoding = val
-
     @iencoding.register(int)
+    @iencoding.register(ImageEncoding)
     def iencoding_int(self, val):
         try:
-            self.iencoding = ImageEncoding(val)
+            self._iencoding = ImageEncoding(val)
 
-        except ValueError:
+        except ValueError:  # pragma: no cover
             self._iencoding = val
 
     @sdproperty

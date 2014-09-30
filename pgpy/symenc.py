@@ -23,7 +23,7 @@ def _encrypt(pt, key, alg, iv=None):
     except TypeError:
         raise PGPEncryptionError("Cipher {:s} not supported".format(alg.name))
 
-    except UnsupportedAlgorithm as ex:
+    except UnsupportedAlgorithm as ex:  # pragma: no cover
         six.reraise(PGPEncryptionError, ex)
 
     else:
@@ -44,7 +44,7 @@ def _decrypt(ct, key, alg, iv=None):
     try:
         decryptor = Cipher(alg.cipher(key), modes.CFB(iv), default_backend()).decryptor()
 
-    except UnsupportedAlgorithm as ex:
+    except UnsupportedAlgorithm as ex:  # pragma: no cover
         six.reraise(PGPDecryptionError, ex)
 
     else:
