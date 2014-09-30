@@ -90,8 +90,8 @@ class SubPacket(Dispatchable):
     def update_hlen(self):
         self.header.length = (len(self.__bytes__()) - len(self.header)) + 1
 
-    @abc.abstractmethod  # subclasses still need to specify this
-    def parse(self, packet):
+    @abc.abstractmethod
+    def parse(self, packet):  # pragma: no cover
         if self.header._typeid == 0:
             self.header.parse(packet)
 

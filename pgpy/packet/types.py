@@ -253,4 +253,4 @@ class MPIs(Field):
 
     @abc.abstractmethod
     def __iter__(self):
-        yield None
+        """yield all components of an MPI so it can be iterated over"""

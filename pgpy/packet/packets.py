@@ -227,7 +227,7 @@ class PKESessionKeyV3(PKESessionKey):
         if self.ct is not None:
             self.ct.parse(packet)
 
-        else:
+        else:  # pragma: no cover
             del packet[:(self.header.length - 18)]
 
 
@@ -320,7 +320,7 @@ class SignatureV4(Signature):
         try:
             self._halg = HashAlgorithm(val)
 
-        except ValueError:
+        except ValueError:  # pragma: no cover
             self._halg = val
 
     @property
@@ -574,11 +574,11 @@ class OnePassSignatureV3(OnePassSignature):
 
     @halg.register(int)
     @halg.register(HashAlgorithm)
-    def halg_(self, val):
+    def halg_int(self, val):
         try:
             self._halg = HashAlgorithm(val)
 
-        except ValueError:
+        except ValueError:  # pragma: no cover
             self._halg = val
 
     @sdproperty
@@ -642,7 +642,7 @@ class PubKey(VersionedPacket, Primary, Public):
 
     @abc.abstractproperty
     def fingerprint(self):
-        return ""
+        """compute and return the fingerprint of the key"""
 
 
 class PubKeyV4(PubKey):
@@ -766,7 +766,7 @@ class PrivKeyV4(PrivKey, PubKeyV4):
     def unlocked(self):
         if self.protected:
             return 0 not in list(self.keymaterial)
-        return True
+        return True  # pragma: no cover
 
     def unprotect(self, passphrase):
         self.keymaterial.decrypt_keyblob(passphrase)
@@ -1364,7 +1364,7 @@ class IntegrityProtectedSKEDataV1(IntegrityProtectedSKEData):
         # do the MDC checks
         _expected_mdcbytes = b'\xd3\x14' + hashlib.new('SHA1', pt[:-20]).digest()
         if not constant_time.bytes_eq(bytes(pt[-22:]), _expected_mdcbytes):
-            raise PGPDecryptionError("Decryption failed")
+            raise PGPDecryptionError("Decryption failed")  # pragma: no cover
 
         iv = bytes(pt[:alg.block_size // 8])
         del pt[:alg.block_size // 8]
@@ -1373,7 +1373,7 @@ class IntegrityProtectedSKEDataV1(IntegrityProtectedSKEData):
         del pt[:2]
 
         if not constant_time.bytes_eq(iv[-2:], ivl2):
-            raise PGPDecryptionError("Decryption failed")
+            raise PGPDecryptionError("Decryption failed")  # pragma: no cover
 
         return pt
 

@@ -18,10 +18,10 @@ def classproperty(fget):
         def __get__(self, cls, owner):
             return self.fget(owner)
 
-        def __set__(self, obj, value):
+        def __set__(self, obj, value):  # pragma: no cover
             raise AttributeError("Read-only attribute")
 
-        def __delete__(self, obj):
+        def __delete__(self, obj):  # pragma: no cover
             raise AttributeError("Read-only attribute")
 
     return ClassProperty(fget)
@@ -42,7 +42,7 @@ def sdmethod(meth):
 
 
 def sdproperty(fget):
-    def defset(obj, val):
+    def defset(obj, val):  # pragma: no cover
         raise TypeError(str(val.__class__))
 
     class _(property):

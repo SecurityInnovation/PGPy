@@ -182,7 +182,10 @@ class TestBlocks(object):
             ('revocable',      True),
             ('revocation_key', None),
             ('signer',         'FCAE54F74BA27CF7'),
-            ('type',           SignatureType.BinaryDocument)]
+            ('type',           SignatureType.BinaryDocument)],
+        'tests/testdata/blocks/signature.expired.asc':
+            [('created',       datetime(2014, 9, 28, 20, 54, 42)),
+             ('expired',       True),],
     }
     def test_load(self, block):
         with open(block) as bf:

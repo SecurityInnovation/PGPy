@@ -166,11 +166,11 @@ class Signature(MPIs):
 
     @abc.abstractproperty
     def __sig__(self):
-        return b''
+        """return the signature bytes in a format that can be understood by the signature verifier"""
 
     @abc.abstractmethod
     def from_signer(self, sig):
-        pass
+        """create and parse a concrete Signature class instance"""
 
 
 class RSASignature(Signature):
@@ -274,7 +274,7 @@ class DSASignature(Signature):
 class PubKey(MPIs):
     @abc.abstractmethod
     def __pubkey__(self):
-        return None
+        """return the requisite *PublicKey class from the cryptography library"""
 
     def __bytes__(self):
         return b''.join(i.to_mpibytes() for i in self)
@@ -629,14 +629,14 @@ class PrivKey(PubKey):
 
     @abc.abstractmethod
     def __privkey__(self):
-        return None
+        """return the requisite *PrivateKey class from the cryptography library"""
 
     def publen(self):
         return sum(len(i) for i in super(self.__class__, self).__iter__())
 
     @abc.abstractmethod
     def decrypt_keyblob(self, passphrase):
-        if not self.s2k:
+        if not self.s2k:  # pragma: no cover
             # not encrypted
             return
 
@@ -670,7 +670,7 @@ class PrivKey(PubKey):
 
     @abc.abstractmethod
     def clear(self):
-        return False
+        """delete and re-initialize as zero, all private components"""
 
 
 class RSAPriv(PrivKey, RSAPub):
@@ -837,7 +837,7 @@ class CipherText(MPIs):
 
     @abc.abstractmethod
     def from_encrypter(self, ct):
-        pass
+        """create and parse a concrete CipherText class instance"""
 
 
 class RSACipherText(CipherText):

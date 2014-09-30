@@ -75,7 +75,7 @@ class FlagList(Signature):
     @flags.register(PubKeyAlgorithm)
     @flags.register(SymmetricKeyAlgorithm)
     def flags_int(self, val):
-        if self.__flags__ is None:
+        if self.__flags__ is None:  # pragma: no cover
             raise AttributeError("Error: __flags__ not set!")
 
         self._flags.append(self.__flags__(val))
@@ -115,8 +115,9 @@ class ByteFlag(Signature):
     @flags.register(int)
     @flags.register(_KeyFlags)
     def flags_(self, val):
-        if self.__flags__ is None:
+        if self.__flags__ is None:  # pragma: no cover
             raise AttributeError("Error: __flags__ not set!")
+
         self._flags += self.__flags__ & val
 
     @flags.register(bytearray)
@@ -162,7 +163,6 @@ class Boolean(Signature):
         return _bytes
 
     def __bool__(self):
-        # Python 3.x
         return self.bool
 
     def __nonzero__(self):
@@ -615,7 +615,7 @@ class NotationData(Signature):
         if NotationDataFlags.HumanReadable in self.flags:
             self.value = val.decode('latin-1')
 
-        else:
+        else:  # pragma: no cover
             self._value = val
 
     def __init__(self):

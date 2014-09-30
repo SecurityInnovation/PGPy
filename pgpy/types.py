@@ -400,11 +400,11 @@ class Dispatchable(six.with_metaclass(MetaDispatchable, PGPObject)):
     __metaclass__ = MetaDispatchable
 
     @abc.abstractproperty
-    def __headercls__(self):
+    def __headercls__(self):  # pragma: no cover
         return False
 
     @abc.abstractproperty
-    def __typeid__(self):
+    def __typeid__(self):  # pragma: no cover
         return False
 
     __ver__ = None

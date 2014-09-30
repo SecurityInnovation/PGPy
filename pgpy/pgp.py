@@ -135,12 +135,12 @@ class PGPSignature(PGPObject, Armorable):
         if 'SignatureExpirationTime' not in self._signature.subpackets:
             return False
 
-        expd = self._signature.subpackets['SignatureExpirationTime'].expires
+        expd = next(iter(self._signature.subpackets['SignatureExpirationTime'])).expires
         if expd.total_seconds() == 0:
             return False
 
         exp = self.created + expd
-        return exp > datetime.utcnow()
+        return exp < datetime.utcnow()
 
     @property
     def exportable(self):
@@ -187,7 +187,7 @@ class PGPSignature(PGPObject, Armorable):
     def keyserver(self):
         if 'PreferredKeyServer' not in self._signature.subpackets:
             return ''
-        return self._signature.subpackets['h_KeyServerPreferences'].uri
+        return self._signature.subpackets['h_PreferredKeyServer'].uri
 
     @property
     def keyserverprefs(self):
@@ -604,7 +604,7 @@ class PGPMessage(PGPObject, Armorable):
         if isinstance(self._message, (SKEData, IntegrityProtectedSKEData)):
             return 'encrypted'
 
-        return 'unknown'
+        raise NotImplementedError
 
     def __init__(self):
         super(PGPMessage, self).__init__()
@@ -1092,7 +1092,7 @@ class PGPKey(PGPObject, Armorable):
 
     def __contains__(self, item):
         if isinstance(item, PGPKey):
-            return item.fingerprint.keyid in self._children
+            return item.fingerprint.keyid in self.subkeys
 
         if isinstance(item, PGPUID):
             return item in self._uids
@@ -1207,7 +1207,7 @@ class PGPKey(PGPObject, Armorable):
                           legal(id='bind_pri', types=PGPKey,
                                 criteria=[getattr(subject, 'is_primary', None) is True,
                                           getattr(self, '_parent', None) is not None,
-                                          getattr(subject, 'fingerprint', None) == getattr(self._parent, 'fingerprint', False)],
+                                          getattr(subject, 'fingerprint', None) == getattr(self.parent, 'fingerprint', False)],
                                 sigtypes={SignatureType.PrimaryKey_Binding}),
                           legal(id='certify', types=PGPUID, criteria=[],
                                 sigtypes=SignatureType.certifications ^ {SignatureType.CertRevocation}),
