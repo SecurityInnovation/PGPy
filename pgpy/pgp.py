@@ -588,9 +588,6 @@ class PGPMessage(PGPObject, Armorable):
         if self.type == 'literal':
             return self._message.contents
 
-        if self.type == 'compressed':
-            return next(pkt for pkt in self._message.packets if isinstance(pkt, LiteralData)).contents
-
     @property
     def signatures(self):
         return list(self._signatures)
@@ -611,7 +608,7 @@ class PGPMessage(PGPObject, Armorable):
         if isinstance(self._message, (SKEData, IntegrityProtectedSKEData)):
             return 'encrypted'
 
-        return 'unknown'
+        return 'unknown'  # pragma: no cover
 
     def __init__(self):
         super(PGPMessage, self).__init__()
@@ -679,9 +676,6 @@ class PGPMessage(PGPObject, Armorable):
                 self._message = other
                 return self
 
-            else:
-                raise NotImplementedError(str(type(self._message)))
-
         if isinstance(other, MDC):
             if self._mdc is None:
                 self._mdc = other
@@ -710,7 +704,7 @@ class PGPMessage(PGPObject, Armorable):
             self._signatures += other._signatures
             return self
 
-        raise NotImplementedError(str(type(other)))
+        raise NotImplementedError(str(type(other)))  # pragma: no cover
 
     @classmethod
     def new(cls, message, **kwargs):
@@ -721,7 +715,6 @@ class PGPMessage(PGPObject, Armorable):
         prefs.update(kwargs)
 
         if prefs['cleartext']:
-            # _m = cls.load(message).decode('latin-1')
             _m = message
 
         else:
@@ -1278,10 +1271,6 @@ class PGPKey(PGPObject, Armorable):
             raise ValueError("Unexpected subject value: {:s}".format(str(type(subject))))
         if not isinstance(signature, (type(None), PGPSignature)):
             raise ValueError("Unexpected signature value: {:s}".format(str(type(signature))))
-
-        # load the signature subject if necessary
-        # if isinstance(subject, (six.string_types, bytes, bytearray)):
-        #     subject = self.load(subject)
 
         def _filter_sigs(sigs):
             _ids = {self.fingerprint.keyid} | set(self.subkeys)

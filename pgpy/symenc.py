@@ -10,6 +10,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher
 from cryptography.hazmat.primitives.ciphers import modes
 
 from .errors import PGPDecryptionError
+from .errors import PGPEncryptionError
 
 
 def _encrypt(pt, key, alg, iv=None):
@@ -19,8 +20,11 @@ def _encrypt(pt, key, alg, iv=None):
     try:
         encryptor = Cipher(alg.cipher(key), modes.CFB(iv), default_backend()).encryptor()
 
+    except TypeError:
+        raise PGPEncryptionError("Cipher {:s} not supported".format(alg.name))
+
     except UnsupportedAlgorithm as ex:
-        six.reraise(PGPDecryptionError, ex)
+        six.reraise(PGPEncryptionError, ex)
 
     else:
         return bytearray(encryptor.update(pt) + encryptor.finalize())

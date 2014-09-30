@@ -13,7 +13,10 @@ from pgpy import PGPMessage
 from pgpy import PGPSignature
 from pgpy import PGPUID
 
+from pgpy.errors import PGPDecryptionError
+from pgpy.errors import PGPEncryptionError
 from pgpy.errors import PGPError
+
 from pgpy.constants import CompressionAlgorithm
 from pgpy.constants import ImageEncoding
 from pgpy.constants import PubKeyAlgorithm
@@ -50,6 +53,39 @@ def _pgpsignature(f):
 def _read(f, mode='r'):
     with open(f, mode) as ff:
         return ff.read()
+
+
+class TestExceptions(object):
+    def test_pgpkey_verify_wrongkey(self):
+        wrongkey = _pgpkey('tests/testdata/signatures/aptapproval-test.key.asc')
+        sig = _pgpsignature('tests/testdata/signatures/debian-sid.sig.asc')
+
+        with pytest.raises(PGPError):
+            wrongkey.verify(_read('tests/testdata/signatures/debian-sid.subj'), sig)
+
+    def test_pgpkey_decrypt_unencrypted_message(self, recwarn):
+        lit = _pgpmessage_new('tests/testdata/lit')
+        key = _pgpkey('tests/testdata/keys/rsa.1.sec.asc')
+        key.decrypt(lit)
+
+        w = recwarn.pop(UserWarning)
+        assert str(w.message) == "This message is not encrypted"
+        assert w.filename == __file__
+
+    def test_pgpmessage_decrypt_unsupported_algorithm(self):
+        msg = _pgpmessage('tests/testdata/message.enc.twofish.asc')
+        with pytest.raises(PGPDecryptionError):
+            msg.decrypt("QwertyUiop")
+
+    def test_pgpmessage_decrypt_wrongpass(self):
+        msg = _pgpmessage(next(f for f in glob.glob('tests/testdata/messages/message*.pass*.asc')))
+        with pytest.raises(PGPDecryptionError):
+            msg.decrypt("TheWrongPassword")
+
+    def test_pgpmessage_encrypt_unsupported_algorithm(self):
+        lit = _pgpmessage_new('tests/testdata/lit')
+        with pytest.raises(PGPEncryptionError):
+            lit.encrypt("QwertyUiop", cipher=SymmetricKeyAlgorithm.Twofish256)
 
 
 class TestPGPMessage(object):
@@ -202,16 +238,6 @@ class TestPGPKey(object):
         assert SignatureType.PrimaryKey_Binding in _svtypes
         assert SignatureType.SubkeyRevocation in _svtypes
         assert sv
-
-    def test_verify_wrongkey(self):
-        wrongkey = PGPKey()
-        wrongkey.parse(_read('tests/testdata/signatures/aptapproval-test.key.asc'))
-
-        sig = PGPSignature()
-        sig.parse(_read('tests/testdata/signatures/debian-sid.sig.asc'))
-
-        with pytest.raises(PGPError):
-            wrongkey.verify(_read('tests/testdata/signatures/debian-sid.subj'), sig)
 
     def test_verify_invalid(self, sec):
         with self.assert_warnings():
@@ -536,6 +562,7 @@ class TestPGPKey(object):
         nphoto = PGPUID.new(photo=photo)
 
         sec.add_uid(nphoto)
+        assert nphoto in sec
 
         u = sec.userattributes[-1]
         assert u.is_ua

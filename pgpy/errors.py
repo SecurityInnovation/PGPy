@@ -7,6 +7,11 @@ class PGPError(Exception):
     pass
 
 
+class PGPEncryptionError(Exception):
+    """Raised when encryption fails"""
+    pass
+
+
 class PGPDecryptionError(Exception):
     """Raised when decryption fails"""
     pass

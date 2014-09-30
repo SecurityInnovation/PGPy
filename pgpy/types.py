@@ -21,7 +21,7 @@ from ._author import __version__
 from .decorators import sdproperty
 
 # for Python 2.7
-if six.PY2:
+if six.PY2:  # pragma: no cover
     FileNotFoundError = IOError
     re.ASCII = 0
 
