@@ -608,7 +608,7 @@ class PGPMessage(PGPObject, Armorable):
         if isinstance(self._message, (SKEData, IntegrityProtectedSKEData)):
             return 'encrypted'
 
-        return 'unknown'  # pragma: no cover
+        return 'unknown'
 
     def __init__(self):
         super(PGPMessage, self).__init__()
@@ -704,7 +704,7 @@ class PGPMessage(PGPObject, Armorable):
             self._signatures += other._signatures
             return self
 
-        raise NotImplementedError(str(type(other)))  # pragma: no cover
+        raise NotImplementedError(str(type(other)))
 
     @classmethod
     def new(cls, message, **kwargs):

@@ -1,14 +1,11 @@
 """ types.py
 """
-# for Python 2.7
 from __future__ import division
 
 import abc
 import base64
 import binascii
 import collections
-import itertools
-import os
 import re
 
 from enum import EnumMeta
@@ -20,8 +17,7 @@ from ._author import __version__
 
 from .decorators import sdproperty
 
-# for Python 2.7
-if six.PY2:  # pragma: no cover
+if six.PY2:
     FileNotFoundError = IOError
     re.ASCII = 0
 
@@ -46,21 +42,6 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
 
         if isinstance(text, (bytes, bytearray)):
             return bool(re.match(br'^[ -~\n]+$', text, flags=re.ASCII))
-
-    @staticmethod
-    def is_path(ppath):
-        if type(ppath) is not str:
-            return False
-
-        win_badchars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
-        badchars = itertools.chain(range(0, 32), range(127, 256), win_badchars if os.name == 'nt' else [])
-
-        checkchars = re.match('\A[^' + ''.join(chr(c) for c in badchars) + ']+\Z', ppath, flags=re.ASCII)
-
-        if checkchars is not None:
-            return True
-
-        return False
 
     @abc.abstractproperty
     def magic(self):
@@ -458,7 +439,7 @@ class SignatureVerification(object):
     def __bool__(self):
         return all(s.verified for s in self._subjects)
 
-    def __nonzero__(self):  # pragma: no cover
+    def __nonzero__(self):
         return self.__bool__()
 
     def __and__(self, other):

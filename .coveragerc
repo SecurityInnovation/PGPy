@@ -1,0 +1,18 @@
+[run]
+branch = True
+
+[report]
+exclude_lines =
+    # keep the standard pragma
+    pragma: no cover
+
+    # Python 2.x compatibility stuff
+    if six.PY2:
+    if six.PY3:
+    def __nonzero__
+
+    # debug-only code
+    def __repr__
+
+    # defensive code
+    raise NotImplementedError

@@ -1,6 +1,5 @@
 """ fields.py
 """
-# Python 2.7 shenanigans
 from __future__ import absolute_import, division
 
 import abc
@@ -529,9 +528,8 @@ class String2Key(Field):
     def __bool__(self):
         return self.usage in [254, 255]
 
-    # Python 2.7 shenanigans
     def __nonzero__(self):
-        return self.usage in [254, 255]
+        return self.__bool__()
 
     def parse(self, packet, iv=True):
         self.usage = packet[0]

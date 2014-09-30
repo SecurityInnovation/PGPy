@@ -214,7 +214,7 @@ class Sub(Key):
     pass
 
 
-# Python 2.7 shenanigans
+# This is required for class MPI to work in both Python 2 and 3
 if six.PY3:
     long = int
 

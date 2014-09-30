@@ -161,12 +161,11 @@ class Boolean(Signature):
         _bytes += self.int_to_bytes(int(self.bflag))
         return _bytes
 
-    def __bool__(self):  # pragma: no cover
+    def __bool__(self):
         # Python 3.x
         return self.bool
 
-    # Python 2.7
-    def __nonzero__(self):  # pragma: no cover
+    def __nonzero__(self):
         return self.__bool__()
 
     def parse(self, packet):
