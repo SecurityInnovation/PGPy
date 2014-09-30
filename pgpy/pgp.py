@@ -811,7 +811,7 @@ class PGPMessage(PGPObject, Armorable):
             self += self.dash_unescape(unarmored['cleartext'])
             while len(data) > 0:
                 pkt = Packet(data)
-                if not isinstance(pkt, Signature):
+                if not isinstance(pkt, Signature):  # pragma: no cover
                     warnings.warn("Discarded unexpected packet: {:s}".format(pkt.__class__.__name__), stacklevel=2)
                     continue
                 self += PGPSignature() + pkt
@@ -1289,9 +1289,9 @@ class PGPKey(PGPObject, Armorable):
 
         # some type checking
         if not isinstance(subject, (type(None), PGPMessage, PGPKey, PGPUID, PGPSignature, six.string_types, bytes, bytearray)):
-            raise ValueError("Unexpected subject value: {:s}".format(str(type(subject))))
+            raise TypeError("Unexpected subject value: {:s}".format(str(type(subject))))
         if not isinstance(signature, (type(None), PGPSignature)):
-            raise ValueError("Unexpected signature value: {:s}".format(str(type(signature))))
+            raise TypeError("Unexpected signature value: {:s}".format(str(type(signature))))
 
         def _filter_sigs(sigs):
             _ids = {self.fingerprint.keyid} | set(self.subkeys)
@@ -1648,13 +1648,7 @@ class PGPKeyring(collections.Container, collections.Iterable, collections.Sized)
         if isinstance(identifier, PGPSignature):
             identifier = identifier.signer
 
-        if identifier in self:
-            pgpkey = self._get_key(identifier)
-
-        else:
-            raise KeyError(identifier)
-
-        yield pgpkey
+        yield self._get_key(identifier)
 
     def fingerprints(self, keyhalf='any', keytype='any'):
         return list({pk.fingerprint for pk in self._keys.values()

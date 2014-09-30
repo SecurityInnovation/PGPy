@@ -13,10 +13,6 @@ from pgpy import PGPMessage
 from pgpy import PGPSignature
 from pgpy import PGPUID
 
-from pgpy.errors import PGPDecryptionError
-from pgpy.errors import PGPEncryptionError
-from pgpy.errors import PGPError
-
 from pgpy.constants import CompressionAlgorithm
 from pgpy.constants import ImageEncoding
 from pgpy.constants import PubKeyAlgorithm
@@ -26,16 +22,13 @@ from pgpy.constants import SymmetricKeyAlgorithm
 from pgpy.constants import KeyFlags
 from pgpy.constants import HashAlgorithm
 
+from pgpy.errors import PGPError
+
 
 def _pgpmessage(f):
     msg = PGPMessage()
     with open(f, 'r') as ff:
         msg.parse(ff.read())
-    return msg
-
-def _pgpmessage_new(f):
-    with open(f, 'r') as ff:
-        msg = PGPMessage.new(ff.read())
     return msg
 
 def _pgpkey(f):
@@ -55,45 +48,12 @@ def _read(f, mode='r'):
         return ff.read()
 
 
-class TestExceptions(object):
-    def test_pgpkey_verify_wrongkey(self):
-        wrongkey = _pgpkey('tests/testdata/signatures/aptapproval-test.key.asc')
-        sig = _pgpsignature('tests/testdata/signatures/debian-sid.sig.asc')
-
-        with pytest.raises(PGPError):
-            wrongkey.verify(_read('tests/testdata/signatures/debian-sid.subj'), sig)
-
-    def test_pgpkey_decrypt_unencrypted_message(self, recwarn):
-        lit = _pgpmessage_new('tests/testdata/lit')
-        key = _pgpkey('tests/testdata/keys/rsa.1.sec.asc')
-        key.decrypt(lit)
-
-        w = recwarn.pop(UserWarning)
-        assert str(w.message) == "This message is not encrypted"
-        assert w.filename == __file__
-
-    def test_pgpmessage_decrypt_unsupported_algorithm(self):
-        msg = _pgpmessage('tests/testdata/message.enc.twofish.asc')
-        with pytest.raises(PGPDecryptionError):
-            msg.decrypt("QwertyUiop")
-
-    def test_pgpmessage_decrypt_wrongpass(self):
-        msg = _pgpmessage(next(f for f in glob.glob('tests/testdata/messages/message*.pass*.asc')))
-        with pytest.raises(PGPDecryptionError):
-            msg.decrypt("TheWrongPassword")
-
-    def test_pgpmessage_encrypt_unsupported_algorithm(self):
-        lit = _pgpmessage_new('tests/testdata/lit')
-        with pytest.raises(PGPEncryptionError):
-            lit.encrypt("QwertyUiop", cipher=SymmetricKeyAlgorithm.Twofish256)
-
-
 class TestPGPMessage(object):
     params = {
         'comp_alg': [ CompressionAlgorithm.Uncompressed, CompressionAlgorithm.ZIP, CompressionAlgorithm.ZLIB,
                       CompressionAlgorithm.BZ2 ],
         'enc_msg':  [ _pgpmessage(f) for f in glob.glob('tests/testdata/messages/message*.pass*.asc') ],
-        'lit':      [ _pgpmessage_new('tests/testdata/lit') ],
+        'lit':      [ PGPMessage.new(_read('tests/testdata/lit')) ],
     }
     def test_new_message(self, comp_alg, write_clean, gpg_import, gpg_print):
         with open('tests/testdata/lit', 'r') as litf:
