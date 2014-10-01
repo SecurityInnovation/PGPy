@@ -45,7 +45,7 @@ def sdproperty(fget):
     def defset(obj, val):  # pragma: no cover
         raise TypeError(str(val.__class__))
 
-    class _(property):
+    class SDProperty(property):
         def register(self, cls=None, fset=None):
             return self.fset.register(cls, fset)
 
@@ -53,7 +53,7 @@ def sdproperty(fget):
             self.register(object, fset)
             return type(self)(self.fget, self.fset, self.fdel, self.__doc__)
 
-    return _(fget, sdmethod(defset))
+    return SDProperty(fget, sdmethod(defset))
 
 
 class KeyAction(object):

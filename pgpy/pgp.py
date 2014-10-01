@@ -16,7 +16,6 @@ import warnings
 import six
 
 from datetime import datetime
-from datetime import timedelta
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
@@ -1423,14 +1422,16 @@ class PGPKey(PGPObject, Armorable):
         getpkt = lambda d: Packet(d) if len(d) > 0 else None
         getpkt = iter(functools.partial(getpkt, data), None)
 
-        class pktgrouper(object):
-            def __init__(self):
-                self.last = None
+        def pktgrouper():
+            class PktGrouper(object):
+                def __init__(self):
+                    self.last = None
 
-            def __call__(self, pkt):
-                if pkt.header.tag != PacketTag.Signature:
-                    self.last = '{:02X}_{:s}'.format(id(pkt), pkt.__class__.__name__)
-                return self.last
+                def __call__(self, pkt):
+                    if pkt.header.tag != PacketTag.Signature:
+                        self.last = '{:02X}_{:s}'.format(id(pkt), pkt.__class__.__name__)
+                    return self.last
+            return PktGrouper()
 
         while True:
             for group in iter(group for _, group in itertools.groupby(getpkt, key=pktgrouper()) if not _.endswith('Opaque')):

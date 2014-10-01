@@ -127,7 +127,6 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
             if Armorable.crc24(m['body']) != m['crc']:
                 warnings.warn('Incorrect crc24', stacklevel=3)
 
-
         return m
 
     @staticmethod
