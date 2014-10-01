@@ -7,6 +7,7 @@ import base64
 import binascii
 import collections
 import re
+import warnings
 
 from enum import EnumMeta
 from enum import IntEnum
@@ -34,7 +35,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
 
     @staticmethod
     def is_ascii(text):
-        if not isinstance(text, (str, bytes, bytearray)):
+        if not isinstance(text, (str, bytes, bytearray)):  # pragma: no cover
             raise ValueError("Expected: ASCII input of type str, bytes, or bytearray")
 
         if isinstance(text, str):
@@ -81,7 +82,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
             m['body'] = bytearray(text)
             return m
 
-        if isinstance(text, (bytes, bytearray)):
+        if isinstance(text, (bytes, bytearray)):  # pragma: no cover
             text = text.decode('latin-1')
 
         # the re.VERBOSE flag allows for:
@@ -107,7 +108,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
                          """,
                      text, flags=re.MULTILINE | re.VERBOSE)
 
-        if m is None:
+        if m is None:  # pragma: no cover
             raise ValueError("Expected: ASCII-armored PGP data")
 
         m = m.groupdict()
@@ -123,6 +124,9 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
 
         if m['crc'] is not None:
             m['crc'] = Header.bytes_to_int(base64.b64decode(m['crc'].encode()))
+            if Armorable.crc24(None, m['body']) != m['crc']:
+                warnings.warn('Incorrect crc24', stacklevel=3)
+
 
         return m
 
@@ -139,7 +143,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
         if data is None:
             data = self.__bytes__()
 
-        crc = self.__crc24_init__
+        crc = Armorable.__crc24_init__
 
         for b in six.iterbytes(data):
             crc ^= b << 16
@@ -147,7 +151,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
             for i in range(8):
                 crc <<= 1
                 if crc & 0x1000000:
-                    crc ^= self.__crc24_poly__
+                    crc ^= Armorable.__crc24_poly__
 
         return crc & 0xFFFFFF
 
@@ -156,7 +160,7 @@ class PGPObject(six.with_metaclass(abc.ABCMeta, object)):
     __metaclass__ = abc.ABCMeta
 
     @staticmethod
-    def bytes_to_int(b, order='big'):
+    def bytes_to_int(b, order='big'):  # pragma: no cover
         """convert bytes to integer"""
         if hasattr(int, 'from_bytes'):
             return int.from_bytes(b, order)
@@ -165,7 +169,7 @@ class PGPObject(six.with_metaclass(abc.ABCMeta, object)):
             return int(binascii.hexlify(b), 16)
 
     @staticmethod
-    def int_to_bytes(i, minlen=1, order='big'):
+    def int_to_bytes(i, minlen=1, order='big'):  # pragma: no cover
         """convert integer to bytes"""
         if hasattr(int, 'to_bytes'):
 
@@ -237,7 +241,7 @@ class Header(Field):
                 self._len = self.bytes_to_int(b[1:5])
                 del b[:5]
 
-            else:
+            else:  # pragma: no cover
                 raise ValueError("Malformed length!")
 
         def _old_len(b):
@@ -245,7 +249,7 @@ class Header(Field):
                 self._len = self.bytes_to_int(b[:self.llen])
                 del b[:self.llen]
 
-            else:
+            else:  # pragma: no cover
                 self._len = 0
 
         _new_len(val) if self._lenfmt == 1 else _old_len(val)
@@ -358,7 +362,7 @@ class MetaDispatchable(abc.ABCMeta):
             if cls in MetaDispatchable._roots:
                 rcls = cls
 
-            elif issubclass(cls, tuple(MetaDispatchable._roots)):
+            elif issubclass(cls, tuple(MetaDispatchable._roots)):  # pragma: no cover
                 rcls = next(root for root in MetaDispatchable._roots if issubclass(cls, root))
 
             ##TODO: else raise an exception of some kind, but this should never happen
@@ -380,7 +384,7 @@ class MetaDispatchable(abc.ABCMeta):
                     if (rcls, header.typeid, header.version) in MetaDispatchable._registry:
                         ncls = MetaDispatchable._registry[(rcls, header.typeid, header.version)]
 
-                    else:
+                    else:  # pragma: no cover
                         ncls = None
 
             if ncls is None:
@@ -424,7 +428,7 @@ class SignatureVerification(object):
             yield s
 
     @property
-    def bad_signatures(self):
+    def bad_signatures(self):  # pragma: no cover
         for s in [ i for i in self._subjects if not i.verified ]:
             yield s
 
@@ -443,7 +447,7 @@ class SignatureVerification(object):
 
     def __and__(self, other):
         if not isinstance(other, SignatureVerification):
-            raise ValueError(type(other))
+            raise TypeError(type(other))
 
         self._subjects += other._subjects
         return self
@@ -456,8 +460,8 @@ class FlagEnumMeta(EnumMeta):
     def __and__(self, other):
         return { f for f in self._member_map_.values() if f.value & other }
 
-    def __rand__(self, other):
-        return { f for f in self._member_map_.values() if f.value & other }
+    def __rand__(self, other):  # pragma: no cover
+        return FlagEnumMeta & other
 
 
 class FlagEnum(six.with_metaclass(FlagEnumMeta, IntEnum)):
@@ -474,12 +478,12 @@ class Fingerprint(str):
         return str(self).replace(' ', '')[-8:]
 
     def __new__(cls, content):
-        if isinstance(content, Fingerprint):
+        if isinstance(content, Fingerprint):  # pragma: no cover
             return content
 
         # validate input before continuing: this should be a string of 40 hex digits
         content = content.upper().replace(' ', '')
-        if not bool(re.match(r'^[A-Z0-9]{40}$', content)):
+        if not bool(re.match(r'^[A-F0-9]{40}$', content)):
             raise ValueError("Expected: String of 40 hex digits")
 
         # store in the format: "AAAA BBBB CCCC DDDD EEEE  FFFF 0000 1111 2222 3333"

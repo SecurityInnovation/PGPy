@@ -128,7 +128,7 @@ class PubKeyAlgorithm(IntEnum):
         return self in [PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.DSA]
 
     @property
-    def can_encrypt(self):
+    def can_encrypt(self):  # pragma: no cover
         return self in [PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.ElGamal]
 
 
@@ -239,7 +239,7 @@ class ImageEncoding(IntEnum):
         type = imghdr.what(None, h=imagebytes)
         if type == 'jpeg':
             return ImageEncoding.JPEG
-        return ImageEncoding.Unknown
+        return ImageEncoding.Unknown  # pragma: no cover
 
 
 class SignatureType(IntEnum):
@@ -263,10 +263,6 @@ class SignatureType(IntEnum):
     def certifications(cls):
         return {SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
                 SignatureType.Positive_Cert, SignatureType.CertRevocation}
-
-    @property
-    def is_certification(self):
-        return self in SignatureType.certifications
 
 
 class KeyServerPreferences(IntEnum):

@@ -10,6 +10,11 @@ from pgpy import PGPMessage
 from pgpy import PGPSignature
 from pgpy import PGPUID
 
+from pgpy.types import Fingerprint
+from pgpy.types import SignatureVerification
+
+from pgpy.constants import HashAlgorithm
+from pgpy.constants import SignatureType
 from pgpy.constants import SymmetricKeyAlgorithm
 
 from pgpy.errors import PGPDecryptionError
@@ -42,7 +47,9 @@ def _read(f, mode='r'):
 
 class TestPGPKey(object):
     rsa_1_sec = _pgpkey('tests/testdata/keys/rsa.1.sec.asc')
+    rsa_1_pub = _pgpkey('tests/testdata/keys/rsa.1.pub.asc')
     rsa_2_sec = _pgpkey('tests/testdata/keys/rsa.2.sec.asc')
+    rsa_2_pub = _pgpkey('tests/testdata/keys/rsa.2.pub.asc')
 
     def test_verify_wrongkey(self):
         wrongkey = _pgpkey('tests/testdata/signatures/aptapproval-test.key.asc')
@@ -76,6 +83,46 @@ class TestPGPKey(object):
         with pytest.raises(PGPError):
             self.rsa_1_sec.del_uid("ASDFDSGSAJGKSAJG")
 
+    def test_sign_wrong_type(self):
+        msg = _pgpmessage('tests/testdata/messages/message.rsa.cast5.asc')
+        ctmsg = _pgpmessage('tests/testdata/messages/cleartext.signed.asc')
+        uid = PGPUID.new(name="asdf")
+        sigtypes = {SignatureType.BinaryDocument, SignatureType.CanonicalDocument, SignatureType.Standalone,
+                    SignatureType.Subkey_Binding, SignatureType.PrimaryKey_Binding, SignatureType.DirectlyOnKey,
+                    SignatureType.KeyRevocation, SignatureType.SubkeyRevocation, SignatureType.Timestamp,
+                    SignatureType.ThirdParty_Confirmation} | SignatureType.certifications
+
+        # invalid subject/sigtype combinations
+        invalid_combos = []
+        invalid_combos += [('asdf', st) for st in sigtypes ^ {SignatureType.BinaryDocument}]
+        invalid_combos += [(msg, st) for st in sigtypes ^ {SignatureType.BinaryDocument}]
+        invalid_combos += [(ctmsg, st) for st in sigtypes ^ {SignatureType.CanonicalDocument}]
+        invalid_combos += [(uid, st) for st in sigtypes ^ SignatureType.certifications]
+        invalid_combos += [(self.rsa_2_sec, st) for st in sigtypes ^ {SignatureType.DirectlyOnKey,
+                                                                      SignatureType.PrimaryKey_Binding,
+                                                                      SignatureType.KeyRevocation}]
+
+        for subj, type in invalid_combos:
+            with pytest.raises(PGPError):
+                self.rsa_1_sec.sign(subj, sigtype=type)
+
+    def test_sign_bad_prefs(self, recwarn):
+        self.rsa_1_pub.subkeys['EEE097A017B979CA'].encrypt(PGPMessage.new('asdf'),
+                               cipher=SymmetricKeyAlgorithm.CAST5,
+                               hash=HashAlgorithm.SHA1)
+
+        w = recwarn.pop(UserWarning)
+        assert str(w.message) == "Selected symmetric algorithm not in key preferences"
+        assert w.filename == __file__
+
+        w = recwarn.pop(UserWarning)
+        assert str(w.message) == "Selected hash algorithm not in key preferences"
+        assert w.filename == __file__
+
+        w = recwarn.pop(UserWarning)
+        assert str(w.message) == "Selected compression algorithm not in key preferences"
+        assert w.filename == __file__
+
     def test_verify_typeerror(self):
         with pytest.raises(TypeError):
             self.rsa_1_sec.verify(12)
@@ -93,6 +140,17 @@ class TestPGPKey(object):
         key = PGPKey()
         with pytest.raises(ValueError):
             key.parse(keytext)
+
+    def test_parse_wrong_crc24(self, recwarn):
+        keytext = _read('tests/testdata/keys/rsa.1.sec.asc').splitlines()
+        keytext[-2] = "=abcd"
+        keytext = '\n'.join(keytext)
+        key = PGPKey()
+        key.parse(keytext)
+
+        w = recwarn.pop(UserWarning)
+        assert str(w.message) == "Incorrect crc24"
+        assert w.filename == __file__
 
 
 class TestPGPKeyring(object):
@@ -159,3 +217,17 @@ class TestPGPUID(object):
         u = PGPUID.new(name="Asdf Qwert")
         with pytest.raises(TypeError):
             u += 12
+
+
+class TestSignatureVerification(object):
+    def test_and_typeerror(self):
+        with pytest.raises(TypeError):
+            sv = SignatureVerification() & 12
+
+class TestFingerprint(object):
+    def test_bad_input(self):
+        with pytest.raises(ValueError):
+            Fingerprint("ABCDEFG")
+
+        with pytest.raises(ValueError):
+            Fingerprint("ABCD EFGH IJKL MNOP QRST  UVWX YZ01 2345 6789 AABB")

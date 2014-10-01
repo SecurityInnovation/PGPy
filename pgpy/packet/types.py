@@ -111,7 +111,7 @@ class VersionedHeader(Header):
         _bytes.append(self.version)
         return bytes(_bytes)
 
-    def parse(self, packet):
+    def parse(self, packet):  # pragma: no cover
         if self.tag == 0:
             super(VersionedHeader, self).parse(packet)
 
@@ -171,7 +171,7 @@ class Opaque(Packet):
 
     @payload.register(bytearray)
     @payload.register(bytes)
-    def payload(self, val):
+    def payload_bin(self, val):
         self._payload = val
 
     def __init__(self):
@@ -183,7 +183,7 @@ class Opaque(Packet):
         _bytes += self.payload
         return _bytes
 
-    def parse(self, packet):
+    def parse(self, packet):  # pragma: no cover
         super(Opaque, self).parse(packet)
         pend = self.header.length
         if hasattr(self.header, 'version'):
@@ -224,7 +224,7 @@ class MPI(long):
         mpi = num
 
         if isinstance(num, (bytes, bytearray)):
-            if isinstance(num, bytes):
+            if isinstance(num, bytes):  # pragma: no cover
                 num = bytearray(num)
 
             fl = ((MPIs.bytes_to_int(num[:2]) + 7) // 8)

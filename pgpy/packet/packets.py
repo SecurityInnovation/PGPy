@@ -202,7 +202,7 @@ class PKESessionKeyV3(PKESessionKey):
         checksum = self.bytes_to_int(m[:2])
         del m[:2]
 
-        if not sum(symkey) % 65536 == checksum:
+        if not sum(symkey) % 65536 == checksum:  # pragma: no cover
             raise PGPDecryptionError("{:s} decryption failed".format(self.pkalg.name))
 
         return (symalg, symkey)
@@ -912,7 +912,7 @@ class SKEData(Packet):
         self.ct = packet[:self.header.length]
         del packet[:self.header.length]
 
-    def decrypt(self, key, alg):
+    def decrypt(self, key, alg):  # pragma: no cover
         pt = _decrypt(bytes(self.ct), bytes(key), alg)
 
         iv = bytes(pt[:alg.block_size // 8])
@@ -999,10 +999,10 @@ class LiteralData(Packet):
 
     @property
     def contents(self):
-        if self.format == 't':
+        if self.format == 't':  # pragma: no cover
             return self._contents.decode('latin-1')
 
-        if self.format == 'u':
+        if self.format == 'u':  # pragma: no cover
             return six.u(self._contents.decode('latin-1'))
 
         return self._contents
@@ -1098,7 +1098,7 @@ class Trust(Packet):
         del packet[:2]
 
         self.trustlevel = t
-        self.flags = t
+        self.trustflags = t
 
 
 class UserID(Packet):

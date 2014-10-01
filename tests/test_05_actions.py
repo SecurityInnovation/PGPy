@@ -14,6 +14,7 @@ from pgpy import PGPSignature
 from pgpy import PGPUID
 
 from pgpy.constants import CompressionAlgorithm
+from pgpy.constants import Features
 from pgpy.constants import ImageEncoding
 from pgpy.constants import PubKeyAlgorithm
 from pgpy.constants import RevocationReason
@@ -55,9 +56,8 @@ class TestPGPMessage(object):
         'enc_msg':  [ _pgpmessage(f) for f in glob.glob('tests/testdata/messages/message*.pass*.asc') ],
         'lit':      [ PGPMessage.new(_read('tests/testdata/lit')) ],
     }
-    def test_new_message(self, comp_alg, write_clean, gpg_import, gpg_print):
-        with open('tests/testdata/lit', 'r') as litf:
-            msg = PGPMessage.new(litf.read(), compression=comp_alg)
+    def test_new(self, comp_alg, write_clean, gpg_import, gpg_print):
+        msg = PGPMessage.new(_read('tests/testdata/lit'))
 
         assert msg.type == 'literal'
         assert msg.message.decode('latin-1') == 'This is stored, literally\!\n\n'
@@ -65,13 +65,22 @@ class TestPGPMessage(object):
         with write_clean('tests/testdata/cmsg.asc', 'w', str(msg)):
             assert gpg_print('cmsg.asc') == msg.message.decode('latin-1')
 
+    def test_new_sensitive(self, write_clean, gpg_import, gpg_print):
+        msg = PGPMessage.new('tests/testdata/lit', sensitive=True)
+
+        assert msg.type == 'literal'
+        assert msg.message.decode('latin-1') == 'This is stored, literally\!\n\n'
+
+        with write_clean('tests/testdata/csmsg.asc', 'w', str(msg)):
+            assert gpg_print('csmsg.asc') == msg.message.decode('latin-1')
+
     def test_decrypt_passphrase_message(self, enc_msg):
         decmsg = enc_msg.decrypt("QwertyUiop")
 
         assert isinstance(decmsg, PGPMessage)
         assert decmsg.message == b"This is stored, literally\\!\n\n"
 
-    def test_encrypt_passphrase_message(self, lit, write_clean, gpg_decrypt):
+    def test_encrypt_passphrase(self, lit, write_clean, gpg_decrypt):
         encmsg = lit.encrypt("QwertyUiop")
 
         # make sure lit was untouched
@@ -92,7 +101,7 @@ class TestPGPMessage(object):
         with write_clean('tests/testdata/semsg.asc', 'w', str(lit)):
             assert gpg_decrypt('./semsg.asc', "QwertyUiop") == "This is stored, literally\!\n\n"
 
-    def test_encrypt_passphrase_message_2(self, lit, write_clean, gpg_decrypt):
+    def test_encrypt_passphrase_2(self, lit, write_clean, gpg_decrypt):
         sk = SymmetricKeyAlgorithm.AES256.gen_key()
         encmsg = lit.encrypt("QwertyUiop", sessionkey=sk).encrypt("AsdfGhjkl", sessionkey=sk)
 
@@ -271,6 +280,48 @@ class TestPGPKey(object):
             ikeys.append(os.path.join('.', tkfp))
             with write_clean(os.path.join('tests', 'testdata', tkfp), 'w', str(tk)), gpg_import(*ikeys):
                 assert gpg_check_sigs(tk.fingerprint.keyid)
+
+    def test_sign_userid_unrevocable(self, sec, pub, write_clean, gpg_import, gpg_check_sigs):
+        for tk in self.targettes:
+            with self.assert_warnings():
+                # sign tk's last uid generically
+                rsig = sec.sign(tk.userids[-1], revocable=False)
+                assert not rsig.revocable
+                tk.userids[-1] += rsig
+
+                # verify with PGPy
+                assert pub.verify(tk.userids[-1])
+
+            # verify with GnuPG
+            tkfp = '{:s}.asc'.format(tk.fingerprint.shortid)
+            ikeys = self.ikeys
+            ikeys.append(os.path.join('.', tkfp))
+            with write_clean(os.path.join('tests', 'testdata', tkfp), 'w', str(tk)), gpg_import(*ikeys):
+                assert gpg_check_sigs(tk.fingerprint.keyid)
+
+    def test_sign_userid_unexportable(self, sec, pub, write_clean, gpg_import, gpg_check_sigs):
+        for tk in self.targettes:
+            # sign tk's first uid generically
+            rsig = sec.sign(tk.userids[0], exportable=False)
+            assert not rsig.exportable
+            tk.userids[0] += rsig
+
+            # check that it is properly skipped over when the packet order is composed
+            tk2 = PGPKey()
+            tk2.parse(tk.__bytes__())
+            assert len([sig for uid in tk2.userids for sig in uid._signatures
+                        if  sig.created == rsig.created
+                        and sig._signature.signature.__sig__ == rsig._signature.signature.__sig__]) == 0
+
+            # verify with PGPy
+            assert pub.verify(tk.userids[-1])
+
+        # verify with GnuPG
+        tkfp = '{:s}.asc'.format(tk.fingerprint.shortid)
+        ikeys = self.ikeys
+        ikeys.append(os.path.join('.', tkfp))
+        with write_clean(os.path.join('tests', 'testdata', tkfp), 'w', str(tk)), gpg_import(*ikeys):
+            assert gpg_check_sigs(tk.fingerprint.keyid)
 
     def test_revoke_certification(self, sec, pub, write_clean, gpg_import, gpg_check_sigs):
         for tk in self.targettes:
@@ -499,6 +550,7 @@ class TestPGPKey(object):
         assert u._signatures[0].hashprefs == [HashAlgorithm.SHA256, HashAlgorithm.SHA1]
         assert u._signatures[0].cipherprefs == [SymmetricKeyAlgorithm.AES128, SymmetricKeyAlgorithm.CAST5]
         assert u._signatures[0].compprefs == [CompressionAlgorithm.ZIP, CompressionAlgorithm.Uncompressed]
+        assert u._signatures[0].features == [Features.ModificationDetection]
 
         # verify with PGPy
         with self.assert_warnings():

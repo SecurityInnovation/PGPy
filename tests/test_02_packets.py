@@ -1,7 +1,6 @@
 """ test parsing packets
 """
 import glob
-import os
 
 from pgpy.packet import Packet
 from pgpy.packet import Opaque
@@ -35,16 +34,17 @@ def binload(f):
 
 class TestPacket(object):
     params = {
-        'packet': sorted([ binload(os.path.abspath(f)) + b'\xca\xfe\xba\xbe'
-                           for f in glob.glob('tests/testdata/packets/[0-9]*') ])
+        # 'packet': sorted([ binload(os.path.abspath(f)) + b'\xca\xfe\xba\xbe'
+        #                    for f in glob.glob('tests/testdata/packets/[0-9]*') ])
+        'packet': sorted(glob.glob('tests/testdata/packets/[0-9]*'))
     }
     def test_load(self, packet):
-        b = packet[:]
-        p = Packet(packet)
+        b = binload(packet) + b'\xca\xfe\xba\xbe'
+        _b = b[:]
+        p = Packet(_b)
 
         # parsed all bytes
-        # assert len(packet) == 0
-        assert packet == b'\xca\xfe\xba\xbe'
+        assert _b == b'\xca\xfe\xba\xbe'
 
         # length is computed correctly
         assert p.header.length + len(p.header) == len(p)

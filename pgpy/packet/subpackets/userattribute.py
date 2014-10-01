@@ -72,14 +72,14 @@ class Image(UserAttribute):
 
     @image.register(bytes)
     @image.register(bytearray)
-    def image(self, val):
+    def image_bin(self, val):
         self._image = bytearray(val)
 
     def __init__(self):
         super(Image, self).__init__()
         self.version = 1
         self.iencoding = 1
-        self.image = bytearray(b'')
+        self.image = bytearray()
 
     def __bytes__(self):
         _bytes = super(Image, self).__bytes__()

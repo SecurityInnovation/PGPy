@@ -58,7 +58,7 @@ class SubPackets(collections.MutableMapping, Field):
         _bytes += b''.join(uhsp.__bytes__() for uhsp in self._unhashed_sp.values())
         return bytes(_bytes)
 
-    def __len__(self):
+    def __len__(self):  # pragma: no cover
         return sum(sp.header.length for sp in itertools.chain(self._hashed_sp.values(), self._unhashed_sp.values())) + 4
 
     def __iter__(self):
@@ -72,7 +72,7 @@ class SubPackets(collections.MutableMapping, Field):
         # where:
         #  - <key> is the classname of val
         #  - <seqid> is a sequence id, starting at 0, for a given classname
-        if not isinstance(key, tuple):
+        if not isinstance(key, tuple):  # pragma: no cover
             i = 0
             while (key, i) in self:
                 i += 1
@@ -85,7 +85,7 @@ class SubPackets(collections.MutableMapping, Field):
             self._unhashed_sp[key] = val
 
     def __getitem__(self, key):
-        if isinstance(key, tuple):
+        if isinstance(key, tuple):  # pragma: no cover
             return self._hashed_sp[key]
 
         if key.startswith('h_'):
@@ -96,7 +96,7 @@ class SubPackets(collections.MutableMapping, Field):
 
     def __delitem__(self, key):
         ##TODO: this
-        pass
+        raise NotImplementedError
 
     def __contains__(self, key):
         return key in set(k for k, _ in itertools.chain(self._hashed_sp, self._unhashed_sp))
@@ -149,7 +149,7 @@ class UserAttributeSubPackets(SubPackets):
     def __bytes__(self):
         return b''.join(uhsp.__bytes__() for uhsp in self._unhashed_sp.values())
 
-    def __len__(self):
+    def __len__(self):  # pragma: no cover
         return sum(len(sp) for sp in self._unhashed_sp.values())
 
     def parse(self, packet):
@@ -212,7 +212,7 @@ class DSASignature(Signature):
             bilen = self.int_to_bytes(ilen)
 
             # long-form must be used ilen > 127
-            if len(bilen) > 127:
+            if len(bilen) > 127:  # pragma: no cover
                 _b += 0x80 ^ len(bilen)
             return _b + bilen
 
@@ -228,11 +228,11 @@ class DSASignature(Signature):
 
     def from_signer(self, sig):
         def _der_intf(_asn):
-            if _asn[0] != 0x02:
+            if _asn[0] != 0x02:  # pragma: no cover
                 raise ValueError("Expected: Integer (0x02). Got: 0x{:02X}".format(_asn[0]))
             del _asn[0]
 
-            if _asn[0] & 0x80:
+            if _asn[0] & 0x80:  # pragma: no cover
                 llen = _asn[0] & 0x7F
                 del _asn[0]
 
@@ -256,7 +256,7 @@ class DSASignature(Signature):
         del sig[0]
 
         # skip the sequence length field
-        if sig[0] & 0x80:
+        if sig[0] & 0x80:  # pragma: no cover
             llen = sig[0] & 0x7F
             del sig[:llen + 1]
 
@@ -656,12 +656,12 @@ class PrivKey(PubKey):
         pt = _decrypt(bytes(self.encbytes), bytes(sessionkey), self.s2k.encalg, bytes(self.s2k.iv))
 
         # check the hash to see if we decrypted successfully or not
-        if self.s2k.usage == 254 and not pt[-20:] == hashlib.new('sha1', pt[:-20]).digest():
+        if self.s2k.usage == 254 and not pt[-20:] == hashlib.new('sha1', pt[:-20]).digest():  # pragma: no cover
             # if the usage byte is 254, key material is followed by a 20-octet sha-1 hash of the rest
             # of the key material block
             raise PGPDecryptionError("Passphrase was incorrect!")
 
-        if self.s2k.usage == 255 and not self.bytes_to_int(pt[-2:]) == (sum(bytearray(pt[:-2])) % 65536):
+        if self.s2k.usage == 255 and not self.bytes_to_int(pt[-2:]) == (sum(bytearray(pt[:-2])) % 65536):  # pragma: no cover
             # if the usage byte is 255, key material is followed by a 2-octet checksum of the rest
             # of the key material block
             raise PGPDecryptionError("Passphrase was incorrect!")
@@ -861,7 +861,7 @@ class ElGCipherText(CipherText):
         self.gk_mod_p = MPI(0)
         self.myk_mod_p = MPI(0)
 
-    def __iter__(self):
+    def __iter__(self):  # pragma: no cover
         yield self.gk_mod_p
         yield self.myk_mod_p
 

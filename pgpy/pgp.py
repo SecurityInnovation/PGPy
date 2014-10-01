@@ -72,37 +72,21 @@ from .types import SignatureVerification
 
 def _deque_insort(seq, item):
     i = bisect.bisect_left(seq, item)
-    seqlen = len(seq)
-
-    # go left if i is in the first half of the list
-    if i < (seqlen // 2):
-        seq.rotate(- i)
-        seq.appendleft(item)
-        seq.rotate(i)
-
-    # go right if i is in the second half
-    else:
-        i = (seqlen - i)
-        seq.rotate(i)
-        seq.append(item)
-        seq.rotate(- i)
-
-
-def _deque_popat(seq, i):
     seq.rotate(- i)
-    item = seq.popleft()
+    seq.appendleft(item)
     seq.rotate(i)
-
-    return item
 
 
 def _deque_resort(seq, item):
-    # find where item is
     i = bisect.bisect_left(seq, item)
-    if i != len(seq) and seq[i] == item:
-        _deque_insort(seq, _deque_popat(seq, i))
+    if i != len(seq):
+        if seq[i] != item:  # pragma: no cover
+            seq.remove(item)
+            _deque_insort(item)
+
         return
-    raise ValueError
+
+    raise ValueError  # pragma: no cover
 
 
 class PGPSignature(PGPObject, Armorable):
@@ -136,7 +120,7 @@ class PGPSignature(PGPObject, Armorable):
             return False
 
         expd = next(iter(self._signature.subpackets['SignatureExpirationTime'])).expires
-        if expd.total_seconds() == 0:
+        if expd.total_seconds() == 0:  # pragma: no cover
             return False
 
         exp = self.created + expd
@@ -144,15 +128,15 @@ class PGPSignature(PGPObject, Armorable):
 
     @property
     def exportable(self):
-        if 'ExportableCertification' not in self._signature.subpackets:
-            return True
+        if 'ExportableCertification' in self._signature.subpackets:
+            return bool(next(iter(self._signature.subpackets['ExportableCertification'])))
 
-        return bool(self._signature.subpackets['ExportableCertification'])
+        return True
 
     @property
     def features(self):
         if 'Features' in self._signature.subpackets:
-            return self._signature.subpackets['Features'].flags
+            return next(iter(self._signature.subpackets['Features'])).flags
         return []
 
     @property
@@ -184,23 +168,23 @@ class PGPSignature(PGPObject, Armorable):
         return []
 
     @property
-    def keyserver(self):
-        if 'PreferredKeyServer' not in self._signature.subpackets:
-            return ''
-        return self._signature.subpackets['h_PreferredKeyServer'].uri
+    def keyserver(self):  # pragma: no cover
+        if 'PreferredKeyServer' in self._signature.subpackets:
+            return next(iter(self._signature.subpackets['h_PreferredKeyServer'])).uri
+        return ''
 
     @property
-    def keyserverprefs(self):
-        if 'KeyServerPreferences' not in self._signature.subpackets:
-            return []
-        return self._signature.subpackets['h_KeyServerPreferences'].flags
+    def keyserverprefs(self):  # pragma: no cover
+        if 'KeyServerPreferences' in self._signature.subpackets:
+            return next(iter(self._signature.subpackets['h_KeyServerPreferences'])).flags
+        return []
 
     @property
     def magic(self):
         return "SIGNATURE"
 
     @property
-    def notation(self):
+    def notation(self):  # pragma: no cover
         if 'NotationData' in self._signature.subpackets:
             nd = self._signature.subpackets['NotationData']
             return {'flags': nd.flags, 'name': nd.name, 'value': nd.value}
@@ -208,15 +192,15 @@ class PGPSignature(PGPObject, Armorable):
 
     @property
     def revocable(self):
-        if 'Revocable' not in self._signature.subpackets:
-            return True
-        return bool(self._signature.subpackets['Revocable'])
+        if 'Revocable' in self._signature.subpackets:
+            return bool(next(iter(self._signature.subpackets['Revocable'])))
+        return True
 
     @property
     def revocation_key(self):
-        if 'RevocationKey' not in self._signature.subpackets:
-            return None
-        raise NotImplementedError()
+        if 'RevocationKey' in self._signature.subpackets:
+            raise NotImplementedError()
+        return None
 
     @property
     def signer(self):
@@ -253,9 +237,7 @@ class PGPSignature(PGPObject, Armorable):
         self.parent = None
 
     def __bytes__(self):
-        if self._signature is None:
-            return b''
-        return self._signature.__bytes__()
+        return b''.join(s.__bytes__() for s in [self._signature] if s is not None)
 
     def __repr__(self):
         return "<PGPSignature [{:s}] object at 0x{:02x}>".format(self.type.name, id(self))
@@ -503,7 +485,7 @@ class PGPUID(object):
     def __repr__(self):
         return "<PGPUID [{:s}][{}] at 0x{:02X}>".format(self._uid.__class__.__name__, self.selfsig.created, id(self))
 
-    def __lt__(self, other):
+    def __lt__(self, other):  # pragma: no cover
         if self.is_uid == other.is_uid:
             if self.is_primary == other.is_primary:
                 return self.selfsig > other.selfsig
@@ -522,9 +504,7 @@ class PGPUID(object):
     def __add__(self, other):
         if isinstance(other, PGPSignature):
             _deque_insort(self._signatures, other)
-
-            # is this a new self-signature?
-            if self._parent is not None and self in self._parent and other is self.selfsig and len(self._signatures) > 1:
+            if self._parent is not None and self in self._parent._uids:
                 _deque_resort(self._parent._uids, self)
 
             return self
@@ -654,7 +634,7 @@ class PGPMessage(PGPObject, Armorable):
                 yield ops
 
             yield self._message
-            if self._mdc is not None:
+            if self._mdc is not None:  # pragma: no cover
                 yield self._mdc
 
             for sig in self._signatures:
@@ -704,42 +684,44 @@ class PGPMessage(PGPObject, Armorable):
 
     @classmethod
     def new(cls, message, **kwargs):
-        prefs = {'cleartext': False,
-                 'sensitive': False,
-                 'compression': CompressionAlgorithm.ZIP,
-                 'format': 'b'}
-        prefs.update(kwargs)
+        cleartext = kwargs.pop('cleartext', False)
+        sensitive = kwargs.pop('sensitive', False)
+        compression = kwargs.pop('compression', CompressionAlgorithm.ZIP)
+        format = kwargs.pop('format', 'b')
 
-        if prefs['cleartext']:
+        if cleartext:
             _m = message
 
         else:
             # load literal data
             lit = LiteralData()
-            lit._contents = bytearray(six.b(message))
-            lit.format = prefs['format']
-
             if os.path.isfile(message):
                 lit.filename = os.path.basename(message)
                 lit.mtime = datetime.utcfromtimestamp(os.stat(message).st_mtime)
+                with open(message, 'rb') as mf:
+                    lit._contents = bytearray(os.path.getsize(message))
+                    mf.readinto(lit._contents)
 
             else:
+                lit._contents = bytearray(six.b(message))
                 lit.mtime = datetime.utcnow()
 
-            if prefs['sensitive']:
+            lit.format = format
+
+            if sensitive:
                 lit.filename = '_CONSOLE'
 
             lit.update_hlen()
 
             _m = lit
-            if prefs['compression'] != CompressionAlgorithm.Uncompressed:
+            if compression != CompressionAlgorithm.Uncompressed:
                 _m = CompressedData()
-                _m.calg = prefs['compression']
+                _m.calg = compression
                 _m.packets.append(lit)
                 _m.update_hlen()
 
         msg = PGPMessage() + _m
-        msg._compression = prefs['compression']
+        msg._compression = compression
 
         return msg
 
@@ -1011,7 +993,7 @@ class PGPKey(PGPObject, Armorable):
 
     @property
     def parent(self):
-        if isinstance(self, Primary):
+        if self.is_primary:
             return None
         return self._parent
 
@@ -1025,7 +1007,7 @@ class PGPKey(PGPObject, Armorable):
             for sig in iter(u.selfsig for u in self.userids):
                 yield sig
 
-        else:
+        else:  # pragma: no cover
             for sig in self.parent.self_signatures:
                 yield sig
 
@@ -1091,7 +1073,7 @@ class PGPKey(PGPObject, Armorable):
                "".format(self._key.__class__.__name__, self.fingerprint.keyid, id(self))
 
     def __contains__(self, item):
-        if isinstance(item, PGPKey):
+        if isinstance(item, PGPKey):  # pragma: no cover
             return item.fingerprint.keyid in self.subkeys
 
         if isinstance(item, PGPUID):
@@ -1129,11 +1111,11 @@ class PGPKey(PGPObject, Armorable):
 
     @contextlib.contextmanager
     def unlock(self, passphrase):
-        if self.is_public:
+        if self.is_public:  # pragma: no cover
             ##TODO: we can't unprotect public keys because only private key material is ever protected
             return
 
-        if not self.is_protected:
+        if not self.is_protected:  # pragma: no cover
             ##TODO: we can't unprotect private keys that are not protected, because there is no ciphertext to decrypt
             return
 
@@ -1164,14 +1146,13 @@ class PGPKey(PGPObject, Armorable):
         self += uid
 
     def del_uid(self, search):
-        i = next( (i for i, u in enumerate(self._uids)
-                   if search in filter(lambda a: a is not None, (u.name, u.comment, u.email))),
-                  None)
+        u = next((u for u in self._uids if search in filter(lambda a: a is not None, (u.name, u.comment, u.email))),
+                 None)
 
-        if i is None:
+        if u is None:
             raise PGPError("uid '{:s}' not found".format(search))
 
-        _deque_popat(self._uids, i)
+        self._uids.remove(u)
 
     @KeyAction(KeyFlags.Sign, KeyFlags.Certify, is_unlocked=True, is_public=False)
     def sign(self, subject, **prefs):
@@ -1249,7 +1230,7 @@ class PGPKey(PGPObject, Armorable):
 
             exportable = prefs.pop('exportable', None)
             if exportable is not None:
-                sig._signature.subpackets.addnew('Exportable', hashed=True, bflag=exportable)
+                sig._signature.subpackets.addnew('ExportableCertification', hashed=True, bflag=exportable)
 
         if combo.id == 'selfcertify' and isinstance(subject, PGPUID):
             sig._signature.subpackets.addnew('Features', hashed=True, flags=[Features.ModificationDetection])
@@ -1341,13 +1322,6 @@ class PGPKey(PGPObject, Armorable):
                     raise NotImplementedError(sig.key_algorithm)
 
                 sigdata = sig.hashdata(subj)
-
-                # temporary testing
-                def _hash2(sd):
-                    _h = sig.hash_algorithm.hasher
-                    _h.update(sd)
-                    return _h.digest()[:2]
-
                 verifier = self.__key__.__pubkey__().verifier(*vargs)
                 verifier.update(sigdata)
                 verified = False
@@ -1404,12 +1378,6 @@ class PGPKey(PGPObject, Armorable):
         return _m
 
     def decrypt(self, message):
-        if not isinstance(message, PGPMessage):
-            _message = PGPMessage()
-            _message.parse(message)
-            message = _message
-            del _message
-
         if not message.is_encrypted:
             warnings.warn("This message is not encrypted", stacklevel=2)
             return message
@@ -1475,7 +1443,7 @@ class PGPKey(PGPObject, Armorable):
                 elif isinstance(pkt, (UserID, UserAttribute)):
                     pgpobj = PGPUID() + pkt
 
-                else:
+                else:  # pragma: no cover
                     break
 
                 # add signatures to whatever we got
@@ -1500,16 +1468,16 @@ class PGPKey(PGPObject, Armorable):
                     # parent is likely the most recently parsed primary key
                     keys[next(reversed(keys))] += pgpobj
 
-                else:
+                else:  # pragma: no cover
                     break
             else:
                 # finished normally
                 break
 
             # this will only be reached called if the inner loop hit a break
-            warnings.warn("Warning: Orphaned packet detected! {:s}".format(repr(pkt)), stacklevel=2)
-            orphaned[(pkt.header.tag, len([k for k, v in orphaned.keys() if k == pkt.header.tag]))] = pkt
-            for pkt in group:
+            warnings.warn("Warning: Orphaned packet detected! {:s}".format(repr(pkt)), stacklevel=2)  # pragma: no cover
+            orphaned[(pkt.header.tag, len([k for k, v in orphaned.keys() if k == pkt.header.tag]))] = pkt  # pragma: no cover
+            for pkt in group:  # pragma: no cover
                 orphaned[(pkt.header.tag, len([k for k, v in orphaned.keys() if k == pkt.header.tag]))] = pkt
 
         # remove the reference to self from keys
@@ -1532,12 +1500,12 @@ class PGPKeyring(collections.Container, collections.Iterable, collections.Sized)
         if isinstance(alias, six.string_types):
             return alias in aliases or alias.replace(' ', '') in aliases
 
-        return alias in aliases
+        return alias in aliases  # pragma: no cover
 
     def __len__(self):
         return len(self._keys)
 
-    def __iter__(self):
+    def __iter__(self):  # pragma: no cover
         for pgpkey in itertools.chain(self._pubkeys, self._privkeys):
             yield pgpkey
 
@@ -1570,7 +1538,7 @@ class PGPKeyring(collections.Container, collections.Iterable, collections.Sized)
             self._aliases[depth][alias] = pkid
 
         # finally, remove any empty dicts left over
-        while {} in self._aliases:
+        while {} in self._aliases:  # pragma: no cover
             self._aliases.remove({})
 
     def _add_alias(self, alias, pkid):
@@ -1580,7 +1548,7 @@ class PGPKeyring(collections.Container, collections.Iterable, collections.Sized)
 
         # this is a duplicate alias->key link; ignore it
         elif alias in self and pkid in set(m[alias] for m in self._aliases if alias in m):
-            pass
+            pass  # pragma: no cover
 
         # this is an alias that already exists, but points to a key that is not already referenced by it
         else:

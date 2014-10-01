@@ -163,7 +163,7 @@ class Boolean(Signature):
         return _bytes
 
     def __bool__(self):
-        return self.bool
+        return self.bflag
 
     def __nonzero__(self):
         return self.__bool__()
@@ -828,7 +828,7 @@ class EmbeddedSignature(Signature):
         return self._sig.subpackets
 
     @property
-    def hash2(self):
+    def hash2(self):  # pragma: no cover
         return self._sig.hash2
 
     @property

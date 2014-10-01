@@ -77,7 +77,7 @@ class KeyAction(object):
             if self.flags & _key.usageflags:
                 break
 
-        else:
+        else:  # pragma: no cover
             raise PGPError("Key {keyid:s} does not have the required usage flag {flags:s}".format(**em))
 
         if _key is not key:
@@ -93,7 +93,7 @@ class KeyAction(object):
             ignore_usage = kwargs.pop('ignore_usage', False)
             if ignore_usage:
                 for prop, expected in self.conditions.items():
-                    if getattr(key, prop) != expected:
+                    if getattr(key, prop) != expected:  # pragma: no cover
                         raise PGPError("Expected: {prop:s} == {eval:s}. Got: {got:s}"
                                        "".format(prop=prop, eval=str(expected), got=str(getattr(key, prop))))
 
