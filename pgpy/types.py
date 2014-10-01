@@ -65,7 +65,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
             block_type=self.magic,
             headers=''.join('{key}: {val}\n'.format(key=key, val=val) for key, val in self.ascii_headers.items()),
             packet=payload,
-            crc=base64.b64encode(Header.int_to_bytes(self.crc24(), 3)).decode('latin-1')
+            crc=base64.b64encode(Header.int_to_bytes(self.crc24(self.__bytes__()), 3)).decode('latin-1')
         )
 
     @staticmethod
@@ -124,13 +124,14 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
 
         if m['crc'] is not None:
             m['crc'] = Header.bytes_to_int(base64.b64decode(m['crc'].encode()))
-            if Armorable.crc24(None, m['body']) != m['crc']:
+            if Armorable.crc24(m['body']) != m['crc']:
                 warnings.warn('Incorrect crc24', stacklevel=3)
 
 
         return m
 
-    def crc24(self, data=None):
+    @staticmethod
+    def crc24(data):
         # CRC24 computation, as described in the RFC 4880 section on Radix-64 Conversions
         #
         # The checksum is a 24-bit Cyclic Redundancy Check (CRC) converted to
@@ -139,13 +140,12 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
         # by using the generator 0x864CFB and an initialization of 0xB704CE.
         # The accumulation is done on the data before it is converted to
         # radix-64, rather than on the converted data.
-
-        if data is None:
-            data = self.__bytes__()
-
         crc = Armorable.__crc24_init__
 
-        for b in six.iterbytes(data):
+        if not isinstance(data, bytearray):
+            data = six.iterbytes(data)
+
+        for b in data:
             crc ^= b << 16
 
             for i in range(8):
