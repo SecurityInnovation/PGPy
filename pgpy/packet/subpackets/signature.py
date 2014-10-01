@@ -66,7 +66,7 @@ class FlagList(Signature):
         return self._flags
 
     @flags.register(list)
-    def flags_(self, val):
+    def flags_list(self, val):
         self._flags = val
 
     @flags.register(int)
@@ -114,7 +114,7 @@ class ByteFlag(Signature):
 
     @flags.register(int)
     @flags.register(_KeyFlags)
-    def flags_(self, val):
+    def flags_int(self, val):
         if self.__flags__ is None:  # pragma: no cover
             raise AttributeError("Error: __flags__ not set!")
 

@@ -133,7 +133,7 @@ class PKESessionKeyV3(PKESessionKey):
         return self._encrypter
 
     @encrypter.register(bytearray)
-    def encrypter_(self, val):
+    def encrypter_bin(self, val):
         self._encrypter = binascii.hexlify(val).upper().decode('latin-1')
 
     @sdproperty
@@ -142,7 +142,7 @@ class PKESessionKeyV3(PKESessionKey):
 
     @pkalg.register(int)
     @pkalg.register(PubKeyAlgorithm)
-    def pkalg_(self, val):
+    def pkalg_int(self, val):
         self._pkalg = PubKeyAlgorithm(val)
 
         _c = {PubKeyAlgorithm.RSAEncryptOrSign: RSACipherText,
@@ -297,7 +297,7 @@ class SignatureV4(Signature):
 
     @sigtype.register(int)
     @sigtype.register(SignatureType)
-    def sigtype_(self, val):
+    def sigtype_int(self, val):
         self._sigtype = SignatureType(val)
 
     @sdproperty
@@ -555,7 +555,7 @@ class OnePassSignatureV3(OnePassSignature):
 
     @sigtype.register(int)
     @sigtype.register(SignatureType)
-    def sigtype_(self, val):
+    def sigtype_int(self, val):
         self._sigtype = SignatureType(val)
 
     @sdproperty
@@ -1065,7 +1065,7 @@ class Trust(Packet):
 
     @trustlevel.register(int)
     @trustlevel.register(TrustLevel)
-    def trustlevel_(self, val):
+    def trustlevel_int(self, val):
         self._trustlevel = TrustLevel(val & 0x0F)
 
     @sdproperty

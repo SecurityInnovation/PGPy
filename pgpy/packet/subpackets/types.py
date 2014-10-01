@@ -113,7 +113,7 @@ class Opaque(Signature, UserAttribute):
 
     @payload.register(bytes)
     @payload.register(bytearray)
-    def payload_(self, val):
+    def payload_bin(self, val):
         self._payload = val
 
     def __init__(self):

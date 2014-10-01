@@ -50,7 +50,7 @@ class Image(UserAttribute):
         return self._version
 
     @version.register(int)
-    def version_(self, val):
+    def version_int(self, val):
         self._version = val
 
     @sdproperty
