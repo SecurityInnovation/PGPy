@@ -594,10 +594,9 @@ class OnePassSignatureV3(OnePassSignature):
     def signer_str(self, val):
         self._signer = val
 
-    @signer.register(bytes)
     @signer.register(bytearray)
     def signer_bin(self, val):
-        self.signer = binascii.hexlify(val).upper().decode('latin-1')
+        self._signer = binascii.hexlify(val).upper().decode('latin-1')
 
     def __init__(self):
         super(OnePassSignatureV3, self).__init__()
@@ -613,8 +612,8 @@ class OnePassSignatureV3(OnePassSignature):
         _bytes.append(self.sigtype)
         _bytes.append(self.halg)
         _bytes.append(self.pubalg)
-        _bytes += binascii.unhexlify(self.signer.encode('latin-1'))
-        _bytes.append(0 if self.nested else 1)
+        _bytes += binascii.unhexlify(six.b(self.signer))
+        _bytes.append(int(self.nested))
         return bytes(_bytes)
 
     def parse(self, packet):
@@ -631,7 +630,7 @@ class OnePassSignatureV3(OnePassSignature):
         self.signer = packet[:8]
         del packet[:8]
 
-        self.nested = (packet[0] == 0)
+        self.nested = (packet[0] == 1)
         del packet[0]
 
 

@@ -135,7 +135,7 @@ def string():
 
 @pytest.fixture(scope='module')
 def message():
-    return PGPMessage.new("This is a message!")
+    return PGPMessage.new("This is a message!", compression=CompressionAlgorithm.Uncompressed)
 
 
 @pytest.fixture(scope='module')
@@ -168,7 +168,8 @@ def userphoto():
 
 @pytest.fixture(scope='module')
 def sessionkey():
-    return SymmetricKeyAlgorithm.AES128.gen_key()
+    # return SymmetricKeyAlgorithm.AES128.gen_key()
+    return b'\x9d[\xc1\x0e\xec\x01k\xbc\xf4\x04UW\xbb\xfb\xb2\xb9'
 
 
 class TestPGPKey(object):
@@ -318,8 +319,6 @@ class TestPGPKey(object):
         with self.assert_warnings():
             enc = pub.encrypt(message, sessionkey=sessionkey, cipher=SymmetricKeyAlgorithm.AES128)
             self.encmessage.append(enc)
-
-        pass
 
     def test_decrypt_encmessage(self, sec, message):
         if sec.key_algorithm != PubKeyAlgorithm.RSAEncryptOrSign:
