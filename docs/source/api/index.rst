@@ -5,7 +5,4 @@ PGPy API
     :hidden:
 
     exceptions
-    objects
-
-.. include:: exceptions.rst
-.. include:: objects.rst
+    pgpy

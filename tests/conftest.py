@@ -64,7 +64,7 @@ class CWD_As(object):
         return setcwd
 
 
-_gpg_args = ['/usr/bin/gpg', '--options', './pgpy.gpg.conf']
+_gpg_args = ['/usr/bin/gpg', '--options', './pgpy.gpg.conf', '--expert']
 _gpg_env = os.environ.copy()
 _gpg_env['GNUPGHOME'] = os.path.abspath(os.path.abspath('tests/testdata'))
 _gpg_kwargs = dict()
@@ -104,7 +104,7 @@ def gpg_import():
         gpgo, _ = gpgdec.communicate()
 
         try:
-            yield gpgo.decode()
+            yield gpgo.decode('latin-1')
 
         finally:
             [os.remove(f) for f in glob.glob('tests/testdata/testkeys.*')]
@@ -141,26 +141,31 @@ def gpg_verify():
                                r'(?:gpg: using .+\n)*gpg: ([^\s]+) signature', gpgo, flags=re.MULTILINE))
 
         if keyid is not None:
-            return sigs.get(keyid, '') == 'Good'
+            return sigs.get(keyid, '') in ['Good', 'Expired']
 
         else:
-            return all(v == 'Good' for v in sigs.values())
+            return all(v in ['Good', 'Expired'] for v in sigs.values())
 
     return _gpg_verify
 
 
 @pytest.fixture
 def gpg_decrypt():
-    def _gpg_decrypt(encmsgpath, passphrase=None):
-        gpg_args = _gpg_args + ['--decrypt', encmsgpath]
+    def _gpg_decrypt(encmsgpath, passphrase=None, keyid=None):
+        gpg_args = _gpg_args[:]
         gpg_kwargs = _gpg_kwargs.copy()
         gpg_kwargs['stderr'] = subprocess.PIPE
         _comargs = ()
 
         if passphrase is not None:
-            gpg_args = _gpg_args + ['--batch', '--passphrase-fd', '0', '--decrypt', encmsgpath]
+            gpg_args += ['--batch', '--passphrase-fd', '0']
             gpg_kwargs['stdin'] = subprocess.PIPE
             _comargs = (passphrase.encode(),)
+
+        if keyid is not None:
+            gpg_args += ['--recipient', keyid]
+
+        gpg_args += ['--decrypt', encmsgpath]
 
         gpgdec = subprocess.Popen(gpg_args, **gpg_kwargs)
         gpgo, gpge = gpgdec.communicate(*_comargs)

@@ -4,8 +4,10 @@ import pytest
 
 import glob
 import os
+import time
 
 from contextlib import contextmanager
+from datetime import datetime, timedelta
 from warnings import catch_warnings
 
 from pgpy import PGPKey
@@ -15,14 +17,18 @@ from pgpy import PGPUID
 
 from pgpy.constants import CompressionAlgorithm
 from pgpy.constants import Features
+from pgpy.constants import HashAlgorithm
 from pgpy.constants import ImageEncoding
+from pgpy.constants import KeyFlags
+from pgpy.constants import KeyServerPreferences
 from pgpy.constants import PubKeyAlgorithm
 from pgpy.constants import RevocationReason
 from pgpy.constants import SignatureType
 from pgpy.constants import SymmetricKeyAlgorithm
-from pgpy.constants import KeyFlags
-from pgpy.constants import HashAlgorithm
+from pgpy.constants import TrustLevel
 
+
+from pgpy.errors import PGPDecryptionError
 from pgpy.errors import PGPError
 
 
@@ -122,20 +128,63 @@ class TestPGPMessage(object):
             assert decmsg.message == lit.message
 
 
+@pytest.fixture(scope='module')
+def string():
+    return "This string will be signed"
+
+
+@pytest.fixture(scope='module')
+def message():
+    return PGPMessage.new("This is a message!")
+
+
+@pytest.fixture(scope='module')
+def ctmessage():
+    return PGPMessage.new("This is a cleartext message!", cleartext=True)
+
+
+@pytest.fixture(scope='module')
+def targette_pub():
+    return _pgpkey('tests/testdata/keys/targette.pub.rsa.asc')
+
+
+@pytest.fixture(scope='module')
+def targette_sec():
+    return _pgpkey('tests/testdata/keys/targette.sec.rsa.asc')
+
+
+@pytest.fixture(scope='module')
+def userid():
+    return PGPUID.new(name='Abraham Lincoln', comment='Honest Abe', email='abraham.lincoln@whitehouse.gov')
+
+
+@pytest.fixture(scope='module')
+def userphoto():
+    photo = bytearray(os.path.getsize('tests/testdata/pgp.jpg'))
+    with open('tests/testdata/pgp.jpg', 'rb') as photof:
+        photof.readinto(photo)
+    return PGPUID.new(photo=photo)
+
+
+@pytest.fixture(scope='module')
+def sessionkey():
+    return SymmetricKeyAlgorithm.AES128.gen_key()
+
+
 class TestPGPKey(object):
     params = {
         'pub':        [ _pgpkey(f) for f in sorted(glob.glob('tests/testdata/keys/*.pub.asc')) ],
         'sec':        [ _pgpkey(f) for f in sorted(glob.glob('tests/testdata/keys/*.sec.asc')) ],
         'enc':        [ _pgpkey(f) for f in sorted(glob.glob('tests/testdata/keys/*.enc.asc')) ],
-        'msg':        [ _pgpmessage(f) for f in sorted(glob.glob('tests/testdata/messages/message*.signed*.asc') +
-                                                       glob.glob('tests/testdata/messages/cleartext*.signed*.asc')) ],
-        'rsa_encmsg': [ _pgpmessage(f) for f in sorted(glob.glob('tests/testdata/messages/message*.rsa*.asc')) ],
         'sigkey':     [ _pgpkey(f) for f in sorted(glob.glob('tests/testdata/signatures/*.key.asc')) ],
         'sigsig':     [ _pgpsignature(f) for f in sorted(glob.glob('tests/testdata/signatures/*.sig.asc')) ],
         'sigsubj':    sorted(glob.glob('tests/testdata/signatures/*.subj')),
     }
-    targettes = [ _pgpkey(f) for f in sorted(glob.glob('tests/testdata/keys/targette*.asc')) ]
-    ikeys = [os.path.join(*f.split(os.path.sep)[-2:]) for f in glob.glob('tests/testdata/keys/*.pub.asc')]
+    string_sigs = dict()
+    timestamp_sigs = dict()
+    encmessage = []
+    # targettes = [ _pgpkey(f) for f in sorted(glob.glob('tests/testdata/keys/targette*.asc')) ]
+    # ikeys = [os.path.join(*f.split(os.path.sep)[-2:]) for f in glob.glob('tests/testdata/keys/*.pub.asc')]
 
     @contextmanager
     def assert_warnings(self):
@@ -152,234 +201,294 @@ class TestPGPKey(object):
                         e.args += (warning.message,)
                         raise
 
+    def test_new(self):
+        pytest.skip("not implemented yet")
+
+    def test_protect(self):
+        pytest.skip("not implemented yet")
+
     def test_unlock(self, enc, sec):
         assert enc.is_protected
-        assert not enc.is_unlocked
-        assert not sec.is_protected
-
-        lit = _read('tests/testdata/lit')
+        assert enc.is_unlocked is False
+        assert sec.is_protected is False
 
         # try to sign without unlocking
         with pytest.raises(PGPError):
-            enc.sign(lit)
+            enc.sign("asdf")
 
         # try to unlock with the wrong password
-        enc.unlock('ClearlyTheWrongPassword')
+        with pytest.raises(PGPDecryptionError):
+            with enc.unlock('ClearlyTheWrongPassword'):
+                pass
 
         # unlock with the correct passphrase
         with enc.unlock('QwertyUiop'), self.assert_warnings():
             assert enc.is_unlocked
-            # sign lit
-            sig = enc.sign(lit)
-            # verify with the unlocked key and its unprotected friend
-            assert enc.verify(lit, sig)
-            assert sec.verify(lit, sig)
 
     def test_verify_detached(self, sigkey, sigsig, sigsubj):
         assert sigkey.verify(_read(sigsubj), sigsig)
 
-    def test_verify_message(self, msg):
+    def test_sign_string(self, sec, string, write_clean, gpg_import, gpg_verify):
         with self.assert_warnings():
-            for pub in self.params['pub']:
-                # assert pub.verify(msg)
-                sv = pub.verify(msg)
-                if not sv:
-                    pytest.fail(','.join(repr(ssj) for ssj in sv.bad_signatures))
+            # add all of the subpackets we should be allowed to
+            sig = sec.sign(string,
+                           expires=timedelta(seconds=1),
+                           revocable=True,
+                           notation={'Testing': 'This signature was generated during unit testing'},
+                           policy_uri='about:blank',
+                           signers_uid=sec.userids[0])
 
-    def test_verify_self(self, pub):
+        # wait a bit if sig is not yet expired
+        assert sig.type == SignatureType.BinaryDocument
+        assert sig.notation == {'Testing': 'This signature was generated during unit testing'}
+        assert sig.revocable
+        # assert sig.policy_uri == 'about:blank'
+        # assert sig.sig.signer_uid == "{:s}".format(sec.userids[0])
+        if not sig.expired:
+            time.sleep((sig.expires - datetime.utcnow()).total_seconds())
+        assert sig.expired
+
+        # verify with GnuPG
+        with write_clean('tests/testdata/string', 'w', string), \
+                write_clean('tests/testdata/string.asc', 'w', str(sig)), \
+                gpg_import('./pubtest.asc'):
+            assert gpg_verify('./string', './string.asc', keyid=sig.signer)
+
+        self.string_sigs[sec.fingerprint.keyid] = sig
+
+    def test_verify_string(self, pub, string):
+        sig = self.string_sigs.pop(pub.fingerprint.keyid)
         with self.assert_warnings():
-            assert pub.verify(pub)
+            sv = pub.verify(string, signature=sig)
 
-    def test_verify_revochiio(self):
-        k = PGPKey()
-        k.parse(_read('tests/testdata/blocks/revochiio.asc'))
-
-        with self.assert_warnings():
-            sv = k.verify(k)
-
-        assert len(sv._subjects) == 13
-        _svtypes = [ s.signature.type for s in sv._subjects ]
-        assert SignatureType.CertRevocation in _svtypes
-        assert SignatureType.DirectlyOnKey in _svtypes
-        assert SignatureType.KeyRevocation in _svtypes
-        assert SignatureType.Positive_Cert in _svtypes
-        assert SignatureType.Subkey_Binding in _svtypes
-        assert SignatureType.PrimaryKey_Binding in _svtypes
-        assert SignatureType.SubkeyRevocation in _svtypes
         assert sv
+        assert len(sv) == 1
 
-    def test_verify_invalid(self, sec):
+    def test_sign_ctmessage(self, sec, ctmessage, write_clean, gpg_import, gpg_verify):
         with self.assert_warnings():
-            sig = sec.sign(_read('tests/testdata/lit'))
-            assert not sec.verify(_read('tests/testdata/lit2'), sig)
+            sig = sec.sign(ctmessage)
 
-    def test_sign_detach(self, sec, write_clean, gpg_import, gpg_verify):
-        lit = _read('tests/testdata/lit')
+        assert sig.type == SignatureType.CanonicalDocument
+        assert sig.revocable
+        assert sig.expired is False
+
+        ctmessage += sig
+
+        # verify with GnuPG
+        with write_clean('tests/testdata/ctmessage.asc', 'w', str(ctmessage)), gpg_import('./pubtest.asc'):
+            assert gpg_verify('./ctmessage.asc', keyid=sig.signer)
+
+    def test_verify_ctmessage(self, pub, ctmessage):
         with self.assert_warnings():
-            sig = sec.sign(lit)
+            sv = pub.verify(ctmessage)
 
-            # Verify with PGPy
-            assert sec.verify(lit, sig)
+        assert sv
+        assert len(sv) > 0
 
-        # verify with GPG
-        with write_clean('tests/testdata/lit.sig', 'w', str(sig)), \
-                gpg_import(*[os.path.join(*f.split(os.path.sep)[-2:]) for f in glob.glob('tests/testdata/keys/*.pub.asc')]):
-            assert gpg_verify('./lit', './lit.sig', keyid=sig.signer)
+    def test_sign_message(self, sec, message):
+        with self.assert_warnings():
+            sig = sec.sign(message)
 
-    def test_sign_cleartext(self, write_clean, gpg_import, gpg_verify):
-        msg = PGPMessage.new(_read('tests/testdata/lit_de'), cleartext=True)
+        assert sig.type == SignatureType.BinaryDocument
+        assert sig.revocable
+        assert sig.expired is False
+
+        message += sig
+
+    def test_verify_message(self, pub, message):
+        with self.assert_warnings():
+            sv = pub.verify(message)
+
+        assert sv
+        assert len(sv) > 0
+
+    def test_gpg_verify_message(self, message, write_clean, gpg_import, gpg_verify):
+        # verify with GnuPG
+        with write_clean('tests/testdata/message.asc', 'w', str(message)), gpg_import('./pubtest.asc'):
+            assert gpg_verify('./message.asc')
+
+    def test_encrypt_message(self, pub, message, sessionkey):
+        if pub.key_algorithm != PubKeyAlgorithm.RSAEncryptOrSign:
+            pytest.skip('Asymmetric encryption only implemented for RSA currently')
+            return
+
+        if len(self.encmessage) == 1:
+            message = self.encmessage.pop(0)
 
         with self.assert_warnings():
-            for sec in self.params['sec']:
-                msg += sec.sign(msg)
+            enc = pub.encrypt(message, sessionkey=sessionkey, cipher=SymmetricKeyAlgorithm.AES128)
+            self.encmessage.append(enc)
 
-            assert len(msg.signatures) == len(self.params['sec'])
+        pass
 
-            # verify with PGPy
-            for pub in self.params['pub']:
-                assert pub.verify(msg)
+    def test_decrypt_encmessage(self, sec, message):
+        if sec.key_algorithm != PubKeyAlgorithm.RSAEncryptOrSign:
+            pytest.skip('Asymmetric encryption only implemented for RSA currently')
+            return
 
-        # verify with GPG
-        with write_clean('tests/testdata/lit_de.asc', 'w', str(msg)), \
-                gpg_import(*[os.path.join(*f.split(os.path.sep)[-2:]) for f in glob.glob('tests/testdata/keys/*.pub.asc')]):
-            assert gpg_verify('./lit_de.asc')
+        encmessage = self.encmessage[0]
 
-    def test_onepass_sign_message(self, write_clean, gpg_import, gpg_verify):
-        msg = PGPMessage.new(_read('tests/testdata/lit'))
         with self.assert_warnings():
-            for sec in self.params['sec']:
-                msg += sec.sign(msg)
+            decmsg = sec.decrypt(encmessage)
 
-            # verify with PGPy
-            for pub in self.params['pub']:
-                assert pub.verify(msg)
+        assert decmsg.message == message.message
 
-        # verify with GPG
-        with write_clean('tests/testdata/lit.asc', 'w', str(msg)), \
-                gpg_import(*[os.path.join(*f.split(os.path.sep)[-2:]) for f in glob.glob('tests/testdata/keys/*.pub.asc')]):
-            assert gpg_verify('./lit.asc')
+    def test_gpg_decrypt_encmessage(self, message, write_clean, gpg_import, gpg_decrypt):
+        emsg = self.encmessage.pop(0)
+        with write_clean('tests/testdata/aemsg.asc', 'w', str(emsg)), gpg_import('./sectest.asc'):
+            assert gpg_decrypt('./aemsg.asc', keyid='EEE097A017B979CA')
 
     def test_sign_timestamp(self, sec):
         with self.assert_warnings():
-            tsig = sec.sign(None, sigtype=SignatureType.Timestamp)
-            # verify with PGPy only; GPG does not support timestamp signatures
-            assert sec.verify(None, tsig)
+            sig = sec.sign(None)
+        self.timestamp_sigs[sec.fingerprint.keyid] = sig
 
-    def test_sign_userid(self, sec, pub, write_clean, gpg_import, gpg_check_sigs):
-        for tk in self.targettes:
-            with self.assert_warnings():
-                # sign tk's first uid generically
-                tk.userids[0] += sec.sign(tk.userids[0])
-
-                # verify with PGPy
-                assert pub.verify(tk.userids[0])
-
-            # verify with GnuPG
-            tkfp = '{:s}.asc'.format(tk.fingerprint.shortid)
-            ikeys = self.ikeys
-            ikeys.append(os.path.join('.', tkfp))
-            with write_clean(os.path.join('tests', 'testdata', tkfp), 'w', str(tk)), gpg_import(*ikeys):
-                assert gpg_check_sigs(tk.fingerprint.keyid)
-
-    def test_sign_userid_unrevocable(self, sec, pub, write_clean, gpg_import, gpg_check_sigs):
-        for tk in self.targettes:
-            with self.assert_warnings():
-                # sign tk's last uid generically
-                rsig = sec.sign(tk.userids[-1], revocable=False)
-                assert not rsig.revocable
-                tk.userids[-1] += rsig
-
-                # verify with PGPy
-                assert pub.verify(tk.userids[-1])
-
-            # verify with GnuPG
-            tkfp = '{:s}.asc'.format(tk.fingerprint.shortid)
-            ikeys = self.ikeys
-            ikeys.append(os.path.join('.', tkfp))
-            with write_clean(os.path.join('tests', 'testdata', tkfp), 'w', str(tk)), gpg_import(*ikeys):
-                assert gpg_check_sigs(tk.fingerprint.keyid)
-
-    def test_sign_userid_unexportable(self, sec, pub, write_clean, gpg_import, gpg_check_sigs):
-        for tk in self.targettes:
-            # sign tk's first uid generically
-            rsig = sec.sign(tk.userids[0], exportable=False)
-            assert not rsig.exportable
-            tk.userids[0] += rsig
-
-            # check that it is properly skipped over when the packet order is composed
-            tk2 = PGPKey()
-            tk2.parse(tk.__bytes__())
-            assert len([sig for uid in tk2.userids for sig in uid._signatures
-                        if  sig.created == rsig.created
-                        and sig._signature.signature.__sig__ == rsig._signature.signature.__sig__]) == 0
-
-            # verify with PGPy
-            assert pub.verify(tk.userids[-1])
-
-        # verify with GnuPG
-        tkfp = '{:s}.asc'.format(tk.fingerprint.shortid)
-        ikeys = self.ikeys
-        ikeys.append(os.path.join('.', tkfp))
-        with write_clean(os.path.join('tests', 'testdata', tkfp), 'w', str(tk)), gpg_import(*ikeys):
-            assert gpg_check_sigs(tk.fingerprint.keyid)
-
-    def test_revoke_certification(self, sec, pub, write_clean, gpg_import, gpg_check_sigs):
-        for tk in self.targettes:
-            # we should have already signed the key in test_sign_userid above
-            assert sec.fingerprint.keyid in tk.userids[0].signers
-
-            with self.assert_warnings():
-                # revoke that certification!
-                tk.userids[0] += sec.sign(tk.userids[0], sigtype=SignatureType.CertRevocation)
-
-                # verify with PGPy
-                assert pub.verify(tk.userids[0])
-
-            # verify with GnuPG
-            tkfp = '{:s}.asc'.format(tk.fingerprint.shortid)
-            ikeys = self.ikeys
-            ikeys.append(os.path.join('.', tkfp))
-            with write_clean(os.path.join('tests', 'testdata', tkfp), 'w', str(tk)), gpg_import(*ikeys):
-                assert gpg_check_sigs(tk.fingerprint.keyid)
-
-    def test_sign_key(self, sec, pub, write_clean, gpg_import, gpg_check_sigs):
-        # let's add an 0x1f signature to a key that specifies only symmetric key preferences
+    def test_verify_timestamp(self, pub):
+        sig = self.timestamp_sigs.pop(pub.fingerprint.keyid)
         with self.assert_warnings():
-            pub += sec.sign(pub,
-                            sigtype=SignatureType.DirectlyOnKey,
-                            cipherprefs=[SymmetricKeyAlgorithm.AES256,
-                                         SymmetricKeyAlgorithm.AES192,
-                                         SymmetricKeyAlgorithm.Camellia256,
-                                         SymmetricKeyAlgorithm.Camellia192])
+            sv = pub.verify(None, sig)
 
-            # verify with PGPy
-            assert pub.verify(pub)
+        assert sv
+        assert len(sv) > 0
 
-        # verify with GPG
-        kfp = '{:s}.asc'.format(pub.fingerprint.shortid)
-        with write_clean(os.path.join('tests', 'testdata', kfp), 'w', str(kfp)), \
-                gpg_import(os.path.join('.', kfp)) as kio:
+    def test_add_userid(self, userid, targette_sec):
+        # add userid to targette_sec
+        expire_in = datetime.utcnow() + timedelta(days=2)
+        with self.assert_warnings():
+            # add all of the subpackets that only work on self-certifications
+            targette_sec.add_uid(userid,
+                                 usage=[KeyFlags.Certify, KeyFlags.Sign],
+                                 ciphers=[SymmetricKeyAlgorithm.AES256, SymmetricKeyAlgorithm.Camellia256],
+                                 hashes=[HashAlgorithm.SHA384],
+                                 compression=[CompressionAlgorithm.ZLIB],
+                                 key_expiration=expire_in,
+                                 keyserver_flags=0x80,
+                                 keyserver='about:none',
+                                 primary=False)
+
+        sig = userid.selfsig
+
+        assert sig.type == SignatureType.Positive_Cert
+        assert sig.cipherprefs == [SymmetricKeyAlgorithm.AES256, SymmetricKeyAlgorithm.Camellia256]
+        assert sig.hashprefs == [HashAlgorithm.SHA384]
+        assert sig.compprefs == [CompressionAlgorithm.ZLIB]
+        assert sig.key_expiration == expire_in - targette_sec.created
+        assert sig.keyserver == 'about:none'
+        assert sig.keyserverprefs == [KeyServerPreferences.NoModify]
+
+        assert userid.is_primary is False
+
+    def test_certify_userid(self, sec, userid):
+        with self.assert_warnings():
+            # add all of the subpackets that only work on (non-self) certifications
+            sig = sec.certify(userid, SignatureType.Casual_Cert,
+                              usage=KeyFlags.Authentication,
+                              exportable=True,
+                              trust_level=1,
+                              trust_amount=60,
+                              regex=r'.*')
+
+        assert sig.type == SignatureType.Casual_Cert
+        assert sig.key_flags == [KeyFlags.Authentication]
+        assert sig.exportable
+        # assert sig.trust_level == 1
+        # assert sig.trust_amount == 60
+        # assert sig.regex == r'.*'
+
+        userid += sig
+
+    def test_verify_userid(self, pub, userid):
+        # with PGPy
+        with self.assert_warnings():
+            sv = pub.verify(userid)
+
+        assert sv
+        assert len(sv) > 0
+
+    def test_add_photo(self, userphoto, targette_sec):
+        with self.assert_warnings():
+            targette_sec.add_uid(userphoto)
+
+    def test_certify_photo(self, sec, userphoto):
+        with self.assert_warnings():
+            userphoto += sec.certify(userphoto)
+
+    def test_revoke_certification(self, sec, userphoto):
+        # revoke the certifications of userphoto
+        with self.assert_warnings():
+            revsig = sec.revoke(userphoto)
+
+        assert revsig.type == SignatureType.CertRevocation
+
+        userphoto += revsig
+
+    def test_certify_key(self, sec, targette_sec):
+        # let's add an 0x1f signature with notation
+        # GnuPG does not like these, so we'll mark it as non-exportable
+        with self.assert_warnings():
+            sig = sec.certify(targette_sec, exportable=False, notation={'Notice': 'This key has been frobbed!'})
+
+        assert sig.type == SignatureType.DirectlyOnKey
+        assert sig.exportable is False
+        assert sig.notation == {'Notice': 'This key has been frobbed!'}
+
+        targette_sec += sig
+
+    def test_self_certify_key(self, targette_sec):
+        # let's add an 0x1f signature with notation
+        with self.assert_warnings():
+            sig = targette_sec.certify(targette_sec, notation={'Notice': 'This key has been self-frobbed!'})
+
+        assert sig.type == SignatureType.DirectlyOnKey
+        assert sig.notation == {'Notice': 'This key has been self-frobbed!'}
+
+        targette_sec += sig
+
+    def test_add_revocation_key(self, sec, targette_sec):
+        targette_sec += targette_sec.revoker(sec)
+
+    def test_verify_key(self, pub, targette_sec):
+        with self.assert_warnings():
+            assert pub.verify(targette_sec)
+
+    def test_add_subkey(self):
+        # when this is implemented, it will replace the temporary test_bind_subkey below
+        # and test_revoke_subkey will be rewritten
+        pytest.skip("not implemented yet")
+
+    def test_gpg_verify_key(self, targette_sec, write_clean, gpg_import, gpg_check_sigs):
+        # with GnuPG
+        with write_clean('tests/testdata/targette.sec.asc', 'w', str(targette_sec)), \
+                gpg_import('./pubtest.asc', './targette.sec.asc') as kio:
             assert 'invalid self-signature' not in kio
+            assert gpg_check_sigs(targette_sec.fingerprint.keyid)
 
-    def test_add_revocation_key(self, sec, pub, write_clean, gpg_import, gpg_check_sigs):
-        # this is a fake revocation key id
-        revoker = 'C001 CAFE BABE FA11 DEAD  DAED 11AF EBAB EFAC 100C'
-        # add a revocation key signature to a key
+    def test_bind_subkey(self, sec, pub, write_clean, gpg_import, gpg_check_sigs):
+        # this is temporary, until subkey generation works
+        # replace the first subkey's binding signature with a new one
+        subkey = next(iter(pub.subkeys.values()))
+        old_usage = subkey.usageflags
+        subkey._signatures.clear()
+
         with self.assert_warnings():
-            pub += sec.sign(pub, sigtype=SignatureType.DirectlyOnKey, revocable=False, revoker=revoker)
+            bsig = sec.bind(subkey, usage=old_usage)
+            subkey += bsig
 
             # verify with PGPy
-            assert pub.verify(pub)
+            assert pub.verify(subkey)
+            sv = pub.verify(pub)
+            assert sv
+            assert bsig in iter(s.signature for s in sv.good_signatures)
 
         # verify with GPG
         kfp = '{:s}.asc'.format(pub.fingerprint.shortid)
-        with write_clean(os.path.join('tests', 'testdata', kfp), 'w', str(kfp)), \
+        with write_clean(os.path.join('tests', 'testdata', kfp), 'w', str(pub)), \
                 gpg_import(os.path.join('.', kfp)) as kio:
             assert 'invalid self-signature' not in kio
 
     def test_revoke_key(self, sec, pub, write_clean, gpg_import, gpg_check_sigs):
         with self.assert_warnings():
-            rsig = sec.sign(pub, sigtype=SignatureType.KeyRevocation, reason=RevocationReason.Retired,
+            rsig = sec.revoke(pub, sigtype=SignatureType.KeyRevocation, reason=RevocationReason.Retired,
                             comment="But you're so oooold")
             assert 'ReasonForRevocation' in rsig._signature.subpackets
             pub += rsig
@@ -397,39 +506,14 @@ class TestPGPKey(object):
         pub._signatures.remove(rsig)
         assert rsig not in pub
 
-    def test_sign_subkey(self, sec, pub, write_clean, gpg_import, gpg_check_sigs):
-        subkey = next(iter(pub.subkeys.values()))
-        with self.assert_warnings():
-            # sign the first subkey with an 0x1f signature
-            rsig = sec.sign(subkey,
-                            sigtype=SignatureType.DirectlyOnKey,
-                            cipherprefs=[SymmetricKeyAlgorithm.AES256,
-                                         SymmetricKeyAlgorithm.AES192,
-                                         SymmetricKeyAlgorithm.Camellia256,
-                                         SymmetricKeyAlgorithm.Camellia192])
-            subkey += rsig
-
-            # verify with PGPy
-            assert pub.verify(subkey)
-            sv = pub.verify(pub)
-            assert sv
-            assert rsig in iter(s.signature for s in sv.good_signatures)
-
-        # verify with GPG
-        kfp = '{:s}.asc'.format(pub.fingerprint.shortid)
-        with write_clean(os.path.join('tests', 'testdata', kfp), 'w', str(kfp)), \
-                gpg_import(os.path.join('.', kfp)) as kio:
-            assert 'invalid self-signature' not in kio
-
-        # and remove it, for good measure
-        subkey._signatures.remove(rsig)
-        assert rsig not in subkey
+    def test_revoke_key_with_revoker(self):
+        pytest.skip("not implemented yet")
 
     def test_revoke_subkey(self, sec, pub, write_clean, gpg_import, gpg_check_sigs):
         subkey = next(iter(pub.subkeys.values()))
         with self.assert_warnings():
             # revoke the first subkey
-            rsig = sec.sign(subkey, sigtype=SignatureType.SubkeyRevocation)
+            rsig = sec.revoke(subkey, sigtype=SignatureType.SubkeyRevocation)
             assert 'ReasonForRevocation' in rsig._signature.subpackets
             subkey += rsig
 
@@ -449,148 +533,3 @@ class TestPGPKey(object):
         subkey._signatures.remove(rsig)
         assert rsig not in subkey
 
-    def test_bind_subkey(self, sec, pub, write_clean, gpg_import, gpg_check_sigs):
-        # this is temporary, until subkey generation works
-        # replace the first subkey's binding signature with a new one
-        subkey = next(iter(pub.subkeys.values()))
-        old_usage = subkey.usageflags
-        subkey._signatures.clear()
-
-        with self.assert_warnings():
-            bsig = sec.sign(subkey,
-                            sigtype=SignatureType.Subkey_Binding,
-                            usage=old_usage)
-            subkey += bsig
-
-            # verify with PGPy
-            assert pub.verify(subkey)
-            sv = pub.verify(pub)
-            assert sv
-            assert bsig in iter(s.signature for s in sv.good_signatures)
-
-        # verify with GPG
-        kfp = '{:s}.asc'.format(pub.fingerprint.shortid)
-        with write_clean(os.path.join('tests', 'testdata', kfp), 'w', str(pub)), \
-                gpg_import(os.path.join('.', kfp)) as kio:
-            assert 'invalid self-signature' not in kio
-
-    def test_decrypt_rsa_message(self, rsa_encmsg):
-        key = PGPKey()
-        key.parse(_read('tests/testdata/keys/rsa.1.sec.asc'))
-
-        with self.assert_warnings():
-            decmsg = key.decrypt(rsa_encmsg)
-
-        assert isinstance(decmsg, PGPMessage)
-        assert decmsg.message == bytearray(b"This is stored, literally\\!\n\n")
-
-    def test_encrypt_rsa_message(self, write_clean, gpg_import, gpg_decrypt):
-        pub = PGPKey()
-        pub.parse(_read('tests/testdata/keys/rsa.1.pub.asc'))
-        sec = PGPKey()
-        sec.parse(_read('tests/testdata/keys/rsa.1.sec.asc'))
-        msg = PGPMessage.new(_read('tests/testdata/lit'))
-
-        with self.assert_warnings():
-            encmsg = pub.encrypt(msg)
-            assert isinstance(encmsg, PGPMessage)
-            assert encmsg.is_encrypted
-
-            # decrypt with PGPy
-            decmsg = sec.decrypt(encmsg)
-            assert isinstance(decmsg, PGPMessage)
-            assert not decmsg.is_encrypted
-            assert decmsg.message == bytearray(b'This is stored, literally\!\n\n')
-
-        # decrypt with GPG
-        with write_clean('tests/testdata/aemsg.asc', 'w', str(encmsg)), gpg_import('keys/rsa.1.sec.asc'):
-            assert gpg_decrypt('./aemsg.asc') == 'This is stored, literally\!\n\n'
-
-    def test_encrypt_rsa_multi(self, write_clean, gpg_import, gpg_decrypt):
-        msg = PGPMessage.new(_read('tests/testdata/lit'))
-
-        with self.assert_warnings():
-            sk = SymmetricKeyAlgorithm.AES256.gen_key()
-            for rkey in [ k for k in self.params['pub'] if k.key_algorithm == PubKeyAlgorithm.RSAEncryptOrSign ]:
-                msg = rkey.encrypt(msg, sessionkey=sk)
-
-            assert isinstance(msg, PGPMessage)
-            assert msg.is_encrypted
-
-            # decrypt with PGPy
-            for rkey in [ k for k in self.params['sec'] if k.key_algorithm == PubKeyAlgorithm.RSAEncryptOrSign ]:
-                decmsg = rkey.decrypt(msg)
-
-                assert not decmsg.is_encrypted
-                assert decmsg.message == b'This is stored, literally\!\n\n'
-
-        with write_clean('tests/testdata/aemsg.asc', 'w', str(msg)):
-            for kp in glob.glob('tests/testdata/keys/rsa*.sec.asc'):
-                with gpg_import(os.path.join(*kp.split(os.path.sep)[-2:])):
-                    assert gpg_decrypt('./aemsg.asc') == 'This is stored, literally\!\n\n'
-
-    def test_add_uid(self, sec, pub, write_clean, gpg_import):
-        nuid = PGPUID.new(name='Seconduser Aidee',
-                          comment='Temporary',
-                          email='seconduser.aidee@notarealemailaddress.com')
-        sec.add_uid(nuid,
-                    usage=[KeyFlags.Authentication],
-                    hashprefs=[HashAlgorithm.SHA256, HashAlgorithm.SHA1],
-                    cipherprefs=[SymmetricKeyAlgorithm.AES128, SymmetricKeyAlgorithm.CAST5],
-                    compprefs=[CompressionAlgorithm.ZIP, CompressionAlgorithm.Uncompressed],
-                    primary=False)
-
-        u = next(k for k in sec.userids if k.name == 'Seconduser Aidee')
-        # assert not u.primary
-        assert u.is_uid
-        assert u.name == 'Seconduser Aidee'
-        assert u.comment == 'Temporary'
-        assert u.email == 'seconduser.aidee@notarealemailaddress.com'
-        assert u._signatures[0].type == SignatureType.Positive_Cert
-        assert u._signatures[0].hashprefs == [HashAlgorithm.SHA256, HashAlgorithm.SHA1]
-        assert u._signatures[0].cipherprefs == [SymmetricKeyAlgorithm.AES128, SymmetricKeyAlgorithm.CAST5]
-        assert u._signatures[0].compprefs == [CompressionAlgorithm.ZIP, CompressionAlgorithm.Uncompressed]
-        assert u._signatures[0].features == [Features.ModificationDetection]
-
-        # verify with PGPy
-        with self.assert_warnings():
-            assert pub.verify(sec)
-
-        # verify with GPG
-        tkfp = '{:s}.asc'.format(sec.fingerprint.shortid)
-        with write_clean(os.path.join('tests', 'testdata', tkfp), 'w', str(sec)), \
-                gpg_import(os.path.join('.', tkfp)) as kio:
-            assert 'invalid self-signature' not in kio
-
-        # remove Seconduser Aidee
-        sec.del_uid('Seconduser Aidee')
-        assert 'Seconduser Aidee' not in [u.name for u in sec.userids]
-
-    def test_add_photo(self, sec, pub, write_clean, gpg_import):
-        photo = bytearray(os.path.getsize('tests/testdata/simple.jpg'))
-        with open('tests/testdata/simple.jpg', 'rb') as pf:
-            pf.readinto(photo)
-
-        nphoto = PGPUID.new(photo=photo)
-
-        sec.add_uid(nphoto)
-        assert nphoto in sec
-
-        u = sec.userattributes[-1]
-        assert u.is_ua
-        assert u.image.iencoding == ImageEncoding.JPEG
-        assert u.image.image == photo
-
-        # verify with PGPy
-        with self.assert_warnings():
-            assert pub.verify(sec)
-
-        # verify with GPG
-        tkfp = '{:s}.asc'.format(sec.fingerprint.shortid)
-        with write_clean(os.path.join('tests', 'testdata', tkfp), 'w', str(sec)), \
-                gpg_import(os.path.join('.', tkfp)) as kio:
-            assert 'invalid self-signature' not in kio
-
-        # remove the new photo
-        sec._uids.pop()._parent = None
-        assert nphoto not in sec._uids

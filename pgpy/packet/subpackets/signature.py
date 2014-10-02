@@ -114,6 +114,7 @@ class ByteFlag(Signature):
 
     @flags.register(int)
     @flags.register(_KeyFlags)
+    @flags.register(_Features)
     def flags_int(self, val):
         if self.__flags__ is None:  # pragma: no cover
             raise AttributeError("Error: __flags__ not set!")

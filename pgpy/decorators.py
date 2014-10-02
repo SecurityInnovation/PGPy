@@ -73,12 +73,16 @@ class KeyAction(object):
         em['keyid'] = key.fingerprint.keyid
         em['flags'] = ', '.join(flag.name for flag in self.flags)
 
-        for _key in _preiter(key, key.subkeys.values()):
-            if self.flags & _key.usageflags:
-                break
+        if len(self.flags):
+            for _key in _preiter(key, key.subkeys.values()):
+                if self.flags & _key.usageflags:
+                    break
 
-        else:  # pragma: no cover
-            raise PGPError("Key {keyid:s} does not have the required usage flag {flags:s}".format(**em))
+            else:  # pragma: no cover
+                raise PGPError("Key {keyid:s} does not have the required usage flag {flags:s}".format(**em))
+
+        else:
+            _key = key
 
         if _key is not key:
             em['subkeyid'] = _key.fingerprint.keyid
@@ -87,25 +91,24 @@ class KeyAction(object):
 
         yield _key
 
+    def check_attributes(self, key):
+        for attr, expected in self.conditions.items():
+            if getattr(key, attr) != expected:
+                raise PGPError("Expected: {attr:s} == {eval:s}. Got: {got:s}"
+                               "".format(attr=attr, eval=str(expected), got=str(getattr(key, attr))))
+
     def __call__(self, action):
         @functools.wraps(action)
         def _action(key, *args, **kwargs):
-            ignore_usage = kwargs.pop('ignore_usage', False)
-            if ignore_usage:
-                for prop, expected in self.conditions.items():
-                    if getattr(key, prop) != expected:  # pragma: no cover
-                        raise PGPError("Expected: {prop:s} == {eval:s}. Got: {got:s}"
-                                       "".format(prop=prop, eval=str(expected), got=str(getattr(key, prop))))
-
-                # do the thing
-                return action(key, *args, **kwargs)
+            # ignore_usage = kwargs.pop('ignore_usage', False)
+            # if ignore_usage:
+            #     self.check_attributes(key)
+            #
+            #     # do the thing
+            #     return action(key, *args, **kwargs)
 
             with self.usage(key) as _key:
-                # check properties
-                for prop, expected in self.conditions.items():
-                    if getattr(_key, prop) != expected:
-                        raise PGPError("Expected: {prop:s} == {eval:s}. Got: {got:s}"
-                                       "".format(prop=prop, eval=str(expected), got=str(getattr(key, prop))))
+                self.check_attributes(key)
 
                 # do the thing
                 return action(_key, *args, **kwargs)

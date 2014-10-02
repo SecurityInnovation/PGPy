@@ -435,8 +435,8 @@ class SignatureVerification(object):
         super(SignatureVerification, self).__init__()
         self._subjects = []
 
-    def add_sigsubj(self, signature, subject=None, verified=False):
-        self._subjects.append(self._sigsubj(verified, signature, subject))
+    def __len__(self):
+        return len(self._subjects)
 
     def __bool__(self):
         return all(s.verified for s in self._subjects)
@@ -454,13 +454,16 @@ class SignatureVerification(object):
     def __repr__(self):
         return "<SignatureVerification({verified})>".format(verified=str(bool(self)))
 
+    def add_sigsubj(self, signature, subject=None, verified=False):
+        self._subjects.append(self._sigsubj(verified, signature, subject))
+
 
 class FlagEnumMeta(EnumMeta):
     def __and__(self, other):
-        return { f for f in self._member_map_.values() if f.value & other }
+        return { f for f in iter(self) if f.value & other }
 
     def __rand__(self, other):  # pragma: no cover
-        return FlagEnumMeta & other
+        return self & other
 
 
 class FlagEnum(six.with_metaclass(FlagEnumMeta, IntEnum)):

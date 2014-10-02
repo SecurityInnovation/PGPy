@@ -49,17 +49,30 @@ class PacketTag(IntEnum):
 
 
 class SymmetricKeyAlgorithm(IntEnum):
+    """Supported symmetric key algorithms."""
     Plaintext = 0x00
+    #: .. warning::
+    #:     IDEA is insecure. PGPy only allows it to be used for decryption, not encryption!
     IDEA = 0x01
+    #: Triple-DES with 168-bit key derived from 192
     TripleDES = 0x02
+    #: CAST5 (or CAST-128) with 128-bit key
     CAST5 = 0x03
+    #: Blowfish with 128-bit key and 16 rounds
     Blowfish = 0x04
+    #: AES with 128-bit key
     AES128 = 0x07
+    #: AES with 192-bit key
     AES192 = 0x08
+    #: AES with 256-bit key
     AES256 = 0x09
+    # Twofish with 256-bit key - not currently supported
     Twofish256 = 0x0A
+    #: Camellia with 128-bit key
     Camellia128 = 0x0B
+    #: Camellia with 192-bit key
     Camellia192 = 0x0C
+    #: Camellia with 256-bit key
     Camellia256 = 0x0D
 
     @property
@@ -80,6 +93,11 @@ class SymmetricKeyAlgorithm(IntEnum):
             return bs[self]
 
         raise NotImplementedError(repr(self))
+
+    @property
+    def is_insecure(self):
+        insecure_ciphers = {SymmetricKeyAlgorithm.IDEA}
+        return self in insecure_ciphers
 
     @property
     def block_size(self):
@@ -133,9 +151,13 @@ class PubKeyAlgorithm(IntEnum):
 
 
 class CompressionAlgorithm(IntEnum):
+    #: No compression
     Uncompressed = 0x00
+    #: ZIP DEFLATE
     ZIP = 0x01
+    #: ZIP DEFLATE with zlib headers
     ZLIB = 0x02
+    #: Bzip2
     BZ2 = 0x03
 
     def compress(self, data):
@@ -299,6 +321,10 @@ class KeyFlags(FlagEnum):
 
 class Features(FlagEnum):
     ModificationDetection = 0x01
+
+    @classproperty
+    def pgpy_features(cls):
+        return Features.ModificationDetection
 
 
 class RevocationKeyClass(FlagEnum):

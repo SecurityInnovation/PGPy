@@ -11,11 +11,15 @@ from cryptography.hazmat.primitives.ciphers import modes
 
 from .errors import PGPDecryptionError
 from .errors import PGPEncryptionError
+from .errors import PGPInsecureCipher
 
 
 def _encrypt(pt, key, alg, iv=None):
     if iv is None:
         iv = b'\x00' * (alg.block_size // 8)
+
+    if alg.is_insecure:
+        raise PGPInsecureCipher("{:s} is not secure. Do not use it for encryption!".format(alg.name))
 
     try:
         encryptor = Cipher(alg.cipher(key), modes.CFB(iv), default_backend()).encryptor()

@@ -119,8 +119,8 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
         - Encrypt,    False, Encrypt data/messages using ElGamal
         - Decrypt,    True,  Decrypt data/messages using RSA
         - Decrypt,    False, Decrypt data/messages using ElGamal
-        - Revocation, False, Designate Revocation Key
-        - Revocation, False, Revoke (Sub)Key with Self Signature
+        - Revocation, True,  Designate Revocation Key
+        - Revocation, True,  Revoke (Sub)Key with Self Signature
         - Revocation, False, Revoke (Sub)Key using Designated Revocation Key
 
     :Other Actions:

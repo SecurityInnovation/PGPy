@@ -22,6 +22,11 @@ class PGPOpenSSLCipherNotSupported(Exception):
     pass
 
 
+class PGPInsecureCipher(Exception):
+    """Raised when a cipher known to be insecure is attempted to be used to encrypt data"""
+    pass
+
+
 class WontImplementError(NotImplementedError):
     """Raised when something that is not implemented, will not be implemented"""
     pass
