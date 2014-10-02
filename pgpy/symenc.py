@@ -21,13 +21,13 @@ def _encrypt(pt, key, alg, iv=None):
     if alg.is_insecure:
         raise PGPInsecureCipher("{:s} is not secure. Do not use it for encryption!".format(alg.name))
 
+    if not callable(alg.cipher):
+        raise PGPEncryptionError("Cipher {:s} not supported".format(alg.name))
+
     try:
         encryptor = Cipher(alg.cipher(key), modes.CFB(iv), default_backend()).encryptor()
 
-    except TypeError:
-        raise PGPEncryptionError("Cipher {:s} not supported".format(alg.name))
-
-    except UnsupportedAlgorithm as ex:  # pragma: no cover
+    except UnsupportedAlgorithm as ex:
         six.reraise(PGPEncryptionError, ex)
 
     else:
