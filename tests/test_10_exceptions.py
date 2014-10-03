@@ -14,7 +14,6 @@ from pgpy.types import Fingerprint
 from pgpy.types import SignatureVerification
 
 from pgpy.constants import HashAlgorithm
-from pgpy.constants import SignatureType
 from pgpy.constants import SymmetricKeyAlgorithm
 
 from pgpy.errors import PGPDecryptionError
@@ -23,94 +22,92 @@ from pgpy.errors import PGPError
 from pgpy.errors import PGPInsecureCipher
 
 
-def _pgpkey(f):
-    key = PGPKey()
-    with open(f, 'r') as ff:
-        key.parse(ff.read())
-    return key
-
-def _pgpmessage(f):
-    msg = PGPMessage()
-    with open(f, 'r') as ff:
-        msg.parse(ff.read())
-    return msg
-
-def _pgpsignature(f):
-    sig = PGPSignature()
-    with open(f, 'r') as ff:
-        sig.parse(ff.read())
-    return sig
-
 def _read(f, mode='r'):
     with open(f, mode) as ff:
         return ff.read()
 
 
-class TestPGPKey(object):
-    rsa_1_sec = _pgpkey('tests/testdata/keys/rsa.1.sec.asc')
-    rsa_1_pub = _pgpkey('tests/testdata/keys/rsa.1.pub.asc')
-    # rsa_2_sec = _pgpkey('tests/testdata/keys/rsa.2.sec.asc')
-    # rsa_2_pub = _pgpkey('tests/testdata/keys/rsa.2.pub.asc')
+@pytest.fixture(scope='module')
+def rsa_sec():
+    return PGPKey.from_file('tests/testdata/keys/rsa.1.sec.asc')
 
-    def test_verify_wrongkey(self):
-        wrongkey = _pgpkey('tests/testdata/signatures/aptapproval-test.key.asc')
-        sig = _pgpsignature('tests/testdata/signatures/debian-sid.sig.asc')
+
+@pytest.fixture(scope='module')
+def rsa_enc():
+    return PGPKey.from_file('tests/testdata/keys/rsa.1.enc.asc')
+
+
+@pytest.fixture(scope='module')
+def rsa_pub():
+    return PGPKey.from_file('tests/testdata/keys/rsa.1.pub.asc')
+
+@pytest.fixture(scope='module')
+def targette_sec():
+    return PGPKey.from_file('tests/testdata/keys/targette.sec.rsa.asc')
+
+
+class TestPGPKey(object):
+    def test_unlock_pubkey(self, rsa_pub, recwarn):
+        with rsa_pub.unlock("QwertyUiop"):
+            pass
+
+        w = recwarn.pop(UserWarning)
+        assert str(w.message) == "Public keys cannot be passphrase-protected"
+        assert w.filename == __file__
+
+    def test_unlock_not_protected(self, rsa_sec, recwarn):
+        with rsa_sec.unlock("QwertyUiop"):
+            pass
+
+        w = recwarn.pop(UserWarning)
+        assert str(w.message) == "This key is not protected with a passphrase"
+        assert w.filename == __file__
+
+    def test_unlock_wrong_passphrase(self, rsa_enc):
+        with pytest.raises(PGPDecryptionError):
+            with rsa_enc.unlock('ClearlyTheWrongPassword'):
+                pass
+
+    def test_sign_protected_key(self, rsa_enc):
+        with pytest.raises(PGPError):
+            rsa_enc.sign("asdf")
+
+    def test_verify_wrongkey(self, rsa_pub):
+        wrongkey = PGPKey.from_file('tests/testdata/signatures/aptapproval-test.key.asc')
+        sig = PGPSignature.from_file('tests/testdata/signatures/debian-sid.sig.asc')
 
         with pytest.raises(PGPError):
             wrongkey.verify(_read('tests/testdata/signatures/debian-sid.subj'), sig)
 
-    def test_decrypt_unencrypted_message(self, recwarn):
+    def test_decrypt_unencrypted_message(self, rsa_sec, recwarn):
         lit = PGPMessage.new('tests/testdata/lit')
-        self.rsa_1_sec.decrypt(lit)
+        rsa_sec.decrypt(lit)
 
         w = recwarn.pop(UserWarning)
         assert str(w.message) == "This message is not encrypted"
         assert w.filename == __file__
 
-    # def test_decrypt_wrongkey(self):
-    #     msg = _pgpmessage('tests/testdata/messages/message.rsa.cast5.asc')
-    #     with pytest.raises(PGPError):
-    #         self.rsa_2_sec.decrypt(msg)
-
-    def test_add_valueerror(self):
-        with pytest.raises(TypeError):
-            self.rsa_1_sec += 12
-
-    def test_contains_valueerror(self):
-        with pytest.raises(TypeError):
-            12 in self.rsa_1_sec
-
-    def test_fail_del_uid(self):
+    def test_decrypt_wrongkey(self, targette_sec):
+        msg = PGPMessage.from_file('tests/testdata/messages/message.rsa.cast5.asc')
         with pytest.raises(PGPError):
-            self.rsa_1_sec.del_uid("ASDFDSGSAJGKSAJG")
+            targette_sec.decrypt(msg)
 
-    # def test_sign_wrong_type(self):
-    #     msg = _pgpmessage('tests/testdata/messages/message.rsa.cast5.asc')
-    #     ctmsg = _pgpmessage('tests/testdata/messages/cleartext.signed.asc')
-    #     uid = PGPUID.new(name="asdf")
-    #     sigtypes = {SignatureType.BinaryDocument, SignatureType.CanonicalDocument, SignatureType.Standalone,
-    #                 SignatureType.Subkey_Binding, SignatureType.PrimaryKey_Binding, SignatureType.DirectlyOnKey,
-    #                 SignatureType.KeyRevocation, SignatureType.SubkeyRevocation, SignatureType.Timestamp,
-    #                 SignatureType.ThirdParty_Confirmation} | SignatureType.certifications
-    #
-    #     # invalid subject/sigtype combinations
-    #     invalid_combos = []
-    #     invalid_combos += [('asdf', st) for st in sigtypes ^ {SignatureType.BinaryDocument}]
-    #     invalid_combos += [(msg, st) for st in sigtypes ^ {SignatureType.BinaryDocument}]
-    #     invalid_combos += [(ctmsg, st) for st in sigtypes ^ {SignatureType.CanonicalDocument}]
-    #     invalid_combos += [(uid, st) for st in sigtypes ^ SignatureType.certifications]
-    #     invalid_combos += [(self.rsa_2_sec, st) for st in sigtypes ^ {SignatureType.DirectlyOnKey,
-    #                                                                   SignatureType.PrimaryKey_Binding,
-    #                                                                   SignatureType.KeyRevocation}]
-    #
-    #     for subj, type in invalid_combos:
-    #         with pytest.raises(PGPError):
-    #             self.rsa_1_sec.sign(subj, sigtype=type)
+    def test_add_valueerror(self, rsa_sec):
+        with pytest.raises(TypeError):
+            rsa_sec += 12
 
-    def test_sign_bad_prefs(self, recwarn):
-        self.rsa_1_pub.subkeys['EEE097A017B979CA'].encrypt(PGPMessage.new('asdf'),
-                               cipher=SymmetricKeyAlgorithm.CAST5,
-                               hash=HashAlgorithm.SHA1)
+    def test_contains_valueerror(self, rsa_sec):
+        with pytest.raises(TypeError):
+            12 in rsa_sec
+
+    def test_fail_del_uid(self, rsa_sec):
+        with pytest.raises(PGPError):
+            rsa_sec.del_uid("ASDFDSGSAJGKSAJG")
+
+    def test_encrypt_bad_prefs(self, rsa_pub, recwarn):
+        rsa_pub.subkeys['EEE097A017B979CA'].encrypt(PGPMessage.new('asdf'),
+                                                    cipher=SymmetricKeyAlgorithm.CAST5,
+                                                    hash=HashAlgorithm.RIPEMD160)
 
         w = recwarn.pop(UserWarning)
         assert str(w.message) == "Selected symmetric algorithm not in key preferences"
@@ -124,21 +121,28 @@ class TestPGPKey(object):
         assert str(w.message) == "Selected compression algorithm not in key preferences"
         assert w.filename == __file__
 
-    def test_verify_typeerror(self):
+    def test_sign_bad_prefs(self, rsa_sec, recwarn):
+        rsa_sec.subkeys['2A834D8E5918E886'].sign(PGPMessage.new('asdf'), hash=HashAlgorithm.RIPEMD160)
+
+        w = recwarn.pop(UserWarning)
+        assert str(w.message) == "Selected hash algorithm not in key preferences"
+        assert w.filename == __file__
+
+    def test_verify_typeerror(self, rsa_sec):
         with pytest.raises(TypeError):
-            self.rsa_1_sec.verify(12)
+            rsa_sec.verify(12)
 
         with pytest.raises(TypeError):
-            self.rsa_1_sec.verify("asdf", signature=12)
+            rsa_sec.verify("asdf", signature=12)
 
-    def test_verify_nosigs(self):
+    def test_verify_nosigs(self, rsa_sec):
         msg = PGPMessage.new('tests/testdata/lit')
         with pytest.raises(PGPError):
-            self.rsa_1_sec.verify(msg)
+            rsa_sec.verify(msg)
 
-    # def test_verify_invalid(self, sec):
-    #     sig = sec.sign(_read('tests/testdata/lit'))
-    #     assert not sec.verify(_read('tests/testdata/lit2'), sig)
+    def test_verify_invalid(self, rsa_sec):
+        sig = rsa_sec.sign("Text 1")
+        assert not rsa_sec.verify("Text 2", sig)
 
     def test_parse_wrong_magic(self):
         keytext = _read('tests/testdata/keys/rsa.1.sec.asc').replace('KEY', 'EKY')
@@ -169,17 +173,17 @@ class TestPGPKeyring(object):
 
 class TestPGPMessage(object):
     def test_decrypt_unsupported_algorithm(self):
-        msg = _pgpmessage('tests/testdata/message.enc.twofish.asc')
+        msg = PGPMessage.from_file('tests/testdata/message.enc.twofish.asc')
         with pytest.raises(PGPDecryptionError):
             msg.decrypt("QwertyUiop")
 
     def test_decrypt_wrongpass(self):
-        msg = _pgpmessage(next(f for f in glob.glob('tests/testdata/messages/message*.pass*.asc')))
+        msg = PGPMessage.from_file(next(f for f in glob.glob('tests/testdata/messages/message*.pass*.asc')))
         with pytest.raises(PGPDecryptionError):
             msg.decrypt("TheWrongPassword")
 
     def test_decrypt_unencrypted(self):
-        msg = _pgpmessage('tests/testdata/messages/message.signed.asc')
+        msg = PGPMessage.from_file('tests/testdata/messages/message.signed.asc')
         with pytest.raises(PGPError):
             msg.decrypt("Password")
 

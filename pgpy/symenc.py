@@ -27,7 +27,7 @@ def _encrypt(pt, key, alg, iv=None):
     try:
         encryptor = Cipher(alg.cipher(key), modes.CFB(iv), default_backend()).encryptor()
 
-    except UnsupportedAlgorithm as ex:
+    except UnsupportedAlgorithm as ex:  # pragma: no cover
         six.reraise(PGPEncryptionError, ex)
 
     else:

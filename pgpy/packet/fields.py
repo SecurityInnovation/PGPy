@@ -72,21 +72,23 @@ class SubPackets(collections.MutableMapping, Field):
         # where:
         #  - <key> is the classname of val
         #  - <seqid> is a sequence id, starting at 0, for a given classname
-        if not isinstance(key, tuple):  # pragma: no cover
-            i = 0
-            while (key, i) in self:
-                i += 1
-            key = (key, i)
 
-        if key[0].startswith('h_'):
-            self._hashed_sp[(key[0][2:], i)] = val
+        i = 0
+        if isinstance(key, tuple):  # pragma: no cover
+            key, i = key
 
-        else:
-            self._unhashed_sp[key] = val
+        d = self._unhashed_sp
+        if key.startswith('h_'):
+            d, key = self._hashed_sp, key[2:]
+
+        while (key, i) in d:
+            i += 1
+
+        d[(key, i)] = val
 
     def __getitem__(self, key):
         if isinstance(key, tuple):  # pragma: no cover
-            return self._hashed_sp[key]
+            return self._hashed_sp.get(key, self._unhashed_sp.get(key))
 
         if key.startswith('h_'):
             return [v for k, v in self._hashed_sp.items() if key[2:] == k[0]]
@@ -656,7 +658,7 @@ class PrivKey(PubKey):
         pt = _decrypt(bytes(self.encbytes), bytes(sessionkey), self.s2k.encalg, bytes(self.s2k.iv))
 
         # check the hash to see if we decrypted successfully or not
-        if self.s2k.usage == 254 and not pt[-20:] == hashlib.new('sha1', pt[:-20]).digest():  # pragma: no cover
+        if self.s2k.usage == 254 and not pt[-20:] == hashlib.new('sha1', pt[:-20]).digest():
             # if the usage byte is 254, key material is followed by a 20-octet sha-1 hash of the rest
             # of the key material block
             raise PGPDecryptionError("Passphrase was incorrect!")

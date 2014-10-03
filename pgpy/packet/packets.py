@@ -1121,10 +1121,13 @@ class UserID(Packet):
     def __bytes__(self):
         _bytes = bytearray()
         _bytes += super(UserID, self).__bytes__()
-        _bytes += "{name:s}{comment:s}{email:s}".format(
-            name=self.name,
-            comment=" ({comment:s})".format(comment=self.comment) if self.comment not in [None, ""] else "",
-            email=" <{email:s}>".format(email=self.email) if self.email not in [None, ""] else "").encode()
+        _bytes += self.text_to_bytes(self.name)
+        if self.comment is not None:
+            _bytes += b' (' + self.text_to_bytes(self.comment) + b')'
+
+        if self.email is not None:
+            _bytes += b' <' + self.text_to_bytes(self.email) + b'>'
+
         return bytes(_bytes)
 
     def parse(self, packet):

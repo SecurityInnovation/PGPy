@@ -3,7 +3,6 @@
 this is where the armorable PGP block objects live
 """
 import binascii
-import bisect
 import collections
 import contextlib
 import functools
@@ -70,25 +69,7 @@ from .types import Armorable
 from .types import Fingerprint
 from .types import PGPObject
 from .types import SignatureVerification
-
-
-def _deque_insort(seq, item):
-    i = bisect.bisect_left(seq, item)
-    seq.rotate(- i)
-    seq.appendleft(item)
-    seq.rotate(i)
-
-
-def _deque_resort(seq, item):
-    i = bisect.bisect_left(seq, item)
-    if i != len(seq):
-        if seq[i] != item:  # pragma: no cover
-            seq.remove(item)
-            _deque_insort(item)
-
-        return
-
-    raise ValueError  # pragma: no cover
+from .types import SorteDeque
 
 
 class PGPSignature(PGPObject, Armorable):
@@ -175,13 +156,13 @@ class PGPSignature(PGPObject, Armorable):
         return []
 
     @property
-    def keyserver(self):  # pragma: no cover
+    def keyserver(self):
         if 'PreferredKeyServer' in self._signature.subpackets:
             return next(iter(self._signature.subpackets['h_PreferredKeyServer'])).uri
         return ''
 
     @property
-    def keyserverprefs(self):  # pragma: no cover
+    def keyserverprefs(self):
         if 'KeyServerPreferences' in self._signature.subpackets:
             return next(iter(self._signature.subpackets['h_KeyServerPreferences'])).flags
         return []
@@ -321,7 +302,12 @@ class PGPSignature(PGPObject, Armorable):
             the subkey using the same format as the main key (also using 0x99 as
             the first octet).
             """
-            _s = subject.hashdata
+            if subject.is_primary:
+                _s = subject.subkeys[self.signer].hashdata
+
+            else:
+                _s = subject.hashdata
+
             _data += b'\x99' + self.int_to_bytes(len(_s), 2) + _s
 
         if self.type in [SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
@@ -429,7 +415,7 @@ class PGPUID(object):
 
     @property
     def image(self):
-        return self._uid.image if isinstance(self._uid, UserAttribute) else None
+        return self._uid.image.image if isinstance(self._uid, UserAttribute) else None
 
     @property
     def is_primary(self):
@@ -484,7 +470,7 @@ class PGPUID(object):
     def __init__(self):
         super(PGPUID, self).__init__()
         self._uid = None
-        self._signatures = collections.deque()
+        self._signatures = SorteDeque()
         self._parent = None
 
     def __repr__(self):
@@ -508,9 +494,9 @@ class PGPUID(object):
 
     def __add__(self, other):
         if isinstance(other, PGPSignature):
-            _deque_insort(self._signatures, other)
+            self._signatures.insort(other)
             if self._parent is not None and self in self._parent._uids:
-                _deque_resort(self._parent._uids, self)
+                self._parent._uids.resort(self)
 
             return self
 
@@ -526,9 +512,9 @@ class PGPUID(object):
                         "".format(self.__class__.__name__, other.__class__.__name__))
 
     def __format__(self, format_spec):
-        comment = "" if self.comment is None else " ({:s})".format(self.comment)
-        email = "" if self.email is None else " <{:s}>".format(self.email)
-        return "{:s}{:s}{:s}".format(self.name, comment, email)
+        comment = six.u("") if self.comment == "" else six.u(" ({:s})").format(self.comment)
+        email = six.u("") if self.email == "" else six.u(" <{:s}>").format(self.email)
+        return six.u("{:s}{:s}{:s}").format(self.name, comment, email)
 
 
 class PGPMessage(PGPObject, Armorable):
@@ -613,7 +599,7 @@ class PGPMessage(PGPObject, Armorable):
         self._compression = CompressionAlgorithm.Uncompressed
         self._message = None
         self._mdc = None
-        self._signatures = collections.deque()
+        self._signatures = SorteDeque()
         self._sessionkeys = []
 
     def __bytes__(self):
@@ -687,7 +673,7 @@ class PGPMessage(PGPObject, Armorable):
             other = PGPSignature() + other
 
         if isinstance(other, PGPSignature):
-            _deque_insort(self._signatures, other)
+            self._signatures.insort(other)
             return self
 
         if isinstance(other, (PKESessionKey, SKESessionKey)):
@@ -1063,10 +1049,6 @@ class PGPKey(PGPObject, Armorable):
             for sig in iter(u.selfsig for u in self.userids):
                 yield sig
 
-        else:  # pragma: no cover
-            for sig in self.parent.self_signatures:
-                yield sig
-
     @property
     def signatures(self):
         return list(self._signatures)
@@ -1077,7 +1059,8 @@ class PGPKey(PGPObject, Armorable):
 
     @property
     def subkeys(self):
-        """An :py:obj:`~collections.OrderedDict` of subkeys bound to this primary key, if applicable, selected by 16-character keyid."""
+        """An :py:obj:`~collections.OrderedDict` of subkeys bound to this primary key, if applicable,
+        selected by 16-character keyid."""
         return self._children
 
     @property
@@ -1109,8 +1092,8 @@ class PGPKey(PGPObject, Armorable):
         self._key = None
         self._children = collections.OrderedDict()
         self._parent = None
-        self._signatures = collections.deque()
-        self._uids = collections.deque()
+        self._signatures = SorteDeque()
+        self._uids = SorteDeque()
 
     def __bytes__(self):
         _bytes = bytearray()
@@ -1156,12 +1139,20 @@ class PGPKey(PGPObject, Armorable):
             return self
 
         if isinstance(other, PGPSignature):
-            _deque_insort(self._signatures, other)
+            self._signatures.insort(other)
+
+            # if this is a subkey binding signature that has embedded primary key binding signatures, add them to parent
+            if other.type == SignatureType.Subkey_Binding:
+                for es in iter(pkb for pkb in other._signature.subpackets['EmbeddedSignature']):
+                    esig = PGPSignature() + es
+                    esig.parent = other
+                    self._signatures.insort(esig)
+
             return self
 
         if isinstance(other, PGPUID):
             other._parent = self
-            _deque_insort(self._uids, other)
+            self._uids.insort(other)
             return self
 
         raise TypeError("unsupported operand type(s) for +=: '{:s}' and '{:s}'"
@@ -1198,12 +1189,16 @@ class PGPKey(PGPObject, Armorable):
 
         :param str passphrase: The passphrase to be used to unlock this key.
         """
-        if self.is_public:  # pragma: no cover
-            ##TODO: we can't unprotect public keys because only private key material is ever protected
+        if self.is_public:
+            # we can't unprotect public keys because only private key material is ever protected
+            warnings.warn("Public keys cannot be passphrase-protected", stacklevel=3)
+            yield
             return
 
-        if not self.is_protected:  # pragma: no cover
-            ##TODO: we can't unprotect private keys that are not protected, because there is no ciphertext to decrypt
+        if not self.is_protected:
+            # we can't unprotect private keys that are not protected, because there is no ciphertext to decrypt
+            warnings.warn("This key is not protected with a passphrase", stacklevel=3)
+            yield
             return
 
         try:
@@ -1231,6 +1226,7 @@ class PGPKey(PGPObject, Armorable):
         if u is None:
             raise PGPError("uid '{:s}' not found".format(search))
 
+        u._parent = None
         self._uids.remove(u)
 
     def _sign(self, subject, sig, **prefs):
@@ -1249,6 +1245,10 @@ class PGPKey(PGPObject, Armorable):
         else:
             raise NotImplementedError(self.key_algorithm)
 
+        if sig.hash_algorithm not in self.hashprefs:
+            warnings.warn("Selected hash algorithm not in key preferences", stacklevel=4)
+
+
         # signature options that can be applied at any level
         expires = prefs.pop('expires', None)
         revocable = prefs.pop('revocable', True)
@@ -1259,7 +1259,7 @@ class PGPKey(PGPObject, Armorable):
         if expires is not None:
             # expires should be a timedelta, so if it's a datetime, turn it into a timedelta
             if isinstance(expires, datetime):
-                expires = sig.created - expires
+                expires = expires - self.created
 
             sig._signature.subpackets.addnew('SignatureExpirationTime', hashed=True, expires=expires)
 
@@ -1422,7 +1422,7 @@ class PGPKey(PGPObject, Armorable):
             else:
                 sig_type = SignatureType.SubkeyRevocation
 
-        else:
+        else:  # pragma: no cover
             raise TypeError
 
         sig = PGPSignature.new(sig_type, self.key_algorithm, hash_algo, self.fingerprint.keyid)
@@ -1468,7 +1468,7 @@ class PGPKey(PGPObject, Armorable):
         elif key.is_primary and not self.is_primary:
             sig_type = SignatureType.PrimaryKey_Binding
 
-        else:
+        else:  # pragma: no cover
             raise PGPError
 
         sig = PGPSignature.new(sig_type, self.key_algorithm, hash_algo, self.fingerprint.keyid)
@@ -1485,7 +1485,7 @@ class PGPKey(PGPObject, Armorable):
                 subkeyid = key.fingerprint.keyid
                 esig = None
 
-                if not key.is_public:
+                if not key.is_public:  # pragma: no cover
                     esig = key.bind(self)
 
                 elif subkeyid in self.subkeys:
@@ -1535,7 +1535,7 @@ class PGPKey(PGPObject, Armorable):
             sspairs += [ (sig, uid) for uid in subject.userids for sig in _filter_sigs(uid.__sig__) ]
             # user attributes
             sspairs += [ (sig, ua) for ua in subject.userattributes for sig in _filter_sigs(ua.__sig__) ]
-            # subkey/primarykey binding signatures
+            # subkey binding signatures
             sspairs += [ (sig, subkey) for subkey in subject.subkeys.values() for sig in _filter_sigs(subkey.__sig__) ]
 
         if len(sspairs) == 0:
@@ -1576,7 +1576,7 @@ class PGPKey(PGPObject, Armorable):
                     verified = True
 
                 finally:
-                    sigv.add_sigsubj(sig, subj, verified)
+                    sigv.add_sigsubj(sig, self.fingerprint.keyid, subj, verified)
                     del sigdata, verifier, verified
 
         return sigv
@@ -1611,7 +1611,7 @@ class PGPKey(PGPObject, Armorable):
         pkesk.pkalg = self.key_algorithm
         pkesk.encrypt_sk(self.__key__.__pubkey__(), cipher_algo, sessionkey)
 
-        if message.is_encrypted:
+        if message.is_encrypted:  # pragma: no cover
             _m = message
 
         else:
@@ -1705,19 +1705,12 @@ class PGPKey(PGPObject, Armorable):
                 [ operator.iadd(pgpobj, PGPSignature() + sig) for sig in group if not isinstance(sig, Opaque) ]
 
                 # and file away pgpobj
-                if isinstance(pgpobj, PGPKey) and pgpobj.is_primary:
-                    keys[(pgpobj.fingerprint.keyid, pgpobj.is_public)] = pgpobj
+                if isinstance(pgpobj, PGPKey):
+                    if pgpobj.is_primary:
+                        keys[(pgpobj.fingerprint.keyid, pgpobj.is_public)] = pgpobj
 
-                elif isinstance(pgpobj, PGPKey) and not pgpobj.is_primary:
-                    # parent is likely the most recently parsed primary key
-                    keys[next(reversed(keys))] += pgpobj
-
-                    bsigs = [ pkb for skb in pgpobj._signatures if skb.type == SignatureType.Subkey_Binding
-                              for pkb in skb._signature.subpackets['EmbeddedSignature'] ]
-                    for es in bsigs:
-                        esig = PGPSignature() + es
-                        esig.parent = es
-                        pgpobj += esig
+                    else:
+                        keys[next(reversed(keys))] += pgpobj
 
                 elif isinstance(pgpobj, PGPUID):
                     # parent is likely the most recently parsed primary key
@@ -1756,7 +1749,7 @@ class PGPKeyring(collections.Container, collections.Iterable, collections.Sized)
         if isinstance(alias, six.string_types):
             return alias in aliases or alias.replace(' ', '') in aliases
 
-        return alias in aliases  # pragma: no cover
+        return alias in aliases
 
     def __len__(self):
         return len(self._keys)

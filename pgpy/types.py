@@ -5,7 +5,10 @@ from __future__ import division
 import abc
 import base64
 import binascii
+import bisect
 import collections
+import operator
+import os
 import re
 import warnings
 
@@ -43,30 +46,6 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
 
         if isinstance(text, (bytes, bytearray)):
             return bool(re.match(br'^[ -~\n]+$', text, flags=re.ASCII))
-
-    @abc.abstractproperty
-    def magic(self):
-        """The magic string identifier for the current PGP type"""
-
-    def __init__(self):
-        super(Armorable, self).__init__()
-        self.ascii_headers = collections.OrderedDict()
-        self.ascii_headers['Version'] = 'PGPy v' + __version__  # Default value
-
-    @abc.abstractmethod
-    def __bytes__(self):
-        """This method is too abstract to understand"""
-
-    def __str__(self):
-        payload = base64.b64encode(self.__bytes__()).decode('latin-1')
-        payload = '\n'.join(payload[i:(i + 64)] for i in range(0, len(payload), 64))
-
-        return self.__armor_fmt__.format(
-            block_type=self.magic,
-            headers=''.join('{key}: {val}\n'.format(key=key, val=val) for key, val in self.ascii_headers.items()),
-            packet=payload,
-            crc=base64.b64encode(Header.int_to_bytes(self.crc24(self.__bytes__()), 3)).decode('latin-1')
-        )
 
     @staticmethod
     def ascii_unarmor(text):
@@ -154,39 +133,100 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
 
         return crc & 0xFFFFFF
 
+    @abc.abstractproperty
+    def magic(self):
+        """The magic string identifier for the current PGP type"""
+
+    @classmethod
+    def from_file(cls, filename):
+        with open(filename, 'rb') as file:
+            obj = cls()
+            data = bytearray(os.path.getsize(filename))
+            file.readinto(data)
+
+        obj.parse(data)
+
+        return obj
+
+    def __init__(self):
+        super(Armorable, self).__init__()
+        self.ascii_headers = collections.OrderedDict()
+        self.ascii_headers['Version'] = 'PGPy v' + __version__  # Default value
+
+    @abc.abstractmethod
+    def __bytes__(self):
+        """This method is too abstract to understand"""
+
+    def __str__(self):
+        payload = base64.b64encode(self.__bytes__()).decode('latin-1')
+        payload = '\n'.join(payload[i:(i + 64)] for i in range(0, len(payload), 64))
+
+        return self.__armor_fmt__.format(
+            block_type=self.magic,
+            headers=''.join('{key}: {val}\n'.format(key=key, val=val) for key, val in self.ascii_headers.items()),
+            packet=payload,
+            crc=base64.b64encode(PGPObject.int_to_bytes(self.crc24(self.__bytes__()), 3)).decode('latin-1')
+        )
+
 
 class PGPObject(six.with_metaclass(abc.ABCMeta, object)):
     __metaclass__ = abc.ABCMeta
 
     @staticmethod
+    def int_byte_len(i):
+        return (i.bit_length() + 7) // 8
+
+    @staticmethod
     def bytes_to_int(b, order='big'):  # pragma: no cover
         """convert bytes to integer"""
-        if hasattr(int, 'from_bytes'):
-            return int.from_bytes(b, order)
-        else:
-            # fall back to the old method
-            return int(binascii.hexlify(b), 16)
+        if six.PY2:
+            # save the original type of b without having to copy any data
+            _b = b.__class__()
+            if order != 'little':
+                b = reversed(b)
+
+            if not isinstance(_b, bytearray):
+                b = six.iterbytes(b)
+
+            return sum(c << (i * 8) for i, c in enumerate(b))
+
+        return int.from_bytes(b, order)
 
     @staticmethod
     def int_to_bytes(i, minlen=1, order='big'):  # pragma: no cover
         """convert integer to bytes"""
-        if hasattr(int, 'to_bytes'):
+        blen = max(minlen, PGPObject.int_byte_len(i), 1)
 
-            return i.to_bytes(minlen, order)
+        if six.PY2:
+            r = iter(_ * 8 for _ in (range(blen) if order == 'little' else range(blen - 1, -1, -1)))
+            return bytes(bytearray((i >> c) & 0xff for c in r))
 
-        else:
-            # fall back to the old method
-            plen = max(int((i.bit_length() + 7) // 8) * 2, (minlen * 2), 2)
-            hexstr = '{0:0{1}x}'.format(i, plen).encode()
-            return binascii.unhexlify(hexstr)
+        return i.to_bytes(blen, order)
+
+    @staticmethod
+    def text_to_bytes(text):
+        bin = bytearray()
+
+        if text is not None and not isinstance(text, six.binary_type):
+            for c in iter(ord(c) for c in text):
+                if c < 256:
+                    bin.append(c)
+
+                else:
+                    bin += PGPObject.int_to_bytes(c)
+
+        return bytes(bin)
 
     @abc.abstractmethod
     def parse(self, packet):
-        raise NotImplementedError()
+        """this method is too abstract to understand"""
 
     @abc.abstractmethod
     def __bytes__(self):
-        raise NotImplementedError()
+        """
+        Return the contents of concrete sublcasses in a binary format that can be understood by other OpenPGP
+        implementations
+        """
 
 
 class Field(PGPObject):
@@ -419,7 +459,7 @@ class SignatureVerification(object):
 
     Can be compared directly as a boolean to determine whether or not the specified signature verified.
     """
-    _sigsubj = collections.namedtuple('sigsubj', ['verified', 'signature', 'subject'])
+    _sigsubj = collections.namedtuple('sigsubj', ['verified', 'by', 'signature', 'subject'])
 
     @property
     def good_signatures(self):
@@ -454,8 +494,8 @@ class SignatureVerification(object):
     def __repr__(self):
         return "<SignatureVerification({verified})>".format(verified=str(bool(self)))
 
-    def add_sigsubj(self, signature, subject=None, verified=False):
-        self._subjects.append(self._sigsubj(verified, signature, subject))
+    def add_sigsubj(self, signature, by, subject=None, verified=False):
+        self._subjects.append(self._sigsubj(verified, by, signature, subject))
 
 
 class FlagEnumMeta(EnumMeta):
@@ -480,7 +520,7 @@ class Fingerprint(str):
         return str(self).replace(' ', '')[-8:]
 
     def __new__(cls, content):
-        if isinstance(content, Fingerprint):  # pragma: no cover
+        if isinstance(content, Fingerprint):
             return content
 
         # validate input before continuing: this should be a string of 40 hex digits
@@ -500,16 +540,46 @@ class Fingerprint(str):
         if isinstance(other, Fingerprint):
             return str(self) == str(other)
 
-        if isinstance(other, (str, bytes, bytearray)):
+        if isinstance(other, (six.text_type, bytes, bytearray)):
+            if isinstance(other, (bytes, bytearray)):  # pragma: no cover
+                other = other.decode('latin-1')
+
             other = str(other).replace(' ', '')
             return any([self.replace(' ', '') == other,
                         self.keyid == other,
                         self.shortid == other])
 
-        return False
+        return False  # pragma: no cover
 
     def __hash__(self):
         return hash(str(self.replace(' ', '')))
 
     def __bytes__(self):
         return binascii.unhexlify(six.b(self.replace(' ', '')))
+
+
+class SorteDeque(collections.deque):
+    """A deque subclass that tries to maintain sorted ordering using bisect"""
+    def insort(self, item):
+        i = bisect.bisect_left(self, item)
+        self.rotate(- i)
+        self.appendleft(item)
+        self.rotate(i)
+
+    def resort(self, item):  # pragma: no cover
+        if item in self:
+            # if item is already in self, see if it is still in sorted order.
+            # if not, re-sort it by removing it and then inserting it into its sorted order
+            i = bisect.bisect_left(self, item)
+            if i == len(self) or self[i] is not item:
+                self.remove(item)
+                self.insort(item)
+
+        else:
+            # if item is not in self, just insert it in sorted order
+            self.insort(item)
+
+    def check(self):  # pragma: no cover
+        """re-sort any items in self that are not sorted"""
+        for unsorted in iter(self[i] for i in range(len(self) - 2) if not operator.le(self[i], self[i+1])):
+            self.resort(unsorted)

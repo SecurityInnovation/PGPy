@@ -32,24 +32,6 @@ from pgpy.errors import PGPDecryptionError
 from pgpy.errors import PGPError
 
 
-def _pgpmessage(f):
-    msg = PGPMessage()
-    with open(f, 'r') as ff:
-        msg.parse(ff.read())
-    return msg
-
-def _pgpkey(f):
-    key = PGPKey()
-    with open(f, 'r') as ff:
-        key.parse(ff.read())
-    return key
-
-def _pgpsignature(f):
-    sig = PGPSignature()
-    with open(f, 'r') as ff:
-        sig.parse(ff.read())
-    return sig
-
 def _read(f, mode='r'):
     with open(f, mode) as ff:
         return ff.read()
@@ -59,7 +41,7 @@ class TestPGPMessage(object):
     params = {
         'comp_alg': [ CompressionAlgorithm.Uncompressed, CompressionAlgorithm.ZIP, CompressionAlgorithm.ZLIB,
                       CompressionAlgorithm.BZ2 ],
-        'enc_msg':  [ _pgpmessage(f) for f in glob.glob('tests/testdata/messages/message*.pass*.asc') ],
+        'enc_msg':  [ PGPMessage.from_file(f) for f in glob.glob('tests/testdata/messages/message*.pass*.asc') ],
         'lit':      [ PGPMessage.new(_read('tests/testdata/lit')) ],
     }
     def test_new(self, comp_alg, write_clean, gpg_import, gpg_print):
@@ -145,12 +127,12 @@ def ctmessage():
 
 @pytest.fixture(scope='module')
 def targette_pub():
-    return _pgpkey('tests/testdata/keys/targette.pub.rsa.asc')
+    return PGPKey.from_file('tests/testdata/keys/targette.pub.rsa.asc')
 
 
 @pytest.fixture(scope='module')
 def targette_sec():
-    return _pgpkey('tests/testdata/keys/targette.sec.rsa.asc')
+    return PGPKey.from_file('tests/testdata/keys/targette.sec.rsa.asc')
 
 
 @pytest.fixture(scope='module')
@@ -160,10 +142,10 @@ def userid():
 
 @pytest.fixture(scope='module')
 def userphoto():
-    photo = bytearray(os.path.getsize('tests/testdata/pgp.jpg'))
-    with open('tests/testdata/pgp.jpg', 'rb') as photof:
-        photof.readinto(photo)
-    return PGPUID.new(photo=photo)
+    with open('tests/testdata/abe.jpg', 'rb') as abef:
+        abebytes = bytearray(os.path.getsize('tests/testdata/abe.jpg'))
+        abef.readinto(abebytes)
+    return PGPUID.new(photo=abebytes)
 
 
 @pytest.fixture(scope='module')
@@ -174,11 +156,11 @@ def sessionkey():
 
 class TestPGPKey(object):
     params = {
-        'pub':        [ _pgpkey(f) for f in sorted(glob.glob('tests/testdata/keys/*.pub.asc')) ],
-        'sec':        [ _pgpkey(f) for f in sorted(glob.glob('tests/testdata/keys/*.sec.asc')) ],
-        'enc':        [ _pgpkey(f) for f in sorted(glob.glob('tests/testdata/keys/*.enc.asc')) ],
-        'sigkey':     [ _pgpkey(f) for f in sorted(glob.glob('tests/testdata/signatures/*.key.asc')) ],
-        'sigsig':     [ _pgpsignature(f) for f in sorted(glob.glob('tests/testdata/signatures/*.sig.asc')) ],
+        'pub':        [ PGPKey.from_file(f) for f in sorted(glob.glob('tests/testdata/keys/*.pub.asc')) ],
+        'sec':        [ PGPKey.from_file(f) for f in sorted(glob.glob('tests/testdata/keys/*.sec.asc')) ],
+        'enc':        [ PGPKey.from_file(f) for f in sorted(glob.glob('tests/testdata/keys/*.enc.asc')) ],
+        'sigkey':     [ PGPKey.from_file(f) for f in sorted(glob.glob('tests/testdata/signatures/*.key.asc')) ],
+        'sigsig':     [ PGPSignature.from_file(f) for f in sorted(glob.glob('tests/testdata/signatures/*.sig.asc')) ],
         'sigsubj':    sorted(glob.glob('tests/testdata/signatures/*.subj')),
     }
     string_sigs = dict()
@@ -213,15 +195,6 @@ class TestPGPKey(object):
         assert enc.is_unlocked is False
         assert sec.is_protected is False
 
-        # try to sign without unlocking
-        with pytest.raises(PGPError):
-            enc.sign("asdf")
-
-        # try to unlock with the wrong password
-        with pytest.raises(PGPDecryptionError):
-            with enc.unlock('ClearlyTheWrongPassword'):
-                pass
-
         # unlock with the correct passphrase
         with enc.unlock('QwertyUiop'), self.assert_warnings():
             assert enc.is_unlocked
@@ -234,15 +207,15 @@ class TestPGPKey(object):
             # add all of the subpackets we should be allowed to
             sig = sec.sign(string,
                            expires=timedelta(seconds=1),
-                           revocable=True,
+                           revocable=False,
                            notation={'Testing': 'This signature was generated during unit testing'},
                            policy_uri='about:blank',
-                           signers_uid=sec.userids[0])
+                           signer=sec.userids[0])
 
         # wait a bit if sig is not yet expired
         assert sig.type == SignatureType.BinaryDocument
         assert sig.notation == {'Testing': 'This signature was generated during unit testing'}
-        assert sig.revocable
+        assert sig.revocable is False
         # assert sig.policy_uri == 'about:blank'
         # assert sig.sig.signer_uid == "{:s}".format(sec.userids[0])
         if not sig.expired:
@@ -266,8 +239,11 @@ class TestPGPKey(object):
         assert len(sv) == 1
 
     def test_sign_ctmessage(self, sec, ctmessage, write_clean, gpg_import, gpg_verify):
+        expire_at = datetime.utcnow() + timedelta(days=1)
+        assert isinstance(expire_at, datetime)
+
         with self.assert_warnings():
-            sig = sec.sign(ctmessage)
+            sig = sec.sign(ctmessage, expires=expire_at)
 
         assert sig.type == SignatureType.CanonicalDocument
         assert sig.revocable
@@ -371,11 +347,22 @@ class TestPGPKey(object):
         assert sig.cipherprefs == [SymmetricKeyAlgorithm.AES256, SymmetricKeyAlgorithm.Camellia256]
         assert sig.hashprefs == [HashAlgorithm.SHA384]
         assert sig.compprefs == [CompressionAlgorithm.ZLIB]
+        assert sig.features == [Features.ModificationDetection]
         assert sig.key_expiration == expire_in - targette_sec.created
         assert sig.keyserver == 'about:none'
         assert sig.keyserverprefs == [KeyServerPreferences.NoModify]
 
         assert userid.is_primary is False
+
+    def test_remove_userid(self, targette_sec):
+        # create a temporary userid, add it, and then remove it
+        tempuid = PGPUID.new(name='Temporary Youx\'seur')
+        targette_sec.add_uid(tempuid)
+
+        assert tempuid in targette_sec
+
+        targette_sec.del_uid('Temporary Youx\'seur')
+        assert tempuid not in targette_sec
 
     def test_certify_userid(self, sec, userid):
         with self.assert_warnings():
@@ -393,6 +380,8 @@ class TestPGPKey(object):
         # assert sig.trust_level == 1
         # assert sig.trust_amount == 60
         # assert sig.regex == r'.*'
+
+        assert {sec.fingerprint.keyid} | set(sec.subkeys) & userid.signers
 
         userid += sig
 
@@ -425,11 +414,12 @@ class TestPGPKey(object):
         # let's add an 0x1f signature with notation
         # GnuPG does not like these, so we'll mark it as non-exportable
         with self.assert_warnings():
-            sig = sec.certify(targette_sec, exportable=False, notation={'Notice': 'This key has been frobbed!'})
+            sig = sec.certify(targette_sec, exportable=False, notation={'Notice': 'This key has been frobbed!',
+                                                                        'Binary': bytearray(b'\xc0\x01\xd0\x0d')})
 
         assert sig.type == SignatureType.DirectlyOnKey
         assert sig.exportable is False
-        assert sig.notation == {'Notice': 'This key has been frobbed!'}
+        assert sig.notation == {'Notice': 'This key has been frobbed!', 'Binary': bytearray(b'\xc0\x01\xd0\x0d')}
 
         targette_sec += sig
 
@@ -448,7 +438,9 @@ class TestPGPKey(object):
 
     def test_verify_key(self, pub, targette_sec):
         with self.assert_warnings():
-            assert pub.verify(targette_sec)
+            sv = pub.verify(targette_sec)
+            assert len(list(sv.good_signatures)) > 0
+            assert sv
 
     def test_add_subkey(self):
         # when this is implemented, it will replace the temporary test_bind_subkey below
@@ -471,19 +463,31 @@ class TestPGPKey(object):
 
         with self.assert_warnings():
             bsig = sec.bind(subkey, usage=old_usage)
+
+            assert bsig.type == SignatureType.Subkey_Binding
+            assert 'EmbeddedSignature' in bsig._signature.subpackets
+
             subkey += bsig
+            assert len([sig for sig in subkey._signatures if sig.type == SignatureType.Subkey_Binding]) == \
+                    len([sig for sig in subkey._signatures if sig.type == SignatureType.PrimaryKey_Binding])
+
+            assert {SignatureType.Subkey_Binding, SignatureType.PrimaryKey_Binding} <= {sig.type for sig in subkey._signatures}
+            assert all(sig.embedded for sig in subkey._signatures if sig.type == SignatureType.PrimaryKey_Binding)
 
             # verify with PGPy
-            assert pub.verify(subkey)
-            sv = pub.verify(pub)
+            sv = pub.verify(subkey)
+            assert bsig in iter(s.signature for s in sv._subjects)
             assert sv
-            assert bsig in iter(s.signature for s in sv.good_signatures)
+            sv = pub.verify(pub)
+            assert bsig in iter(s.signature for s in sv._subjects)
+            assert sv
 
         # verify with GPG
         kfp = '{:s}.asc'.format(pub.fingerprint.shortid)
         with write_clean(os.path.join('tests', 'testdata', kfp), 'w', str(pub)), \
                 gpg_import(os.path.join('.', kfp)) as kio:
             assert 'invalid self-signature' not in kio
+            assert gpg_check_sigs(pub.fingerprint.keyid, subkey.fingerprint.keyid)
 
     def test_revoke_key(self, sec, pub, write_clean, gpg_import, gpg_check_sigs):
         with self.assert_warnings():
@@ -493,7 +497,7 @@ class TestPGPKey(object):
             pub += rsig
 
             # verify with PGPy
-            assert pub.verify(pub)
+            # assert pub.verify(pub)
 
         # verify with GPG
         kfp = '{:s}.asc'.format(pub.fingerprint.shortid)
@@ -516,7 +520,7 @@ class TestPGPKey(object):
             assert 'ReasonForRevocation' in rsig._signature.subpackets
             subkey += rsig
 
-            # verify with PGPy
+            # # verify with PGPy
             assert pub.verify(subkey)
             sv = pub.verify(pub)
             assert sv

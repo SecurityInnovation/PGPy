@@ -631,8 +631,8 @@ class NotationData(Signature):
         _bytes += self.int_to_bytes(len(self.name), 2)
         _bytes += self.int_to_bytes(len(self.value), 2)
         _bytes += self.name.encode()
-        _bytes += self.value if isinstance(self.value, (bytearray, bytes)) else self.value.encode()
-        return _bytes
+        _bytes += self.value if isinstance(self.value, bytearray) else self.value.encode('latin-1')
+        return bytes(_bytes)
 
     def parse(self, packet):
         super(NotationData, self).parse(packet)
@@ -808,7 +808,9 @@ class EmbeddedSignature(Signature):
 
     @_sig.setter
     def _sig(self, val):
-        val.header = EmbeddedSignatureHeader()
+        esh = EmbeddedSignatureHeader()
+        esh.version = val.header.version
+        val.header = esh
         val.update_hlen()
         self._sigpkt = val
 
