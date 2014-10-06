@@ -110,7 +110,7 @@ class ByteFlag(Signature):
     @flags.register(set)
     @flags.register(list)
     def flags_seq(self, val):
-        self._flags = val
+        self._flags = set(val)
 
     @flags.register(int)
     @flags.register(_KeyFlags)
@@ -119,7 +119,7 @@ class ByteFlag(Signature):
         if self.__flags__ is None:  # pragma: no cover
             raise AttributeError("Error: __flags__ not set!")
 
-        self._flags += self.__flags__ & val
+        self._flags |= (self.__flags__ & val)
 
     @flags.register(bytearray)
     def flags_bytearray(self, val):

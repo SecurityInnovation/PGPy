@@ -42,25 +42,56 @@ class TestPGPMessage(object):
         'comp_alg': [ CompressionAlgorithm.Uncompressed, CompressionAlgorithm.ZIP, CompressionAlgorithm.ZLIB,
                       CompressionAlgorithm.BZ2 ],
         'enc_msg':  [ PGPMessage.from_file(f) for f in glob.glob('tests/testdata/messages/message*.pass*.asc') ],
-        'lit':      [ PGPMessage.new(_read('tests/testdata/lit')) ],
+        'file':    ['tests/testdata/lit', 'tests/testdata/lit2', 'tests/testdata/lit_de']
     }
-    def test_new(self, comp_alg, write_clean, gpg_import, gpg_print):
-        msg = PGPMessage.new(_read('tests/testdata/lit'))
+    attrs = {
+        'tests/testdata/lit':
+            [('filename', 'lit'),
+             ('message', os.linesep.join(['This is stored, literally\!', os.linesep]))],
+        'tests/testdata/lit2':
+            [('filename', 'lit2'),
+             ('message', os.linesep.join(['This is stored, literally!', os.linesep]))],
+        'tests/testdata/lit_de':
+            [('filename', 'lit_de'),
+             ('message', os.linesep.join(['The following items are stored, literally:', '- This one', '- Also this one',
+                                          '- And finally, this one!', os.linesep]))],
+    }
+    def test_new(self, comp_alg, write_clean, gpg_print):
+        msg = PGPMessage.new("This is a new message!")
 
         assert msg.type == 'literal'
-        assert msg.message.decode('latin-1') == 'This is stored, literally\!\n\n'
+        assert msg.message == "This is a new message!"
+        assert msg._message.format == 't'
+        assert msg._message.filename == ''
 
         with write_clean('tests/testdata/cmsg.asc', 'w', str(msg)):
-            assert gpg_print('cmsg.asc') == msg.message.decode('latin-1')
+            assert gpg_print('cmsg.asc') == "This is a new message!"
 
-    def test_new_sensitive(self, write_clean, gpg_import, gpg_print):
-        msg = PGPMessage.new('tests/testdata/lit', sensitive=True)
+    def test_new_sensitive(self, write_clean, gpg_print):
+        msg = PGPMessage.new("This is a sensitive message!", sensitive=True)
 
         assert msg.type == 'literal'
-        assert msg.message.decode('latin-1') == 'This is stored, literally\!\n\n'
+        assert msg.message == "This is a sensitive message!"
+        assert msg.is_sensitive
+        assert msg.filename == '_CONSOLE'
 
         with write_clean('tests/testdata/csmsg.asc', 'w', str(msg)):
-            assert gpg_print('csmsg.asc') == msg.message.decode('latin-1')
+            assert gpg_print('csmsg.asc') == "This is a sensitive message!"
+
+    def test_new_from_file(self, file, write_clean, gpg_print):
+        msg = PGPMessage.new(file, file=True)
+
+        assert isinstance(msg, PGPMessage)
+        assert msg.type == 'literal'
+        assert msg.is_sensitive is False
+
+        assert file in self.attrs
+        for attr, expected in self.attrs[file]:
+            val = getattr(msg, attr)
+            assert val == expected
+
+        with write_clean('tests/testdata/cmsg.asc', 'w', str(msg)):
+            assert gpg_print('cmsg.asc') == msg.message
 
     def test_decrypt_passphrase_message(self, enc_msg):
         decmsg = enc_msg.decrypt("QwertyUiop")
@@ -68,11 +99,12 @@ class TestPGPMessage(object):
         assert isinstance(decmsg, PGPMessage)
         assert decmsg.message == b"This is stored, literally\\!\n\n"
 
-    def test_encrypt_passphrase(self, lit, write_clean, gpg_decrypt):
-        encmsg = lit.encrypt("QwertyUiop")
+    def test_encrypt_passphrase(self, write_clean, gpg_decrypt):
+        msg = PGPMessage.new("This message is to be encrypted")
+        encmsg = msg.encrypt("QwertyUiop")
 
         # make sure lit was untouched
-        assert not lit.is_encrypted
+        assert not msg.is_encrypted
 
         # make sure encmsg is encrypted
         assert encmsg.is_encrypted
@@ -80,21 +112,23 @@ class TestPGPMessage(object):
 
         # decrypt with PGPy
         decmsg = encmsg.decrypt("QwertyUiop")
+
         assert isinstance(decmsg, PGPMessage)
-        assert decmsg.type == lit.type
+        assert decmsg.type == msg.type
         assert decmsg.is_compressed
-        assert decmsg.message == lit.message
+        assert decmsg.message == msg.message
 
         # decrypt with GPG
-        with write_clean('tests/testdata/semsg.asc', 'w', str(lit)):
-            assert gpg_decrypt('./semsg.asc', "QwertyUiop") == "This is stored, literally\!\n\n"
+        with write_clean('tests/testdata/semsg.asc', 'w', str(encmsg)):
+            assert gpg_decrypt('./semsg.asc', "QwertyUiop") == "This message is to be encrypted"
 
-    def test_encrypt_passphrase_2(self, lit, write_clean, gpg_decrypt):
+    def test_encrypt_passphrase_2(self, write_clean, gpg_decrypt):
+        msg = PGPMessage.new("This message is to be encrypted")
         sk = SymmetricKeyAlgorithm.AES256.gen_key()
-        encmsg = lit.encrypt("QwertyUiop", sessionkey=sk).encrypt("AsdfGhjkl", sessionkey=sk)
+        encmsg = msg.encrypt("QwertyUiop", sessionkey=sk).encrypt("AsdfGhjkl", sessionkey=sk)
 
         # make sure lit was untouched
-        assert not lit.is_encrypted
+        assert not msg.is_encrypted
 
         # make sure encmsg is encrypted
         assert encmsg.is_encrypted
@@ -105,9 +139,9 @@ class TestPGPMessage(object):
         for passphrase in ["QwertyUiop", "AsdfGhjkl"]:
             decmsg = encmsg.decrypt(passphrase)
             assert isinstance(decmsg, PGPMessage)
-            assert decmsg.type == lit.type
+            assert decmsg.type == msg.type
             assert decmsg.is_compressed
-            assert decmsg.message == lit.message
+            assert decmsg.message == msg.message
 
 
 @pytest.fixture(scope='module')
@@ -127,12 +161,12 @@ def ctmessage():
 
 @pytest.fixture(scope='module')
 def targette_pub():
-    return PGPKey.from_file('tests/testdata/keys/targette.pub.rsa.asc')
+    return PGPKey.from_file('tests/testdata/keys/targette.pub.rsa.asc')[0]
 
 
 @pytest.fixture(scope='module')
 def targette_sec():
-    return PGPKey.from_file('tests/testdata/keys/targette.sec.rsa.asc')
+    return PGPKey.from_file('tests/testdata/keys/targette.sec.rsa.asc')[0]
 
 
 @pytest.fixture(scope='module')
@@ -156,12 +190,13 @@ def sessionkey():
 
 class TestPGPKey(object):
     params = {
-        'pub':        [ PGPKey.from_file(f) for f in sorted(glob.glob('tests/testdata/keys/*.pub.asc')) ],
-        'sec':        [ PGPKey.from_file(f) for f in sorted(glob.glob('tests/testdata/keys/*.sec.asc')) ],
-        'enc':        [ PGPKey.from_file(f) for f in sorted(glob.glob('tests/testdata/keys/*.enc.asc')) ],
-        'sigkey':     [ PGPKey.from_file(f) for f in sorted(glob.glob('tests/testdata/signatures/*.key.asc')) ],
+        'pub':        [ PGPKey.from_file(f)[0] for f in sorted(glob.glob('tests/testdata/keys/*.pub.asc')) ],
+        'sec':        [ PGPKey.from_file(f)[0] for f in sorted(glob.glob('tests/testdata/keys/*.sec.asc')) ],
+        'enc':        [ PGPKey.from_file(f)[0] for f in sorted(glob.glob('tests/testdata/keys/*.enc.asc')) ],
+        'sigkey':     [ PGPKey.from_file(f)[0] for f in sorted(glob.glob('tests/testdata/signatures/*.key.asc')) ],
         'sigsig':     [ PGPSignature.from_file(f) for f in sorted(glob.glob('tests/testdata/signatures/*.sig.asc')) ],
         'sigsubj':    sorted(glob.glob('tests/testdata/signatures/*.subj')),
+        'key_alg':    [ PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.DSA ]
     }
     string_sigs = dict()
     timestamp_sigs = dict()
@@ -206,18 +241,19 @@ class TestPGPKey(object):
         with self.assert_warnings():
             # add all of the subpackets we should be allowed to
             sig = sec.sign(string,
+                           user=sec.userids[0].name,
                            expires=timedelta(seconds=1),
                            revocable=False,
                            notation={'Testing': 'This signature was generated during unit testing'},
-                           policy_uri='about:blank',
-                           signer=sec.userids[0])
+                           policy_uri='about:blank')
 
         # wait a bit if sig is not yet expired
         assert sig.type == SignatureType.BinaryDocument
         assert sig.notation == {'Testing': 'This signature was generated during unit testing'}
         assert sig.revocable is False
-        # assert sig.policy_uri == 'about:blank'
+        assert sig.policy_uri == 'about:blank'
         # assert sig.sig.signer_uid == "{:s}".format(sec.userids[0])
+        assert next(iter(sig._signature.subpackets['SignersUserID'])).userid == "{:s}".format(sec.userids[0])
         if not sig.expired:
             time.sleep((sig.expires - datetime.utcnow()).total_seconds())
         assert sig.expired
@@ -347,7 +383,7 @@ class TestPGPKey(object):
         assert sig.cipherprefs == [SymmetricKeyAlgorithm.AES256, SymmetricKeyAlgorithm.Camellia256]
         assert sig.hashprefs == [HashAlgorithm.SHA384]
         assert sig.compprefs == [CompressionAlgorithm.ZLIB]
-        assert sig.features == [Features.ModificationDetection]
+        assert sig.features == {Features.ModificationDetection}
         assert sig.key_expiration == expire_in - targette_sec.created
         assert sig.keyserver == 'about:none'
         assert sig.keyserverprefs == [KeyServerPreferences.NoModify]
@@ -375,7 +411,7 @@ class TestPGPKey(object):
                               regex=r'.*')
 
         assert sig.type == SignatureType.Casual_Cert
-        assert sig.key_flags == [KeyFlags.Authentication]
+        assert sig.key_flags == {KeyFlags.Authentication}
         assert sig.exportable
         # assert sig.trust_level == 1
         # assert sig.trust_amount == 60
@@ -442,6 +478,12 @@ class TestPGPKey(object):
             assert len(list(sv.good_signatures)) > 0
             assert sv
 
+    def test_new_key(self, key_alg):
+        pytest.skip("not implemented yet")
+
+    def test_new_subkey(self):
+        pytest.skip("not implemented yet")
+
     def test_add_subkey(self):
         # when this is implemented, it will replace the temporary test_bind_subkey below
         # and test_revoke_subkey will be rewritten
@@ -458,7 +500,7 @@ class TestPGPKey(object):
         # this is temporary, until subkey generation works
         # replace the first subkey's binding signature with a new one
         subkey = next(iter(pub.subkeys.values()))
-        old_usage = subkey.usageflags
+        old_usage = next(sig for sig in subkey._signatures if sig.type == SignatureType.Subkey_Binding).key_flags
         subkey._signatures.clear()
 
         with self.assert_warnings():

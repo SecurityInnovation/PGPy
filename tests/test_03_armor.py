@@ -104,13 +104,8 @@ class TestBlocks(object):
              ('signers',       set()),
              ('type',          'encrypted')],
         'tests/testdata/blocks/revochiio.asc':
-            [('cipherprefs',   [SymmetricKeyAlgorithm.AES256, SymmetricKeyAlgorithm.AES192, SymmetricKeyAlgorithm.AES128,
-                                SymmetricKeyAlgorithm.CAST5]),
-             ('compprefs',     [CompressionAlgorithm.ZLIB, CompressionAlgorithm.BZ2, CompressionAlgorithm.ZIP,
-                                CompressionAlgorithm.Uncompressed]),
-             ('created',       datetime(2014, 9, 11, 22, 55, 53)),
+            [('created',       datetime(2014, 9, 11, 22, 55, 53)),
              ('fingerprint',   "AE15 9FF3 4C1A 2426 B7F8 0F1A 560C F308 EF60 CFA3"),
-             ('hashprefs',     [HashAlgorithm.SHA512, HashAlgorithm.SHA384, HashAlgorithm.SHA256, HashAlgorithm.SHA224]),
              ('is_expired',    True),
              ('is_primary',    True),
              ('is_protected',  False),
@@ -119,14 +114,10 @@ class TestBlocks(object):
              ('key_algorithm', PubKeyAlgorithm.RSAEncryptOrSign),
              ('magic',         "PUBLIC KEY BLOCK"),
              ('parent',        None),
-             ('signers',       {'560CF308EF60CFA3'}),
-             ('usageflags',    {KeyFlags.Certify, KeyFlags.Sign, KeyFlags.EncryptCommunications, KeyFlags.EncryptStorage}),],
+             ('signers',       {'560CF308EF60CFA3'}),],
         'tests/testdata/blocks/rsapubkey.asc':
-            [('cipherprefs',   [SymmetricKeyAlgorithm.AES256, SymmetricKeyAlgorithm.AES192, SymmetricKeyAlgorithm.AES128]),
-             ('compprefs',     [CompressionAlgorithm.ZLIB]),
-             ('created',       datetime(2014, 7, 23, 21, 19, 24)),
+            [('created',       datetime(2014, 7, 23, 21, 19, 24)),
              ('fingerprint',   "F429 4BC8 094A 7E05 85C8 5E86 3747 3B37 58C4 4F36"),
-             ('hashprefs',     [HashAlgorithm.SHA256]),
              ('is_expired',    False),
              ('is_primary',    True),
              ('is_protected',  False),
@@ -135,16 +126,10 @@ class TestBlocks(object):
              ('key_algorithm', PubKeyAlgorithm.RSAEncryptOrSign),
              ('magic',         "PUBLIC KEY BLOCK"),
              ('parent',        None),
-             ('signers',       set()),
-             ('usageflags',    {KeyFlags.Certify}),],
+             ('signers',       set()),],
         'tests/testdata/blocks/rsaseckey.asc':
-            [('cipherprefs',   [SymmetricKeyAlgorithm.AES256, SymmetricKeyAlgorithm.AES192, SymmetricKeyAlgorithm.AES128,
-                                SymmetricKeyAlgorithm.CAST5, SymmetricKeyAlgorithm.TripleDES]),
-             ('compprefs',     [CompressionAlgorithm.ZLIB, CompressionAlgorithm.BZ2, CompressionAlgorithm.ZIP]),
-             ('created',       datetime(2014, 7, 23, 21, 19, 24)),
+            [('created',       datetime(2014, 7, 23, 21, 19, 24)),
              ('fingerprint',   "F429 4BC8 094A 7E05 85C8 5E86 3747 3B37 58C4 4F36"),
-             ('hashprefs',     [HashAlgorithm.SHA256, HashAlgorithm.SHA1, HashAlgorithm.SHA384, HashAlgorithm.SHA512,
-                                HashAlgorithm.SHA224]),
              ('is_expired',    False),
              ('is_primary',    True),
              ('is_protected',  False),
@@ -153,8 +138,7 @@ class TestBlocks(object):
              ('key_algorithm', PubKeyAlgorithm.RSAEncryptOrSign),
              ('magic',         "PRIVATE KEY BLOCK"),
              ('parent',        None),
-             ('signers',       set()),
-             ('usageflags',    {KeyFlags.Certify}),],
+             ('signers',       set()),],
         'tests/testdata/blocks/rsasignature.asc':
             [('__sig__',       b'\x70\x38\x79\xd0\x58\x70\x58\x7b\x50\xe6\xab\x8f\x9d\xc3\x46\x2c\x5a\x6b\x98\x96\xcf'
                                b'\x3b\xa3\x79\x13\x08\x6d\x90\x9d\x67\xd2\x48\x7d\xd7\x1a\xa5\x98\xa7\x8f\xca\xe3\x24'
@@ -216,3 +200,4 @@ class TestBlocks(object):
         for attr, val in self.attrs[block]:
             attrval = getattr(p, attr)
             assert attrval == val
+

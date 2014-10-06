@@ -998,7 +998,7 @@ class LiteralData(Packet):
 
     @property
     def contents(self):
-        if self.format == 't':  # pragma: no cover
+        if self.format == 't':
             return self._contents.decode('latin-1')
 
         if self.format == 'u':  # pragma: no cover

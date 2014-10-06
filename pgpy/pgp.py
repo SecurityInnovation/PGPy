@@ -21,9 +21,6 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 
-from .errors import PGPDecryptionError
-from .errors import PGPError
-
 from .constants import CompressionAlgorithm
 from .constants import Features
 from .constants import HashAlgorithm
@@ -38,6 +35,9 @@ from .constants import SignatureType
 from .constants import SymmetricKeyAlgorithm
 
 from .decorators import KeyAction
+
+from .errors import PGPDecryptionError
+from .errors import PGPError
 
 from .packet import Key
 from .packet import MDC
@@ -79,15 +79,15 @@ class PGPSignature(PGPObject, Armorable):
 
     @property
     def cipherprefs(self):
-        if 'PreferredSymmetricAlgorithms' not in self._signature.subpackets:
-            return []
-        return next(iter(self._signature.subpackets['h_PreferredSymmetricAlgorithms'])).flags
+        if 'PreferredSymmetricAlgorithms' in self._signature.subpackets:
+            return next(iter(self._signature.subpackets['h_PreferredSymmetricAlgorithms'])).flags
+        return []
 
     @property
     def compprefs(self):
-        if 'PreferredCompressionAlgorithms' not in self._signature.subpackets:
-            return []
-        return next(iter(self._signature.subpackets['h_PreferredCompressionAlgorithms'])).flags
+        if 'PreferredCompressionAlgorithms' in self._signature.subpackets:
+            return next(iter(self._signature.subpackets['h_PreferredCompressionAlgorithms'])).flags
+        return []
 
     @property
     def created(self):
@@ -131,9 +131,9 @@ class PGPSignature(PGPObject, Armorable):
 
     @property
     def hashprefs(self):
-        if 'PreferredHashAlgorithms' not in self._signature.subpackets:
-            return []
-        return next(iter(self._signature.subpackets['h_PreferredHashAlgorithms'])).flags
+        if 'PreferredHashAlgorithms' in self._signature.subpackets:
+            return next(iter(self._signature.subpackets['h_PreferredHashAlgorithms'])).flags
+        return []
 
     @property
     def hash_algorithm(self):
@@ -176,6 +176,12 @@ class PGPSignature(PGPObject, Armorable):
         return dict((nd.name, nd.value) for nd in self._signature.subpackets['NotationData'])
 
     @property
+    def policy_uri(self):
+        if 'Policy' in self._signature.subpackets:
+            return next(iter(self._signature.subpackets['Policy'])).uri
+        return ''
+
+    @property
     def revocable(self):
         if 'Revocable' in self._signature.subpackets:
             return bool(next(iter(self._signature.subpackets['Revocable'])))
@@ -211,7 +217,9 @@ class PGPSignature(PGPObject, Armorable):
 
         sigpkt.sigtype = sigtype
         sigpkt.pubalg = pkalg
-        sigpkt.halg = halg
+
+        if halg is not None:
+            sigpkt.halg = halg
 
         sig._signature = sigpkt
         return sig
@@ -532,6 +540,12 @@ class PGPMessage(PGPObject, Armorable):
         return set(m.encrypter for m in self._sessionkeys if isinstance(m, PKESessionKey))
 
     @property
+    def filename(self):
+        if self.type == 'literal':
+            return self._message.filename
+        return ''
+
+    @property
     def is_compressed(self):
         """``True`` if this message will be compressed when exported"""
         return self._compression != CompressionAlgorithm.Uncompressed
@@ -540,6 +554,10 @@ class PGPMessage(PGPObject, Armorable):
     def is_encrypted(self):
         """``True`` if this message is encrypted; otherwise, ``False``"""
         return isinstance(self._message, (SKEData, IntegrityProtectedSKEData))
+
+    @property
+    def is_sensitive(self):
+        return self.type == 'literal' and self._message.filename == '_CONSOLE'
 
     @property
     def is_signed(self):
@@ -702,40 +720,39 @@ class PGPMessage(PGPObject, Armorable):
         cleartext = kwargs.pop('cleartext', False)
         sensitive = kwargs.pop('sensitive', False)
         compression = kwargs.pop('compression', CompressionAlgorithm.ZIP)
-        format = kwargs.pop('format', 'b')
+        file = kwargs.pop('file', False)
+
+        filename = ''
+        mtime = datetime.utcnow()
+
+        msg = PGPMessage()
+
+        if file and os.path.isfile(message):
+            filename = message
+            message = bytearray(os.path.getsize(filename))
+            mtime = datetime.utcfromtimestamp(os.path.getmtime(filename))
+
+            with open(filename, 'rb') as mf:
+                mf.readinto(message)
 
         if cleartext:
-            msg = PGPMessage() + message
+            # cleartext message
+            msg += message
 
         else:
             # load literal data
             lit = LiteralData()
-            if os.path.isfile(message):
-                lit.filename = os.path.basename(message)
-                lit.mtime = datetime.utcfromtimestamp(os.stat(message).st_mtime)
-                with open(message, 'rb') as mf:
-                    lit._contents = bytearray(os.path.getsize(message))
-                    mf.readinto(lit._contents)
+            lit._contents = bytearray(cls.text_to_bytes(message))
+            lit.filename = '_CONSOLE' if sensitive else os.path.basename(filename)
+            lit.mtime = mtime
+            lit.format = 'b'
 
-            else:
-                lit._contents = bytearray(six.b(message))
-                lit.mtime = datetime.utcnow()
-
-            lit.format = format
-
-            if sensitive:
-                lit.filename = '_CONSOLE'
+            if cls.is_ascii(message):
+                lit.format = 't'
 
             lit.update_hlen()
 
-            _m = lit
-            if compression != CompressionAlgorithm.Uncompressed:
-                _m = CompressedData()
-                _m.calg = compression
-                _m.packets.append(lit)
-                _m.update_hlen()
-
-            msg = PGPMessage() + _m
+            msg += lit
             msg._compression = compression
 
         return msg
@@ -923,36 +940,12 @@ class PGPKey(PGPObject, Armorable):
 
     @property
     def __sig__(self):
-        return self.signatures
+        return list(self._signatures)
 
     @property
     def created(self):
         """A :py:obj:`~datetime.datetime` object of the creation date and time of the key, in UTC."""
         return self._key.created
-
-    @property
-    def cipherprefs(self):
-        """A preference list of :py:obj:`~constants.SymmetricKeyAlgorithm` defined for this key"""
-        if self.is_primary or len(self._uids) > 0:
-            return self._uids[0].selfsig.cipherprefs
-
-        elif self.parent is not None:
-            return self.parent.cipherprefs
-
-        else:  # pragma: no cover
-            raise PGPError("Incomplete key")
-
-    @property
-    def compprefs(self):
-        """A preference list of :py:obj:`~constants.CompressionAlgorithm` defined for this key"""
-        if self.is_primary or len(self._uids) > 0:
-            return self._uids[0].selfsig.compprefs
-
-        elif self.parent is not None:
-            return self.parent.compprefs
-
-        else:  # pragma: no cover
-            raise PGPError("Incomplete key")
 
     @property
     def fingerprint(self):
@@ -970,22 +963,11 @@ class PGPKey(PGPObject, Armorable):
         return self._key.__bytes__()[len(self._key.header):publen]
 
     @property
-    def hashprefs(self):
-        """A preference list of :py:obj:`~constants.HashAlgorithm` defined for this key"""
-        if self.is_primary or len(self._uids) > 0:
-            return self._uids[0].selfsig.hashprefs
-
-        elif self.parent is not None:
-            return self.parent.hashprefs
-
-        else:  # pragma: no cover
-            raise PGPError("Incomplete key")
-
-    @property
     def is_expired(self):
         """``True`` if this key is expired, otherwise ``False``"""
         try:
-            expires = min(sig.key_expiration for sig in self.self_signatures if sig.key_expiration is not None)
+            expires = min(sig.key_expiration for sig in itertools.chain(iter(uid.selfsig for uid in self.userids), self.self_signatures)
+                          if sig.key_expiration is not None)
 
         except ValueError:
             return False
@@ -1041,17 +1023,13 @@ class PGPKey(PGPObject, Armorable):
 
     @property
     def self_signatures(self):
-        for sig in self._signatures:
-            if sig.signer == self.fingerprint.keyid:
-                yield sig
+        keyid, keytype = (self.fingerprint.keyid, SignatureType.DirectlyOnKey) if self.is_primary \
+            else (self.parent.fingerprint.keyid, SignatureType.Subkey_Binding)
 
-        if self.is_primary:
-            for sig in iter(u.selfsig for u in self.userids):
-                yield sig
-
-    @property
-    def signatures(self):
-        return list(self._signatures)
+        ##TODO: filter out revoked signatures as well
+        for sig in iter(sig for sig in self._signatures
+                        if all([sig.type == keytype, sig.signer == keyid, not sig.expired])):
+            yield sig
 
     @property
     def signers(self):
@@ -1064,18 +1042,9 @@ class PGPKey(PGPObject, Armorable):
         return self._children
 
     @property
-    def usageflags(self):
-        """A ``set`` of :py:obj:`constants.KeyFlags` pertaining to this key."""
-        if self.is_primary:
-            return set(self._uids[0].selfsig.key_flags)
-
-        else:
-            return set(next(iter(self._signatures)).key_flags)
-
-    @property
     def userids(self):
         """A ``list`` of :py:obj:`PGPUID` objects containing User ID information about this key"""
-        return [u for u in self._uids if u.is_uid]
+        return [ u for u in self._uids if u.is_uid ]
 
     @property
     def userattributes(self):
@@ -1083,8 +1052,8 @@ class PGPKey(PGPObject, Armorable):
         return [u for u in self._uids if u.is_ua]
 
     @classmethod
-    def generate(cls):
-        raise NotImplementedError()
+    def new(cls, key_algorithm, **kwargs):
+        raise NotImplementedError
 
     def __init__(self):
         """PGPKey"""
@@ -1100,7 +1069,7 @@ class PGPKey(PGPObject, Armorable):
         # us
         _bytes += self._key.__bytes__()
         # our signatures; ignore embedded signatures
-        for sig in [ s for s in self.signatures if not s.embedded and s.exportable ]:
+        for sig in iter(s for s in self._signatures if not s.embedded and s.exportable):
             _bytes += sig.__bytes__()
         # one or more User IDs, followed by their signatures
         for uid in self._uids:
@@ -1119,6 +1088,9 @@ class PGPKey(PGPObject, Armorable):
     def __contains__(self, item):
         if isinstance(item, PGPKey):  # pragma: no cover
             return item.fingerprint.keyid in self.subkeys
+
+        if isinstance(item, Fingerprint):  # pragma: no cover
+            return item.keyid in self.subkeys
 
         if isinstance(item, PGPUID):
             return item in self._uids
@@ -1219,15 +1191,31 @@ class PGPKey(PGPObject, Armorable):
 
         self += uid
 
+    def get_uid(self, search):
+        if self.is_primary:
+            return next((u for u in self._uids if search in filter(lambda a: a is not None, (u.name, u.comment, u.email))), None)
+        return self.parent.get_uid(search)
+
     def del_uid(self, search):
-        u = next((u for u in self._uids if search in filter(lambda a: a is not None, (u.name, u.comment, u.email))),
-                 None)
+        u = self.get_uid(search)
 
         if u is None:
-            raise PGPError("uid '{:s}' not found".format(search))
+            raise KeyError("uid '{:s}' not found".format(search))
 
         u._parent = None
         self._uids.remove(u)
+
+    def _get_key_flags(self, user=None):
+        if self.is_primary:
+            if user is not None:
+                user = self.get_uid(user)
+
+            else:
+                user = next(iter(self.userids))
+
+            return user.selfsig.key_flags
+
+        return next(self.self_signatures).key_flags
 
     def _sign(self, subject, sig, **prefs):
         """
@@ -1236,6 +1224,18 @@ class PGPKey(PGPObject, Armorable):
         :param sig:
         :return:
         """
+        user = prefs.pop('user', None)
+        uid = None
+        if user is not None:
+            uid = self.get_uid(user)
+        else:
+            uid = next(iter(self.userids), None)
+            if uid is None and self.parent is not None:
+                uid = next(iter(self.parent.userids), None)
+
+        if sig.hash_algorithm is None:
+            sig._signature.halg = uid.selfsig.hashprefs[0]
+
         if self.key_algorithm == PubKeyAlgorithm.RSAEncryptOrSign:
             sigopts = (padding.PKCS1v15(), getattr(hashes, sig.hash_algorithm.name)(), default_backend())
 
@@ -1245,16 +1245,14 @@ class PGPKey(PGPObject, Armorable):
         else:
             raise NotImplementedError(self.key_algorithm)
 
-        if sig.hash_algorithm not in self.hashprefs:
+        if sig.hash_algorithm not in uid.selfsig.hashprefs:
             warnings.warn("Selected hash algorithm not in key preferences", stacklevel=4)
-
 
         # signature options that can be applied at any level
         expires = prefs.pop('expires', None)
         revocable = prefs.pop('revocable', True)
         notation = prefs.pop('notation', None)
         policy_uri = prefs.pop('policy_uri', None)
-        signers_uid = prefs.pop('signer', None)
 
         if expires is not None:
             # expires should be a timedelta, so if it's a datetime, turn it into a timedelta
@@ -1278,9 +1276,8 @@ class PGPKey(PGPObject, Armorable):
         if policy_uri is not None:
             sig._signature.subpackets.addnew('Policy', hashed=True, uri=policy_uri)
 
-        if signers_uid is not None:
-            if isinstance(signers_uid, PGPUID):
-                signers_uid = "{:s}".format(signers_uid)
+        if user is not None and uid is not None:
+            signers_uid = "{:s}".format(uid)
             sig._signature.subpackets.addnew('SignersUserID', hashed=True, userid=signers_uid)
 
         sigdata = sig.hashdata(subject)
@@ -1295,8 +1292,7 @@ class PGPKey(PGPObject, Armorable):
 
         return sig
 
-    # @KeyAction(KeyFlags.Sign, is_unlocked=True, is_public=False)
-    @KeyAction(is_unlocked=True, is_public=False)
+    @KeyAction(KeyFlags.Sign, is_unlocked=True, is_public=False)
     def sign(self, subject, **prefs):
         """
         Sign text, a message, or a timestamp using this key.
@@ -1306,10 +1302,9 @@ class PGPKey(PGPObject, Armorable):
         :raises:
         :returns: :py:obj:`PGPSignature`
         """
-        hash_algo = prefs.pop('hash', next(iter(self.hashprefs)))
         sig_type = SignatureType.BinaryDocument
+        hash_algo = prefs.pop('hash', None)
 
-        ##TODO: standalone signature?
         if subject is None:
             sig_type = SignatureType.Timestamp
 
@@ -1328,7 +1323,7 @@ class PGPKey(PGPObject, Armorable):
         """
         certify
         """
-        hash_algo = prefs.pop('hash', next(iter(self.hashprefs)))
+        hash_algo = prefs.pop('hash', None)
         sig_type = level
         if isinstance(subject, PGPKey):
             sig_type = SignatureType.DirectlyOnKey
@@ -1407,7 +1402,7 @@ class PGPKey(PGPObject, Armorable):
     def revoke(self, target, **prefs):
         """
         """
-        hash_algo = prefs.pop('hash', next(iter(self.hashprefs)))
+        hash_algo = prefs.pop('hash', None)
         if isinstance(target, PGPUID):
             sig_type = SignatureType.CertRevocation
 
@@ -1438,7 +1433,7 @@ class PGPKey(PGPObject, Armorable):
     def revoker(self, revoker, **prefs):
         """
         """
-        hash_algo = prefs.pop('hash', next(iter(self.hashprefs)))
+        hash_algo = prefs.pop('hash', None)
 
         sig = PGPSignature.new(SignatureType.DirectlyOnKey, self.key_algorithm, hash_algo, self.fingerprint.keyid)
 
@@ -1460,7 +1455,7 @@ class PGPKey(PGPObject, Armorable):
     def bind(self, key, **prefs):
         """
         """
-        hash_algo = prefs.pop('hash', next(iter(self.hashprefs)))
+        hash_algo = prefs.pop('hash', None)
 
         if self.is_primary and not key.is_primary:
             sig_type = SignatureType.Subkey_Binding
@@ -1590,16 +1585,24 @@ class PGPKey(PGPObject, Armorable):
         :param sessionkey:
         :return: A new :py:obj:`PGPMessage` with the encrypted contents of ``message``
         """
-        cipher_algo = prefs.pop('cipher', next(iter(self.cipherprefs)))
-        hash_algo = prefs.pop('hash', next(iter(self.hashprefs)))
+        user = prefs.pop('user', None)
+        uid = None
+        if user is not None:
+            uid = self.get_uid(user)
+        else:
+            uid = next(iter(self.userids), None)
+            if uid is None and self.parent is not None:
+                uid = next(iter(self.parent.userids), None)
+        cipher_algo = prefs.pop('cipher', uid.selfsig.cipherprefs[0])
+        hash_algo = prefs.pop('hash', uid.selfsig.hashprefs[0])
 
-        if cipher_algo not in self.cipherprefs:
+        if cipher_algo not in uid.selfsig.cipherprefs:
             warnings.warn("Selected symmetric algorithm not in key preferences", stacklevel=3)
 
-        if hash_algo not in self.hashprefs:
+        if hash_algo not in uid.selfsig.hashprefs:
             warnings.warn("Selected hash algorithm not in key preferences", stacklevel=3)
 
-        if message.is_compressed and message._compression not in self.compprefs:
+        if message.is_compressed and message._compression not in uid.selfsig.compprefs:
             warnings.warn("Selected compression algorithm not in key preferences", stacklevel=3)
 
         if sessionkey is None:
@@ -1844,10 +1847,13 @@ class PGPKeyring(collections.Container, collections.Iterable, collections.Sized)
                 yield item
 
         loaded = set()
-        for key in [ item for ilist in iter(ilist if isinstance(ilist, (tuple, list)) else [ilist] for ilist in args)
-                     for item in ilist ]:
-            _key = PGPKey()
-            keys = _key.parse(key)
+        for key in iter(item for ilist in iter(ilist if isinstance(ilist, (tuple, list)) else [ilist] for ilist in args)
+                        for item in ilist):
+            if os.path.isfile(key):
+                _key, keys = PGPKey.from_file(key)
+
+            else:
+                _key, keys = PGPKey.from_blob(key)
 
             for ik in _preiter(_key, keys['keys'].values()):
                 self._add_key(ik)

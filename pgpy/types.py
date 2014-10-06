@@ -38,14 +38,13 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
 
     @staticmethod
     def is_ascii(text):
-        if not isinstance(text, (str, bytes, bytearray)):  # pragma: no cover
-            raise ValueError("Expected: ASCII input of type str, bytes, or bytearray")
-
-        if isinstance(text, str):
+        if isinstance(text, six.string_types):
             return bool(re.match(r'^[ -~\n]+$', text, flags=re.ASCII))
 
         if isinstance(text, (bytes, bytearray)):
             return bool(re.match(br'^[ -~\n]+$', text, flags=re.ASCII))
+
+        raise ValueError("Expected: ASCII input of type str, bytes, or bytearray")  # pragma: no cover
 
     @staticmethod
     def ascii_unarmor(text):
@@ -144,7 +143,20 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
             data = bytearray(os.path.getsize(filename))
             file.readinto(data)
 
-        obj.parse(data)
+        po = obj.parse(data)
+
+        if po is not None:
+            return (obj, po)
+
+        return obj
+
+    @classmethod
+    def from_blob(cls, blob):
+        obj = cls()
+        po = obj.parse(bytearray(blob, 'latin-1'))
+
+        if po is not None:
+            return (obj, po)
 
         return obj
 
@@ -207,13 +219,15 @@ class PGPObject(six.with_metaclass(abc.ABCMeta, object)):
     def text_to_bytes(text):
         bin = bytearray()
 
-        if text is not None and not isinstance(text, six.binary_type):
-            for c in iter(ord(c) for c in text):
-                if c < 256:
-                    bin.append(c)
+        if text is None or isinstance(text, bytearray):
+            return text
 
-                else:
-                    bin += PGPObject.int_to_bytes(c)
+        for c in iter(ord(c) for c in text):
+            if c < 256:
+                bin.append(c)
+
+            else:
+                bin += PGPObject.int_to_bytes(c)
 
         return bytes(bin)
 

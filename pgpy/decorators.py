@@ -63,7 +63,7 @@ class KeyAction(object):
         self.conditions = conditions
 
     @contextlib.contextmanager
-    def usage(self, key):
+    def usage(self, key, user):
         def _preiter(first, iterable):
             yield first
             for item in iterable:
@@ -75,7 +75,7 @@ class KeyAction(object):
 
         if len(self.flags):
             for _key in _preiter(key, key.subkeys.values()):
-                if self.flags & _key.usageflags:
+                if self.flags & set(_key._get_key_flags(user)):
                     break
 
             else:  # pragma: no cover
@@ -100,14 +100,7 @@ class KeyAction(object):
     def __call__(self, action):
         @functools.wraps(action)
         def _action(key, *args, **kwargs):
-            # ignore_usage = kwargs.pop('ignore_usage', False)
-            # if ignore_usage:
-            #     self.check_attributes(key)
-            #
-            #     # do the thing
-            #     return action(key, *args, **kwargs)
-
-            with self.usage(key) as _key:
+            with self.usage(key, kwargs.get('user', None)) as _key:
                 self.check_attributes(key)
 
                 # do the thing

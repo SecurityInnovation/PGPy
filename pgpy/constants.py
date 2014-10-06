@@ -281,11 +281,6 @@ class SignatureType(IntEnum):
     Timestamp = 0x40
     ThirdParty_Confirmation = 0x50
 
-    @classproperty
-    def certifications(cls):
-        return {SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
-                SignatureType.Positive_Cert, SignatureType.CertRevocation}
-
 
 class KeyServerPreferences(IntEnum):
     Unknown = 0x00

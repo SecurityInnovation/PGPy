@@ -72,11 +72,8 @@ def keyring():
 
 class TestPGPKeyring(object):
     def test_load(self, keyring):
-        kc = []
-        for kf in glob.glob('tests/testdata/*test.asc') + glob.glob('tests/testdata/signatures/*.key.asc'):
-            with open(kf, 'r') as kff:
-                kc.append(kff.read())
-        keys = keyring.load(kc)
+        # load from filenames
+        keys = keyring.load(glob.glob('tests/testdata/*test.asc'), glob.glob('tests/testdata/signatures/*.key.asc'))
 
         # keys
         assert all(isinstance(k, Fingerprint) for k in keys)

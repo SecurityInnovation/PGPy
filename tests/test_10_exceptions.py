@@ -29,21 +29,22 @@ def _read(f, mode='r'):
 
 @pytest.fixture(scope='module')
 def rsa_sec():
-    return PGPKey.from_file('tests/testdata/keys/rsa.1.sec.asc')
+    return PGPKey.from_file('tests/testdata/keys/rsa.1.sec.asc')[0]
 
 
 @pytest.fixture(scope='module')
 def rsa_enc():
-    return PGPKey.from_file('tests/testdata/keys/rsa.1.enc.asc')
+    return PGPKey.from_file('tests/testdata/keys/rsa.1.enc.asc')[0]
 
 
 @pytest.fixture(scope='module')
 def rsa_pub():
-    return PGPKey.from_file('tests/testdata/keys/rsa.1.pub.asc')
+    return PGPKey.from_file('tests/testdata/keys/rsa.1.pub.asc')[0]
+
 
 @pytest.fixture(scope='module')
 def targette_sec():
-    return PGPKey.from_file('tests/testdata/keys/targette.sec.rsa.asc')
+    return PGPKey.from_file('tests/testdata/keys/targette.sec.rsa.asc')[0]
 
 
 class TestPGPKey(object):
@@ -73,14 +74,14 @@ class TestPGPKey(object):
             rsa_enc.sign("asdf")
 
     def test_verify_wrongkey(self, rsa_pub):
-        wrongkey = PGPKey.from_file('tests/testdata/signatures/aptapproval-test.key.asc')
+        wrongkey, _ = PGPKey.from_file('tests/testdata/signatures/aptapproval-test.key.asc')
         sig = PGPSignature.from_file('tests/testdata/signatures/debian-sid.sig.asc')
 
         with pytest.raises(PGPError):
             wrongkey.verify(_read('tests/testdata/signatures/debian-sid.subj'), sig)
 
     def test_decrypt_unencrypted_message(self, rsa_sec, recwarn):
-        lit = PGPMessage.new('tests/testdata/lit')
+        lit = PGPMessage.new('tests/testdata/lit', file=True)
         rsa_sec.decrypt(lit)
 
         w = recwarn.pop(UserWarning)
@@ -101,7 +102,7 @@ class TestPGPKey(object):
             12 in rsa_sec
 
     def test_fail_del_uid(self, rsa_sec):
-        with pytest.raises(PGPError):
+        with pytest.raises(KeyError):
             rsa_sec.del_uid("ASDFDSGSAJGKSAJG")
 
     def test_encrypt_bad_prefs(self, rsa_pub, recwarn):
