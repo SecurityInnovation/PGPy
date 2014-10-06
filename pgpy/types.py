@@ -595,5 +595,5 @@ class SorteDeque(collections.deque):
 
     def check(self):  # pragma: no cover
         """re-sort any items in self that are not sorted"""
-        for unsorted in iter(self[i] for i in range(len(self) - 2) if not operator.le(self[i], self[i+1])):
+        for unsorted in iter(self[i] for i in range(len(self) - 2) if not operator.le(self[i], self[i + 1])):
             self.resort(unsorted)
