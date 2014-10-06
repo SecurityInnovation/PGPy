@@ -26,6 +26,7 @@ class TestBlocks(object):
     attrs = {
         'tests/testdata/blocks/message.compressed.asc':
             [('encrypters',    set()),
+             ('filename',      'lit'),
              ('is_compressed', True),
              ('is_encrypted',  False),
              ('is_signed',     False),
@@ -35,6 +36,7 @@ class TestBlocks(object):
              ('type',          'literal'),],
         'tests/testdata/blocks/message.literal.asc':
             [('encrypters',    set()),
+             ('filename',      'lit'),
              ('is_compressed', False),
              ('is_encrypted',  False),
              ('is_signed',     False),
@@ -44,6 +46,7 @@ class TestBlocks(object):
              ('type',          'literal'),],
         'tests/testdata/blocks/message.onepass.asc':
             [('encrypters',    set()),
+             ('filename',      'lit'),
              ('is_compressed', False),
              ('is_encrypted',  False),
              ('is_signed',     True),
@@ -53,6 +56,7 @@ class TestBlocks(object):
              ('type',          'literal'),],
         'tests/testdata/blocks/message.two_onepass.asc':
             [('encrypters',    set()),
+             ('filename',      'lit'),
              ('is_compressed', False),
              ('is_encrypted',  False),
              ('is_signed',     True),
@@ -62,6 +66,7 @@ class TestBlocks(object):
              ('type',          'literal'),],
         'tests/testdata/blocks/message.signed.asc':
             [('encrypters',    set()),
+             ('filename',      'lit'),
              ('is_compressed', False),
              ('is_encrypted',  False),
              ('is_signed',     True),
@@ -163,6 +168,7 @@ class TestBlocks(object):
             ('keyserverprefs', []),
             ('magic',          "SIGNATURE"),
             ('notation',       {}),
+            ('policy_uri',     ''),
             ('revocable',      True),
             ('revocation_key', None),
             ('signer',         'FCAE54F74BA27CF7'),
