@@ -176,3 +176,27 @@ class TestPGPKeyring(object):
         with keyring.key(m1) as rsakey:
             assert rsakey.fingerprint == "00EC FAF5 48AE B655 F861  8193 EEE0 97A0 17B9 79CA"
             assert rsakey.parent.fingerprint == "F429 4BC8 094A 7E05 85C8 5E86 3747 3B37 58C4 4F36"
+
+    def test_unload_key(self, keyring):
+        with keyring.key("Test Repository Signing Key") as key:
+            keyring.unload(key)
+
+        # is the key and its subkeys actually gone?
+        assert id(key) not in keyring._keys
+        for pkid in iter(id(sk) for sk in key.subkeys.values()):
+            assert pkid not in keyring._keys
+
+        # aliases
+        # userid components
+        assert "Test Repository Signing Key" not in keyring
+        assert "KUS" not in keyring
+        assert "usc-kus@securityinnovation.com" not in keyring
+
+        # fingerprints
+        assert "513B 160A A994 8C1F 3D77 952D CE57 0774 D0FD CA20"
+
+        # keyid(s)
+        assert "CE570774D0FDCA20" not in keyring
+
+        # shortids
+        assert "D0FDCA20" not in keyring

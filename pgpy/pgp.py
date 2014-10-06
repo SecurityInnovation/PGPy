@@ -1883,5 +1883,22 @@ class PGPKeyring(collections.Container, collections.Iterable, collections.Sized)
                      if pk.is_public in [True if keyhalf in ['public', 'any'] else None,
                                          False if keyhalf in ['private', 'any'] else None]})
 
-    def unload(self, fp):
-        raise NotImplementedError()
+    def unload(self, key):
+        assert isinstance(key, PGPKey)
+        pkid = id(key)
+        if pkid in self._keys:
+            # remove references
+            [ kd.remove(pkid) for kd in [self._pubkeys, self._privkeys] if pkid in kd ]
+            # remove the key
+            self._keys.pop(pkid)
+
+            # remove aliases
+            for m, a in [ (m, a) for m in self._aliases for a, p in m.items() if p == pkid ]:
+                m.pop(a)
+                # do a re-sort of this alias if it was not unique
+                if a in self:
+                    self._sort_alias(a)
+
+            # if key is a primary key, unload its subkeys as well
+            if key.is_primary:
+                [ self.unload(sk) for sk in key.subkeys.values() ]
