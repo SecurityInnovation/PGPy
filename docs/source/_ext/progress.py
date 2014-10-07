@@ -27,7 +27,7 @@ class ProgressTable(Directive):
 
     def create_progtable(self, **attrs):
         _attrs = {
-            'classes': ['progress', 'outer'],
+            'classes': ['progress', 'outer', 'docutils', 'field-list'],
             'colwidths': [20, 80]
         }
         _attrs.update(attrs)
@@ -55,7 +55,7 @@ class ProgressTable(Directive):
         return node
 
     def add_progbar(self, row, val, max):
-        entry = nodes.entry(classes=['progcell'])
+        entry = nodes.entry(classes=['progcell', 'field-value'])
         pbar = progress(value=val, max=max)
         entry += pbar
 
@@ -94,7 +94,7 @@ class ProgressTable(Directive):
                     comps[cur] = []
 
                 # shrow is the section header row
-                shrow = self.create_headrow(cur, classes=['prog-sec-label'])
+                shrow = self.create_headrow(cur, classes=['field-name'])
                 body += shrow
 
                 continue
@@ -104,9 +104,13 @@ class ProgressTable(Directive):
                 nl = nl.groupdict()
                 comps[cur].append(True if nl['value'] == "True" else False)
                 tr = nodes.row()
-                tr += nodes.description('', nodes.inline(text="\u2713" if comps[cur][-1] else " "), classes=['progress-checkbox'])
-                tr += nodes.description('', nodes.strong(text='{:s} '.format(nl['item'])),
-                                        nodes.inline(text='{:s}'.format(nl['description'] if nl['description'] is not None else ' ')))
+                tr += nodes.description('',
+                                        nodes.inline(text="\u2713" if comps[cur][-1] else " "),
+                                        classes=['field-name', 'progress-checkbox'])
+                tr += nodes.description('',
+                                        nodes.strong(text='{:s} '.format(nl['item'])),
+                                        nodes.inline(text='{:s}'.format(nl['description'] if nl['description'] is not None else ' ')),
+                                        classes=['field-value'])
                 body += tr
 
         # finish up the final hrow

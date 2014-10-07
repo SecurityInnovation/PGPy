@@ -171,7 +171,7 @@ def targette_sec():
 
 @pytest.fixture(scope='module')
 def userid():
-    return PGPUID.new(name='Abraham Lincoln', comment='Honest Abe', email='abraham.lincoln@whitehouse.gov')
+    return PGPUID.new('Abraham Lincoln', comment='Honest Abe', email='abraham.lincoln@whitehouse.gov')
 
 
 @pytest.fixture(scope='module')
@@ -179,7 +179,7 @@ def userphoto():
     with open('tests/testdata/abe.jpg', 'rb') as abef:
         abebytes = bytearray(os.path.getsize('tests/testdata/abe.jpg'))
         abef.readinto(abebytes)
-    return PGPUID.new(photo=abebytes)
+    return PGPUID.new(abebytes)
 
 
 @pytest.fixture(scope='module')
@@ -409,7 +409,7 @@ class TestPGPKey(object):
 
     def test_remove_userid(self, targette_sec):
         # create a temporary userid, add it, and then remove it
-        tempuid = PGPUID.new(name='Temporary Youx\'seur')
+        tempuid = PGPUID.new('Temporary Youx\'seur')
         targette_sec.add_uid(tempuid)
 
         assert tempuid in targette_sec

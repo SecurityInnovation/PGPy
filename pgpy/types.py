@@ -468,11 +468,6 @@ class Dispatchable(six.with_metaclass(MetaDispatchable, PGPObject)):
 
 
 class SignatureVerification(object):
-    """
-    Returned by :py:meth:`pgpy.PGPKeyring.verify`
-
-    Can be compared directly as a boolean to determine whether or not the specified signature verified.
-    """
     _sigsubj = collections.namedtuple('sigsubj', ['verified', 'by', 'signature', 'subject'])
 
     @property
@@ -486,6 +481,11 @@ class SignatureVerification(object):
             yield s
 
     def __init__(self):
+        """
+        Returned by :py:meth:`pgpy.PGPKeyring.verify`
+
+        Can be compared directly as a boolean to determine whether or not the specified signature verified.
+        """
         super(SignatureVerification, self).__init__()
         self._subjects = []
 

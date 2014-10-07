@@ -301,7 +301,7 @@ class TrustLevel(IntEnum):
     Never = 3
     Marginal = 4
     Fully = 5
-    Ultiated = 6
+    Ultimate = 6
 
 
 class KeyFlags(FlagEnum):

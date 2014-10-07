@@ -229,12 +229,8 @@ class TestPGPSignature(object):
 
 
 class TestPGPUID(object):
-    def test_bad_new(self):
-        with pytest.raises(ValueError):
-            PGPUID.new()
-
     def test_add_typeerror(self):
-        u = PGPUID.new(name="Asdf Qwert")
+        u = PGPUID.new("Asdf Qwert")
         with pytest.raises(TypeError):
             u += 12
 

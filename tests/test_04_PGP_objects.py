@@ -15,23 +15,23 @@ from pgpy.types import Fingerprint
 
 @pytest.fixture
 def un():
-    return PGPUID.new(name=six.u('Temperair\xe9e Youx\'seur'))
+    return PGPUID.new(six.u('Temperair\xe9e Youx\'seur'))
 
 @pytest.fixture
 def unc():
-    return PGPUID.new(name=six.u('Temperair\xe9e Youx\'seur'), comment=six.u('\u2603'))
+    return PGPUID.new(six.u('Temperair\xe9e Youx\'seur'), comment=six.u('\u2603'))
 
 @pytest.fixture
 def une():
-    return PGPUID.new(name=six.u('Temperair\xe9e Youx\'seur'), email='snowman@not.an.email.addre.ss')
+    return PGPUID.new(six.u('Temperair\xe9e Youx\'seur'), email='snowman@not.an.email.addre.ss')
 
 @pytest.fixture
 def unce():
-    return PGPUID.new(name=six.u('Temperair\xe9e Youx\'seur'), comment=six.u('\u2603'), email='snowman@not.an.email.addre.ss')
+    return PGPUID.new(six.u('Temperair\xe9e Youx\'seur'), comment=six.u('\u2603'), email='snowman@not.an.email.addre.ss')
 
 @pytest.fixture
 def abe():
-    return PGPUID.new(name='Abraham Lincoln', comment='Honest Abe', email='abraham.lincoln@whitehouse.gov')
+    return PGPUID.new('Abraham Lincoln', comment='Honest Abe', email='abraham.lincoln@whitehouse.gov')
 
 @pytest.fixture
 def abe_image():
@@ -39,7 +39,7 @@ def abe_image():
         abebytes = bytearray(os.path.getsize('tests/testdata/abe.jpg'))
         abef.readinto(abebytes)
 
-    return PGPUID.new(photo=abebytes)
+    return PGPUID.new(abebytes)
 
 
 class TestPGPUID(object):
