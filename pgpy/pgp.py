@@ -1283,6 +1283,10 @@ class PGPKey(PGPObject, Armorable):
             signers_uid = "{:s}".format(uid)
             sig._signature.subpackets.addnew('SignersUserID', hashed=True, userid=signers_uid)
 
+        # handle an edge case for timestamp signatures vs standalone signatures
+        if sig.type == SignatureType.Timestamp and len(sig._signature.subpackets._hashed_sp) > 1:
+            sig._signature.sigtype = SignatureType.Standalone
+
         sigdata = sig.hashdata(subject)
         h2 = sig.hash_algorithm.hasher
         h2.update(sigdata)

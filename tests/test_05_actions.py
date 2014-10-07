@@ -200,9 +200,8 @@ class TestPGPKey(object):
     }
     string_sigs = dict()
     timestamp_sigs = dict()
+    standalone_sigs = dict()
     encmessage = []
-    # targettes = [ _pgpkey(f) for f in sorted(glob.glob('tests/testdata/keys/targette*.asc')) ]
-    # ikeys = [os.path.join(*f.split(os.path.sep)[-2:]) for f in glob.glob('tests/testdata/keys/*.pub.asc')]
 
     @contextmanager
     def assert_warnings(self):
@@ -352,10 +351,28 @@ class TestPGPKey(object):
     def test_sign_timestamp(self, sec):
         with self.assert_warnings():
             sig = sec.sign(None)
+
+        assert sig.type == SignatureType.Timestamp
         self.timestamp_sigs[sec.fingerprint.keyid] = sig
 
     def test_verify_timestamp(self, pub):
         sig = self.timestamp_sigs.pop(pub.fingerprint.keyid)
+        with self.assert_warnings():
+            sv = pub.verify(None, sig)
+
+        assert sv
+        assert len(sv) > 0
+
+    def test_sign_standalone(self, sec):
+        with self.assert_warnings():
+            sig = sec.sign(None, notation={"cheese status": "standing alone"})
+
+        assert sig.type == SignatureType.Standalone
+        assert sig.notation == {"cheese status": "standing alone"}
+        self.standalone_sigs[sec.fingerprint.keyid] = sig
+
+    def test_verify_standalone(self, pub):
+        sig = self.standalone_sigs.pop(pub.fingerprint.keyid)
         with self.assert_warnings():
             sv = pub.verify(None, sig)
 
