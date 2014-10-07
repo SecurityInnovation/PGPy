@@ -343,7 +343,7 @@ class TestPGPKey(object):
 
         assert decmsg.message == message.message
 
-    def test_gpg_decrypt_encmessage(self, message, write_clean, gpg_import, gpg_decrypt):
+    def test_gpg_decrypt_encmessage(self, write_clean, gpg_import, gpg_decrypt):
         emsg = self.encmessage.pop(0)
         with write_clean('tests/testdata/aemsg.asc', 'w', str(emsg)), gpg_import('./sectest.asc'):
             assert gpg_decrypt('./aemsg.asc', keyid='EEE097A017B979CA')
