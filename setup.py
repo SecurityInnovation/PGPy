@@ -11,7 +11,6 @@ import _author
 with open('README.rst') as readme:
     long_desc = readme.read()
 
-##TODO: fill in blank fields
 setup(
     # metadata
     name             = 'PGPy',

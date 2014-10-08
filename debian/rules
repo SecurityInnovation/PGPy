@@ -1,0 +1,9 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+SHELL=/bin/bash
+
+DEB_PYTHON_PACKAGES_EXCLUDE = python-pgpy-doc
+PIP_TMP_DIR = debian/tmp/
+
+include /usr/share/cdbs/1/rules/debhelper.mk
+include /usr/share/cdbs/1/class/python-distutils.mk
