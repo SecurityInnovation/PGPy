@@ -7,5 +7,10 @@
     </maintainer>
     <upstream>
         <remote-id type="pypi">PGPy</remote-id>
+        <maintainer>
+            <name>Michael Greene</name>
+            <email>mgreene@securityinnovation.com</email>
+        </maintainer>
+        <bugs-to>https://github.com/Commod0re/PGPy/issues</bugs-to>
     </upstream>
 </pkgmetadata>
