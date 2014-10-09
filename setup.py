@@ -44,9 +44,10 @@ setup(
                        "OpenPGP"],
 
     # dependencies
-    install_requires = ['cryptography==0.4',
-                        'requests',
-                        'enum34'],
+    install_requires = ['cryptography==0.6',
+                        'enum34',
+                        'six',
+                        'singledispatch'],
 
     # urls
     url              = "https://github.com/Commod0re/PGPy",
