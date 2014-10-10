@@ -13,24 +13,21 @@ SRC_URI="mirror://pypi/P/PGPy/PGPy-${PV}.tar.gz"
 
 LICENSE="BSD"
 SLOT="0"
-IUSE="test"
+KEYWORDS="~amd64"
+IUSE=""
 
 DEPEND="dev-python/setuptools[${PYTHON_USEDEP}]"
-RDEPEND="dev-python/six[${PYTHON_USEDEP}]
-         dev-python/singledispatch[${PYTHON_USEDEP}]
-         dev-python/enum34[${PYTHON_USEDEP}]
+RDEPEND="dev-python/singledispatch[${PYTHON_USEDEP}]
+         >=dev-python/six-1.7.2[${PYTHON_USEDEP}]
          >=dev-python/cryptography-0.5.4[${PYTHON_USEDEP}]
-         test? (
-            dev-python/pytest[${PYTHON_USEDEP}]
-            net-misc/wget
-            app-arch/tar
-         )"
+         $(python_gen_cond_dep 'dev-python/enum34[${PYTHON_USEDEP}]' python2_7 python3_2 python3_3)"
 DOCS=( README.rst )
 
-python_test() {
-    wget ${HOMEPAGE}/archive/${PV}.tar.gz -O PGPy-github-${PV}.tar.gz
-    mkdir PGPy
-    tar -C PGPy -zxvf PGPy-github-${PV}.tar.gz --strip-components=1
-    cd PGPy
-    py.test tests/ || die
+src_unpack() {
+    if [ "${A}" != "" ]; then
+        unpack ${A}
+    fi
+
+    cd "${WORKDIR}"
+    mv PGPy-${PV} pgpy-${PV}
 }
