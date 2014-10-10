@@ -15,8 +15,7 @@
 
 import sys
 import os
-# import sphinx_rtd_theme
-# import sphinx_bootstrap_theme
+# this needs sphinx-better-theme
 from better import better_theme_path
 
 # If extensions (or modules to document with autodoc) are in another directory,
