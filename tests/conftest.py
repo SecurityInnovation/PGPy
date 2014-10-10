@@ -16,7 +16,7 @@ openssl_ver = LooseVersion(openssl.backend.openssl_version_text().split(' ')[1])
 gpg_ver = LooseVersion()
 
 # set the CWD and add to sys.path if we need to
-os.chdir(os.path.abspath(os.path.dirname(__file__)))
+os.chdir(os.path.join(os.path.abspath(os.path.dirname(__file__)), os.pardir))
 
 if os.getcwd() not in sys.path:
    sys.path.insert(0, os.getcwd())
@@ -202,8 +202,6 @@ def pgpdump():
 # pytest_configure
 # called after command line options have been parsed and all plugins and initial conftest files been loaded.
 def pytest_configure(config):
-    assert os.path.basename(os.getcwd()) == 'PGPy'
-
     # display the working directory and the OpenSSL version
     print("Working Directory: " + os.getcwd())
     print("Using OpenSSL " + str(openssl_ver))
