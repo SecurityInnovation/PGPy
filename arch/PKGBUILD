@@ -33,7 +33,7 @@ build() {
 }
 
 package_python-pgpy() {
-    depends=('python-cryptography>=0.6' 'python-cryptography<0.6.1' 'python-singledispatch' 'python-six')
+    depends=('python-cryptography>=0.5.2' 'python-cryptography<=0.6' 'python-singledispatch' 'python-six>=1.7.2')
 
     cd PGPy-${pkgver}
     python3 setup.py install --root="${pkgdir}" --optimize=1 --skip-build
@@ -41,8 +41,8 @@ package_python-pgpy() {
 }
 
 package_python2-pgpy() {
-    depends=('python2-cryptography>=0.6' 'python2-cryptography<0.6.1' 
-             'python2-six' 'python2-enum34' 'python-singledispatch')
+    depends=('python2-cryptography>=0.5.2' 'python2-cryptography<=0.6' 
+             'python2-six>=1.7.2' 'python2-enum34' 'python-singledispatch')
 
     cd PGPy-${pkgver}-python2
     python2 setup.py install --root="${pkgdir}" --optimize=1 --skip-build
