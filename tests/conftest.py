@@ -15,15 +15,9 @@ from cryptography.hazmat.backends import openssl
 openssl_ver = LooseVersion(openssl.backend.openssl_version_text().split(' ')[1])
 gpg_ver = LooseVersion()
 
-# set the CWD to the project root if it isn't already
-if 'PGPy' in os.getcwd():
-    while os.path.basename(os.getcwd()) != 'PGPy':
-        os.chdir('..')
+# set the CWD and add to sys.path if we need to
+os.chdir(os.path.abspath(os.path.dirname(__file__)))
 
-else:
-    raise Exception("Could not set the proper expected working directory!")
-
-# make sure path is how we want it
 if os.getcwd() not in sys.path:
    sys.path.insert(0, os.getcwd())
 else:
