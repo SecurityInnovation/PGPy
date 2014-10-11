@@ -4,8 +4,11 @@ Installation
 
 .. highlight:: bash
 
+Platform Specific Notes
+=======================
+
 Linux
-=====
+-----
 
 Building PGPy on Linux requires a C compiler, headers for Python, headers for OpenSSL, and libffi.
 
@@ -24,7 +27,7 @@ If you are on Mac OS, you may experience more limited functionality without inst
 
 
 Installation
-------------
+============
 
 Once you have the prerequisites specified above, PGPy can be installed from PyPI using pip, like so::
 
