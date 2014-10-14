@@ -1326,7 +1326,7 @@ class PGPKey(PGPObject, Armorable):
             for sk in itertools.chain([self], self.subkeys.values()):
                 sk._key.unprotect(passphrase)
             del passphrase
-            yield
+            yield self
 
         finally:
             # clean up here by deleting the previously decrypted secret key material
