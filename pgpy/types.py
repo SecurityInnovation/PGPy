@@ -472,11 +472,29 @@ class SignatureVerification(object):
 
     @property
     def good_signatures(self):
+        """
+        A generator yielding namedtuples of all signatures that were successfully verified
+        in the operation that returned this instance. The namedtuple has the following attributes:
+
+        ``sigsubj.verified`` - bool of whether the signature verified successfully or not
+        ``sigsubj.by`` - the :py:obj:`~pgpy.PGPKey` that was used in this verify operation
+        ``sigsubj.signature`` - the :py:obj:`~pgpy.PGPSignature` that was verified
+        ``sigsubj.subject`` - the subject that was verified using the signature
+        """
         for s in [ i for i in self._subjects if i.verified ]:
             yield s
 
     @property
     def bad_signatures(self):  # pragma: no cover
+        """
+        A generator yielding namedtuples of all signatures that failed verification
+        in the operation that returned this instance. The namedtuple has the following attributes:
+
+        ``sigsubj.verified`` - bool of whether the signature verified successfully or not
+        ``sigsubj.by`` - the :py:obj:`~pgpy.PGPKey` that was used in this verify operation
+        ``sigsubj.signature`` - the :py:obj:`~pgpy.PGPSignature` that was verified
+        ``sigsubj.subject`` - the subject that was verified using the signature
+        """
         for s in [ i for i in self._subjects if not i.verified ]:
             yield s
 
@@ -525,6 +543,11 @@ class FlagEnum(six.with_metaclass(FlagEnumMeta, IntEnum)):
 
 
 class Fingerprint(str):
+    """
+    A subclass of ``str``. Can be compared using == and != to ``str``, ``unicode``, and other :py:obj:`Fingerprint` instances.
+
+    Primarily used as a key for internal dictionaries, so it ignores spaces when comparing and
+    """
     @property
     def keyid(self):
         return str(self).replace(' ', '')[-16:]
@@ -564,6 +587,9 @@ class Fingerprint(str):
                         self.shortid == other])
 
         return False  # pragma: no cover
+
+    def __ne__(self, other):
+        return not (self == other)
 
     def __hash__(self):
         return hash(str(self.replace(' ', '')))
