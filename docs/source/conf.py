@@ -131,6 +131,7 @@ html_theme_path = [better_theme_path]
 # documentation.
 if html_theme == 'better':
     html_theme_options = {
+        'cssfiles': ['_static/pgpy_better.css'],
         'sidebarwidth': '19rem',
     }
 

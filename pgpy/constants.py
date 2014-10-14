@@ -311,6 +311,7 @@ class TrustLevel(IntEnum):
     Fully = 5
     Ultimate = 6
 
+
 class KeyFlags(FlagEnum):
     #: Signifies that a key may be used to certify keys and user ids. Primary keys always have this, even if it is not specified.
     Certify = 0x01

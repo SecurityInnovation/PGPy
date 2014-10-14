@@ -1990,7 +1990,7 @@ class PGPKey(PGPObject, Armorable):
 
             # this will only be reached called if the inner loop hit a break
             warnings.warn("Warning: Orphaned packet detected! {:s}".format(repr(pkt)), stacklevel=2)  # pragma: no cover
-            orphaned.append(pkt) # pragma: no cover
+            orphaned.append(pkt)  # pragma: no cover
             for pkt in group:  # pragma: no cover
                 orphaned.append(pkt)
 
