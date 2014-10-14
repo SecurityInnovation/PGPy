@@ -172,9 +172,6 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
         - Encryption, True, Encrypt data/messages using symmetric ciphers with passphrases
         - Decryption, True, Decrypt data/messages using symmetric ciphers with passphrases
 
-.. comment::
-    RFC 3156 (PGP in MIME security)?
-
 
 .. progress:: RFC 4398
     :text: :rfc:`4398` covers publishing and retrieving PGP public keys via DNS CERT records.

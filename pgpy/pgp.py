@@ -880,6 +880,7 @@ class PGPMessage(PGPObject, Armorable):
         Encrypt the contents of this message using a passphrase.
         :param passphrase: The passphrase to use for encrypting this message.
         :type passphrase: ``str``, ``unicode``, ``bytes``
+
         :optional param sessionkey: Provide a session key to use when encrypting something. Default is ``None``.
                                     If ``None``, a session key of the appropriate length will be generated randomly.
 
