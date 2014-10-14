@@ -17,10 +17,11 @@ New messages can be created quite easily::
     # PGPMessage will store the basename of the file and the time it was last modified.
     file_message = pgpy.PGPMessage.new("path/to/a/file", file=True)
 
-    # or, if you want to create a *cleartext* message, which is what you may know as a canonicalized text document
-    # with an inline signature block, that is done by setting cleartext=True. You can load the contents of a file
-    # as above, as well.
-    ct_message = pgpy.PGPMessage.new("This is a shiny new cleartext document. Hooray!", cleartext=True)
+    # or, if you want to create a *cleartext* message, which is what you may know as a
+    # canonicalized text document with an inline signature block, that is done by setting
+    # cleartext=True. You can load the contents of a file as above, as well.
+    ct_message = pgpy.PGPMessage.new("This is a shiny new cleartext document. Hooray!",
+                                     cleartext=True)
 
 Loading Existing Messages
 -------------------------
@@ -43,7 +44,8 @@ In Python 3::
     msgbytes = bytes(message)
 
     # ASCII armored
-    # if message is cleartext, this will also properly canonicalize and dash-escape the message text
+    # if message is cleartext, this will also properly canonicalize and dash-escape
+    # the message text
     msgstr = str(message)
 
 in Python 2::
@@ -52,6 +54,7 @@ in Python 2::
     msgbytes = message.__bytes__()
 
     # ASCII armored
-    # if message is cleartext, this will also properly canonicalize and dash-escape the message text
+    # if message is cleartext, this will also properly canonicalize and dash-escape
+    # the message text
     msgstr = str(message)
 

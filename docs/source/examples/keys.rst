@@ -11,8 +11,10 @@ Loading Keys Individually
 
 Keys can be loaded individually into PGPKey objects::
 
-    # A new, empty PGPkey object can be instantiated, but this is not very useful by itself.
-    # ASCII or binary data can be parsed into an empty PGPKey object with the .parse() method
+    # A new, empty PGPkey object can be instantiated, but this is not very useful
+    # by itself.
+    # ASCII or binary data can be parsed into an empty PGPKey object with the .parse()
+    # method
     empty_key = pgpy.PGPKey()
     empty_key.parse(keyblob)
 
@@ -30,8 +32,8 @@ If you intend to maintain multiple keys in memory for extended periods, using a 
     # These two methods are mostly equivalent
     kr = pgpy.PGPKeyring(glob.glob(os.path.expanduser('~/.gnupg/*ring.gpg')))
 
-    # the only advantage to doing it this way, is the .load method returns a set containing the fingerprints
-    # of all keys and subkeys that were loaded this time
+    # the only advantage to doing it this way, is the .load method returns a set containing
+    #  the fingerprints of all keys and subkeys that were loaded this time
     kr = pgpy.PGPKeyring()
     loaded = kr.load(glob.glob(os.path.expanduser('~/.gnupg/*ring.gpg')))
 

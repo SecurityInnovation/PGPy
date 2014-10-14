@@ -878,9 +878,19 @@ class PGPMessage(PGPObject, Armorable):
     def encrypt(self, passphrase, sessionkey=None, **prefs):
         """
         Encrypt the contents of this message using a passphrase.
-        :param passphrase:
-        :type passphrase:
-        :raises:
+        :param passphrase: The passphrase to use for encrypting this message.
+        :type passphrase: ``str``, ``unicode``, ``bytes``
+        :optional param sessionkey: Provide a session key to use when encrypting something. Default is ``None``.
+                                    If ``None``, a session key of the appropriate length will be generated randomly.
+
+                                    .. warning::
+
+                                        Care should be taken when making use of this option! Session keys *absolutely need*
+                                        to be unpredictable! Use the ``gen_key()`` method on the desired
+                                        :py:obj:`~constants.SymmetricKeyAlgorithm` to generate the session key!
+
+        :type sessionkey: ``bytes``, ``str``
+        :raises: :py:exc:`~errors.PGPEncryptionError`
         :returns: A new :py:obj:`PGPMessage` containing the encrypted contents of this message.
         """
         cipher_algo = prefs.pop('cipher', SymmetricKeyAlgorithm.AES256)
@@ -915,9 +925,9 @@ class PGPMessage(PGPObject, Armorable):
         """
         Attempt to decrypt this message using a passphrase.
 
-        :param passphrase:
-        :type passphrase:
-        :raises:
+        :param passphrase: The passphrase to use to attempt to decrypt this message.
+        :type passphrase: ``str``, ``unicode``, ``bytes``
+        :raises: :py:exc:`~errors.PGPDecryptionError` if decryption failed for any reason.
         :returns: A new :py:obj:`PGPMessage` containing the decrypted contents of this message
         """
         if not self.is_encrypted:
@@ -1185,7 +1195,9 @@ class PGPKey(PGPObject, Armorable):
             # on Python 2:
             keybytes = key.__bytes__()
 
-        Keys can be exported in ASCII-armored format like so::
+        Alternatively, keys can be exported to ASCII-armored format like so::
+
+            # on Python 2 and 3:
             keystr = str(key)
 
         Any signatures that are marked as being non-exportable will not be exported in this manner.
@@ -1356,9 +1368,9 @@ class PGPKey(PGPObject, Armorable):
     def _sign(self, subject, sig, **prefs):
         """
         The actual signing magic happens here.
-        :param subject_hashdata:
-        :param sig:
-        :return:
+        :param subject: The subject to sign
+        :param sig: The :py:obj:`PGPSignature` object the new signature is to be encapsulated within
+        :returns: ``sig``, after the signature is added to it.
         """
         user = prefs.pop('user', None)
         uid = None
@@ -1480,7 +1492,7 @@ class PGPKey(PGPObject, Armorable):
         """
         Sign a key or a user id within a key.
 
-        :param subject:
+        :param subject: The user id or key to be certified.
         :type subject: :py:obj:`PGPKey`, :py:obj:`PGPUID`
         :param level: :py:obj:`~constants.SignatureType.Generic_Cert`, :py:obj:`~constants.SignatureType.Persona_Cert`,
                       :py:obj:`~constants.SignatureType.Casual_Cert`, or :py:obj:`~constants.SignatureType.Positive_Cert`.
@@ -1494,26 +1506,37 @@ class PGPKey(PGPObject, Armorable):
 
         These optional keywords only make sense, and thus only have an effect, when self-signing a key or User ID:
 
-        :keyword ciphers:
+        :keyword ciphers: A list of preferred symmetric ciphers, as :py:obj:`~constants.SymmetricKeyAlgorithm`.
+                          This keyword is ignored for non-self-certifications.
         :type ciphers: ``list``
-        :keyword hashes:
+        :keyword hashes: A list of preferred hash algorithms, as :py:obj:`~constants.HashAlgorithm`.
+                         This keyword is ignored for non-self-certifications.
         :type hashes: ``list``
-        :keyword compression:
+        :keyword compression: A list of preferred compression algorithms, as :py:obj:`~constants.CompressionAlgorithm`.
+                              This keyword is ignored for non-self-certifications.
         :type compression: ``list``
-        :keyword key_expires:
-        :type key_expires:
-        :keyword keyserver:
-        :type keyserver:
-        :keyword primary:
+        :keyword key_expires: Specify a key expiration date for when this key should expire, or a
+                              :py:obj:`~datetime.timedelta` of how long after the key was created it should expire.
+                              This keyword is ignored for non-self-certifications.
+        :type key_expires: :py:obj:`datetime.datetime`, :py:obj:`datetime.timedelta`
+        :keyword keyserver: Specify the URI of the preferred key server of the user.
+                            This keyword is ignored for non-self-certifications.
+        :type keyserver: ``str``, ``unicode``, ``bytes``
+        :keyword primary: Whether or not to consider the certified User ID as the primary one.
+                          This keyword is ignored for non-self-certifications, and any certifications directly on keys.
         :type primary: ``bool``
 
         These optional keywords only make sense, and thus only have an effect, when signing another key or User ID:
 
-        :keyword trust_level:
-        :type trust_level: ``int``
-        :keyword trust_amount:
-        :type trust_amount: ``int``
-        :keyword regex:
+        :keyword trust: Specify the level and amount of trust to assert when certifying a public key. Should be a tuple
+                        of two ``int`` s, specifying the trust level and trust amount. See
+                        `RFC 4880 Section 5.2.3.13. Trust Signature <http://tools.ietf.org/html/rfc4880#section-5.2.3.13>`_
+                        for more on what these values mean.
+        :type trust: ``tuple`` of two ``int`` s
+        :keyword regex: Specify a regular expression to constrain the specified trust signature in the resulting signature.
+                        Symbolically signifies that the specified trust signature only applies to User IDs which match
+                        this regular expression.
+                        This is meaningless without also specifying trust level and amount.
         :type regex: ``str``
         """
         hash_algo = prefs.pop('hash', None)
@@ -1579,12 +1602,11 @@ class PGPKey(PGPObject, Armorable):
 
         else:
             # signature options that only make sense in non-self-certifications
-            trust_level = prefs.pop('trust_level', None)
-            trust_amount = prefs.pop('trust_amount', None)
+            trust = prefs.pop('trust', None)
             regex = prefs.pop('regex', None)
 
-            if trust_level is not None:
-                sig._signature.subpackets.addnew('TrustSignature', hashed=True, level=trust_level, amount=trust_amount)
+            if trust is not None:
+                sig._signature.subpackets.addnew('TrustSignature', hashed=True, level=trust[0], amount=trust[1])
 
                 if regex is not None:
                     sig._signature.subpackets.addnew('RegularExpression', hashed=True, regex=regex)
@@ -1595,7 +1617,8 @@ class PGPKey(PGPObject, Armorable):
     def revoke(self, target, **prefs):
         """
         Revoke a key, a subkey, or all current certification signatures of a User ID that were generated by this key so far.
-        :param target:
+
+        :param target: The key to revoke
         :type target: :py:obj:`PGPKey`, :py:obj:`PGPUID`
         :raises: :py:exc:`~pgpy.errors.PGPError` if the key is passphrase-protected and has not been unlocked
         :raises: :py:exc:`~pgpy.errors.PGPError` if the key is public
@@ -1641,7 +1664,7 @@ class PGPKey(PGPObject, Armorable):
         """
         Generate a signature that specifies another key as being valid for revoking this key.
 
-        :param revoker:
+        :param revoker: The :py:obj:`PGPKey` to specify as a valid revocation key.
         :type revoker: :py:obj:`PGPKey`
         :raises: :py:exc:`~pgpy.errors.PGPError` if the key is passphrase-protected and has not been unlocked
         :raises: :py:exc:`~pgpy.errors.PGPError` if the key is public
@@ -1676,6 +1699,8 @@ class PGPKey(PGPObject, Armorable):
     def bind(self, key, **prefs):
         """
         Bind a subkey to this key.
+
+        Valid optional keyword arguments are identical to those of self-signatures for :py:meth:`PGPkey.certify`
         """
         hash_algo = prefs.pop('hash', None)
 
@@ -1721,7 +1746,7 @@ class PGPKey(PGPObject, Armorable):
         :type subject: ``str``, ``unicode``, ``None``, :py:obj:`PGPMessage`, :py:obj:`PGPKey`, :py:obj:`PGPUID`
         :param signature: If the signature is detached, it should be specified here.
         :type signature: :py:obj:`PGPSignature`
-        :return: :py:obj:`~pgpy.types.SignatureVerification`
+        :returns: :py:obj:`~pgpy.types.SignatureVerification`
         """
         sspairs = []
 
@@ -1798,23 +1823,33 @@ class PGPKey(PGPObject, Armorable):
 
         return sigv
 
-    @KeyAction(KeyFlags.EncryptCommunications, is_public=True)
+    @KeyAction(KeyFlags.EncryptCommunications, KeyFlags.EncryptStorage, is_public=True)
     def encrypt(self, message, sessionkey=None, **prefs):
         """
         Encrypt a PGPMessage using this key.
 
-        :param message: The :py:obj:`PGPMessage` to encrypt.
-        :param sessionkey:
-        :raises: :py:exc:`~errors.PGPEncryptionError`
-        :return: A new :py:obj:`PGPMessage` with the encrypted contents of ``message``
+        :param message: The message to encrypt.
+        :type message: :py:obj:`PGPMessage`
+        :optional param sessionkey: Provide a session key to use when encrypting something. Default is ``None``.
+                                    If ``None``, a session key of the appropriate length will be generated randomly.
+
+                                    .. warning::
+
+                                        Care should be taken when making use of this option! Session keys *absolutely need*
+                                        to be unpredictable! Use the ``gen_key()`` method on the desired
+                                        :py:obj:`~constants.SymmetricKeyAlgorithm` to generate the session key!
+        :type sessionkey: ``bytes``, ``str``
+
+        :raises: :py:exc:`~errors.PGPEncryptionError` if encryption failed for any reason.
+        :returns: A new :py:obj:`PGPMessage` with the encrypted contents of ``message``
 
         The following optional keyword arguments can be used with :py:meth:`PGPKey.encrypt`:
-        :keyword cipher:
-        :type cipher:
-        :keyword hash:
-        :type hash:
-        :keyword user:
-        :type user:
+
+        :keyword cipher: Specifies the symmetric block cipher to use when encrypting the message.
+        :type cipher: :py:obj:`~constants.SymmetricKeyAlgorithm`
+        :keyword user: Specifies the User ID to use as the recipient for this encryption operation, for the purposes of
+                       preference defaults and selection validation.
+        :type user: ``str``, ``unicode``
         """
         user = prefs.pop('user', None)
         uid = None
@@ -1825,13 +1860,9 @@ class PGPKey(PGPObject, Armorable):
             if uid is None and self.parent is not None:
                 uid = next(iter(self.parent.userids), None)
         cipher_algo = prefs.pop('cipher', uid.selfsig.cipherprefs[0])
-        hash_algo = prefs.pop('hash', uid.selfsig.hashprefs[0])
 
         if cipher_algo not in uid.selfsig.cipherprefs:
             warnings.warn("Selected symmetric algorithm not in key preferences", stacklevel=3)
-
-        if hash_algo not in uid.selfsig.hashprefs:
-            warnings.warn("Selected hash algorithm not in key preferences", stacklevel=3)
 
         if message.is_compressed and message._compression not in uid.selfsig.compprefs:
             warnings.warn("Selected compression algorithm not in key preferences", stacklevel=3)
@@ -1863,7 +1894,7 @@ class PGPKey(PGPObject, Armorable):
         Decrypt a PGPMessage using this key.
 
         :param message: An encrypted :py:obj:`PGPMessage`
-        :return: A new :py:obj:`PGPMessage` with the decrypted contents of ``message``
+        :returns: A new :py:obj:`PGPMessage` with the decrypted contents of ``message``
         """
         if not message.is_encrypted:
             warnings.warn("This message is not encrypted", stacklevel=2)
@@ -2108,7 +2139,7 @@ class PGPKeyring(collections.Container, collections.Iterable, collections.Sized)
         """
         A context-manager method. Yields the first :py:obj:`PGPKey` object that matches the provided identifier.
 
-        :param identifier:
+        :param identifier: The identifier to use to select a loaded key.
         :type identifier: :py:exc:`PGPMessage`, :py:exc:`PGPSignature`, ``str``
         :raises: :py:exc:`KeyError` if there is no loaded key that satisfies the identifier.
         """

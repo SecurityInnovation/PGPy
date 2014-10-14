@@ -44,16 +44,17 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
         if isinstance(text, (bytes, bytearray)):
             return bool(re.match(br'^[ -~\n]+$', text, flags=re.ASCII))
 
-        raise ValueError("Expected: ASCII input of type str, bytes, or bytearray")  # pragma: no cover
+        raise TypeError("Expected: ASCII input of type str, bytes, or bytearray")  # pragma: no cover
 
     @staticmethod
     def ascii_unarmor(text):
         """
         Takes an ASCII-armored PGP block and returns the decoded byte value.
 
-        :param text:
-        :return:
-        :raises:
+        :param text: An ASCII-armored PGP block, to un-armor.
+        :raises: :py:exc:`ValueError` if ``text`` did not contain an ASCII-armored PGP block.
+        :raises: :py:exc:`TypeError` if ``text`` is not a ``str``, ``bytes``, or ``bytearray``
+        :returns: A ``dict`` containing information from ``text``, including the de-armored data.
         """
         m = {'magic': None, 'headers': None, 'body': bytearray(), 'crc': None}
         if not Armorable.is_ascii(text):
@@ -476,10 +477,13 @@ class SignatureVerification(object):
         A generator yielding namedtuples of all signatures that were successfully verified
         in the operation that returned this instance. The namedtuple has the following attributes:
 
-        ``sigsubj.verified`` - bool of whether the signature verified successfully or not
-        ``sigsubj.by`` - the :py:obj:`~pgpy.PGPKey` that was used in this verify operation
-        ``sigsubj.signature`` - the :py:obj:`~pgpy.PGPSignature` that was verified
-        ``sigsubj.subject`` - the subject that was verified using the signature
+        ``sigsubj.verified`` - ``bool`` of whether the signature verified successfully or not.
+
+        ``sigsubj.by`` - the :py:obj:`~pgpy.PGPKey` that was used in this verify operation.
+
+        ``sigsubj.signature`` - the :py:obj:`~pgpy.PGPSignature` that was verified.
+
+        ``sigsubj.subject`` - the subject that was verified using the signature.
         """
         for s in [ i for i in self._subjects if i.verified ]:
             yield s
@@ -487,20 +491,23 @@ class SignatureVerification(object):
     @property
     def bad_signatures(self):  # pragma: no cover
         """
-        A generator yielding namedtuples of all signatures that failed verification
+        A generator yielding namedtuples of all signatures that were not verified
         in the operation that returned this instance. The namedtuple has the following attributes:
 
-        ``sigsubj.verified`` - bool of whether the signature verified successfully or not
-        ``sigsubj.by`` - the :py:obj:`~pgpy.PGPKey` that was used in this verify operation
-        ``sigsubj.signature`` - the :py:obj:`~pgpy.PGPSignature` that was verified
-        ``sigsubj.subject`` - the subject that was verified using the signature
+        ``sigsubj.verified`` - ``bool`` of whether the signature verified successfully or not.
+
+        ``sigsubj.by`` - the :py:obj:`~pgpy.PGPKey` that was used in this verify operation.
+
+        ``sigsubj.signature`` - the :py:obj:`~pgpy.PGPSignature` that was verified.
+
+        ``sigsubj.subject`` - the subject that was verified using the signature.
         """
         for s in [ i for i in self._subjects if not i.verified ]:
             yield s
 
     def __init__(self):
         """
-        Returned by :py:meth:`pgpy.PGPKeyring.verify`
+        Returned by :py:meth:`PGPKey.verify`
 
         Can be compared directly as a boolean to determine whether or not the specified signature verified.
         """

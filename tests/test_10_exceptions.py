@@ -105,17 +105,12 @@ class TestPGPKey(object):
         with pytest.raises(KeyError):
             rsa_sec.del_uid("ASDFDSGSAJGKSAJG")
 
-    def test_encrypt_bad_prefs(self, rsa_pub, recwarn):
+    def test_encrypt_bad_cipher(self, rsa_pub, recwarn):
         rsa_pub.subkeys['EEE097A017B979CA'].encrypt(PGPMessage.new('asdf'),
-                                                    cipher=SymmetricKeyAlgorithm.CAST5,
-                                                    hash=HashAlgorithm.RIPEMD160)
+                                                    cipher=SymmetricKeyAlgorithm.CAST5)
 
         w = recwarn.pop(UserWarning)
         assert str(w.message) == "Selected symmetric algorithm not in key preferences"
-        assert w.filename == __file__
-
-        w = recwarn.pop(UserWarning)
-        assert str(w.message) == "Selected hash algorithm not in key preferences"
         assert w.filename == __file__
 
         w = recwarn.pop(UserWarning)

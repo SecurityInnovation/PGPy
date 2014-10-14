@@ -7,7 +7,8 @@ To export in ASCII-armored format::
 
     # This works in both Python 2.x and 3.x
     # ASCII-armored format
-    # cleartext PGPMessages will also have properly canonicalized and dash-escaped message text
+    # cleartext PGPMessages will also have properly canonicalized and dash-escaped
+    # message text
     pgpstr = str(pgpobj)
 
 To export to binary format in Python 3::

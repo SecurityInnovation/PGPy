@@ -423,8 +423,7 @@ class TestPGPKey(object):
             sig = sec.certify(userid, SignatureType.Casual_Cert,
                               usage=KeyFlags.Authentication,
                               exportable=True,
-                              trust_level=1,
-                              trust_amount=60,
+                              trust=(1, 60),
                               regex=r'.*')
 
         assert sig.type == SignatureType.Casual_Cert
