@@ -296,7 +296,7 @@ class PGPSignature(PGPObject, Armorable):
     def __lt__(self, other):
         return self.created < other.created
 
-    def __add__(self, other):
+    def __or__(self, other):
         if isinstance(other, Signature):
             if self._signature is None:
                 self._signature = other
@@ -600,7 +600,7 @@ class PGPUID(object):
         if self.is_ua and other.is_uid:
             return False
 
-    def __add__(self, other):
+    def __or__(self, other):
         if isinstance(other, PGPSignature):
             self._signatures.insort(other)
             if self._parent is not None and self in self._parent._uids:
@@ -771,11 +771,11 @@ class PGPMessage(PGPObject, Armorable):
             for sig in self._signatures:
                 yield sig
 
-    def __add__(self, other):
+    def __or__(self, other):
         if isinstance(other, CompressedData):
             self._compression = CompressedData.calg
             for pkt in other.packets:
-                self += pkt
+                self |= pkt
             return self
 
         if isinstance(other, (six.string_types, LiteralData, SKEData, IntegrityProtectedSKEData)):
@@ -793,7 +793,7 @@ class PGPMessage(PGPObject, Armorable):
             return self
 
         if isinstance(other, Signature):
-            other = PGPSignature() + other
+            other = PGPSignature() | other
 
         if isinstance(other, PGPSignature):
             self._signatures.insort(other)
@@ -855,7 +855,7 @@ class PGPMessage(PGPObject, Armorable):
 
         if cleartext:
             # cleartext message
-            msg += message
+            msg |= message
 
         else:
             # load literal data
@@ -870,7 +870,7 @@ class PGPMessage(PGPObject, Armorable):
 
             lit.update_hlen()
 
-            msg += lit
+            msg |= lit
             msg._compression = compression
 
         return msg
@@ -899,15 +899,15 @@ class PGPMessage(PGPObject, Armorable):
         skesk.encrypt_sk(passphrase, sessionkey)
         del passphrase
 
-        msg = PGPMessage() + skesk
+        msg = PGPMessage() | skesk
 
         if not self.is_encrypted:
             skedata = IntegrityProtectedSKEDataV1()
             skedata.encrypt(sessionkey, cipher_algo, self.__bytes__())
-            msg += skedata
+            msg |= skedata
 
         else:
-            msg += self
+            msg |= self
 
         return msg
 
@@ -955,17 +955,17 @@ class PGPMessage(PGPObject, Armorable):
         if unarmored['magic'] == 'SIGNATURE':
             # the composition for this will be the 'cleartext' as a str,
             # followed by one or more signatures (each one loaded into a PGPSignature)
-            self += self.dash_unescape(unarmored['cleartext'])
+            self |= self.dash_unescape(unarmored['cleartext'])
             while len(data) > 0:
                 pkt = Packet(data)
                 if not isinstance(pkt, Signature):  # pragma: no cover
                     warnings.warn("Discarded unexpected packet: {:s}".format(pkt.__class__.__name__), stacklevel=2)
                     continue
-                self += PGPSignature() + pkt
+                self |= PGPSignature() | pkt
 
         else:
             while len(data) > 0:
-                self += Packet(data)
+                self |= Packet(data)
 
 
 class PGPKey(PGPObject, Armorable):
@@ -1233,7 +1233,7 @@ class PGPKey(PGPObject, Armorable):
 
         raise TypeError
 
-    def __add__(self, other):
+    def __or__(self, other):
         if isinstance(other, Key) and self._key is None:
             self._key = other
             return self
@@ -1249,7 +1249,7 @@ class PGPKey(PGPObject, Armorable):
             # if this is a subkey binding signature that has embedded primary key binding signatures, add them to parent
             if other.type == SignatureType.Subkey_Binding:
                 for es in iter(pkb for pkb in other._signature.subpackets['EmbeddedSignature']):
-                    esig = PGPSignature() + es
+                    esig = PGPSignature() | es
                     esig.parent = other
                     self._signatures.insort(esig)
 
@@ -1260,7 +1260,7 @@ class PGPKey(PGPObject, Armorable):
             self._uids.insort(other)
             return self
 
-        raise TypeError("unsupported operand type(s) for +=: '{:s}' and '{:s}'"
+        raise TypeError("unsupported operand type(s) for |: '{:s}' and '{:s}'"
                         "".format(self.__class__.__name__, other.__class__.__name__))
 
     def protect(self):
@@ -1323,9 +1323,9 @@ class PGPKey(PGPObject, Armorable):
     def add_uid(self, uid, selfsign=True, **prefs):
         uid._parent = self
         if selfsign:
-            uid += self.certify(uid, SignatureType.Positive_Cert, **prefs)
+            uid |= self.certify(uid, SignatureType.Positive_Cert, **prefs)
 
-        self += uid
+        self |= uid
 
     def get_uid(self, search):
         if self.is_primary:
@@ -1852,9 +1852,9 @@ class PGPKey(PGPObject, Armorable):
             _m = PGPMessage()
             skedata = IntegrityProtectedSKEDataV1()
             skedata.encrypt(sessionkey, cipher_algo, message.__bytes__())
-            _m += skedata
+            _m |= skedata
 
-        _m += pkesk
+        _m |= pkesk
 
         return _m
 
@@ -1927,16 +1927,16 @@ class PGPKey(PGPObject, Armorable):
 
                 # deal with pkt first
                 if isinstance(pkt, Key):
-                    pgpobj = (self if self._key is None else PGPKey()) + pkt
+                    pgpobj = (self if self._key is None else PGPKey()) | pkt
 
                 elif isinstance(pkt, (UserID, UserAttribute)):
-                    pgpobj = PGPUID() + pkt
+                    pgpobj = PGPUID() | pkt
 
                 else:  # pragma: no cover
                     break
 
                 # add signatures to whatever we got
-                [ operator.iadd(pgpobj, PGPSignature() + sig) for sig in group if not isinstance(sig, Opaque) ]
+                [ operator.ior(pgpobj, PGPSignature() | sig) for sig in group if not isinstance(sig, Opaque) ]
 
                 # and file away pgpobj
                 if isinstance(pgpobj, PGPKey):
@@ -1944,11 +1944,11 @@ class PGPKey(PGPObject, Armorable):
                         keys[(pgpobj.fingerprint.keyid, pgpobj.is_public)] = pgpobj
 
                     else:
-                        keys[next(reversed(keys))] += pgpobj
+                        keys[next(reversed(keys))] |= pgpobj
 
                 elif isinstance(pgpobj, PGPUID):
                     # parent is likely the most recently parsed primary key
-                    keys[next(reversed(keys))] += pgpobj
+                    keys[next(reversed(keys))] |= pgpobj
 
                 else:  # pragma: no cover
                     break

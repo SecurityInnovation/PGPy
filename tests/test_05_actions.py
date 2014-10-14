@@ -284,7 +284,7 @@ class TestPGPKey(object):
         assert sig.revocable
         assert sig.expired is False
 
-        ctmessage += sig
+        ctmessage |= sig
 
         # verify with GnuPG
         with write_clean('tests/testdata/ctmessage.asc', 'w', str(ctmessage)), gpg_import('./pubtest.asc'):
@@ -305,7 +305,7 @@ class TestPGPKey(object):
         assert sig.revocable
         assert sig.expired is False
 
-        message += sig
+        message |= sig
 
     def test_verify_message(self, pub, message):
         with self.assert_warnings():
@@ -436,7 +436,7 @@ class TestPGPKey(object):
 
         assert {sec.fingerprint.keyid} | set(sec.subkeys) & userid.signers
 
-        userid += sig
+        userid |= sig
 
     def test_verify_userid(self, pub, userid):
         # with PGPy
@@ -452,7 +452,7 @@ class TestPGPKey(object):
 
     def test_certify_photo(self, sec, userphoto):
         with self.assert_warnings():
-            userphoto += sec.certify(userphoto)
+            userphoto |= sec.certify(userphoto)
 
     def test_revoke_certification(self, sec, userphoto):
         # revoke the certifications of userphoto
@@ -461,7 +461,7 @@ class TestPGPKey(object):
 
         assert revsig.type == SignatureType.CertRevocation
 
-        userphoto += revsig
+        userphoto |= revsig
 
     def test_certify_key(self, sec, targette_sec):
         # let's add an 0x1f signature with notation
@@ -474,7 +474,7 @@ class TestPGPKey(object):
         assert sig.exportable is False
         assert sig.notation == {'Notice': 'This key has been frobbed!', 'Binary': bytearray(b'\xc0\x01\xd0\x0d')}
 
-        targette_sec += sig
+        targette_sec |= sig
 
     def test_self_certify_key(self, targette_sec):
         # let's add an 0x1f signature with notation
@@ -484,10 +484,10 @@ class TestPGPKey(object):
         assert sig.type == SignatureType.DirectlyOnKey
         assert sig.notation == {'Notice': 'This key has been self-frobbed!'}
 
-        targette_sec += sig
+        targette_sec |= sig
 
     def test_add_revocation_key(self, sec, targette_sec):
-        targette_sec += targette_sec.revoker(sec)
+        targette_sec |= targette_sec.revoker(sec)
 
     def test_verify_key(self, pub, targette_sec):
         with self.assert_warnings():
@@ -526,7 +526,7 @@ class TestPGPKey(object):
             assert bsig.type == SignatureType.Subkey_Binding
             assert 'EmbeddedSignature' in bsig._signature.subpackets
 
-            subkey += bsig
+            subkey |= bsig
             assert len([sig for sig in subkey._signatures if sig.type == SignatureType.Subkey_Binding]) == \
                     len([sig for sig in subkey._signatures if sig.type == SignatureType.PrimaryKey_Binding])
 
@@ -553,7 +553,7 @@ class TestPGPKey(object):
             rsig = sec.revoke(pub, sigtype=SignatureType.KeyRevocation, reason=RevocationReason.Retired,
                             comment="But you're so oooold")
             assert 'ReasonForRevocation' in rsig._signature.subpackets
-            pub += rsig
+            pub |= rsig
 
             # verify with PGPy
             # assert pub.verify(pub)
@@ -577,7 +577,7 @@ class TestPGPKey(object):
             # revoke the first subkey
             rsig = sec.revoke(subkey, sigtype=SignatureType.SubkeyRevocation)
             assert 'ReasonForRevocation' in rsig._signature.subpackets
-            subkey += rsig
+            subkey |= rsig
 
             # # verify with PGPy
             assert pub.verify(subkey)

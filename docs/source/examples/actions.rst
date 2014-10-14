@@ -16,7 +16,7 @@ Text and messages can be signed using the .sign method::
     sig = sec.sign("I have just signed this text!")
 
     # sign a message
-    message += sec.sign(message)
+    message |= sec.sign(message)
 
     # timestamp signatures can also be generated, like so. Note that GnuPG seems to have no idea what to do with this
     timesig = sec.sign(None)
@@ -31,16 +31,16 @@ Keys/User IDs
 Keys and User IDs can be signed using the .certify method::
 
     # Sign a key - this creates a Signature Directly On A Key. GnuPG only partially supports this type of signature.
-    someones_pubkey += mykey.certify(someones_pubkey)
+    someones_pubkey |= mykey.certify(someones_pubkey)
 
     # Sign the primary User ID - this creates the usual certification signature that is best supported by other popular OpenPGP
     # implementations.
-    someones_pubkey.userids[0] += mykey.certify(someones_pubkey.userids[0], level=SignatureType.Persona_Cert)
+    someones_pubkey.userids[0] |= mykey.certify(someones_pubkey.userids[0], level=SignatureType.Persona_Cert)
 
     # If you want to sign all of their User IDs, that can be done easily in a loop. This is equivalent to GnuPG's
     # default behavior when signing someone else's public key.
     for uid in someones_pubkey.userids:
-        uid += mykey.certify(uid)
+        uid |= mykey.certify(uid)
 
 Verifying Things
 ----------------
