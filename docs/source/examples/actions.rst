@@ -15,7 +15,7 @@ Text and messages can be signed using the .sign method::
     # sign some text
     sig = sec.sign("I have just signed this text!")
 
-    # sign a message
+    # sign a message - the bitwise OR operator '|' is used to add a signature to a PGPMessage.
     message |= sec.sign(message)
 
     # timestamp signatures can also be generated, like so. Note that GnuPG seems to have no idea what to do with this
@@ -35,10 +35,12 @@ Keys and User IDs can be signed using the .certify method::
 
     # Sign the primary User ID - this creates the usual certification signature that is best supported by other popular OpenPGP
     # implementations.
+    # As above, the bitwise OR operator '|' is used to add a signature to a PGPUID.
     someones_pubkey.userids[0] |= mykey.certify(someones_pubkey.userids[0], level=SignatureType.Persona_Cert)
 
     # If you want to sign all of their User IDs, that can be done easily in a loop. This is equivalent to GnuPG's
     # default behavior when signing someone else's public key.
+    # As above, the bitwise OR operator '|' is used to add a signature to a PGPKey.
     for uid in someones_pubkey.userids:
         uid |= mykey.certify(uid)
 

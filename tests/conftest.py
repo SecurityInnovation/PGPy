@@ -19,15 +19,16 @@ gpg_ver = LooseVersion()
 os.chdir(os.path.join(os.path.abspath(os.path.dirname(__file__)), os.pardir))
 
 if os.getcwd() not in sys.path:
-   sys.path.insert(0, os.getcwd())
+    sys.path.insert(0, os.getcwd())
 else:
-   sys.path.insert(0, sys.path.pop(sys.path.index(os.getcwd())))
+    sys.path.insert(0, sys.path.pop(sys.path.index(os.getcwd())))
 
 if os.path.join(os.getcwd(), 'tests') not in sys.path:
-   sys.path.insert(1, os.path.join(os.getcwd(), 'tests'))
+    sys.path.insert(1, os.path.join(os.getcwd(), 'tests'))
 
 # now import stuff from fixtures so it can be imported by test modules
 # from fixtures import TestFiles, gpg_getfingerprint, pgpdump, gpg_verify, gpg_fingerprint
+
 
 class CWD_As(object):
     def __init__(self, newwd):
@@ -90,7 +91,7 @@ def write_clean():
 def gpg_import():
     @contextlib.contextmanager
     def _gpg_import(*keypaths):
-        gpg_args = _gpg_args + ['--import',] + list(keypaths)
+        gpg_args = _gpg_args + ['--import', ] + list(keypaths)
         gpg_kwargs = _gpg_kwargs.copy()
 
         gpgdec = subprocess.Popen(gpg_args, **gpg_kwargs)

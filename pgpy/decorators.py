@@ -28,6 +28,9 @@ def classproperty(fget):
 
 
 def sdmethod(meth):
+    """
+    This is a hack to monkey patch sdproperty to work as expected with instance methods.
+    """
     sd = singledispatch(meth)
 
     def wrapper(obj, *args, **kwargs):

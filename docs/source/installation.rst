@@ -24,6 +24,7 @@ Mac OS X
 
 If you are on Mac OS, you may experience more limited functionality without installing a more capable version of OpenSSL.
 
+You may refer to Cryptography's documentation on `Using your own OpenSSL on OS X <https://cryptography.io/en/latest/installation/#using-your-own-openssl-on-os-x>`_ for information on how to do so.
 
 
 Installation

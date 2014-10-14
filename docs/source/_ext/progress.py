@@ -18,7 +18,6 @@ class ProgressTable(Directive):
     final_argument_whitespace = True
     option_spec = {'text': str}
 
-
     def create_headrow(self, label="Progress", classes=('prog-top-label',)):
         hrow = nodes.row()
         hrow += nodes.entry('', nodes.paragraph(text=label), classes=['head'] + list(classes))
@@ -86,7 +85,7 @@ class ProgressTable(Directive):
             if nl is not None:
                 if cur != "":
                     # finish up shrow
-                    self.add_progbar(shrow, len([c for c in comps[cur] if c == True]), len(comps[cur]))
+                    self.add_progbar(shrow, len([c for c in comps[cur] if c is True]), len(comps[cur]))
 
                 cur = nl.groupdict()['component']
 

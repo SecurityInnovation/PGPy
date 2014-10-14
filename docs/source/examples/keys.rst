@@ -22,7 +22,6 @@ Keys can be loaded individually into PGPKey objects::
     # or from a text or binary string/bytes/bytearray that has already been read in:
     key, _ = pgpy.PGPKey.from_blob(keyblob)
 
-
 Loading Keys Into a Keyring
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

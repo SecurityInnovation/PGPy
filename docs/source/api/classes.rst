@@ -13,8 +13,30 @@ Classes
     .. py:classmethod:: from_file(filename)
         :noindex:
 
+        Create a new :py:obj:`PGPKey` object, with contents loaded from a file. May be binary or ASCII armored.
+
+        :param filename: The path to the file to load.
+        :type filename: ``str``
+        :returns: A two element ``tuple`` of :py:obj:`PGPKey`, :py:obj:`~collections.OrderedDict`.
+                  The :py:obj:`~collections.OrderedDict` has the following format::
+
+                    key, others = PGPKey.from_file('path/to/keyfile')
+                    # others: { (Fingerprint, bool(key.is_public): PGPKey }
+
+
     .. py:classmethod:: from_blob(blob)
         :noindex:
+
+        Create a new :py:obj:`PGPKey` object, with contents loaded from a blob. May be binary or ASCII armored.
+
+        :param blob: The data to load.
+        :type blob: ``str``, ``bytes``, ``unicode``, ``bytearray``
+        :returns: A two element ``tuple`` of :py:obj:`PGPKey`, :py:obj:`~collections.OrderedDict`.
+                  The :py:obj:`~collections.OrderedDict` has the following format::
+
+                    key, others = PGPKey.from_file('path/to/keyfile')
+                    # others: { (Fingerprint, bool(key.is_public): PGPKey }
+
 
 :py:class:`PGPKeyring`
 ----------------------
@@ -22,6 +44,7 @@ Classes
 .. autoclass:: PGPKeyring
     :members:
     :noindex:
+
 
 :py:class:`PGPMessage`
 ----------------------
@@ -33,8 +56,21 @@ Classes
     .. py:classmethod:: from_file(filename)
         :noindex:
 
+        Create a new :py:obj:`PGPMessage` object, with contents loaded from a file. May be binary or ASCII armored.
+
+        :param filename: The path to the file to load.
+        :type filename: ``str``
+        :returns: :py:obj:`PGPMessage`
+
     .. py:classmethod:: from_blob(blob)
         :noindex:
+
+        Create a new :py:obj:`PGPMessage` object, with contents loaded from a blob. May be binary or ASCII armored.
+
+        :param blob: The data to load.
+        :type blob: ``str``, ``bytes``, ``unicode``, ``bytearray``
+        :returns: :py:obj:`PGPMessage`
+
 
 :py:class:`PGPSignature`
 ------------------------
@@ -46,8 +82,21 @@ Classes
     .. py:classmethod:: from_file(filename)
         :noindex:
 
+        Create a new :py:obj:`PGPSignature` object, with contents loaded from a file. May be binary or ASCII armored.
+
+        :param filename: The path to the file to load.
+        :type filename: ``str``
+        :returns: :py:obj:`PGPSignature`
+
     .. py:classmethod:: from_blob(blob)
         :noindex:
+
+        Create a new :py:obj:`PGPSignature` object, with contents loaded from a blob. May be binary or ASCII armored.
+
+        :param blob: The data to load.
+        :type blob: ``str``, ``bytes``, ``unicode``, ``bytearray``
+        :returns: :py:obj:`PGPSignature`
+
 
 :py:class:`PGPUID`
 ------------------
@@ -56,12 +105,14 @@ Classes
     :members:
     :noindex:
 
+
 Other Objects
 =============
 
 .. py:currentmodule:: pgpy.types
 
 These are objects that are returned during certain operations, but are probably not useful to instantiate directly.
+
 
 :py:class:`~types.SignatureVerification`
 ----------------------------------------
@@ -70,9 +121,11 @@ These are objects that are returned during certain operations, but are probably 
     :members:
     :noindex:
 
+
 :py:class:`~types.Fingerprint`
 ------------------------------
 
 .. autoclass:: Fingerprint
     :members:
     :noindex:
+

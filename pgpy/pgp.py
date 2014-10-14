@@ -333,7 +333,7 @@ class PGPSignature(PGPObject, Armorable):
             document is canonicalized by converting line endings to <CR><LF>,
             and the resulting data is hashed.
             """
-            _data += re.subn(br'\r{0,1}\n', b'\r\n', subject)[0]
+            _data += re.subn(br'\r?\n', b'\r\n', subject)[0]
 
         if self.type in [SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
                          SignatureType.Positive_Cert, SignatureType.CertRevocation, SignatureType.Subkey_Binding,
@@ -1904,7 +1904,7 @@ class PGPKey(PGPObject, Armorable):
         # keys will hold other keys parsed here
         keys = collections.OrderedDict()
         # orphaned will hold all non-opaque orphaned packets
-        orphaned = collections.OrderedDict()
+        orphaned = []
         # last holds the last non-signature thing processed
 
         getpkt = lambda d: Packet(d) if len(d) > 0 else None
@@ -1958,13 +1958,14 @@ class PGPKey(PGPObject, Armorable):
 
             # this will only be reached called if the inner loop hit a break
             warnings.warn("Warning: Orphaned packet detected! {:s}".format(repr(pkt)), stacklevel=2)  # pragma: no cover
-            orphaned[(pkt.header.tag, len([k for k, v in orphaned.keys() if k == pkt.header.tag]))] = pkt  # pragma: no cover
+            orphaned.append(pkt) # pragma: no cover
             for pkt in group:  # pragma: no cover
-                orphaned[(pkt.header.tag, len([k for k, v in orphaned.keys() if k == pkt.header.tag]))] = pkt
+                orphaned.append(pkt)
 
         # remove the reference to self from keys
         [ keys.pop((getattr(self, 'fingerprint.keyid', '~'), None), t) for t in (True, False) ]
-        return {'keys': keys, 'orphaned': orphaned}
+        # return {'keys': keys, 'orphaned': orphaned}
+        return keys
 
 
 class PGPKeyring(collections.Container, collections.Iterable, collections.Sized):
@@ -2096,7 +2097,7 @@ class PGPKeyring(collections.Container, collections.Iterable, collections.Sized)
             else:
                 _key, keys = PGPKey.from_blob(key)
 
-            for ik in _preiter(_key, keys['keys'].values()):
+            for ik in _preiter(_key, keys.values()):
                 self._add_key(ik)
                 loaded |= {ik.fingerprint} | {isk.fingerprint for isk in ik.subkeys.values()}
 

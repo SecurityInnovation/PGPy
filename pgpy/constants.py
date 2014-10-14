@@ -131,10 +131,13 @@ class SymmetricKeyAlgorithm(IntEnum):
 
 class PubKeyAlgorithm(IntEnum):
     Invalid = 0x00
+    #: Signifies that a key is an RSA key.
     RSAEncryptOrSign = 0x01
     RSAEncrypt = 0x02  # deprecated
     RSASign = 0x03     # deprecated
+    #: Signifies that a key is an ElGamal key.
     ElGamal = 0x10
+    #: Signifies that a key is a DSA key.
     DSA = 0x11
     ECDH = 0x12
     ECDSA = 0x13
@@ -245,10 +248,15 @@ class HashAlgorithm(IntEnum):
 
 
 class RevocationReason(IntEnum):
+    #: No reason was specified. This is the default reason.
     NotSpecified = 0x00
+    #: The key was superseded by a new key. Only meaningful when revoking a key.
     Superseded = 0x01
+    #: Key material has been compromised. Only meaningful when revoking a key.
     Compromised = 0x02
+    #: Key is retired and no longer used. Only meaningful when revoking a key.
     Retired = 0x03
+    #: User ID information is no longer valid. Only meaningful when revoking a certification of a user id.
     UserID = 0x20
 
 
@@ -305,12 +313,20 @@ class TrustLevel(IntEnum):
 
 
 class KeyFlags(FlagEnum):
+    #: Signifies that a key may be used to certify keys and user ids. Primary keys always have this, even if it is not specified.
     Certify = 0x01
+    #: Signifies that a key may be used to sign messages and documents.
     Sign = 0x02
+    #: Signifies that a key may be used to encrypt messages.
     EncryptCommunications = 0x04
+    #: Signifies that a key may be used to encrypt storage. Currently equivalent to :py:obj:~pgpy.constants.EncryptCommunications`.
     EncryptStorage = 0x08
+    #: Signifies that the private component of a given key may have been split by a secret-sharing mechanism. Split
+    #: keys are not currently supported by PGPy.
     Split = 0x10
+    #: Signifies that a key may be used for authentication.
     Authentication = 0x20
+    #: Signifies that the private component of a key may be in the possession of more than one person.
     MultiPerson = 0x80
 
 
