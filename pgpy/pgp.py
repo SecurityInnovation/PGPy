@@ -500,7 +500,7 @@ class PGPUID(object):
         """
         If the most recent, valid self-signature specifies this as being primary, this will be True. Otherwise, Faqlse.
         """
-        return bool(next(iter(self.selfsig._signature.subpackets['h_PrimaryUserID']), default=False))
+        return bool(next(iter(self.selfsig._signature.subpackets['h_PrimaryUserID']), False))
 
     @property
     def is_uid(self):
@@ -522,7 +522,7 @@ class PGPUID(object):
         This will be the most recent, self-signature of this User ID or Attribute. If there isn't one, this will be ``None``.
         """
         if self._parent is not None:
-            return next((sig for sig in reversed(self._signatures) if sig.signer == self._parent.fingerprint.keyid), default=None)
+            return next((sig for sig in reversed(self._signatures) if sig.signer == self._parent.fingerprint.keyid), None)
 
     @property
     def signers(self):
@@ -1329,7 +1329,7 @@ class PGPKey(PGPObject, Armorable):
 
     def get_uid(self, search):
         if self.is_primary:
-            return next((u for u in self._uids if search in filter(lambda a: a is not None, (u.name, u.comment, u.email))), default=None)
+            return next((u for u in self._uids if search in filter(lambda a: a is not None, (u.name, u.comment, u.email))), None)
         return self.parent.get_uid(search)
 
     def del_uid(self, search):
@@ -1365,9 +1365,9 @@ class PGPKey(PGPObject, Armorable):
         if user is not None:
             uid = self.get_uid(user)
         else:
-            uid = next(iter(self.userids), default=None)
+            uid = next(iter(self.userids), None)
             if uid is None and self.parent is not None:
-                uid = next(iter(self.parent.userids), default=None)
+                uid = next(iter(self.parent.userids), None)
 
         if sig.hash_algorithm is None:
             sig._signature.halg = uid.selfsig.hashprefs[0]
@@ -1821,9 +1821,9 @@ class PGPKey(PGPObject, Armorable):
         if user is not None:
             uid = self.get_uid(user)
         else:
-            uid = next(iter(self.userids), default=None)
+            uid = next(iter(self.userids), None)
             if uid is None and self.parent is not None:
-                uid = next(iter(self.parent.userids), default=None)
+                uid = next(iter(self.parent.userids), None)
         cipher_algo = prefs.pop('cipher', uid.selfsig.cipherprefs[0])
         hash_algo = prefs.pop('hash', uid.selfsig.hashprefs[0])
 
