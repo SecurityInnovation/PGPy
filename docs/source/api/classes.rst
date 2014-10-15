@@ -8,7 +8,12 @@ Classes
 
 .. autoclass:: PGPKey
     :members:
-    :noindex:
+
+    .. py:attribute:: ascii_header
+        :noindex:
+        :annotation: = OrderedDict([('Version', 'PGPy v|version|')])
+
+        An :py:obj:`~collections.OrderedDict` of headers that appear, in order, in the ASCII-armored form of this object.
 
     .. py:classmethod:: from_file(filename)
         :noindex:
@@ -43,7 +48,11 @@ Classes
 
 .. autoclass:: PGPKeyring
     :members:
-    :noindex:
+
+    .. py:attribute:: ascii_header
+        :noindex:
+
+        An :py:obj:`~collections.OrderedDict` of headers that appear, in order, in the ASCII-armored form of this object.
 
 
 :py:class:`PGPMessage`
@@ -51,7 +60,11 @@ Classes
 
 .. autoclass:: PGPMessage
     :members:
-    :noindex:
+
+    .. py:attribute:: ascii_header
+        :noindex:
+
+        An :py:obj:`~collections.OrderedDict` of headers that appear, in order, in the ASCII-armored form of this object.
 
     .. py:classmethod:: from_file(filename)
         :noindex:
@@ -77,7 +90,11 @@ Classes
 
 .. autoclass:: PGPSignature
     :members:
-    :noindex:
+
+    .. py:attribute:: ascii_header
+        :noindex:
+
+        An :py:obj:`~collections.OrderedDict` of headers that appear, in order, in the ASCII-armored form of this object.
 
     .. py:classmethod:: from_file(filename)
         :noindex:
@@ -103,7 +120,6 @@ Classes
 
 .. autoclass:: PGPUID
     :members:
-    :noindex:
 
 
 Other Objects
@@ -119,7 +135,6 @@ These are objects that are returned during certain operations, but are probably 
 
 .. autoclass:: SignatureVerification
     :members:
-    :noindex:
 
 
 :py:class:`~types.Fingerprint`
@@ -127,5 +142,4 @@ These are objects that are returned during certain operations, but are probably 
 
 .. autoclass:: Fingerprint
     :members:
-    :noindex:
 
