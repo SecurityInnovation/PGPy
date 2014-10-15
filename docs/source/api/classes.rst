@@ -22,6 +22,8 @@ Classes
 
         :param filename: The path to the file to load.
         :type filename: ``str``
+        :raises: :py:exc:`ValueError` if a properly formed PGP block was not found in the file at ``filename``
+        :raises: :py:exc:`~exceptions.PGPError` if de-armoring or parsing failed
         :returns: A two element ``tuple`` of :py:obj:`PGPKey`, :py:obj:`~collections.OrderedDict`.
                   The :py:obj:`~collections.OrderedDict` has the following format::
 
@@ -36,6 +38,9 @@ Classes
 
         :param blob: The data to load.
         :type blob: ``str``, ``bytes``, ``unicode``, ``bytearray``
+        :raises: :py:exc:`TypeError` if blob is not in the expected types above
+        :raises: :py:exc:`ValueError` if a properly formed PGP block was not found in ``blob``
+        :raises: :py:exc:`~exceptions.PGPError` if de-armoring or parsing failed
         :returns: A two element ``tuple`` of :py:obj:`PGPKey`, :py:obj:`~collections.OrderedDict`.
                   The :py:obj:`~collections.OrderedDict` has the following format::
 
@@ -73,6 +78,8 @@ Classes
 
         :param filename: The path to the file to load.
         :type filename: ``str``
+        :raises: :py:exc:`ValueError` if a properly formed PGP block was not found in the file at ``filename``
+        :raises: :py:exc:`~exceptions.PGPError` if de-armoring or parsing failed
         :returns: :py:obj:`PGPMessage`
 
     .. py:classmethod:: from_blob(blob)
@@ -82,6 +89,9 @@ Classes
 
         :param blob: The data to load.
         :type blob: ``str``, ``bytes``, ``unicode``, ``bytearray``
+        :raises: :py:exc:`TypeError` if blob is not in the expected types above
+        :raises: :py:exc:`ValueError` if a properly formed PGP block was not found in ``blob``
+        :raises: :py:exc:`~exceptions.PGPError` if de-armoring or parsing failed
         :returns: :py:obj:`PGPMessage`
 
 
@@ -103,6 +113,8 @@ Classes
 
         :param filename: The path to the file to load.
         :type filename: ``str``
+        :raises: :py:exc:`ValueError` if a properly formed PGP block was not found in the file at ``filename``
+        :raises: :py:exc:`~exceptions.PGPError` if de-armoring or parsing failed
         :returns: :py:obj:`PGPSignature`
 
     .. py:classmethod:: from_blob(blob)
@@ -112,6 +124,9 @@ Classes
 
         :param blob: The data to load.
         :type blob: ``str``, ``bytes``, ``unicode``, ``bytearray``
+        :raises: :py:exc:`TypeError` if blob is not in the expected types above
+        :raises: :py:exc:`ValueError` if a properly formed PGP block was not found in ``blob``
+        :raises: :py:exc:`~exceptions.PGPError` if de-armoring or parsing failed
         :returns: :py:obj:`PGPSignature`
 
 

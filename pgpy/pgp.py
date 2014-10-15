@@ -282,6 +282,12 @@ class PGPSignature(PGPObject, Armorable):
     def __init__(self):
         """
         PGPSignature objects represent OpenPGP compliant signatures.
+
+        PGPSignature implements the `__str__` method, the output of which will be the signature object in
+        OpenPGP-compliant ASCII-armored format.
+
+        PGPSignature implements the `__bytes__` method, the output of which will be the signature object in
+        OpenPGP-compliant binary format.
         """
         super(PGPSignature, self).__init__()
         self._signature = None
@@ -717,6 +723,15 @@ class PGPMessage(PGPObject, Armorable):
     def __init__(self):
         """
         PGPMessage objects represent OpenPGP message compositions.
+
+        PGPMessage implements the `__str__` method, the output of which will be the message composition in
+        OpenPGP-compliant ASCII-armored format.
+
+        PGPMessage implements the `__bytes__` method, the output of which will be the message composition in
+        OpenPGP-compliant binary format.
+
+        Any signatures within the PGPMessage that are marked as being non-exportable will not be included in the output
+        of either of those methods.
         """
         super(PGPMessage, self).__init__()
         self._compression = CompressionAlgorithm.Uncompressed
@@ -1188,20 +1203,14 @@ class PGPKey(PGPObject, Armorable):
         """
         PGPKey objects represent OpenPGP compliant keys along with all of their associated data.
 
-        Keys can be exported to binary like so::
+        PGPKey implements the `__str__` method, the output of which will be the key composition in
+        OpenPGP-compliant ASCII-armored format.
 
-            # on Python 3:
-            keybytes = bytes(key)
+        PGPKey implements the `__bytes__` method, the output of which will be the key composition in
+        OpenPGP-compliant binary format.
 
-            # on Python 2:
-            keybytes = key.__bytes__()
-
-        Alternatively, keys can be exported to ASCII-armored format like so::
-
-            # on Python 2 and 3:
-            keystr = str(key)
-
-        Any signatures that are marked as being non-exportable will not be exported in this manner.
+        Any signatures within the PGPKey that are marked as being non-exportable will not be included in the output
+        of either of those methods.
         """
         super(PGPKey, self).__init__()
         self._key = None

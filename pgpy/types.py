@@ -10,6 +10,7 @@ import collections
 import operator
 import os
 import re
+import sys
 import warnings
 
 from enum import EnumMeta
@@ -20,6 +21,8 @@ import six
 from ._author import __version__
 
 from .decorators import sdproperty
+
+from .errors import PGPError
 
 if six.PY2:
     FileNotFoundError = IOError
@@ -99,7 +102,11 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
             m['headers'] = collections.OrderedDict(re.findall('^(?P<key>.+): (?P<value>.+)$\n?', m['headers'], flags=re.MULTILINE))
 
         if m['body'] is not None:
-            m['body'] = bytearray(base64.b64decode(m['body'].encode()))
+            try:
+                m['body'] = bytearray(base64.b64decode(m['body'].encode()))
+
+            except binascii.Error as ex:
+                six.reraise(PGPError, ex)
 
         if m['crc'] is not None:
             m['crc'] = Header.bytes_to_int(base64.b64decode(m['crc'].encode()))
@@ -432,7 +439,12 @@ class MetaDispatchable(abc.ABCMeta):
                     if header.__class__ != ncls.__headercls__:
                         nh = ncls.__headercls__()
                         nh.__dict__.update(header.__dict__)
-                        nh.parse(packet)
+                        try:
+                            nh.parse(packet)
+
+                        except Exception as ex:
+                            six.reraise(PGPError, ex)
+
                         header = nh
 
                     if (rcls, header.typeid, header.version) in MetaDispatchable._registry:
@@ -446,7 +458,12 @@ class MetaDispatchable(abc.ABCMeta):
 
             obj = _makeobj(ncls)
             obj.header = header
-            obj.parse(packet)
+
+            try:
+                obj.parse(packet)
+
+            except Exception as ex:
+                six.reraise(PGPError, ex)
 
         else:
             obj = _makeobj(cls)
