@@ -230,7 +230,8 @@ class TestPGPKey(object):
         assert sec.is_protected is False
 
         # unlock with the correct passphrase
-        with enc.unlock('QwertyUiop'), self.assert_warnings():
+        with enc.unlock('QwertyUiop') as _unlocked, self.assert_warnings():
+            assert _unlocked is enc
             assert enc.is_unlocked
 
     def test_verify_detached(self, sigkey, sigsig, sigsubj):

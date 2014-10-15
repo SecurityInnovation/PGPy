@@ -1313,13 +1313,13 @@ class PGPKey(PGPObject, Armorable):
         if self.is_public:
             # we can't unprotect public keys because only private key material is ever protected
             warnings.warn("Public keys cannot be passphrase-protected", stacklevel=3)
-            yield
+            yield self
             return
 
         if not self.is_protected:
             # we can't unprotect private keys that are not protected, because there is no ciphertext to decrypt
             warnings.warn("This key is not protected with a passphrase", stacklevel=3)
-            yield
+            yield self
             return
 
         try:

@@ -49,16 +49,16 @@ def targette_sec():
 
 class TestPGPKey(object):
     def test_unlock_pubkey(self, rsa_pub, recwarn):
-        with rsa_pub.unlock("QwertyUiop"):
-            pass
+        with rsa_pub.unlock("QwertyUiop") as _unlocked:
+            assert _unlocked is rsa_pub
 
         w = recwarn.pop(UserWarning)
         assert str(w.message) == "Public keys cannot be passphrase-protected"
         assert w.filename == __file__
 
     def test_unlock_not_protected(self, rsa_sec, recwarn):
-        with rsa_sec.unlock("QwertyUiop"):
-            pass
+        with rsa_sec.unlock("QwertyUiop") as _unlocked:
+            assert _unlocked is rsa_sec
 
         w = recwarn.pop(UserWarning)
         assert str(w.message) == "This key is not protected with a passphrase"
