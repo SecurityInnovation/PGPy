@@ -107,18 +107,7 @@ class PGPSignature(PGPObject, Armorable):
         return self.parent is not None
 
     @property
-    def expired(self):
-        """
-        ``True`` if the signature has an expiration date, and is expired. Otherwise, ``False``
-        """
-        expires_at = self.expires
-        if expires_at is not False and expires_at != self.created:
-            return expires_at < datetime.utcnow()
-
-        return False
-
-    @property
-    def expires(self):
+    def expires_at(self):
         """
         A :py:obj:`~datetime.datetime` of when this signature expires, if a signature expiration date is specified.
         Otherwise, ``False``
@@ -166,6 +155,17 @@ class PGPSignature(PGPObject, Armorable):
         The :py:obj:`~constants.HashAlgorithm` used when computing this signature.
         """
         return self._signature.halg
+
+    @property
+    def is_expired(self):
+        """
+        ``True`` if the signature has an expiration date, and is expired. Otherwise, ``False``
+        """
+        expires_at = self.expires_at
+        if expires_at is not False and expires_at != self.created:
+            return expires_at < datetime.utcnow()
+
+        return False
 
     @property
     def key_algorithm(self):
@@ -283,10 +283,10 @@ class PGPSignature(PGPObject, Armorable):
         """
         PGPSignature objects represent OpenPGP compliant signatures.
 
-        PGPSignature implements the `__str__` method, the output of which will be the signature object in
+        PGPSignature implements the ``__str__`` method, the output of which will be the signature object in
         OpenPGP-compliant ASCII-armored format.
 
-        PGPSignature implements the `__bytes__` method, the output of which will be the signature object in
+        PGPSignature implements the ``__bytes__`` method, the output of which will be the signature object in
         OpenPGP-compliant binary format.
         """
         super(PGPSignature, self).__init__()
@@ -581,6 +581,9 @@ class PGPUID(object):
     def __init__(self):
         """
         PGPUID objects represent User IDs and User Attributes for keys.
+
+        PGPUID implements the ``__format__`` method for User IDs, returning a string in the format
+        'name (comment) <email>', leaving out any comment or email fields that are not present.
         """
         super(PGPUID, self).__init__()
         self._uid = None
@@ -1092,6 +1095,19 @@ class PGPKey(PGPObject, Armorable):
         return self._key.created
 
     @property
+    def expires_at(self):
+        """A :py:obj:`~datetime.datetime` object of when this key is to be considered expired, if any. Otherwise, ``None``"""
+        try:
+            expires = min(sig.key_expiration for sig in itertools.chain(iter(uid.selfsig for uid in self.userids), self.self_signatures)
+                          if sig.key_expiration is not None)
+
+        except ValueError:
+            return None
+
+        else:
+            return (self.created + expires)
+
+    @property
     def fingerprint(self):
         """The fingerprint of this key, as a :py:obj:`~pgpy.types.Fingerprint` object."""
         return self._key.fingerprint
@@ -1109,15 +1125,11 @@ class PGPKey(PGPObject, Armorable):
     @property
     def is_expired(self):
         """``True`` if this key is expired, otherwise ``False``"""
-        try:
-            expires = min(sig.key_expiration for sig in itertools.chain(iter(uid.selfsig for uid in self.userids), self.self_signatures)
-                          if sig.key_expiration is not None)
+        expires = self.expires_at
+        if expires is not None:
+            return datetime.utcnow() <= expires
 
-        except ValueError:
-            return False
-
-        else:
-            return datetime.utcnow() <= (self.created + expires)
+        return False
 
     @property
     def is_primary(self):
@@ -1172,7 +1184,7 @@ class PGPKey(PGPObject, Armorable):
 
         ##TODO: filter out revoked signatures as well
         for sig in iter(sig for sig in self._signatures
-                        if all([sig.type == keytype, sig.signer == keyid, not sig.expired])):
+                        if all([sig.type == keytype, sig.signer == keyid, not sig.is_expired])):
             yield sig
 
     @property

@@ -122,6 +122,7 @@ class TestBlocks(object):
              ('signers',       {'560CF308EF60CFA3'}),],
         'tests/testdata/blocks/rsapubkey.asc':
             [('created',       datetime(2014, 7, 23, 21, 19, 24)),
+             ('expires_at',    None),
              ('fingerprint',   "F429 4BC8 094A 7E05 85C8 5E86 3747 3B37 58C4 4F36"),
              ('is_expired',    False),
              ('is_primary',    True),
@@ -134,6 +135,7 @@ class TestBlocks(object):
              ('signers',       set()),],
         'tests/testdata/blocks/rsaseckey.asc':
             [('created',       datetime(2014, 7, 23, 21, 19, 24)),
+             ('expires_at',    None),
              ('fingerprint',   "F429 4BC8 094A 7E05 85C8 5E86 3747 3B37 58C4 4F36"),
              ('is_expired',    False),
              ('is_primary',    True),
@@ -156,12 +158,12 @@ class TestBlocks(object):
             ('compprefs',      []),
             ('created',        datetime.utcfromtimestamp(1402615373)),
             ('embedded',       False),
-            ('expired',        False),
             ('exportable',     True),
             ('features',       set()),
             ('hash2',          b'\xc4\x24'),
             ('hashprefs',      []),
             ('hash_algorithm', HashAlgorithm.SHA512),
+            ('is_expired',     False),
             ('key_algorithm',  PubKeyAlgorithm.RSAEncryptOrSign),
             ('key_flags',      set()),
             ('keyserver',      ''),
@@ -175,7 +177,7 @@ class TestBlocks(object):
             ('type',           SignatureType.BinaryDocument)],
         'tests/testdata/blocks/signature.expired.asc':
             [('created',       datetime(2014, 9, 28, 20, 54, 42)),
-             ('expired',       True),],
+             ('is_expired',    True),],
     }
     def test_load(self, block):
         with open(block) as bf:

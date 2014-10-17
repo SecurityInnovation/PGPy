@@ -254,9 +254,9 @@ class TestPGPKey(object):
         assert sig.policy_uri == 'about:blank'
         # assert sig.sig.signer_uid == "{:s}".format(sec.userids[0])
         assert next(iter(sig._signature.subpackets['SignersUserID'])).userid == "{:s}".format(sec.userids[0])
-        if not sig.expired:
-            time.sleep((sig.expires - datetime.utcnow()).total_seconds())
-        assert sig.expired
+        if not sig.is_expired:
+            time.sleep((sig.expires_at - datetime.utcnow()).total_seconds())
+        assert sig.is_expired
 
         # verify with GnuPG
         with write_clean('tests/testdata/string', 'w', string), \
@@ -283,7 +283,7 @@ class TestPGPKey(object):
 
         assert sig.type == SignatureType.CanonicalDocument
         assert sig.revocable
-        assert sig.expired is False
+        assert sig.is_expired is False
 
         ctmessage |= sig
 
@@ -304,7 +304,7 @@ class TestPGPKey(object):
 
         assert sig.type == SignatureType.BinaryDocument
         assert sig.revocable
-        assert sig.expired is False
+        assert sig.is_expired is False
 
         message |= sig
 
@@ -594,4 +594,3 @@ class TestPGPKey(object):
         # and remove it, for good measure
         subkey._signatures.remove(rsig)
         assert rsig not in subkey
-
