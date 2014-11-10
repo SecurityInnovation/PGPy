@@ -14,9 +14,9 @@ makedepends=('python-setuptools' 'python-cryptography' 'python-singledispatch' '
              'python2-setuptools' 'python2-cryptography' 'python2-enum34' 'python2-singledispatch' 'python2-six')
 source=("https://pypi.python.org/packages/source/P/PGPy/PGPy-${pkgver}.tar.gz")
 ##TODO: sum this shit
-sha256sums=()
-sha384sums=()
-sha512sums=()
+sha256sums=('8ff7df1765b1977505c8dd1a77c4755fe849f792653307fc77f5171d30cd55cd')
+sha384sums=('56e66e067cb643423fe2bffa2c7a3d825e34b2b2b76ca43f0549792d7bcca1b9bcf3b9d797e0435d0576a3ebe4653640')
+sha512sums=('d5f8b67c22e75c739200022ddbe0ecbbfe1784ca19fa8e8db09f6d72a96c5c1fbbb0e4b101a7cb2694d25d304126ab12848cd752507526ff313b78ab28b95178')
 
 prepare() {
     cp -a PGPy-${pkgver}{,-python2}
