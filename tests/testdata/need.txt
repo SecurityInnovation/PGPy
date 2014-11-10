@@ -1,0 +1,40 @@
+====================
+Needed Test Material
+====================
+
+Needed Subpacket Examples
+-------------------------
+
+* Reserved (0x00)
+
+* Reserved (0x01)
+
+* Reserved (0x08)
+
+* Reserved (0x0D)
+
+* Reserved (0x0E)
+
+* Reserved (0x0F)
+
+* Reserved (0x11)
+
+* Reserved (0x13)
+
+* Signature Target (0x1F)
+
+
+Needed Packet Examples
+----------------------
+* Signature Packet (Tag 2):
+
+   - type 0x02 - Standalone signature
+
+   - type 0x40 - Timestamp signature
+     This one looks to be difficult to obtain as
+
+   - type 0x50 - Third-Party Confirmation signature
+
+* Marker Packet (Obsolete Literal Packet) (Tag 10)
+
+* Modification Detection Code Packet (Tag 19)

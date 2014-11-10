@@ -1,0 +1,5 @@
+pgpy (0.3.0-1) unstable; urgency=low
+
+  * Initial release (Closes: #62)
+
+ -- Michael <mgreene@securityinnovation.com>  Tue, 07 Oct 2014 16:37:53 -0700

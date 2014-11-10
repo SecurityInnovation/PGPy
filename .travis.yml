@@ -4,12 +4,8 @@ python:
   - "3.3"
   - "3.2"
   - "2.7"
-env:
-  matrix:
-    # test all versions against OpenSSL 0.9.8
-    - OPENSSL=0.9.8
-    # test all versions against OpenSSL 1.0.0
-    - OPENSSL=1.0.1
+  - "pypy"
+  - "pypy3"
 matrix:
   include:
     # add a pep8 test
@@ -23,19 +19,20 @@ matrix:
       env: TOXENV=setup27
   allow_failures:
     - env: TOXENV=pep8
+    - python: "pypy"
+    - python: "pypy3"
 # install requirements
 install:
-  # add the lucid repo for if we need OpenSSL 0.9.8
-  - sudo add-apt-repository "deb http://archive.ubuntu.com/ubuntu/ lucid main"
   # make sure gnupg, pgpdump, and the requested version of OpenSSL are installed
   - sudo apt-get update
   - sudo apt-get install -y gnupg pgpdump
-  - if [[ "${OPENSSL}" == "0.9.8" ]]; then sudo apt-get install -y --force-yes libssl-dev/lucid; fi
   # install coveralls
   - pip install tox python-coveralls
 # set TOXENV if it isn't yet
 before_script:
   - if [[ -z "$TOXENV" ]]; then export TOXENV=py${TRAVIS_PYTHON_VERSION//.}; fi
+  - if [[ "$TRAVIS_PYTHON_VERSION" == 'pypy' ]]; then export TOXENV=pypy; fi
+  - if [[ "$TRAVIS_PYTHON_VERSION" == 'pypy3' ]]; then export TOXENV=pypy3; fi
 # use setup.py to invoke testing via coveralls
 script:
  - tox

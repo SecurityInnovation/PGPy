@@ -1,0 +1,3 @@
+header#pageheader, footer#pagefooter, div.related, div.document {
+    max-width: 75rem;
+}

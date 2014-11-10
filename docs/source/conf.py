@@ -15,14 +15,14 @@
 
 import sys
 import os
-import sphinx_rtd_theme
+# this needs sphinx-better-theme
+from better import better_theme_path
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
+sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(0, os.path.abspath('../../'))
-
-print(os.path.abspath('.'))
 
 from pgpy._author import __version__
 
@@ -38,6 +38,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
     'sphinx.ext.todo',
+    '_ext.progress',
     # 'sphinx.ext.doctest',
     # 'sphinx.ext.coverage',
     # 'sphinx.ext.mathjax',
@@ -107,6 +108,12 @@ pygments_style = 'sphinx'
 # If true, keep warnings as "system message" paragraphs in the built documents.
 #keep_warnings = False
 
+# -- Options for ext.autodoc ----------------------------------------------
+
+autoclass_content = 'init'
+autodoc_member_order = 'bysource'
+autodoc_default_flags = ['members']
+
 # -- Options for ext.autosummary ------------------------------------------
 
 numpydoc_show_class_members = False
@@ -115,12 +122,18 @@ numpydoc_show_class_members = False
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'default'
+# html_theme = 'default'
+html_theme = 'better'
+html_theme_path = [better_theme_path]
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
-#html_theme_options = {}
+if html_theme == 'better':
+    html_theme_options = {
+        'cssfiles': ['_static/pgpy_better.css'],
+        'sidebarwidth': '19rem',
+    }
 
 # Add any paths that contain custom themes here, relative to this directory.
 #html_theme_path = []

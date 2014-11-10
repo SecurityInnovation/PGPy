@@ -1,12 +1,56 @@
 :tocdepth: 2
 
-.. _changes::
-
+*********
 Changelog
 *********
 
+v0.3.0
+======
+
+Released: |today|
+
+PGPy v0.3.0 is a major feature release.
+
+.. warning::
+    The API changed significantly in this version. It is likely that anything using a previous version will need to be
+    updated to work correctly with PGPy 0.3.0 or later.
+
+Bugs Fixed
+----------
+ * When keys are exported, any certification signatures that are marked as being non-exportable are now skipped (#101)
+ * When the wrong key is used to validate a signature, the error message in the raised exception
+   now makes that clear (#106)
+
+New Features
+------------
+ * Standalone sigantures can now be generated
+ * Can now specify which User ID to use when signing things (#121)
+ * Can now create new User IDs and User Attributes (#118)
+ * Can now add new User IDs and User Attributes to keys (#119)
+ * Timestamp signatures can now be generated
+ * Can now sign keys, user ids, and user attributes (#104)
+ * Can now create new PGPMessages (#114)
+ * Key flags are now respected by PGPKey objects (#99)
+ * Multiple signatures can now be validated at once in cases where that makes sense, such as when validating
+   self-signatures on keys/user ids (#120)
+ * Message signatures can now be verified (#117)
+ * Messages can now be encrypted/decrypted using a passphrase (#113)
+ * Cleartext messages can now be created and signed (#26)
+ * Cleartext messages with inline sigantures can now be verified (#27)
+ * Messages can now be loaded (#102)
+ * Messages can now be compressed (#100)
+
+Other Changes
+-------------
+ * CRC24 computation is now much faster than previous versions (#68)
+ * PGPKey and PGPKeyring APIs have changed significantly (#76)
+ * String2Key computation is now much faster than previous versions (#94)
+ * key material parts are now stored as integers (or ``long`` on Python 2.x) (#94)
+
 v0.2.3
 ======
+
+Released: July 31, 2014
 
 PGPy v0.2.3 is a bugfix release
 
@@ -16,6 +60,8 @@ Bugs Fixed
 
 v0.2.2
 ======
+
+Released: July 31, 2014
 
 PGPy v0.2.2 is primarily a bugfix release.
 
@@ -30,6 +76,8 @@ New Features
 
 v0.2.1
 ======
+
+Released: July 31, 2014
 
 PGPy v0.2.1 is primarily a bugfix release.
 
@@ -57,6 +105,8 @@ New Features
 
 v0.2.0
 ======
+
+Released: July 20, 2014
 
 Starting with v0.2.0, PGPy is now using the BSD 3-Clause license. v0.1.0 used the MIT license.
 
@@ -89,7 +139,8 @@ Known Issues
 ------------
 
  * Signing with 1024-bit DSA keys does not work with OpenSSL 0.9.8 (#48) - this primarily affects Mac OS X.
- * Verifying signatures signed with any DSA key length other than 2048-bits does not work with OpenSSL 0.9.8 - this primarily affects Mac OS X.
+ * Verifying signatures signed with any DSA key length other than 2048-bits does not work with OpenSSL 0.9.8 -
+   this primarily affects Mac OS X.
 
 Bugs Fixed
 ----------
@@ -101,4 +152,6 @@ Bugs Fixed
 v0.1.0
 ======
 
-Initial release.
+Released: May 02, 2014
+
+ * Initial release.

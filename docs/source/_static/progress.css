@@ -1,0 +1,87 @@
+progress {
+    width: 100%;
+    height: 22px;
+    -webkit-appearance: none;
+    border: none;
+}
+/* webkit */
+progress::-webkit-progress-bar {
+    background: #999;
+    border-radius: 6px;
+    padding: 2px;
+    box-shadow: 0 1px 1px 0 rgba(255, 255, 255, 0.2);
+}
+progress::-webkit-progress-value {
+    border-radius: 5px;
+    /* top shadow is white, bottom shadow is black */
+    box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.3),
+                inset 0 -1px 1px 0 rgba(0, 0, 0, 0.3);
+    background:
+        -webkit-linear-gradient(45deg, transparent, transparent 33%, rgba(0, 0, 0, 0.1) 33%, rgba(0, 0, 0, 0.1) 66%, transparent 66%),
+        -webkit-linear-gradient(top, rgba(255, 255, 255, 0.25), rgba(0, 0, 0, 0.2)),
+        -webkit-linear-gradient(left, #4070A0, #6292C2);
+    background-size: 25px 17px, 100% 100%, 100% 100%;
+
+    -webkit-animation: move 5s linear 0 infinite;
+    animation: move 5s linear 0 infinite;
+}
+/* firefox */
+progress,
+progress[role][aria-valuenow]::-moz-progress-bar {
+    height: 17px;
+    background: #999 !important;
+    border-radius: 6px;
+    padding: 2px;
+    box-shadow: 0 1px 1px 0 rgba(255, 255, 255, 0.2);
+}
+progress::-moz-progress-bar {
+    border-radius: 5px;
+     /*top shadow is white, bottom shadow is black*/
+    box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.3),
+                inset 0 -1px 1px 0 rgba(0, 0, 0, 0.3);
+    background:
+        -moz-linear-gradient(45deg, transparent, transparent 33%, rgba(0, 0, 0, 0.1) 33%, rgba(0, 0, 0, 0.1) 66%, transparent 66%),
+        -moz-linear-gradient(top, rgba(255, 255, 255, 0.25), rgba(0, 0, 0, 0.2)),
+        -moz-linear-gradient(left, #4070A0, #6292C2);
+    background-size: 25px 17px, 100% 100%, 100% 100%;
+    /* firefox apparently won't animate this :( */
+    animation: move 5s linear 0 infinite;
+}
+
+@-webkit-keyframes move {
+    from { background-position: 0 0; }
+    to { background-position: -100px 0; }
+}
+@keyframes move {
+    from { background-position: 0 0; }
+    to { background-position: -100px 0; }
+}
+
+th.progcell,
+td.progcell {
+    position: relative;
+}
+th.progcell > label,
+td.progcell > label {
+    position: absolute;
+    display: inline-block;
+    left: 50%;
+    width: 40px;
+    line-height: 22px;
+    margin-left: -40px;
+    text-align: center;
+    vertical-align: middle;
+    font-weight: 600;
+    text-shadow: 0 0 0.15em #fff, 1px 1px 2px #000;
+}
+
+.prog-top-label {
+    text-align: center !important;
+    vertical-align: bottom !important;
+    font-weight: bold;
+}
+.progress-checkbox {
+    text-align: right !important;
+    text-shadow: 2px 2px 1px #fff;
+}
+

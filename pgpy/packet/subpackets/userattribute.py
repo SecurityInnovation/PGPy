@@ -2,30 +2,14 @@
 """
 import struct
 
-from .types import SubPacket
-from ..types import PFIntEnum
-from ...util import bytes_to_int
-from ...util import int_to_bytes
+from .types import UserAttribute
+
+from ...constants import ImageEncoding
+
+from ...decorators import sdproperty
 
 
-class UASubPacket(SubPacket):
-    class Type(SubPacket.Type):
-        Image = 0x01
-
-        @property
-        def subclass(self):
-            classes = {'Image': Image}
-
-            if classes[self.name] is not None:
-                return classes[self.name]
-
-            raise NotImplementedError(self.name)  # pragma: no cover
-
-        def __str__(self):
-            return self.subclass.name
-
-
-class Image(UASubPacket):
+class Image(UserAttribute):
     """
     5.12.1. The Image Attribute Subpacket
 
@@ -59,38 +43,58 @@ class Image(UASubPacket):
     version of the image header or if a specified encoding format value
     is not recognized.
     """
-    class Version(PFIntEnum):
-        v1 = 0x01
+    __typeid__ = 0x01
 
-    class Encoding(PFIntEnum):
-        JPEG = 0x01
+    @sdproperty
+    def version(self):
+        return self._version
 
-    name = 'image attribute'
+    @version.register(int)
+    def version_int(self, val):
+        self._version = val
 
-    def __init__(self, packet):
-        self.version = Image.Version.v1
-        self.encoding = Image.Encoding.JPEG
+    @sdproperty
+    def iencoding(self):
+        return self._iencoding
 
-        super(Image, self).__init__(packet)
+    @iencoding.register(int)
+    @iencoding.register(ImageEncoding)
+    def iencoding_int(self, val):
+        try:
+            self._iencoding = ImageEncoding(val)
 
-    def parse(self, packet):
-        hlen = struct.unpack('<h', packet[:2])[0]
-        self.version = Image.Version(bytes_to_int(packet[2:3]))
-        self.encoding = Image.Encoding(bytes_to_int(packet[3:4]))
-        pos = hlen
-        self.payload = packet[pos:]
+        except ValueError:  # pragma: no cover
+            self._iencoding = val
+
+    @sdproperty
+    def image(self):
+        return self._image
+
+    @image.register(bytes)
+    @image.register(bytearray)
+    def image_bin(self, val):
+        self._image = bytearray(val)
+
+    def __init__(self):
+        super(Image, self).__init__()
+        self.version = 1
+        self.iencoding = 1
+        self.image = bytearray()
 
     def __bytes__(self):
         _bytes = super(Image, self).__bytes__()
 
-        # there is only v1
-        if self.version == Image.Version.v1:
-            # v1 image header length is always 16 bytes,
+        if self.version == 1:
+            # v1 image header length is always 16 bytes
             # and stored little-endian due to an 'historical accident'
-            _bytes += struct.pack('<h', 16)
-            _bytes += int_to_bytes(self.version)
-            _bytes += int_to_bytes(self.encoding)
-            _bytes += b'\x00' * 12
+            _bytes += struct.pack('<hbbiii', 16, self.version, self.iencoding, 0, 0, 0)
 
-        _bytes += self.payload
-        return _bytes
+        _bytes += self.image
+        return bytes(_bytes)
+
+    def parse(self, packet):
+        super(Image, self).parse(packet)
+        _, self.version, self.iencoding, _, _, _ = struct.unpack('<hbbiii', packet[:16])
+        del packet[:16]
+        self.image = packet[:(self.header.length - 17)]
+        del packet[:(self.header.length - 17)]

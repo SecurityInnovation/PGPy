@@ -1,3 +1,4 @@
-cryptography==0.4
-requests
+cryptography==0.6
 enum34
+six>=1.7.2
+singledispatch

@@ -1,0 +1,33 @@
+Source: pgpy
+Section: python
+Priority: optional
+Maintainer: Michael Greene <mgreene@securityinnovation.com>
+Build-Depends: debhelper (>= 8.0.0), cdbs, python-all-dev (>= 2.7), python3-all-dev (>= 3.2), python-setuptools, python3-setuptools
+Standards-Version: 3.9.2
+X-Python-Version: >= 2.7
+X-Python3-Version: >= 3.2
+Vcs-Git: https://github.com/Commod0re/PGPy.git
+Vcs-Browser: https://github.com/Commod0re/PGPy
+
+Package: python-pgpy
+Architecture: all
+Depends: ${misc:Depends}, ${python:Depends}
+Recommends: python-pgpy-doc
+Description: Pretty Good Privacy for Python.
+ A Pure-Python implementation of OpenPGP.
+
+Package: python3-pgpy
+Architecture: all
+Depends: ${misc:Depends}, ${python3:Depends}, python3-six
+Recommends: python-pgpy-doc
+Description: Pretty Good Privacy for Python.
+ A Pure-Python implementation of OpenPGP.
+
+Package: python-pgpy-doc
+Section: doc
+Architecture: all
+Recommends: python3-pgpy-doc, python-pgpy-doc
+Description: Pretty Good Privacy for Python (documentation).
+ A Pure-Python implementation of OpenPGP.
+ .
+ This package contains the HTML documentation.

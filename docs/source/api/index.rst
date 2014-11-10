@@ -1,11 +1,16 @@
+********
 PGPy API
-========
+********
 
 .. toctree::
     :hidden:
 
     exceptions
-    objects
+    constants
+    classes
 
 .. include:: exceptions.rst
-.. include:: objects.rst
+
+.. include:: constants.rst
+
+.. include:: classes.rst

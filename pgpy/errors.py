@@ -7,13 +7,23 @@ class PGPError(Exception):
     pass
 
 
-class PGPKeyDecryptionError(Exception):
+class PGPEncryptionError(Exception):
+    """Raised when encryption fails"""
+    pass
+
+
+class PGPDecryptionError(Exception):
     """Raised when decryption fails"""
     pass
 
 
 class PGPOpenSSLCipherNotSupported(Exception):
     """Raised when OpenSSL does not support the requested cipher"""
+    pass
+
+
+class PGPInsecureCipher(Exception):
+    """Raised when a cipher known to be insecure is attempted to be used to encrypt data"""
     pass
 
 

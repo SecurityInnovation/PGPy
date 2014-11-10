@@ -6,16 +6,16 @@ PGPy: Pretty Good Privacy for Python
     :alt: Latest stable version
 
 .. image:: https://travis-ci.org/Commod0re/PGPy.svg?branch=master
-    :target: https://travis-ci.org/Commod0re/PGPy?branch=develop
+    :target: https://travis-ci.org/Commod0re/PGPy?branch=master
     :alt: Travis-CI
 
 .. image:: https://coveralls.io/repos/Commod0re/PGPy/badge.png?branch=master
-    :target: https://coveralls.io/r/Commod0re/PGPy?branch=develop
+    :target: https://coveralls.io/r/Commod0re/PGPy?branch=master
     :alt: Coveralls
 
 Homepage: None yet.
 
-`PGPy` is a Python (2 and 3) library for implementing Pretty Good Privacy into Python programs.
+`PGPy` is a Python (2 and 3) library for implementing Pretty Good Privacy into Python programs, conforming to the OpenPGP specification per RFC 4880.
 
 Features
 --------
@@ -45,11 +45,13 @@ Requirements
 
   Tested with: 3.4, 3.3, 3.2, 2.7
 
-- `Requests <https://pypi.python.org/pypi/requests>`_
-
 - `Cryptography <https://pypi.python.org/pypi/cryptography>`_
 
 - `enum34 <https://pypi.python.org/pypi/enum34>`_
+
+- `singledispatch <https://pypi.python.org/pypi/singledispatch>`_
+
+- `six <https://pypi.python.org/pypi/six>`_
 
 License
 -------

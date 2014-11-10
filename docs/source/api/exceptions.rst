@@ -1,23 +1,9 @@
 Exceptions
-----------
-
-.. autosummary::
-    :toctree:
-    :nosignatures:
-
-    pgpy.errors.PGPError
-    pgpy.errors.PGPKeyDecryptionError
-    pgpy.errors.PGPOpenSSLCipherNotSupported
-
-Exceptions can be referenced by importing ``pgpy.errors``.
+==========
 
 .. py:currentmodule:: pgpy.errors
 
-.. autoexception:: PGPError
+.. automodule:: pgpy.errors
     :members:
-
-.. autoexception:: PGPKeyDecryptionError
-    :members:
-
-.. autoexception:: PGPOpenSSLCipherNotSupported
-    :members:
+    :undoc-members:
+    :noindex:

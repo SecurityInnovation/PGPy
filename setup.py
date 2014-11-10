@@ -11,7 +11,6 @@ import _author
 with open('README.rst') as readme:
     long_desc = readme.read()
 
-##TODO: fill in blank fields
 setup(
     # metadata
     name             = 'PGPy',
@@ -37,17 +36,23 @@ setup(
                         'Topic :: Software Development :: Libraries',
                         'Topic :: Software Development :: Libraries :: Python Modules',
                         'License :: OSI Approved :: BSD License'],
-    keywords        = ["PGP",
-                       "pgp",
+    keywords        = ["OpenPGP",
+                       "PGP",
                        "Pretty Good Privacy",
                        "GPG",
+                       "GnuPG",
+                       "openpgp",
+                       "pgp",
+                       "gnupg",
                        "gpg",
-                       "OpenPGP"],
+                       "encryption",
+                       "signature", ],
 
     # dependencies
-    install_requires = ['cryptography==0.4',
-                        'requests',
-                        'enum34'],
+    install_requires = ['cryptography==0.6',
+                        'enum34',
+                        'six',
+                        'singledispatch'],
 
     # urls
     url              = "https://github.com/Commod0re/PGPy",
@@ -58,7 +63,6 @@ setup(
     packages = [
         "pgpy",
         "pgpy.packet",
-        "pgpy.packet.fields",
         "pgpy.packet.subpackets"
     ],
 )

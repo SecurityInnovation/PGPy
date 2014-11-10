@@ -1,0 +1,4 @@
+enum34 -3.4 python3-enum34
+singledispatch python3-singledispatch
+six python3-six (>= 1.7.2)
+cryptography python3-cryptography (>= 0.5.2), python3-cryptography (<= 0.6.0)
