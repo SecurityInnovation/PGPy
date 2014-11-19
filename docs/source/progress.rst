@@ -182,7 +182,7 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
 
 
 .. progress:: RFC 5581
-    :text: :rfc:`5881` extends RFC 4880 to officially add support for the Camellia cipher
+    :text: :rfc:`5581` extends RFC 4880 to officially add support for the Camellia cipher
 
     :Actions:
         - Encryption, True, Camellia*
