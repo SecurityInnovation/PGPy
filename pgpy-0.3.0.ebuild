@@ -8,7 +8,7 @@ PYTHON_COMPAT=( python{2_7,3_2,3_3,3_4} )
 inherit distutils-r1
 
 DESCRIPTION="Pretty Good Privacy for Python - a pure Python OpenPGP implementation."
-HOMEPAGE="https://github.com/Commod0re/PGPy"
+HOMEPAGE="https://github.com/SecurityInnovation/PGPy"
 SRC_URI="mirror://pypi/P/PGPy/PGPy-${PV}.tar.gz"
 
 LICENSE="BSD"
