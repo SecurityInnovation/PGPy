@@ -55,9 +55,9 @@ setup(
                         'singledispatch'],
 
     # urls
-    url              = "https://github.com/Commod0re/PGPy",
-    download_url     = "https://github.com/Commod0re/PGPy/archive/{pgpy_ver}.tar.gz".format(pgpy_ver=_author.__version__),
-    # bugtrack_url     = "https://github.com/Commod0re/PGPy/issues",
+    url              = "https://github.com/SecurityInnovation/PGPy",
+    download_url     = "https://github.com/SecurityInnovation/PGPy/archive/{pgpy_ver}.tar.gz".format(pgpy_ver=_author.__version__),
+    # bugtrack_url     = "https://github.com/SecurityInnovation/PGPy/issues",
 
     # package hierarchy
     packages = [
