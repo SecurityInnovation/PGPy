@@ -246,12 +246,23 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
 Non-RFC Extensions
 ==================
 
+This section covers things that are considered extensions to PGP, but are not codified in the form of an RFC.
+
 .. progress:: DNS PKA
     :text: This section covers things that are considered extensions to PGP, but are not codified in the form of an RFC.
 
     :Other Sources:
         - DNS PKA, False, Look up and retrieve keys stored in DNS PKA records.
 
+.. progress:: OpenPGP HTTP Keyserver Protocol (HKP)
+    :text: The protocol is specified in `Marc Horowitz's thesis paper`_ and an expired RFC draft by David Shaw, `draft-shaw-openpgp-hkp-00.txt`_.
+
+    :HKP:
+        - HKP, False, Look up and retrieve keys from key server
+        - HKP, False, Send keys to key server
+
+.. _`Marc Horowitz's thesis paper`: http://www.mit.edu/afs/net.mit.edu/project/pks/thesis/paper/thesis.html
+.. _`draft-shaw-openpgp-hkp-00.txt`: http://tools.ietf.org/html/draft-shaw-openpgp-hkp-00
 
 .. note::
 
