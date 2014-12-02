@@ -249,7 +249,7 @@ Non-RFC Extensions
 This section covers things that are considered extensions to PGP, but are not codified in the form of an RFC.
 
 .. progress:: DNS PKA
-    :text: This section covers things that are considered extensions to PGP, but are not codified in the form of an RFC.
+    :text: Publishing OpenPGP keys in DNS
 
     :Other Sources:
         - DNS PKA, False, Look up and retrieve keys stored in DNS PKA records.
@@ -261,9 +261,9 @@ This section covers things that are considered extensions to PGP, but are not co
         - HKP, False, Look up and retrieve keys from key server
         - HKP, False, Send keys to key server
 
-.. _`Marc Horowitz's thesis paper`: http://www.mit.edu/afs/net.mit.edu/project/pks/thesis/paper/thesis.html
-.. _`draft-shaw-openpgp-hkp-00.txt`: http://tools.ietf.org/html/draft-shaw-openpgp-hkp-00
-
 .. note::
 
     \* Cipher availability depends on the currently installed OpenSSL being compiled with support for it
+
+.. _`Marc Horowitz's thesis paper`: http://www.mit.edu/afs/net.mit.edu/project/pks/thesis/paper/thesis.html
+.. _`draft-shaw-openpgp-hkp-00.txt`: http://tools.ietf.org/html/draft-shaw-openpgp-hkp-00
