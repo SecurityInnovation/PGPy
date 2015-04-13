@@ -1,4 +1,4 @@
-cryptography==0.6
+cryptography>=0.8
 enum34
 six>=1.7.2
 singledispatch

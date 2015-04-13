@@ -1407,10 +1407,10 @@ class PGPKey(PGPObject, Armorable):
             sig._signature.halg = uid.selfsig.hashprefs[0]
 
         if self.key_algorithm == PubKeyAlgorithm.RSAEncryptOrSign:
-            sigopts = (padding.PKCS1v15(), getattr(hashes, sig.hash_algorithm.name)(), default_backend())
+            sigopts = (padding.PKCS1v15(), getattr(hashes, sig.hash_algorithm.name)(),)
 
         elif self.key_algorithm == PubKeyAlgorithm.DSA:
-            sigopts = (getattr(hashes, sig.hash_algorithm.name)(), default_backend())
+            sigopts = (getattr(hashes, sig.hash_algorithm.name)(),)
 
         else:
             raise NotImplementedError(self.key_algorithm)
@@ -1817,10 +1817,10 @@ class PGPKey(PGPObject, Armorable):
             else:
                 if sig.key_algorithm == PubKeyAlgorithm.RSAEncryptOrSign:
                     vargs = ( b'\x00' * (self._key.keymaterial.n.byte_length() - len(sig.__sig__)) + sig.__sig__,
-                              padding.PKCS1v15(), getattr(hashes, sig.hash_algorithm.name)(), default_backend() )
+                              padding.PKCS1v15(), getattr(hashes, sig.hash_algorithm.name)(),)
 
                 elif sig.key_algorithm == PubKeyAlgorithm.DSA:
-                    vargs = (sig.__sig__, getattr(hashes, sig.hash_algorithm.name)(), default_backend())
+                    vargs = (sig.__sig__, getattr(hashes, sig.hash_algorithm.name)(),)
 
                 else:
                     raise NotImplementedError(sig.key_algorithm)

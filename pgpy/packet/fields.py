@@ -8,6 +8,7 @@ import hashlib
 import itertools
 import math
 
+from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric import dsa
 
@@ -296,7 +297,7 @@ class RSAPub(PubKey):
         yield self.e
 
     def __pubkey__(self):
-        return rsa.RSAPublicKey(public_exponent=self.e, modulus=self.n)
+        return rsa.RSAPublicNumbers(self.e, self.n).public_key(default_backend())
 
     def parse(self, packet):
         self.n = MPI(packet)
@@ -318,10 +319,8 @@ class DSAPub(PubKey):
         yield self.y
 
     def __pubkey__(self):
-        return dsa.DSAPublicKey(modulus=self.p,
-                                subgroup_order=self.q,
-                                generator=self.g,
-                                y=self.y)
+        params = dsa.DSAParameterNumbers(self.p, self.q, self.g)
+        return dsa.DSAPublicNumbers(self.y, params).public_key(default_backend())
 
     def parse(self, packet):
         self.p = MPI(packet)
@@ -692,16 +691,11 @@ class RSAPriv(PrivKey, RSAPub):
         yield self.u
 
     def __privkey__(self):
-        return rsa.RSAPrivateKey(
-            p=self.p,
-            q=self.q,
-            private_exponent=self.d,
-            dmp1=rsa.rsa_crt_dmp1(self.d, self.p),
-            dmq1=rsa.rsa_crt_dmq1(self.d, self.q),
-            iqmp=rsa.rsa_crt_iqmp(self.p, self.q),
-            public_exponent=self.e,
-            modulus=self.n
-        )
+        return rsa.RSAPrivateNumbers(self.p, self.q, self.d,
+                                     rsa.rsa_crt_dmp1(self.d, self.p),
+                                     rsa.rsa_crt_dmq1(self.d, self.q),
+                                     rsa.rsa_crt_iqmp(self.p, self.q),
+                                     rsa.RSAPublicNumbers(self.e, self.n)).private_key(default_backend())
 
     def parse(self, packet):
         super(RSAPriv, self).parse(packet)
@@ -756,11 +750,9 @@ class DSAPriv(PrivKey, DSAPub):
         yield self.x
 
     def __privkey__(self):
-        return dsa.DSAPrivateKey(modulus=self.p,
-                                 subgroup_order=self.q,
-                                 generator=self.g,
-                                 x=self.x,
-                                 y=self.y)
+        params = dsa.DSAParameterNumbers(self.p, self.q, self.g)
+        pn = dsa.DSAPublicNumbers(self.y, params)
+        return dsa.DSAPrivateNumbers(self.x, pn).private_key(default_backend())
 
     def parse(self, packet):
         super(DSAPriv, self).parse(packet)
