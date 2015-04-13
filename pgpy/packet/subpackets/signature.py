@@ -47,8 +47,8 @@ class URI(Signature):
         super(URI, self).__init__()
         self.uri = ""
 
-    def __bytes__(self):
-        _bytes = super(URI, self).__bytes__()
+    def __bytearray__(self):
+        _bytes = super(URI, self).__bytearray__()
         _bytes += self.uri.encode()
         return _bytes
 
@@ -88,8 +88,8 @@ class FlagList(Signature):
         super(FlagList, self).__init__()
         self.flags = []
 
-    def __bytes__(self):
-        _bytes = super(FlagList, self).__bytes__()
+    def __bytearray__(self):
+        _bytes = super(FlagList, self).__bytearray__()
         _bytes += b''.join(self.int_to_bytes(b) for b in self.flags)
         return _bytes
 
@@ -129,8 +129,8 @@ class ByteFlag(Signature):
         super(ByteFlag, self).__init__()
         self.flags = []
 
-    def __bytes__(self):
-        _bytes = super(ByteFlag, self).__bytes__()
+    def __bytearray__(self):
+        _bytes = super(ByteFlag, self).__bytearray__()
         _bytes += self.int_to_bytes(sum(self.flags))
         return _bytes
 
@@ -158,8 +158,8 @@ class Boolean(Signature):
         super(Boolean, self).__init__()
         self.bflag = False
 
-    def __bytes__(self):
-        _bytes = super(Boolean, self).__bytes__()
+    def __bytearray__(self):
+        _bytes = super(Boolean, self).__bytearray__()
         _bytes += self.int_to_bytes(int(self.bflag))
         return _bytes
 
@@ -207,8 +207,8 @@ class CreationTime(Signature):
         super(CreationTime, self).__init__()
         self.created = datetime.utcnow()
 
-    def __bytes__(self):
-        _bytes = super(CreationTime, self).__bytes__()
+    def __bytearray__(self):
+        _bytes = super(CreationTime, self).__bytearray__()
         _bytes += self.int_to_bytes(calendar.timegm(self.created.timetuple()), 4)
         return _bytes
 
@@ -250,8 +250,8 @@ class SignatureExpirationTime(Signature):
         super(SignatureExpirationTime, self).__init__()
         self.expires = 0
 
-    def __bytes__(self):
-        _bytes = super(SignatureExpirationTime, self).__bytes__()
+    def __bytearray__(self):
+        _bytes = super(SignatureExpirationTime, self).__bytearray__()
         _bytes += self.int_to_bytes(int(self.expires.total_seconds()), 4)
         return _bytes
 
@@ -345,8 +345,8 @@ class TrustSignature(Signature):
         self.level = 0
         self.amount = 0
 
-    def __bytes__(self):
-        _bytes = super(TrustSignature, self).__bytes__()
+    def __bytearray__(self):
+        _bytes = super(TrustSignature, self).__bytearray__()
         _bytes += self.int_to_bytes(self.level)
         _bytes += self.int_to_bytes(self.amount)
         return _bytes
@@ -392,8 +392,8 @@ class RegularExpression(Signature):
         super(RegularExpression, self).__init__()
         self.regex = r''
 
-    def __bytes__(self):
-        _bytes = super(RegularExpression, self).__bytes__()
+    def __bytearray__(self):
+        _bytes = super(RegularExpression, self).__bytearray__()
         _bytes += self.regex.encode()
         return _bytes
 
@@ -525,11 +525,10 @@ class RevocationKey(Signature):
         self.algorithm = PubKeyAlgorithm.Invalid
         self._fingerprint = ""
 
-    def __bytes__(self):
-        _bytes = super(RevocationKey, self).__bytes__()
+    def __bytearray__(self):
+        _bytes = super(RevocationKey, self).__bytearray__()
         _bytes += self.int_to_bytes(sum(self.keyclass))
         _bytes += self.int_to_bytes(self.algorithm.value)
-        # _bytes += self.int_to_bytes(int(self.fingerprint), 20)
         _bytes += self.fingerprint.__bytes__()
         return _bytes
 
@@ -558,8 +557,8 @@ class Issuer(Signature):
         super(Issuer, self).__init__()
         self.issuer = bytearray()
 
-    def __bytes__(self):
-        _bytes = super(Issuer, self).__bytes__()
+    def __bytearray__(self):
+        _bytes = super(Issuer, self).__bytearray__()
         _bytes += binascii.unhexlify(self._issuer.encode())
         return _bytes
 
@@ -625,13 +624,13 @@ class NotationData(Signature):
         self.name = ""
         self.value = ""
 
-    def __bytes__(self):
-        _bytes = super(NotationData, self).__bytes__()
+    def __bytearray__(self):
+        _bytes = super(NotationData, self).__bytearray__()
         _bytes += self.int_to_bytes(sum(self.flags)) + b'\x00\x00\x00'
         _bytes += self.int_to_bytes(len(self.name), 2)
         _bytes += self.int_to_bytes(len(self.value), 2)
         _bytes += self.name.encode()
-        _bytes += self.value if isinstance(self.value, bytearray) else self.value.encode('latin-1')
+        _bytes += self.value if isinstance(self.value, bytearray) else self.value.encode()
         return bytes(_bytes)
 
     def parse(self, packet):
@@ -686,8 +685,8 @@ class PrimaryUserID(Signature):
         super(PrimaryUserID, self).__init__()
         self.primary = True
 
-    def __bytes__(self):
-        _bytes = super(PrimaryUserID, self).__bytes__()
+    def __bytearray__(self):
+        _bytes = super(PrimaryUserID, self).__bytearray__()
         _bytes += self.int_to_bytes(int(self.primary))
         return _bytes
 
@@ -732,8 +731,8 @@ class SignersUserID(Signature):
         super(SignersUserID, self).__init__()
         self.userid = ""
 
-    def __bytes__(self):
-        _bytes = super(SignersUserID, self).__bytes__()
+    def __bytearray__(self):
+        _bytes = super(SignersUserID, self).__bytearray__()
         _bytes += self.userid.encode()
         return _bytes
 
@@ -777,8 +776,8 @@ class ReasonForRevocation(Signature):
         self.code = 0x00
         self.string = ""
 
-    def __bytes__(self):
-        _bytes = super(ReasonForRevocation, self).__bytes__()
+    def __bytearray__(self):
+        _bytes = super(ReasonForRevocation, self).__bytearray__()
         _bytes += self.int_to_bytes(self.code)
         _bytes += self.string.encode()
         return _bytes
@@ -848,8 +847,8 @@ class EmbeddedSignature(Signature):
         self._sigpkt = SignatureV4()
         self._sigpkt.header = EmbeddedSignatureHeader()
 
-    def __bytes__(self):
-        return super(EmbeddedSignature, self).__bytes__() + self._sigpkt.__bytes__()
+    def __bytearray__(self):
+        return super(EmbeddedSignature, self).__bytearray__() + self._sigpkt.__bytearray__()
 
     def parse(self, packet):
         super(EmbeddedSignature, self).parse(packet)

@@ -30,11 +30,11 @@ class Header(_Header):
         super(Header, self).__init__()
         self.tag = 0x00
 
-    def __bytes__(self):
+    def __bytearray__(self):
         tag = 0x80 | (self._lenfmt << 6)
         tag |= (self.tag) if self._lenfmt else ((self.tag << 2) | {1: 0, 2: 1, 4: 2, 0: 3}[self.llen])
 
-        _bytes = self.int_to_bytes(tag)
+        _bytes = bytearray(self.int_to_bytes(tag))
         _bytes += self.encode_length(self.length, self._lenfmt, self.llen)
         return _bytes
 
@@ -106,10 +106,10 @@ class VersionedHeader(Header):
         super(VersionedHeader, self).__init__()
         self.version = 0
 
-    def __bytes__(self):
-        _bytes = bytearray(super(VersionedHeader, self).__bytes__())
-        _bytes.append(self.version)
-        return bytes(_bytes)
+    def __bytearray__(self):
+        _bytes = bytearray(super(VersionedHeader, self).__bytearray__())
+        _bytes += bytearray([self.version])
+        return _bytes
 
     def parse(self, packet):  # pragma: no cover
         if self.tag == 0:
@@ -131,8 +131,8 @@ class Packet(Dispatchable):
             self.header.tag = self.__typeid__
 
     @abc.abstractmethod
-    def __bytes__(self):
-        return self.header.__bytes__()
+    def __bytearray__(self):
+        return self.header.__bytearray__()
 
     def __len__(self):
         return len(self.header) + self.header.length
@@ -141,7 +141,7 @@ class Packet(Dispatchable):
         return "<{cls:s} [tag 0x{tag:02d}] at 0x{id:x}>".format(cls=self.__class__.__name__, tag=self.header.tag, id=id(self))
 
     def update_hlen(self):
-        self.header.length = len(self.__bytes__()) - len(self.header)
+        self.header.length = len(self.__bytearray__()) - len(self.header)
 
     @abc.abstractmethod
     def parse(self, packet):
@@ -178,8 +178,8 @@ class Opaque(Packet):
         super(Opaque, self).__init__()
         self.payload = b''
 
-    def __bytes__(self):
-        _bytes = super(Opaque, self).__bytes__()
+    def __bytearray__(self):
+        _bytes = super(Opaque, self).__bytearray__()
         _bytes += self.payload
         return _bytes
 

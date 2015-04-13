@@ -159,13 +159,13 @@ class PKESessionKeyV3(PKESessionKey):
         self.pkalg = 0
         self.ct = None
 
-    def __bytes__(self):
+    def __bytearray__(self):
         _bytes = bytearray()
-        _bytes += super(PKESessionKeyV3, self).__bytes__()
+        _bytes += super(PKESessionKeyV3, self).__bytearray__()
         _bytes += binascii.unhexlify(self.encrypter.encode())
-        _bytes.append(self.pkalg)
-        _bytes += self.ct.__bytes__() if self.ct is not None else b'\x00' * (self.header.length - 10)
-        return bytes(_bytes)
+        _bytes += bytearray([self.pkalg])
+        _bytes += self.ct.__bytearray__() if self.ct is not None else b'\x00' * (self.header.length - 10)
+        return _bytes
 
     def decrypt_sk(self, pk):
         if self.pkalg == PubKeyAlgorithm.RSAEncryptOrSign:
@@ -173,7 +173,7 @@ class PKESessionKeyV3(PKESessionKey):
             ct = self.ct.me_mod_n.to_mpibytes()[2:]
             ct = b'\x00' * ((pk.key_size // 8) - len(ct)) + ct
 
-            decargs = (ct, padding.PKCS1v15(), default_backend())
+            decargs = (ct, padding.PKCS1v15(),)
 
         else:
             raise NotImplementedError(self.pkalg)
@@ -212,7 +212,7 @@ class PKESessionKeyV3(PKESessionKey):
         m += self.int_to_bytes(sum(bytearray(symkey)) % 65536, 2)
 
         if self.pkalg == PubKeyAlgorithm.RSAEncryptOrSign:
-            encargs = (bytes(m), padding.PKCS1v15(), default_backend())
+            encargs = (bytes(m), padding.PKCS1v15(),)
 
         else:
             raise NotImplementedError(self.pkalg)
@@ -348,17 +348,17 @@ class SignatureV4(Signature):
         self.hash2 = bytearray(2)
         self.signature = None
 
-    def __bytes__(self):
+    def __bytearray__(self):
         _bytes = bytearray()
-        _bytes += super(Signature, self).__bytes__()
+        _bytes += super(Signature, self).__bytearray__()
         _bytes += self.int_to_bytes(self.sigtype)
         _bytes += self.int_to_bytes(self.pubalg)
         _bytes += self.int_to_bytes(self.halg)
-        _bytes += self.subpackets.__bytes__()
+        _bytes += self.subpackets.__bytearray__()
         _bytes += self.hash2
-        _bytes += self.signature.__bytes__()
+        _bytes += self.signature.__bytearray__()
 
-        return bytes(_bytes)
+        return _bytes
 
     def update_hlen(self):
         self.subpackets.update_hlen()
@@ -458,12 +458,12 @@ class SKESessionKeyV4(SKESessionKey):
         self.s2k = String2Key()
         self.ct = bytearray()
 
-    def __bytes__(self):
+    def __bytearray__(self):
         _bytes = bytearray()
-        _bytes += super(SKESessionKeyV4, self).__bytes__()
-        _bytes += self.s2k.__bytes__()[1:]
+        _bytes += super(SKESessionKeyV4, self).__bytearray__()
+        _bytes += self.s2k.__bytearray__()[1:]
         _bytes += self.ct
-        return bytes(_bytes)
+        return _bytes
 
     def parse(self, packet):
         super(SKESessionKeyV4, self).parse(packet)
@@ -606,15 +606,15 @@ class OnePassSignatureV3(OnePassSignature):
         self._signer = b'\x00' * 8
         self.nested = False
 
-    def __bytes__(self):
+    def __bytearray__(self):
         _bytes = bytearray()
-        _bytes += super(OnePassSignatureV3, self).__bytes__()
-        _bytes.append(self.sigtype)
-        _bytes.append(self.halg)
-        _bytes.append(self.pubalg)
+        _bytes += super(OnePassSignatureV3, self).__bytearray__()
+        _bytes += bytearray([self.sigtype])
+        _bytes += bytearray([self.halg])
+        _bytes += bytearray([self.pubalg])
         _bytes += binascii.unhexlify(six.b(self.signer))
-        _bytes.append(int(self.nested))
-        return bytes(_bytes)
+        _bytes += bytearray([int(self.nested)])
+        return _bytes
 
     def parse(self, packet):
         super(OnePassSignatureV3, self).parse(packet)
@@ -724,7 +724,7 @@ class PubKeyV4(PubKey):
         # d) algorithm (1 octet): 17 = DSA (example);
         fp.update(self.int_to_bytes(self.pkalg))
         # e) Algorithm-specific fields.
-        fp.update(self.keymaterial.__bytes__()[:plen])
+        fp.update(self.keymaterial.__bytearray__()[:plen])
 
         # and return the digest
         return Fingerprint(fp.hexdigest().upper())
@@ -735,13 +735,13 @@ class PubKeyV4(PubKey):
         self.pkalg = 0
         self.keymaterial = None
 
-    def __bytes__(self):
+    def __bytearray__(self):
         _bytes = bytearray()
-        _bytes += super(PubKeyV4, self).__bytes__()
+        _bytes += super(PubKeyV4, self).__bytearray__()
         _bytes += self.int_to_bytes(calendar.timegm(self.created.timetuple()), 4)
         _bytes += self.int_to_bytes(self.pkalg)
-        _bytes += self.keymaterial.__bytes__()
-        return bytes(_bytes)
+        _bytes += self.keymaterial.__bytearray__()
+        return _bytes
 
     def parse(self, packet):
         super(PubKeyV4, self).parse(packet)
@@ -831,12 +831,17 @@ class CompressedData(Packet):
         self._calg = None
         self.packets = []
 
-    def __bytes__(self):
+    def __bytearray__(self):
         _bytes = bytearray()
-        _bytes += super(CompressedData, self).__bytes__()
-        _bytes.append(self.calg)
-        _bytes += self.calg.compress(b''.join(pkt.__bytes__() for pkt in self.packets))
-        return bytes(_bytes)
+        _bytes += super(CompressedData, self).__bytearray__()
+        _bytes += bytearray([self.calg])
+
+        _pb = bytearray()
+        for pkt in self.packets:
+            _pb += pkt.__bytearray__()
+        _bytes += self.calg.compress(bytes(_pb))
+
+        return _bytes
 
     def parse(self, packet):
         super(CompressedData, self).parse(packet)
@@ -900,11 +905,11 @@ class SKEData(Packet):
         super(SKEData, self).__init__()
         self.ct = bytearray()
 
-    def __bytes__(self):
+    def __bytearray__(self):
         _bytes = bytearray()
-        _bytes += super(SKEData, self).__bytes__()
+        _bytes += super(SKEData, self).__bytearray__()
         _bytes += self.ct
-        return bytes(_bytes)
+        return _bytes
 
     def parse(self, packet):
         super(SKEData, self).parse(packet)
@@ -1013,15 +1018,15 @@ class LiteralData(Packet):
         self.mtime = datetime.utcnow()
         self._contents = bytearray()
 
-    def __bytes__(self):
+    def __bytearray__(self):
         _bytes = bytearray()
-        _bytes += super(LiteralData, self).__bytes__()
+        _bytes += super(LiteralData, self).__bytearray__()
         _bytes += self.format.encode('latin-1')
-        _bytes.append(len(self.filename))
+        _bytes += bytearray([len(self.filename)])
         _bytes += self.filename.encode('latin-1')
         _bytes += self.int_to_bytes(calendar.timegm(self.mtime.timetuple()), 4)
         _bytes += self._contents
-        return bytes(_bytes)
+        return _bytes
 
     def parse(self, packet):
         super(LiteralData, self).parse(packet)
@@ -1084,11 +1089,11 @@ class Trust(Packet):
         self.trustlevel = TrustLevel.Unknown
         self.trustflags = []
 
-    def __bytes__(self):
+    def __bytearray__(self):
         _bytes = bytearray()
-        _bytes += super(Trust, self).__bytes__()
+        _bytes += super(Trust, self).__bytearray__()
         _bytes += self.int_to_bytes(self.trustlevel + sum(self.trustflags), 2)
-        return bytes(_bytes)
+        return _bytes
 
     def parse(self, packet):
         super(Trust, self).parse(packet)
@@ -1118,9 +1123,9 @@ class UserID(Packet):
         self.comment = ""
         self.email = ""
 
-    def __bytes__(self):
+    def __bytearray__(self):
         _bytes = bytearray()
-        _bytes += super(UserID, self).__bytes__()
+        _bytes += super(UserID, self).__bytearray__()
         _bytes += self.text_to_bytes(self.name)
         if self.comment is not None:
             _bytes += b' (' + self.text_to_bytes(self.comment) + b')'
@@ -1128,7 +1133,7 @@ class UserID(Packet):
         if self.email is not None:
             _bytes += b' <' + self.text_to_bytes(self.email) + b'>'
 
-        return bytes(_bytes)
+        return _bytes
 
     def parse(self, packet):
         super(UserID, self).parse(packet)
@@ -1211,11 +1216,11 @@ class UserAttribute(Packet):
         super(UserAttribute, self).__init__()
         self.subpackets = UserAttributeSubPackets()
 
-    def __bytes__(self):
+    def __bytearray__(self):
         _bytes = bytearray()
-        _bytes += super(UserAttribute, self).__bytes__()
-        _bytes += self.subpackets.__bytes__()
-        return bytes(_bytes)
+        _bytes += super(UserAttribute, self).__bytearray__()
+        _bytes += self.subpackets.__bytearray__()
+        return _bytes
 
     def parse(self, packet):
         super(UserAttribute, self).parse(packet)
@@ -1340,11 +1345,11 @@ class IntegrityProtectedSKEDataV1(IntegrityProtectedSKEData):
         super(IntegrityProtectedSKEDataV1, self).__init__()
         self.ct = bytearray()
 
-    def __bytes__(self):
+    def __bytearray__(self):
         _bytes = bytearray()
-        _bytes += super(IntegrityProtectedSKEDataV1, self).__bytes__()
+        _bytes += super(IntegrityProtectedSKEDataV1, self).__bytearray__()
         _bytes += self.ct
-        return bytes(_bytes)
+        return _bytes
 
     def parse(self, packet):
         super(IntegrityProtectedSKEDataV1, self).parse(packet)
@@ -1417,8 +1422,8 @@ class MDC(Packet):
         super(MDC, self).__init__()
         self.mdc = ''
 
-    def __bytes__(self):
-        return super(MDC, self).__bytes__() + binascii.unhexlify(self.mdc)
+    def __bytearray__(self):
+        return super(MDC, self).__bytearray__() + binascii.unhexlify(self.mdc)
 
     def parse(self, packet):
         super(MDC, self).parse(packet)

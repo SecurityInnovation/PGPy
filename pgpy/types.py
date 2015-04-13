@@ -244,11 +244,19 @@ class PGPObject(six.with_metaclass(abc.ABCMeta, object)):
         """this method is too abstract to understand"""
 
     @abc.abstractmethod
-    def __bytes__(self):
+    def __bytearray__(self):
         """
-        Return the contents of concrete sublcasses in a binary format that can be understood by other OpenPGP
+        Returns the contents of concrete subclasses in a binary format that can be understood by other OpenPGP
         implementations
         """
+
+    def __bytes__(self):
+        """
+        Return the contents of concrete subclasses in a binary format that can be understood by other OpenPGP
+        implementations
+        """
+        # this is what all subclasses will do anyway, so doing this here we can reduce code duplication significantly
+        return bytes(self.__bytearray__())
 
 
 class Field(PGPObject):

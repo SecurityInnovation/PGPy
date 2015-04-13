@@ -48,17 +48,15 @@ class Header(_Header):
     def __len__(self):
         return self.llen + 1
 
-    def __bytes__(self):
-        _bytes = self.encode_length(self.length)
+    def __bytearray__(self):
+        _bytes = bytearray(self.encode_length(self.length))
         _bytes += self.int_to_bytes((int(self.critical) << 7) + self.typeid)
         return _bytes
 
 
 class EmbeddedSignatureHeader(VersionedHeader):
-    def __bytes__(self):
-        _bytes = bytearray()
-        _bytes.append(self.version)
-        return bytes(_bytes)
+    def __bytearray__(self):
+        return bytearray([self.version])
 
     def parse(self, packet):
         self.tag = 2
@@ -78,8 +76,8 @@ class SubPacket(Dispatchable):
                 and (self.__typeid__ not in [-1, None])):
             self.header.typeid = self.__typeid__
 
-    def __bytes__(self):
-        return self.header.__bytes__()
+    def __bytearray__(self):
+        return self.header.__bytearray__()
 
     def __len__(self):
         return (self.header.llen + self.header.length)
@@ -88,7 +86,7 @@ class SubPacket(Dispatchable):
         return "<{} [0x{:02x}] at 0x{:x}>".format(self.__class__.__name__, self.header.typeid, id(self))
 
     def update_hlen(self):
-        self.header.length = (len(self.__bytes__()) - len(self.header)) + 1
+        self.header.length = (len(self.__bytearray__()) - len(self.header)) + 1
 
     @abc.abstractmethod
     def parse(self, packet):  # pragma: no cover
@@ -114,14 +112,14 @@ class Opaque(Signature, UserAttribute):
     @payload.register(bytes)
     @payload.register(bytearray)
     def payload_bin(self, val):
-        self._payload = val
+        self._payload = bytearray(val)
 
     def __init__(self):
         super(Opaque, self).__init__()
         self.payload = b''
 
-    def __bytes__(self):
-        _bytes = super(Opaque, self).__bytes__()
+    def __bytearray__(self):
+        _bytes = super(Opaque, self).__bytearray__()
         _bytes += self.payload
         return _bytes
 

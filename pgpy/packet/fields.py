@@ -45,23 +45,25 @@ class SubPackets(collections.MutableMapping, Field):
         self._hashed_sp = collections.OrderedDict()
         self._unhashed_sp = collections.OrderedDict()
 
-    def __bytes__(self):
+    def __bytearray__(self):
         _bytes = bytearray()
-        _bytes += self.__hashbytes__()
-        _bytes += self.__unhashbytes__()
-        return bytes(_bytes)
+        _bytes += self.__hashbytearray__()
+        _bytes += self.__unhashbytearray__()
+        return _bytes
 
-    def __hashbytes__(self):
+    def __hashbytearray__(self):
         _bytes = bytearray()
         _bytes += self.int_to_bytes(sum(len(sp) for sp in self._hashed_sp.values()), 2)
-        _bytes += b''.join(hsp.__bytes__() for hsp in self._hashed_sp.values())
-        return bytes(_bytes)
+        for hsp in self._hashed_sp.values():
+            _bytes += hsp.__bytearray__()
+        return _bytes
 
-    def __unhashbytes__(self):
+    def __unhashbytearray__(self):
         _bytes = bytearray()
         _bytes += self.int_to_bytes(sum(len(sp) for sp in self._unhashed_sp.values()), 2)
-        _bytes += b''.join(uhsp.__bytes__() for uhsp in self._unhashed_sp.values())
-        return bytes(_bytes)
+        for uhsp in self._unhashed_sp.values():
+            _bytes += uhsp.__bytearray__()
+        return _bytes
 
     def __len__(self):  # pragma: no cover
         return sum(sp.header.length for sp in itertools.chain(self._hashed_sp.values(), self._unhashed_sp.values())) + 4
@@ -153,8 +155,11 @@ class UserAttributeSubPackets(SubPackets):
     """
     _spmodule = userattribute
 
-    def __bytes__(self):
-        return b''.join(uhsp.__bytes__() for uhsp in self._unhashed_sp.values())
+    def __bytearray__(self):
+        _bytes = bytearray()
+        for uhsp in self._unhashed_sp.values():
+            _bytes += uhsp.__bytearray__()
+        return _bytes
 
     def __len__(self):  # pragma: no cover
         return sum(len(sp) for sp in self._unhashed_sp.values())
@@ -168,8 +173,11 @@ class UserAttributeSubPackets(SubPackets):
 
 
 class Signature(MPIs):
-    def __bytes__(self):
-        return b''.join(i.to_mpibytes() for i in self)
+    def __bytearray__(self):
+        _bytes = bytearray()
+        for i in self:
+            _bytes += i.to_mpibytes()
+        return _bytes
 
     @abc.abstractproperty
     def __sig__(self):
@@ -266,8 +274,11 @@ class PubKey(MPIs):
     def __pubkey__(self):
         """return the requisite *PublicKey class from the cryptography library"""
 
-    def __bytes__(self):
-        return b''.join(i.to_mpibytes() for i in self)
+    def __bytearray__(self):
+        _bytes = bytearray()
+        for i in self:
+            _bytes += i.to_mpibytes()
+        return _bytes
 
     def publen(self):
         return len(self)
@@ -494,7 +505,7 @@ class String2Key(Field):
         # iterated
         self.count = 0
 
-    def __bytes__(self):
+    def __bytearray__(self):
         _bytes = bytearray()
         _bytes.append(self.usage)
         if bool(self):
@@ -508,10 +519,10 @@ class String2Key(Field):
                 _bytes.append(self._count)
             if self.iv is not None:
                 _bytes += self.iv
-        return bytes(_bytes)
+        return _bytes
 
     def __len__(self):
-        return len(self.__bytes__())
+        return len(self.__bytearray__())
 
     def __bool__(self):
         return self.usage in [254, 255]
@@ -594,12 +605,12 @@ class PrivKey(PubKey):
         self.encbytes = bytearray()
         self.chksum = 0
 
-    def __bytes__(self):
+    def __bytearray__(self):
         pubitems = len(list(super(self.__class__, self).__iter__()))
         _bytes = bytearray()
         for n, i in enumerate(self):
             if n == pubitems:
-                _bytes += self.s2k.__bytes__()
+                _bytes += self.s2k.__bytearray__()
 
                 if self.s2k:
                     _bytes += self.encbytes
@@ -610,7 +621,7 @@ class PrivKey(PubKey):
         if self.s2k.usage == 0:
             _bytes += self.chksum
 
-        return bytes(_bytes)
+        return _bytes
 
     def __len__(self):
         return super(PrivKey, self).__len__() + len(self.s2k)
@@ -813,8 +824,11 @@ class ElGPriv(PrivKey, ElGPub):
 
 
 class CipherText(MPIs):
-    def __bytes__(self):
-        return b''.join(i.to_mpibytes() for i in self)
+    def __bytearray__(self):
+        _bytes = bytearray()
+        for i in self:
+            _bytes += i.to_mpibytes()
+        return _bytes
 
     @abc.abstractmethod
     def from_encrypter(self, ct):

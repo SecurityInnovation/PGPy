@@ -293,8 +293,8 @@ class PGPSignature(PGPObject, Armorable):
         self._signature = None
         self.parent = None
 
-    def __bytes__(self):
-        return b''.join(s.__bytes__() for s in [self._signature] if s is not None)
+    def __bytearray__(self):
+        return self._signature.__bytearray__()
 
     def __repr__(self):
         return "<PGPSignature [{:s}] object at 0x{:02x}>".format(self.type.name, id(self))
@@ -432,7 +432,7 @@ class PGPSignature(PGPObject, Armorable):
         hcontext.append(self.type)
         hcontext.append(self.key_algorithm)
         hcontext.append(self.hash_algorithm)
-        hcontext += self._signature.subpackets.__hashbytes__()
+        hcontext += self._signature.subpackets.__hashbytearray__()
         hlen = len(hcontext)
         _data += hcontext
         _data += b'\x04\xff'
@@ -540,10 +540,10 @@ class PGPUID(object):
     @property
     def hashdata(self):
         if self.is_uid:
-            return self._uid.__bytes__()[len(self._uid.header):]
+            return self._uid.__bytearray__()[len(self._uid.header):]
 
         if self.is_ua:
-            return self._uid.subpackets.__bytes__()
+            return self._uid.subpackets.__bytearray__()
 
     @classmethod
     def new(cls, pn, comment="", email=""):
@@ -743,15 +743,18 @@ class PGPMessage(PGPObject, Armorable):
         self._signatures = SorteDeque()
         self._sessionkeys = []
 
-    def __bytes__(self):
+    def __bytearray__(self):
         if self.is_compressed:
             comp = CompressedData()
             comp.calg = self._compression
             comp.packets = [pkt for pkt in self]
             comp.update_hlen()
-            return comp.__bytes__()
+            return comp.__bytearray__()
 
-        return b''.join(pkt.__bytes__() for pkt in self)
+        _bytes = bytearray()
+        for pkt in self:
+            _bytes += pkt.__bytearray__()
+        return _bytes
 
     def __str__(self):
         if self.type == 'cleartext':
@@ -1117,10 +1120,10 @@ class PGPKey(PGPObject, Armorable):
         # when signing a key, only the public portion of the keys is hashed
         # if this is a private key, the private components of the key material need to be left out
         if self.is_public:
-            return self._key.__bytes__()[len(self._key.header):]
+            return self._key.__bytearray__()[len(self._key.header):]
 
         publen = len(self._key) - len(self._key.header) - len(self._key.keymaterial) + 1 + self._key.keymaterial.publen()
-        return self._key.__bytes__()[len(self._key.header):publen]
+        return self._key.__bytearray__()[len(self._key.header):publen]
 
     @property
     def is_expired(self):
@@ -1231,22 +1234,23 @@ class PGPKey(PGPObject, Armorable):
         self._signatures = SorteDeque()
         self._uids = SorteDeque()
 
-    def __bytes__(self):
+    def __bytearray__(self):
         _bytes = bytearray()
         # us
-        _bytes += self._key.__bytes__()
+        _bytes += self._key.__bytearray__()
         # our signatures; ignore embedded signatures
         for sig in iter(s for s in self._signatures if not s.embedded and s.exportable):
-            _bytes += sig.__bytes__()
+            _bytes += sig.__bytearray__()
         # one or more User IDs, followed by their signatures
         for uid in self._uids:
-            _bytes += uid._uid.__bytes__()
-            _bytes += b''.join(s.__bytes__() for s in uid._signatures if s.exportable)
+            _bytes += uid._uid.__bytearray__()
+            for s in [s for s in uid._signatures if s.exportable]:
+                _bytes += s.__bytearray__()
         # subkeys
         for sk in self._children.values():
-            _bytes += sk.__bytes__()
+            _bytes += sk.__bytearray__()
 
-        return bytes(_bytes)
+        return _bytes
 
     def __repr__(self):
         return "<PGPKey [{:s}][0x{:s}] at 0x{:02X}>" \
@@ -1961,7 +1965,9 @@ class PGPKey(PGPObject, Armorable):
         # last holds the last non-signature thing processed
 
         getpkt = lambda d: Packet(d) if len(d) > 0 else None
-        getpkt = iter(functools.partial(getpkt, data), None)
+        ##TODO: see issue #141 and fix this better
+        # getpkt = iter(functools.partial(getpkt, data), None)
+        getpkt = filter(lambda p: p.header.tag != PacketTag.Trust, iter(functools.partial(getpkt, data), None))
 
         def pktgrouper():
             class PktGrouper(object):
@@ -1975,6 +1981,7 @@ class PGPKey(PGPObject, Armorable):
             return PktGrouper()
 
         while True:
+            # print(type(p) for p in getpkt)
             for group in iter(group for _, group in itertools.groupby(getpkt, key=pktgrouper()) if not _.endswith('Opaque')):
                 pkt = next(group)
 
