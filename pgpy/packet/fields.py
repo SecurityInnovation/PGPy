@@ -8,6 +8,10 @@ import hashlib
 import itertools
 import math
 
+from pyasn1.codec.der import encoder
+from pyasn1.type.univ import Integer
+from pyasn1.type.univ import Sequence
+
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric import dsa
@@ -206,28 +210,11 @@ class DSASignature(Signature):
 
     def __sig__(self):
         # return the signature data into an ASN.1 sequence of integers in DER format
-        # (see http://en.wikipedia.org/wiki/Abstract_Syntax_Notation_One#Example_encoded_in_DER)
+        seq = Sequence()
+        for i in self:
+            seq.setComponentByPosition(len(seq), Integer(i))
 
-        def _der_flen(i):
-            _b = b''
-            # returns the length of byte field i
-            ilen = len(i)
-            bilen = self.int_to_bytes(ilen)
-
-            # long-form must be used ilen > 127
-            if len(bilen) > 127:  # pragma: no cover
-                _b += 0x80 ^ len(bilen)
-            return _b + bilen
-
-        def _der_intf(i):
-            bf = self.int_to_bytes(i, i.byte_length())
-            return b'\x02' + _der_flen(bf) + bf
-
-        # construct the sequence of integers
-        fbytes = b''.join(_der_intf(i) for i in self)
-
-        # now mark it as a sequence and return
-        return b'\x30' + _der_flen(fbytes) + fbytes
+        return encoder.encode(seq)
 
     def from_signer(self, sig):
         def _der_intf(_asn):

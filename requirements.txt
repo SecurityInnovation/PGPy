@@ -1,4 +1,5 @@
 cryptography>=0.8
 enum34
+pyasn1
 six>=1.7.2
 singledispatch
