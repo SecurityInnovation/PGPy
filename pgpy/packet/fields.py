@@ -31,6 +31,7 @@ from ..constants import SymmetricKeyAlgorithm
 from ..decorators import sdproperty
 
 from ..errors import PGPDecryptionError
+from ..errors import PGPError
 
 from ..symenc import _decrypt
 
@@ -603,7 +604,7 @@ class PrivKey(PubKey):
         super(PrivKey, self).__init__()
         self.s2k = String2Key()
         self.encbytes = bytearray()
-        self.chksum = 0
+        self.chksum = bytearray()
 
     def __bytearray__(self):
         pubitems = len(list(super(self.__class__, self).__iter__()))
@@ -629,6 +630,10 @@ class PrivKey(PubKey):
     @abc.abstractmethod
     def __privkey__(self):
         """return the requisite *PrivateKey class from the cryptography library"""
+
+    @abc.abstractmethod
+    def _generate(self, key_size):
+        """Generate a new PrivKey"""
 
     def publen(self):
         return sum(len(i) for i in super(self.__class__, self).__iter__())
@@ -695,6 +700,33 @@ class RSAPriv(PrivKey, RSAPub):
                                      rsa.rsa_crt_iqmp(self.p, self.q),
                                      rsa.RSAPublicNumbers(self.e, self.n)).private_key(default_backend())
 
+    def _generate(self, key_size):
+        if any(c != 0 for c in self):
+            ##TODO:
+            raise PGPError("key is already populated")
+
+        # generate some big numbers!
+        pk = rsa.generate_private_key(65537, key_size, default_backend())
+        pkn = pk.private_numbers()
+
+        self.n = MPI(pkn.public_numbers.n)
+        self.e = MPI(pkn.public_numbers.e)
+        self.d = MPI(pkn.d)
+        self.p = MPI(pkn.p)
+        self.q = MPI(pkn.q)
+        # from the RFC:
+        # "- MPI of u, the multiplicative inverse of p, mod q."
+        # or, simply, p^-1 mod p
+        # rsa.rsa_crt_iqmp(p, q) normally computes q^-1 mod p,
+        # so if we swap the values around we get the answer we want
+        self.u = MPI(rsa.rsa_crt_iqmp(pkn.q, pkn.p))
+
+        del pkn
+        del pk
+
+        chs = sum(sum(c.to_mpibytes()) for c in self) % 65536
+        self.chksum = bytearray(self.int_to_bytes(chs, 2))
+
     def parse(self, packet):
         super(RSAPriv, self).parse(packet)
         self.s2k.parse(packet)
@@ -752,6 +784,27 @@ class DSAPriv(PrivKey, DSAPub):
         pn = dsa.DSAPublicNumbers(self.y, params)
         return dsa.DSAPrivateNumbers(self.x, pn).private_key(default_backend())
 
+    def _generate(self, key_size):
+        if any(c != 0 for c in self):
+            ##TODO:
+            raise PGPError("key is already populated")
+
+        # generate some big numbers!
+        pk = dsa.generate_private_key(key_size, default_backend())
+        pkn = pk.private_numbers()
+
+        self.p = MPI(pkn.public_numbers.parameter_numbers.p)
+        self.q = MPI(pkn.public_numbers.parameter_numbers.q)
+        self.g = MPI(pkn.public_numbers.parameter_numbers.g)
+        self.y = MPI(pkn.public_numbers.y)
+        self.x = MPI(pkn.x)
+
+        del pkn
+        del pk
+
+        chs = sum(sum(c.to_mpibytes()) for c in self) % 65536
+        self.chksum = bytearray(self.int_to_bytes(chs, 2))
+
     def parse(self, packet):
         super(DSAPriv, self).parse(packet)
         self.s2k.parse(packet)
@@ -793,6 +846,9 @@ class ElGPriv(PrivKey, ElGPub):
 
     def __privkey__(self):
         raise NotImplementedError()
+
+    def _generate(self, key_size):
+        return NotImplemented
 
     def parse(self, packet):
         super(ElGPriv, self).parse(packet)

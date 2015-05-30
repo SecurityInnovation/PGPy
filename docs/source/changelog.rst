@@ -4,10 +4,26 @@
 Changelog
 *********
 
-v0.3.0
+v0.4.0
 ======
 
 Released: |today|
+
+Bugs Fixed
+----------
+ * Occasionally, the ASN.1 encoding of DSA signatures was being built in a way that although GPG could parse and verify them,
+   it was incorrect, and PGPy incorrectly failed to verify them.
+
+New Features
+------------
+ * Keys can be generated with the following algorithms:
+   - RSA
+   - DSA
+
+v0.3.0
+======
+
+Released: November 19, 2014
 
 PGPy v0.3.0 is a major feature release.
 

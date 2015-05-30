@@ -44,6 +44,7 @@ from .packet import MDC
 from .packet import Packet
 from .packet import Primary
 from .packet import Private
+from .packet import PrivKeyV4
 from .packet import Public
 from .packet import Sub
 from .packet import UserID
@@ -591,7 +592,9 @@ class PGPUID(object):
         self._parent = None
 
     def __repr__(self):
-        return "<PGPUID [{:s}][{}] at 0x{:02X}>".format(self._uid.__class__.__name__, self.selfsig.created, id(self))
+        if self.selfsig is not None:
+            return "<PGPUID [{:s}][{}] at 0x{:02X}>".format(self._uid.__class__.__name__, self.selfsig.created, id(self))
+        return "<PGPUID [{:s}] at 0x{:02X}>".format(self._uid.__class__.__name__, id(self))
 
     def __lt__(self, other):  # pragma: no cover
         if self.is_uid == other.is_uid:
@@ -1113,7 +1116,10 @@ class PGPKey(PGPObject, Armorable):
     @property
     def fingerprint(self):
         """The fingerprint of this key, as a :py:obj:`~pgpy.types.Fingerprint` object."""
-        return self._key.fingerprint
+        if self._key:
+            return self._key.fingerprint
+
+        return None
 
     @property
     def hashdata(self):
@@ -1211,8 +1217,14 @@ class PGPKey(PGPObject, Armorable):
         return [u for u in self._uids if u.is_ua]
 
     @classmethod
-    def new(cls, key_algorithm, **kwargs):
-        raise NotImplementedError
+    def new(cls, key_algorithm, key_size, **kwargs):
+        # new private key shell first
+        key = PGPKey()
+
+        # generate some key data to match key_algorithm and key_size
+        key._key = PrivKeyV4.new(key_algorithm, key_size)
+
+        return key
 
     def __init__(self):
         """
@@ -1253,8 +1265,12 @@ class PGPKey(PGPObject, Armorable):
         return _bytes
 
     def __repr__(self):
-        return "<PGPKey [{:s}][0x{:s}] at 0x{:02X}>" \
-               "".format(self._key.__class__.__name__, self.fingerprint.keyid, id(self))
+        if self._key is not None:
+            return "<PGPKey [{:s}][0x{:s}] at 0x{:02X}>" \
+                   "".format(self._key.__class__.__name__, self.fingerprint.keyid, id(self))
+
+        return "<PGPKey [unknown] at 0x{:02X}>" \
+               "".format(id(self))
 
     def __contains__(self, item):
         if isinstance(item, PGPKey):  # pragma: no cover
@@ -1384,6 +1400,9 @@ class PGPKey(PGPObject, Armorable):
             if user is not None:
                 user = self.get_uid(user)
 
+            elif len(self._uids) == 0:
+                return {KeyFlags.Certify}
+
             else:
                 user = next(iter(self.userids))
 
@@ -1402,6 +1421,7 @@ class PGPKey(PGPObject, Armorable):
         uid = None
         if user is not None:
             uid = self.get_uid(user)
+
         else:
             uid = next(iter(self.userids), None)
             if uid is None and self.parent is not None:
@@ -1419,7 +1439,7 @@ class PGPKey(PGPObject, Armorable):
         else:
             raise NotImplementedError(self.key_algorithm)
 
-        if sig.hash_algorithm not in uid.selfsig.hashprefs:
+        if uid is not None and sig.hash_algorithm not in uid.selfsig.hashprefs:
             warnings.warn("Selected hash algorithm not in key preferences", stacklevel=4)
 
         # signature options that can be applied at any level
@@ -1610,6 +1630,8 @@ class PGPKey(PGPObject, Armorable):
 
             if hash_prefs is not None:
                 sig._signature.subpackets.addnew('PreferredHashAlgorithms', hashed=True, flags=hash_prefs)
+                if sig.hash_algorithm is None:
+                    sig._signature.halg = hash_prefs[0]
 
             if compression_prefs is not None:
                 sig._signature.subpackets.addnew('PreferredCompressionAlgorithms', hashed=True, flags=compression_prefs)

@@ -161,7 +161,11 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
     @classmethod
     def from_blob(cls, blob):
         obj = cls()
-        po = obj.parse(bytearray(blob, 'latin-1'))
+        if (not isinstance(blob, six.binary_type)) and (not isinstance(blob, bytearray)):
+            po = obj.parse(bytearray(blob, 'latin-1'))
+
+        else:
+            po = obj.parse(bytearray(blob))
 
         if po is not None:
             return (obj, po)

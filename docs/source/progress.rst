@@ -92,7 +92,7 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
 
     :RSA Key Actions:
         - Load,       True,  Load Keys
-        - Generate,   False, Generate Keys
+        - Generate,   True,  Generate Keys
         - Generate,   False, Generate Subkeys
         - Sign,       True,  Generate detached signatures of binary documents
         - Sign,       True,  Generate inline signatures of canonical documents
@@ -128,7 +128,7 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
 
     :DSA Key Actions:
         - Load,       True,  Load Keys
-        - Generate,   False, Generate Keys
+        - Generate,   True,  Generate Keys
         - Generate,   False, Generate Subkeys
         - Sign,       True,  Generate detached signatures of binary documents
         - Sign,       True,  Generate inline signatures of canonical documents

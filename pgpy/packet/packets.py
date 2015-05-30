@@ -11,7 +11,6 @@ from datetime import datetime
 
 import six
 
-from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import constant_time
 from cryptography.hazmat.primitives.asymmetric import padding
 
@@ -760,6 +759,15 @@ class PubKeyV4(PubKey):
 
 class PrivKeyV4(PrivKey, PubKeyV4):
     __ver__ = 4
+
+    @classmethod
+    def new(cls, key_algorithm, key_size):
+        # build a key packet
+        pk = PrivKeyV4()
+        pk.pkalg = key_algorithm
+        pk.keymaterial._generate(key_size)
+        pk.update_hlen()
+        return pk
 
     @property
     def protected(self):
