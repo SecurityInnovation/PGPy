@@ -67,27 +67,29 @@ class TestPGPUID(object):
 
 
 class TestPGPKey(object):
-    def test_load_from_file(self, gpg_keyid_file):
-        key, _ = PGPKey.from_file('tests/testdata/pubtest.asc')
+    kf = next(iter(sorted(glob.glob('tests/testdata/keys/*.pub.asc'))))
 
-        assert key.fingerprint.keyid in gpg_keyid_file('pubtest.asc')
+    def test_load_from_file(self, gpg_keyid_file):
+        key, _ = PGPKey.from_file(self.kf)
+
+        assert key.fingerprint.keyid in gpg_keyid_file(self.kf.replace('tests/testdata/', ''))
 
     @pytest.mark.regression(issue=140)
     def test_load_from_bytes(self, gpg_keyid_file):
-        with open('tests/testdata/pubtest.asc', 'rb') as tkf:
+        with open(self.kf) as tkf:
             key, _ = PGPKey.from_blob(tkf.read())
 
-        assert key.fingerprint.keyid in gpg_keyid_file('pubtest.asc')
+        assert key.fingerprint.keyid in gpg_keyid_file(self.kf.replace('tests/testdata/', ''))
 
     @pytest.mark.regression(issue=140)
     def test_load_from_bytearray(self, gpg_keyid_file):
-        tkb = bytearray(os.stat('tests/testdata/pubtest.asc').st_size)
-        with open('tests/testdata/pubtest.asc', 'rb') as tkf:
+        tkb = bytearray(os.stat(self.kf).st_size)
+        with open(self.kf, 'rb') as tkf:
             tkf.readinto(tkb)
 
         key, _ = PGPKey.from_blob(tkb)
 
-        assert key.fingerprint.keyid in gpg_keyid_file('pubtest.asc')
+        assert key.fingerprint.keyid in gpg_keyid_file(self.kf.replace('tests/testdata/', ''))
 
 
 @pytest.fixture(scope='module')
