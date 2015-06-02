@@ -32,7 +32,7 @@ if os.path.join(os.getcwd(), 'tests') not in sys.path:
 
 
 def _which(cmd):
-    for d in os.getenv('PATH').split(':'):
+    for d in iter(p for p in os.getenv('PATH').split(':') if os.path.isdir(p)):
         if cmd in os.listdir(d) and os.access(os.path.realpath(os.path.join(d, cmd)), os.X_OK):
             return os.path.join(d, cmd)
 
