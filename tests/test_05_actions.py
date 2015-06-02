@@ -27,9 +27,11 @@ from pgpy.constants import SignatureType
 from pgpy.constants import SymmetricKeyAlgorithm
 from pgpy.constants import TrustLevel
 
-
 from pgpy.errors import PGPDecryptionError
 from pgpy.errors import PGPError
+
+from pgpy.packet.packets import PrivKeyV4
+from pgpy.packet.packets import PrivSubKeyV4
 
 
 def _read(f, mode='r'):
@@ -196,11 +198,12 @@ class TestPGPKey(object):
         'sigkey':     [ PGPKey.from_file(f)[0] for f in sorted(glob.glob('tests/testdata/signatures/*.key.asc')) ],
         'sigsig':     [ PGPSignature.from_file(f) for f in sorted(glob.glob('tests/testdata/signatures/*.sig.asc')) ],
         'sigsubj':    sorted(glob.glob('tests/testdata/signatures/*.subj')),
-        'key_alg':    [ PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.DSA ]
+        'key_alg':    [ PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.DSA ],
     }
     string_sigs = dict()
     timestamp_sigs = dict()
     standalone_sigs = dict()
+    gen_keys = dict()
     encmessage = []
 
     @contextmanager
@@ -217,9 +220,6 @@ class TestPGPKey(object):
                     except AssertionError as e:
                         e.args += (warning.message,)
                         raise
-
-    def test_new(self):
-        pytest.skip("not implemented yet")
 
     def test_protect(self):
         pytest.skip("not implemented yet")
@@ -496,15 +496,42 @@ class TestPGPKey(object):
             assert sv
 
     def test_new_key(self, key_alg):
-        pytest.skip("not implemented yet")
+        # create a key and a user id and add the UID to the key
+        uid = PGPUID.new('Hugo Gernsback', 'Science Fiction Plus', 'hugo.gernsback@space.local')
+        key = PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 1024)
+        key.add_uid(uid, hashes=[HashAlgorithm.SHA224])
 
-    def test_new_subkey(self):
-        pytest.skip("not implemented yet")
+        # self-verify the key
+        assert key.verify(key)
 
-    def test_add_subkey(self):
-        # when this is implemented, it will replace the temporary test_bind_subkey below
-        # and test_revoke_subkey will be rewritten
-        pytest.skip("not implemented yet")
+        self.gen_keys[key_alg] = key
+
+    def test_new_subkey(self, key_alg):
+        key = self.gen_keys[key_alg]
+        subkey = PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 1024)
+
+        assert subkey._key
+        assert not isinstance(subkey._key, PrivSubKeyV4)
+
+        # now add the subkey to key and then verify it
+        key.add_subkey(subkey, usage={KeyFlags.EncryptCommunications})
+
+        # subkey should be a PrivSubKeyV4 now, not a PrivKeyV4
+        assert isinstance(subkey._key, PrivSubKeyV4)
+
+        # self-verify
+        sv = self.gen_keys[key_alg].verify(self.gen_keys[key_alg])
+
+        assert sv
+        assert subkey in sv
+
+    def test_gpg_verify_new_key(self, key_alg, write_clean, gpg_import, gpg_check_sigs):
+        # with GnuPG
+        key = self.gen_keys[key_alg]
+        with write_clean('tests/testdata/genkey.asc', 'w', str(key)), \
+                gpg_import('./genkey.asc') as kio:
+            assert 'invalid self-signature' not in kio
+            assert gpg_check_sigs(key.fingerprint.keyid, *[skid for skid in key._children.keys()])
 
     def test_gpg_verify_key(self, targette_sec, write_clean, gpg_import, gpg_check_sigs):
         # with GnuPG
@@ -512,41 +539,6 @@ class TestPGPKey(object):
                 gpg_import('./pubtest.asc', './targette.sec.asc') as kio:
             assert 'invalid self-signature' not in kio
             assert gpg_check_sigs(targette_sec.fingerprint.keyid)
-
-    def test_bind_subkey(self, sec, pub, write_clean, gpg_import, gpg_check_sigs):
-        # this is temporary, until subkey generation works
-        # replace the first subkey's binding signature with a new one
-        subkey = next(iter(pub.subkeys.values()))
-        old_usage = next(sig for sig in subkey._signatures if sig.type == SignatureType.Subkey_Binding).key_flags
-        subkey._signatures.clear()
-
-        with self.assert_warnings():
-            bsig = sec.bind(subkey, usage=old_usage)
-
-            assert bsig.type == SignatureType.Subkey_Binding
-            assert 'EmbeddedSignature' in bsig._signature.subpackets
-
-            subkey |= bsig
-            assert len([sig for sig in subkey._signatures if sig.type == SignatureType.Subkey_Binding]) == \
-                    len([sig for sig in subkey._signatures if sig.type == SignatureType.PrimaryKey_Binding])
-
-            assert {SignatureType.Subkey_Binding, SignatureType.PrimaryKey_Binding} <= {sig.type for sig in subkey._signatures}
-            assert all(sig.embedded for sig in subkey._signatures if sig.type == SignatureType.PrimaryKey_Binding)
-
-            # verify with PGPy
-            sv = pub.verify(subkey)
-            assert bsig in iter(s.signature for s in sv._subjects)
-            assert sv
-            sv = pub.verify(pub)
-            assert bsig in iter(s.signature for s in sv._subjects)
-            assert sv
-
-        # verify with GPG
-        kfp = '{:s}.asc'.format(pub.fingerprint.shortid)
-        with write_clean(os.path.join('tests', 'testdata', kfp), 'w', str(pub)), \
-                gpg_import(os.path.join('.', kfp)) as kio:
-            assert 'invalid self-signature' not in kio
-            assert gpg_check_sigs(pub.fingerprint.keyid, subkey.fingerprint.keyid)
 
     def test_revoke_key(self, sec, pub, write_clean, gpg_import, gpg_check_sigs):
         with self.assert_warnings():
@@ -594,3 +586,7 @@ class TestPGPKey(object):
         # and remove it, for good measure
         subkey._signatures.remove(rsig)
         assert rsig not in subkey
+
+    # tests where ordering is important
+
+

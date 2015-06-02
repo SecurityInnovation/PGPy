@@ -145,12 +145,23 @@ class PubKeyAlgorithm(IntEnum):
     # DiffieHellman = 0x15  # X9.42
 
     @property
-    def can_sign(self):
-        return self in [PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.DSA]
+    def can_gen(self):
+        return self in {PubKeyAlgorithm.RSAEncryptOrSign,
+                        PubKeyAlgorithm.DSA}
 
     @property
     def can_encrypt(self):  # pragma: no cover
-        return self in [PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.ElGamal]
+        return self in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.ElGamal}
+
+    @property
+    def can_sign(self):
+        return self in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.DSA}
+
+    @property
+    def deprecated(self):
+        return self in {PubKeyAlgorithm.RSAEncrypt,
+                        PubKeyAlgorithm.RSASign,
+                        PubKeyAlgorithm.FormerlyElGamalEncryptOrSign}
 
 
 class CompressionAlgorithm(IntEnum):

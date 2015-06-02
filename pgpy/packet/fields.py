@@ -25,6 +25,7 @@ from .types import MPI
 from .types import MPIs
 
 from ..constants import HashAlgorithm
+from ..constants import PubKeyAlgorithm
 from ..constants import String2KeyType
 from ..constants import SymmetricKeyAlgorithm
 
@@ -635,6 +636,10 @@ class PrivKey(PubKey):
     def _generate(self, key_size):
         """Generate a new PrivKey"""
 
+    def _compute_chksum(self):
+        chs = sum(sum(bytearray(c.to_mpibytes())) for c in self) % 65536
+        self.chksum = bytearray(self.int_to_bytes(chs, 2))
+
     def publen(self):
         return sum(len(i) for i in super(self.__class__, self).__iter__())
 
@@ -724,8 +729,7 @@ class RSAPriv(PrivKey, RSAPub):
         del pkn
         del pk
 
-        chs = sum(sum(c.to_mpibytes()) for c in self) % 65536
-        self.chksum = bytearray(self.int_to_bytes(chs, 2))
+        self._compute_chksum()
 
     def parse(self, packet):
         super(RSAPriv, self).parse(packet)
@@ -802,8 +806,7 @@ class DSAPriv(PrivKey, DSAPub):
         del pkn
         del pk
 
-        chs = sum(sum(c.to_mpibytes()) for c in self) % 65536
-        self.chksum = bytearray(self.int_to_bytes(chs, 2))
+        self._compute_chksum()
 
     def parse(self, packet):
         super(DSAPriv, self).parse(packet)
@@ -848,7 +851,7 @@ class ElGPriv(PrivKey, ElGPub):
         raise NotImplementedError()
 
     def _generate(self, key_size):
-        return NotImplemented
+        raise NotImplementedError(PubKeyAlgorithm.ElGamal)
 
     def parse(self, packet):
         super(ElGPriv, self).parse(packet)

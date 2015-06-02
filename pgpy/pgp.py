@@ -17,7 +17,6 @@ import six
 from datetime import datetime
 
 from cryptography.exceptions import InvalidSignature
-from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 
@@ -45,6 +44,7 @@ from .packet import Packet
 from .packet import Primary
 from .packet import Private
 from .packet import PrivKeyV4
+from .packet import PrivSubKeyV4
 from .packet import Public
 from .packet import Sub
 from .packet import UserID
@@ -1221,6 +1221,10 @@ class PGPKey(PGPObject, Armorable):
         # new private key shell first
         key = PGPKey()
 
+        if key_algorithm in {PubKeyAlgorithm.RSAEncrypt, PubKeyAlgorithm.RSASign}:  # pragma: no cover
+            warnings.warn('{:s} is deprecated - generating key using RSAEncryptOrSign')
+            key_algorithm = PubKeyAlgorithm.RSAEncryptOrSign
+
         # generate some key data to match key_algorithm and key_size
         key._key = PrivKeyV4.new(key_algorithm, key_size)
 
@@ -1394,6 +1398,32 @@ class PGPKey(PGPObject, Armorable):
 
         u._parent = None
         self._uids.remove(u)
+
+    def add_subkey(self, key, **prefs):
+        if self.is_public:
+            raise PGPError("Cannot add a subkey to a public key. Add the subkey to the private component first!")
+
+        if key.is_public:
+            raise PGPError("Cannot add a public key as a subkey to this key")
+
+        if key.is_primary:
+            if len(key._children) > 0:
+                raise PGPError("Cannot add a key that already has subkeys as a subkey!")
+
+            # convert key into a subkey
+            npk = PrivSubKeyV4()
+            npk.pkalg = key._key.pkalg
+            npk.created = key._key.created
+            npk.keymaterial = key._key.keymaterial
+            key._key = npk
+            key._key.update_hlen()
+
+        self._children[key.fingerprint.keyid] = key
+        key._parent = self
+
+        ##TODO: skip this step if the key already has a subkey binding signature
+        bsig = self.bind(key, **prefs)
+        key |= bsig
 
     def _get_key_flags(self, user=None):
         if self.is_primary:
@@ -1986,8 +2016,8 @@ class PGPKey(PGPObject, Armorable):
         orphaned = []
         # last holds the last non-signature thing processed
 
-        getpkt = lambda d: Packet(d) if len(d) > 0 else None
         ##TODO: see issue #141 and fix this better
+        getpkt = lambda d: Packet(d) if len(d) > 0 else None  # flake8: noqa
         # getpkt = iter(functools.partial(getpkt, data), None)
         getpkt = filter(lambda p: p.header.tag != PacketTag.Trust, iter(functools.partial(getpkt, data), None))
 

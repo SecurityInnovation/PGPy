@@ -14,6 +14,7 @@ from pgpy.types import Fingerprint
 from pgpy.types import SignatureVerification
 
 from pgpy.constants import HashAlgorithm
+from pgpy.constants import PubKeyAlgorithm
 from pgpy.constants import SymmetricKeyAlgorithm
 
 from pgpy.errors import PGPDecryptionError
@@ -48,6 +49,15 @@ def targette_sec():
 
 
 class TestPGPKey(object):
+    params = {
+        'key_alg': [ pka for pka in PubKeyAlgorithm if pka.can_gen and not pka.deprecated ],
+        'key_alg_unim': [ pka for pka in PubKeyAlgorithm if not pka.can_gen and not pka.deprecated ],
+    }
+    key_badsize = {
+        PubKeyAlgorithm.RSAEncryptOrSign: 256,
+        PubKeyAlgorithm.DSA: 512,
+    }
+
     def test_unlock_pubkey(self, rsa_pub, recwarn):
         with rsa_pub.unlock("QwertyUiop") as _unlocked:
             assert _unlocked is rsa_pub
@@ -156,6 +166,26 @@ class TestPGPKey(object):
         w = recwarn.pop(UserWarning)
         assert str(w.message) == "Incorrect crc24"
         assert w.filename == __file__
+
+    def test_empty_key_action(self):
+        key = PGPKey()
+
+        with pytest.raises(PGPError):
+            key.sign('asdf')
+
+    def test_new_key_no_uid_action(self):
+        key = PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 1024)
+
+        with pytest.raises(PGPError):
+            key.sign('asdf')
+
+    def test_new_key_invalid_size(self, key_alg):
+        with pytest.raises(ValueError):
+            PGPKey.new(key_alg, self.key_badsize[key_alg])
+
+    def test_new_key_unimplemented_alg(self, key_alg_unim):
+        with pytest.raises(NotImplementedError):
+            PGPKey.new(key_alg_unim, 512)
 
 
 class TestPGPKeyring(object):

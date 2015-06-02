@@ -1,15 +1,31 @@
 #!/usr/bin/python
 # from distutils.core import setup
+import importlib.machinery
+import sys
+
 from setuptools import setup
 
-# this is dirty
-import sys
-sys.path.append('pgpy')
-import _author
+_loader = importlib.machinery.SourceFileLoader('_author', 'pgpy/_author.py')
+_author = _loader.load_module()
 
 # long_description is the contents of README.rst
 with open('README.rst') as readme:
     long_desc = readme.read()
+
+
+_requires = [
+    'cryptography>=0.8',
+    'enum34',
+    'pyasn1',
+    'six',
+    'singledispatch',
+]
+
+if sys.version_info[:2] == (3, 2):
+    # cryptography dropped support for Python 3.2 in 0.9
+    # I still need to support Python 3.2 for the time being, and it's still feasible to do so currently,
+    # so just ensure we install 0.8.x on 3.2
+    _requires[0] = 'cryptography>=0.8,<0.9'
 
 setup(
     # metadata
@@ -49,10 +65,7 @@ setup(
                        "signature", ],
 
     # dependencies
-    install_requires = ['cryptography==0.6',
-                        'enum34',
-                        'six',
-                        'singledispatch'],
+    install_requires = _requires,
 
     # urls
     url              = "https://github.com/SecurityInnovation/PGPy",

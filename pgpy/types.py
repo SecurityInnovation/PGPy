@@ -10,7 +10,6 @@ import collections
 import operator
 import os
 import re
-import sys
 import warnings
 
 from enum import EnumMeta
@@ -542,6 +541,9 @@ class SignatureVerification(object):
         """
         super(SignatureVerification, self).__init__()
         self._subjects = []
+
+    def __contains__(self, item):
+        return item in {ii for i in self._subjects for ii in [i.signature, i.subject]}
 
     def __len__(self):
         return len(self._subjects)

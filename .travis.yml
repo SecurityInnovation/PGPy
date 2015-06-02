@@ -33,7 +33,7 @@ before_script:
   - if [[ -z "$TOXENV" ]]; then export TOXENV=py${TRAVIS_PYTHON_VERSION//.}; fi
   - if [[ "$TRAVIS_PYTHON_VERSION" == 'pypy' ]]; then export TOXENV=pypy; fi
   - if [[ "$TRAVIS_PYTHON_VERSION" == 'pypy3' ]]; then export TOXENV=pypy3; fi
-# use setup.py to invoke testing via coveralls
+# run tox
 script:
  - tox
 # and report coverage to coveralls, but only if this was a pytest run

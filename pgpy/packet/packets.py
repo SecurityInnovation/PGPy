@@ -765,6 +765,8 @@ class PrivKeyV4(PrivKey, PubKeyV4):
         # build a key packet
         pk = PrivKeyV4()
         pk.pkalg = key_algorithm
+        if pk.keymaterial is None:
+            raise NotImplementedError(key_algorithm)
         pk.keymaterial._generate(key_size)
         pk.update_hlen()
         return pk
