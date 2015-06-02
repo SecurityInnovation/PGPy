@@ -1,12 +1,17 @@
 #!/usr/bin/python
 # from distutils.core import setup
-import importlib.machinery
 import sys
 
 from setuptools import setup
 
-_loader = importlib.machinery.SourceFileLoader('_author', 'pgpy/_author.py')
-_author = _loader.load_module()
+if sys.version_info[0] >= 3:
+    import importlib.machinery
+    _loader = importlib.machinery.SourceFileLoader('_author', 'pgpy/_author.py')
+    _author = _loader.load_module()
+
+else:
+    import imp
+    _author = imp.load_source('_author', 'pgpy/_author.py')
 
 # long_description is the contents of README.rst
 with open('README.rst') as readme:
