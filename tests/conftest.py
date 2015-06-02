@@ -13,7 +13,11 @@ from distutils.version import LooseVersion
 from cryptography.hazmat.backends import openssl
 
 openssl_ver = LooseVersion(openssl.backend.openssl_version_text().split(' ')[1])
-gpg_ver = LooseVersion()
+gpg_ver = LooseVersion('0')
+pgpdump_ver = LooseVersion('0')
+
+
+# ensure external commands we need to run exist
 
 # set the CWD and add to sys.path if we need to
 os.chdir(os.path.join(os.path.abspath(os.path.dirname(__file__)), os.pardir))
@@ -25,6 +29,30 @@ else:
 
 if os.path.join(os.getcwd(), 'tests') not in sys.path:
     sys.path.insert(1, os.path.join(os.getcwd(), 'tests'))
+
+
+def _which(cmd):
+    for d in os.getenv('PATH').split(':'):
+        if cmd in os.listdir(d) and os.access(os.path.realpath(os.path.join(d, cmd)), os.X_OK):
+            return os.path.join(d, cmd)
+
+
+# run a subprocess command, wait for it to complete, and then return decoded output
+def _run(bin, *binargs, **pkw):
+    _default_pkw = {'stdout': subprocess.PIPE,
+                    'stderr': subprocess.PIPE}
+
+    popen_kwargs = _default_pkw.copy()
+    popen_kwargs.update(pkw)
+
+    cmd = subprocess.Popen([bin] + list(binargs), **popen_kwargs)
+    cmd.wait()
+    cmdo, cmde = cmd.communicate()
+
+    cmdo = cmdo.decode('latin-1') if cmdo is not None else ""
+    cmde = cmde.decode('latin-1') if cmde is not None else ""
+
+    return cmdo, cmde
 
 # now import stuff from fixtures so it can be imported by test modules
 # from fixtures import TestFiles, gpg_getfingerprint, pgpdump, gpg_verify, gpg_fingerprint
@@ -59,7 +87,8 @@ class CWD_As(object):
         return setcwd
 
 
-_gpg_args = ['/usr/bin/gpg', '--options', './pgpy.gpg.conf', '--expert']
+_gpg_bin = _which('gpg2')
+_gpg_args = ['--options', './pgpy.gpg.conf', '--expert']
 _gpg_env = os.environ.copy()
 _gpg_env['GNUPGHOME'] = os.path.abspath(os.path.abspath('tests/testdata'))
 _gpg_kwargs = dict()
@@ -93,13 +122,10 @@ def gpg_import():
     def _gpg_import(*keypaths):
         gpg_args = _gpg_args + ['--import', ] + list(keypaths)
         gpg_kwargs = _gpg_kwargs.copy()
-
-        gpgdec = subprocess.Popen(gpg_args, **gpg_kwargs)
-        gpgdec.wait()
-        gpgo, _ = gpgdec.communicate()
+        gpgo, _ = _run(_gpg_bin, *gpg_args, **gpg_kwargs)
 
         try:
-            yield gpgo.decode('latin-1')
+            yield gpgo
 
         finally:
             [os.remove(f) for f in glob.glob('tests/testdata/testkeys.*')]
@@ -112,11 +138,7 @@ def gpg_check_sigs():
     def _gpg_check_sigs(*keyids):
         gpg_args = _gpg_args + ['--check-sigs'] + list(keyids)
         gpg_kwargs = _gpg_kwargs.copy()
-
-        gpgdec = subprocess.Popen(gpg_args, **gpg_kwargs)
-        gpgdec.wait()
-        gpgo, _ = gpgdec.communicate()
-        gpgo = gpgo.decode()
+        gpgo, _ = _run(_gpg_bin, *gpg_args, **gpg_kwargs)
         return 'sig-' not in gpgo
 
     return _gpg_check_sigs
@@ -127,11 +149,8 @@ def gpg_verify():
     def _gpg_verify(gpg_subjpath, gpg_sigpath=None, keyid=None):
         gpg_args = _gpg_args + [ a for a in ['--verify', gpg_sigpath, gpg_subjpath] if a is not None ]
         gpg_kwargs = _gpg_kwargs.copy()
+        gpgo, _ = _run(_gpg_bin, *gpg_args, **gpg_kwargs)
 
-        gpgdec = subprocess.Popen(gpg_args, **gpg_kwargs)
-        gpgdec.wait()
-        gpgo, _ = gpgdec.communicate()
-        gpgo = gpgo.decode()
         sigs = dict(re.findall(r'^gpg: Signature made .+\ngpg: \s+ using [A-Z]+ key ([0-9A-F]+)\n'
                                r'(?:gpg: using .+\n)*gpg: ([^\s]+) signature', gpgo, flags=re.MULTILINE))
 
@@ -147,7 +166,7 @@ def gpg_verify():
 @pytest.fixture
 def gpg_decrypt():
     def _gpg_decrypt(encmsgpath, passphrase=None, keyid=None):
-        gpg_args = _gpg_args[:]
+        gpg_args = [_gpg_bin] + _gpg_args[:]
         gpg_kwargs = _gpg_kwargs.copy()
         gpg_kwargs['stderr'] = subprocess.PIPE
         _comargs = ()
@@ -178,13 +197,8 @@ def gpg_print():
         gpg_kwargs = _gpg_kwargs.copy()
         gpg_kwargs['stderr'] = subprocess.PIPE
 
-        gpgdec = subprocess.Popen(gpg_args, **gpg_kwargs)
-        gpgdec.wait()
-        gpgo, gpge = gpgdec.communicate()
-
-        if gpgo.decode() is not None:
-            return gpgo.decode()
-        return ''
+        gpgo, _ = _run(_gpg_bin, *gpg_args, **gpg_kwargs)
+        return gpgo
 
     return _gpg_print
 
@@ -195,14 +209,8 @@ def gpg_keyid_file():
         gpg_args = _gpg_args + ['--list-packets', infile]
         gpg_kwargs = _gpg_kwargs.copy()
 
-        gpgdec = subprocess.Popen(gpg_args, **gpg_kwargs)
-        gpgdec.wait()
-        gpgo, gpge = gpgdec.communicate()
-
-        if gpgo.decode() is not None:
-            return re.findall(r'^\s+keyid: ([0-9A-F]+)', gpgo.decode(), flags=re.MULTILINE)
-
-        return []
+        gpgo, _ = _run(_gpg_bin, *gpg_args, **gpg_kwargs)
+        return re.findall(r'^\s+keyid: ([0-9A-F]+)', gpgo, flags=re.MULTILINE)
 
     return _gpg_keyid_file
 
@@ -210,8 +218,7 @@ def gpg_keyid_file():
 @pytest.fixture()
 def pgpdump():
     def _pgpdump(infile):
-        _args = ['/usr/bin/pgpdump', '-agimplu', infile]
-        return subprocess.check_output(_args).decode()
+        return _run(_which('pgpdump'), '-agimplu', infile)[0]
 
     return _pgpdump
 
@@ -221,9 +228,24 @@ def pgpdump():
 # pytest_configure
 # called after command line options have been parsed and all plugins and initial conftest files been loaded.
 def pytest_configure(config):
+    # ensure commands we need exist
+    for cmd in ['gpg2', 'pgpdump']:
+        if _which(cmd) is None:
+            print("Error: Missing Command: " + cmd)
+            exit(-1)
+
+    # get the GnuPG version
+    gpg_ver.parse(_run(_which('gpg'), '--version')[0].splitlines()[0].split(' ')[-1])
+
+    # get the pgpdump version
+    v, _ = _run(_which('pgpdump'), '-v', stderr=subprocess.STDOUT)
+    pgpdump_ver.parse(v.split(' ')[2].strip(','))
+
     # display the working directory and the OpenSSL version
     print("Working Directory: " + os.getcwd())
     print("Using OpenSSL " + str(openssl_ver))
+    print("Using GnuPG   " + str(gpg_ver))
+    print("Using pgpdump " + str(pgpdump_ver))
     print("")
 
 

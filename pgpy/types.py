@@ -10,6 +10,7 @@ import collections
 import operator
 import os
 import re
+import sys
 import warnings
 
 from enum import EnumMeta
@@ -474,7 +475,7 @@ class MetaDispatchable(abc.ABCMeta):
                 obj.parse(packet)
 
             except Exception as ex:
-                six.reraise(PGPError, ex)
+                six.reraise(PGPError, ex, sys.exc_info()[2])
 
         else:
             obj = _makeobj(cls)

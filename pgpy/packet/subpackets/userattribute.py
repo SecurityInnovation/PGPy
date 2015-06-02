@@ -2,6 +2,8 @@
 """
 import struct
 
+import six
+
 from .types import UserAttribute
 
 from ...constants import ImageEncoding
@@ -94,7 +96,19 @@ class Image(UserAttribute):
 
     def parse(self, packet):
         super(Image, self).parse(packet)
-        _, self.version, self.iencoding, _, _, _ = struct.unpack('<hbbiii', packet[:16])
+
+        ##TODO: it probably makes more sense to have a wrapper object so we can just do 'with memoryview(...) as ...'
+        #       regardless of the version of Python in play
+        _head = memoryview(packet)
+        _, self.version, self.iencoding, _, _, _ = struct.unpack_from('<hbbiii', _head[:16].tobytes())
+
+        # memoryviews need to be released in Py3.x, and deleted on Py2.x
+        if six.PY3:
+            _head.release()
+
+        else:
+            del _head
+
         del packet[:16]
         self.image = packet[:(self.header.length - 17)]
         del packet[:(self.header.length - 17)]
