@@ -25,7 +25,7 @@ matrix:
 install:
   # make sure gnupg, pgpdump, and the requested version of OpenSSL are installed
   - sudo apt-get update
-  - sudo apt-get install -y gnupg pgpdump
+  - sudo apt-get install -y gnupg2 pgpdump
   # install coveralls
   - pip install tox python-coveralls
 # set TOXENV if it isn't yet
