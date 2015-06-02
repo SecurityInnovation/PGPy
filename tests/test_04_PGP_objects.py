@@ -7,6 +7,7 @@ import os
 
 import six
 
+from pgpy import PGPKey
 from pgpy import PGPKeyring
 from pgpy import PGPMessage
 from pgpy import PGPSignature
@@ -63,6 +64,30 @@ class TestPGPUID(object):
         assert six.u("{:s}").format(unc) == six.u('Temperair\xe9e Youx\'seur (\u2603)')
         assert six.u("{:s}").format(une) == six.u('Temperair\xe9e Youx\'seur <snowman@not.an.email.addre.ss>')
         assert six.u("{:s}").format(unce) == six.u('Temperair\xe9e Youx\'seur (\u2603) <snowman@not.an.email.addre.ss>')
+
+
+class TestPGPKey(object):
+    def test_load_from_file(self, gpg_keyid_file):
+        key, _ = PGPKey.from_file('tests/testdata/pubtest.asc')
+
+        assert key.fingerprint.keyid in gpg_keyid_file('pubtest.asc')
+
+    @pytest.mark.regression(issue=140)
+    def test_load_from_bytes(self, gpg_keyid_file):
+        with open('tests/testdata/pubtest.asc', 'rb') as tkf:
+            key, _ = PGPKey.from_blob(tkf.read())
+
+        assert key.fingerprint.keyid in gpg_keyid_file('pubtest.asc')
+
+    @pytest.mark.regression(issue=140)
+    def test_load_from_bytearray(self, gpg_keyid_file):
+        tkb = bytearray(os.stat('tests/testdata/pubtest.asc').st_size)
+        with open('tests/testdata/pubtest.asc', 'rb') as tkf:
+            tkf.readinto(tkb)
+
+        key, _ = PGPKey.from_blob(tkb)
+
+        assert key.fingerprint.keyid in gpg_keyid_file('pubtest.asc')
 
 
 @pytest.fixture(scope='module')

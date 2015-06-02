@@ -189,6 +189,24 @@ def gpg_print():
     return _gpg_print
 
 
+@pytest.fixture
+def gpg_keyid_file():
+    def _gpg_keyid_file(infile):
+        gpg_args = _gpg_args + ['--list-packets', infile]
+        gpg_kwargs = _gpg_kwargs.copy()
+
+        gpgdec = subprocess.Popen(gpg_args, **gpg_kwargs)
+        gpgdec.wait()
+        gpgo, gpge = gpgdec.communicate()
+
+        if gpgo.decode() is not None:
+            return re.findall(r'^\s+keyid: ([0-9A-F]+)', gpgo.decode(), flags=re.MULTILINE)
+
+        return []
+
+    return _gpg_keyid_file
+
+
 @pytest.fixture()
 def pgpdump():
     def _pgpdump(infile):
