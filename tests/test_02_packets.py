@@ -32,11 +32,13 @@ def binload(f):
         return bytearray(ff.read())
 
 
+skip_files = {'tests/testdata/packets/{:s}'.format(pkt) for pkt in ['05.v4.ecdsa.privkey', '06.v4.ecdsa.pubkey',
+                                                                    '07.v4.ecdh.privsubkey', '14.v4.ecdh.pubsubkey']}
+
+
 class TestPacket(object):
     params = {
-        # 'packet': sorted([ binload(os.path.abspath(f)) + b'\xca\xfe\xba\xbe'
-        #                    for f in glob.glob('tests/testdata/packets/[0-9]*') ])
-        'packet': sorted(glob.glob('tests/testdata/packets/[0-9]*'))
+        'packet': sorted([f for f in glob.glob('tests/testdata/packets/[0-9]*') if f not in skip_files])
     }
     def test_load(self, packet):
         b = binload(packet) + b'\xca\xfe\xba\xbe'

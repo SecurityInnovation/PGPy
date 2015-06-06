@@ -24,6 +24,18 @@ from .decorators import sdproperty
 
 from .errors import PGPError
 
+__all__ = ['Armorable',
+           'PGPObject',
+           'Field',
+           'Header',
+           'MetaDispatchable',
+           'Dispatchable',
+           'SignatureVerification',
+           'FlagEnumMeta',
+           'FlagEnum',
+           'Fingerprint',
+           'SorteDeque']
+
 if six.PY2:
     FileNotFoundError = IOError
     re.ASCII = 0

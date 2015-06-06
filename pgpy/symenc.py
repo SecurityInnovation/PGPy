@@ -13,6 +13,9 @@ from .errors import PGPDecryptionError
 from .errors import PGPEncryptionError
 from .errors import PGPInsecureCipher
 
+__all__ = ['_encrypt',
+           '_decrypt']
+
 
 def _encrypt(pt, key, alg, iv=None):
     if iv is None:

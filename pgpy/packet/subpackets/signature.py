@@ -29,6 +29,34 @@ from ...decorators import sdproperty
 from ...types import Fingerprint
 
 
+__all__ = ['URI',
+           'FlagList',
+           'ByteFlag',
+           'Boolean',
+           'CreationTime',
+           'SignatureExpirationTime',
+           'ExportableCertification',
+           'TrustSignature',
+           'RegularExpression',
+           'Revocable',
+           'KeyExpirationTime',
+           'PreferredSymmetricAlgorithms',
+           'RevocationKey',
+           'Issuer',
+           'NotationData',
+           'PreferredHashAlgorithms',
+           'PreferredCompressionAlgorithms',
+           'KeyServerPreferences',
+           'PreferredKeyServer',
+           'PrimaryUserID',
+           'Policy',
+           'KeyFlags',
+           'SignersUserID',
+           'ReasonForRevocation',
+           'Features',
+           'EmbeddedSignature']
+
+
 class URI(Signature):
     @sdproperty
     def uri(self):

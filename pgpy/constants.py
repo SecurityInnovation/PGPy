@@ -19,6 +19,24 @@ from cryptography.hazmat.primitives.ciphers import algorithms
 from .decorators import classproperty
 from .types import FlagEnum
 
+__all__ = ['Backend',
+           'PacketTag',
+           'SymmetricKeyAlgorithm',
+           'PubKeyAlgorithm',
+           'CompressionAlgorithm',
+           'HashAlgorithm',
+           'RevocationReason',
+           'ImageEncoding',
+           'SignatureType',
+           'KeyServerPreferences',
+           'String2KeyType',
+           'TrustLevel',
+           'KeyFlags',
+           'Features',
+           'RevocationKeyClass',
+           'NotationDataFlags',
+           'TrustFlags']
+
 
 # this is 100 KiB
 _hashtunedata = bytearray([10, 11, 12, 13, 14, 15, 16, 17] * 128 * 100)

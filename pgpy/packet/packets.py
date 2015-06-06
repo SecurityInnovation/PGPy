@@ -52,6 +52,33 @@ from ..symenc import _encrypt
 
 from ..types import Fingerprint
 
+__all__ = ['PKESessionKey',
+           'PKESessionKeyV3',
+           'Signature',
+           'SignatureV4',
+           'SKESessionKey',
+           'SKESessionKeyV4',
+           'OnePassSignature',
+           'OnePassSignatureV3',
+           'PrivKey',
+           'PubKey',
+           'PubKeyV4',
+           'PrivKeyV4',
+           'PrivSubKey',
+           'PrivSubKeyV4',
+           'CompressedData',
+           'SKEData',
+           'Marker',
+           'LiteralData',
+           'Trust',
+           'UserID',
+           'PubSubKey',
+           'PubSubKeyV4',
+           'UserAttribute',
+           'IntegrityProtectedSKEData',
+           'IntegrityProtectedSKEDataV1',
+           'MDC']
+
 
 class PKESessionKey(VersionedPacket):
     __typeid__ = 0x01

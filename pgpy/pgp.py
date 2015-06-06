@@ -72,6 +72,12 @@ from .types import PGPObject
 from .types import SignatureVerification
 from .types import SorteDeque
 
+__all__ = ['PGPSignature',
+           'PGPUID',
+           'PGPMessage',
+           'PGPKey',
+           'PGPKeyring']
+
 
 class PGPSignature(PGPObject, Armorable):
     @property

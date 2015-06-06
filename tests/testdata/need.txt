@@ -34,7 +34,3 @@ Needed Packet Examples
      This one looks to be difficult to obtain as
 
    - type 0x50 - Third-Party Confirmation signature
-
-* Marker Packet (Obsolete Literal Packet) (Tag 10)
-
-* Modification Detection Code Packet (Tag 19)

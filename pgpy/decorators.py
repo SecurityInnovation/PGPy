@@ -9,6 +9,11 @@ from singledispatch import singledispatch
 
 from .errors import PGPError
 
+__all__ = ['classproperty',
+           'sdmethod',
+           'sdproperty',
+           'KeyAction']
+
 
 def classproperty(fget):
     class ClassProperty(object):

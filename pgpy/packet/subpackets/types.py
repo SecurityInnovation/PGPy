@@ -9,6 +9,13 @@ from ...decorators import sdproperty
 from ...types import Dispatchable
 from ...types import Header as _Header
 
+__all__ = ['Header',
+           'EmbeddedSignatureHeader',
+           'SubPacket',
+           'Signature',
+           'UserAttribute',
+           'Opaque']
+
 
 class Header(_Header):
     @sdproperty
