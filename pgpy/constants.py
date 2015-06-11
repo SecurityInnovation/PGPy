@@ -10,10 +10,12 @@ import zlib
 from collections import namedtuple
 from enum import Enum
 from enum import IntEnum
+from pyasn1.type.univ import ObjectIdentifier
 
 import six
 
 from cryptography.hazmat.backends import openssl
+from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.ciphers import algorithms
 
 from .decorators import classproperty
@@ -44,6 +46,39 @@ _hashtunedata = bytearray([10, 11, 12, 13, 14, 15, 16, 17] * 128 * 100)
 
 class Backend(Enum):
     OpenSSL = openssl.backend
+
+
+class EllipticCurveOID(Enum):
+    Invalid = ObjectIdentifier('0')
+    Ed25519 = None
+    NIST_P256 = ObjectIdentifier('1.2.840.10045.3.1.7')
+    NIST_P384 = ObjectIdentifier('1.3.132.0.34')
+    NIST_P521 = ObjectIdentifier('1.3.132.0.35')
+    Brainpool_P256 = None
+    Brainpool_P384 = None
+    Brainpool_P512 = None
+
+    @property
+    def curve(self):
+        curves = {EllipticCurveOID.NIST_P256: ec.SECP256R1,
+                  EllipticCurveOID.NIST_P384: ec.SECP384R1,
+                  EllipticCurveOID.NIST_P521: ec.SECP521R1}
+
+        if self in curves:
+            return curves[self]
+
+        raise NotImplementedError(repr(self))
+
+    @property
+    def bit_length(self):
+        curves = {EllipticCurveOID.NIST_P256: 256,
+                  EllipticCurveOID.NIST_P384: 384,
+                  EllipticCurveOID.NIST_P521: 521}
+
+        if self in curves:
+            return curves[self]
+
+        raise NotImplementedError(repr(self))
 
 
 class PacketTag(IntEnum):
@@ -165,7 +200,8 @@ class PubKeyAlgorithm(IntEnum):
     @property
     def can_gen(self):
         return self in {PubKeyAlgorithm.RSAEncryptOrSign,
-                        PubKeyAlgorithm.DSA}
+                        PubKeyAlgorithm.DSA,
+                        PubKeyAlgorithm.ECDSA}
 
     @property
     def can_encrypt(self):  # pragma: no cover

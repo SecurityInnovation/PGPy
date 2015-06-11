@@ -5,6 +5,7 @@ import functools
 import glob
 import os
 import re
+import six
 import subprocess
 import sys
 
@@ -255,5 +256,11 @@ def pytest_generate_tests(metafunc):
     if metafunc.cls is not None and hasattr(metafunc.cls, 'params'):
         funcargs = [ (k, v) for k, v in metafunc.cls.params.items() if k in metafunc.fixturenames ]
 
-        metafunc.parametrize(','.join(k for k, _ in funcargs),
-                             list(zip(*[v for _, v in funcargs])) if len(funcargs) > 1 else [vi for _, v in funcargs for vi in v])
+        args = [','.join(k for k, _ in funcargs),
+                list(zip(*[v for _, v in funcargs])) if len(funcargs) > 1 else [vi for _, v in funcargs for vi in v]]
+        kwargs = {}
+
+        if hasattr(metafunc.cls, 'ids') and metafunc.function.__name__ in metafunc.cls.ids:
+            kwargs['ids'] = metafunc.cls.ids[metafunc.function.__name__]
+
+        metafunc.parametrize(*args, **kwargs)

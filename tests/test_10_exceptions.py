@@ -13,6 +13,7 @@ from pgpy import PGPUID
 from pgpy.types import Fingerprint
 from pgpy.types import SignatureVerification
 
+from pgpy.constants import EllipticCurveOID
 from pgpy.constants import HashAlgorithm
 from pgpy.constants import PubKeyAlgorithm
 from pgpy.constants import SymmetricKeyAlgorithm
@@ -48,14 +49,23 @@ def targette_sec():
     return PGPKey.from_file('tests/testdata/keys/targette.sec.rsa.asc')[0]
 
 
+key_algs = [ pka for pka in PubKeyAlgorithm if pka.can_gen and not pka.deprecated ]
+key_algs_unim = [ pka for pka in PubKeyAlgorithm if not pka.can_gen and not pka.deprecated]
+
+
 class TestPGPKey(object):
     params = {
-        'key_alg': [ pka for pka in PubKeyAlgorithm if pka.can_gen and not pka.deprecated ],
-        'key_alg_unim': [ pka for pka in PubKeyAlgorithm if not pka.can_gen and not pka.deprecated ],
+        'key_alg': key_algs,
+        'key_alg_unim': key_algs_unim,
+    }
+    ids = {
+        'test_new_key_invalid_size':      [ str(ka).split('.')[-1] for ka in key_algs ],
+        'test_new_key_unimplemented_alg': [ str(ka).split('.')[-1] for ka in key_algs_unim ],
     }
     key_badsize = {
         PubKeyAlgorithm.RSAEncryptOrSign: 256,
         PubKeyAlgorithm.DSA: 512,
+        PubKeyAlgorithm.ECDSA: 1,
     }
 
     def test_unlock_pubkey(self, rsa_pub, recwarn):

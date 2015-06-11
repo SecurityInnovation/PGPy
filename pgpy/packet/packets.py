@@ -17,9 +17,14 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from .fields import DSAPriv
 from .fields import DSAPub
 from .fields import DSASignature
+from .fields import ECDSAPub
+from .fields import ECDSAPriv
+from .fields import ECDSASignature
 from .fields import ElGCipherText
 from .fields import ElGPriv
 from .fields import ElGPub
+from .fields import OpaquePubKey
+from .fields import OpaquePrivKey
 from .fields import RSACipherText
 from .fields import RSAPriv
 from .fields import RSAPub
@@ -334,11 +339,15 @@ class SignatureV4(Signature):
     @pubalg.register(PubKeyAlgorithm)
     def pubalg_int(self, val):
         self._pubalg = PubKeyAlgorithm(val)
-        if self._pubalg in [PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.RSAEncrypt, PubKeyAlgorithm.RSASign]:
-            self.signature = RSASignature()
 
-        elif self._pubalg == PubKeyAlgorithm.DSA:
-            self.signature = DSASignature()
+        sigs = {PubKeyAlgorithm.RSAEncryptOrSign: RSASignature,
+                PubKeyAlgorithm.RSAEncrypt: RSASignature,
+                PubKeyAlgorithm.RSASign: RSASignature,
+                PubKeyAlgorithm.DSA: DSASignature,
+                PubKeyAlgorithm.ECDSA: ECDSASignature, }
+
+        if self.pubalg in sigs:
+            self.signature = sigs[self.pubalg]()
 
     @sdproperty
     def halg(self):
@@ -711,6 +720,7 @@ class PubKeyV4(PubKey):
             (True, PubKeyAlgorithm.DSA): DSAPub,
             (True, PubKeyAlgorithm.ElGamal): ElGPub,
             (True, PubKeyAlgorithm.FormerlyElGamalEncryptOrSign): ElGPub,
+            (True, PubKeyAlgorithm.ECDSA): ECDSAPub,
             # False means private
             (False, PubKeyAlgorithm.RSAEncryptOrSign): RSAPriv,
             (False, PubKeyAlgorithm.RSAEncrypt): RSAPriv,
@@ -718,12 +728,16 @@ class PubKeyV4(PubKey):
             (False, PubKeyAlgorithm.DSA): DSAPriv,
             (False, PubKeyAlgorithm.ElGamal): ElGPriv,
             (False, PubKeyAlgorithm.FormerlyElGamalEncryptOrSign): ElGPriv,
+            (False, PubKeyAlgorithm.ECDSA): ECDSAPriv,
         }
 
         k = (self.public, self.pkalg)
-
         km = _c.get(k, None)
-        self.keymaterial = km() if km is not None else km
+
+        self.keymaterial = (km or (OpaquePubKey if self.public else OpaquePrivKey))()
+
+        # km = _c.get(k, None)
+        # self.keymaterial = km() if km is not None else km
 
     @property
     def public(self):
@@ -769,6 +783,9 @@ class PubKeyV4(PubKey):
         _bytes += self.keymaterial.__bytearray__()
         return _bytes
 
+    def verify(self, subj, sigbytes, hash_alg):
+        return self.keymaterial.verify(subj, sigbytes, hash_alg)
+
     def parse(self, packet):
         super(PubKeyV4, self).parse(packet)
 
@@ -811,6 +828,9 @@ class PrivKeyV4(PrivKey, PubKeyV4):
     def unprotect(self, passphrase):
         self.keymaterial.decrypt_keyblob(passphrase)
         del passphrase
+
+    def sign(self, sigdata, hash_alg):
+        return self.keymaterial.sign(sigdata, hash_alg)
 
 
 class PrivSubKey(VersionedPacket, Sub, Private):
@@ -1164,10 +1184,10 @@ class UserID(Packet):
         _bytes = bytearray()
         _bytes += super(UserID, self).__bytearray__()
         _bytes += self.text_to_bytes(self.name)
-        if self.comment is not None:
+        if self.comment:
             _bytes += b' (' + self.text_to_bytes(self.comment) + b')'
 
-        if self.email is not None:
+        if self.email:
             _bytes += b' <' + self.text_to_bytes(self.email) + b'>'
 
         return _bytes
@@ -1195,8 +1215,8 @@ class UserID(Packet):
                             """, uid_text, flags=re.VERBOSE).groupdict()
 
             self.name = uid['name']
-            self.comment = uid['comment']
-            self.email = uid['email']
+            self.comment = uid['comment'] or ""
+            self.email = uid['email'] or ""
 
 
 class PubSubKey(VersionedPacket, Sub, Public):

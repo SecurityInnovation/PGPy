@@ -16,9 +16,7 @@ import six
 
 from datetime import datetime
 
-from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import padding
 
 from .constants import CompressionAlgorithm
 from .constants import Features
@@ -1134,7 +1132,7 @@ class PGPKey(PGPObject, Armorable):
         if self.is_public:
             return self._key.__bytearray__()[len(self._key.header):]
 
-        publen = len(self._key) - len(self._key.header) - len(self._key.keymaterial) + 1 + self._key.keymaterial.publen()
+        publen = len(self._key) - len(self._key.keymaterial) + self._key.keymaterial.publen()
         return self._key.__bytearray__()[len(self._key.header):publen]
 
     @property
@@ -1466,15 +1464,6 @@ class PGPKey(PGPObject, Armorable):
         if sig.hash_algorithm is None:
             sig._signature.halg = uid.selfsig.hashprefs[0]
 
-        if self.key_algorithm == PubKeyAlgorithm.RSAEncryptOrSign:
-            sigopts = (padding.PKCS1v15(), getattr(hashes, sig.hash_algorithm.name)(),)
-
-        elif self.key_algorithm == PubKeyAlgorithm.DSA:
-            sigopts = (getattr(hashes, sig.hash_algorithm.name)(),)
-
-        else:
-            raise NotImplementedError(self.key_algorithm)
-
         if uid is not None and sig.hash_algorithm not in uid.selfsig.hashprefs:
             warnings.warn("Selected hash algorithm not in key preferences", stacklevel=4)
 
@@ -1519,9 +1508,11 @@ class PGPKey(PGPObject, Armorable):
         h2.update(sigdata)
         sig._signature.hash2 = bytearray(h2.digest()[:2])
 
-        signer = self.__key__.__privkey__().signer(*sigopts)
-        signer.update(sigdata)
-        sig._signature.signature.from_signer(signer.finalize())
+        _sig = self._key.sign(sigdata, getattr(hashes, sig.hash_algorithm.name)())
+        if _sig is NotImplemented:
+            raise NotImplementedError(self.key_algorithm)
+
+        sig._signature.signature.from_signer(_sig)
         sig._signature.update_hlen()
 
         return sig
@@ -1877,33 +1868,11 @@ class PGPKey(PGPObject, Armorable):
                 sigv &= self.subkeys[sig.signer].verify(subj, sig)
 
             else:
-                if sig.key_algorithm == PubKeyAlgorithm.RSAEncryptOrSign:
-                    vargs = ( b'\x00' * (self._key.keymaterial.n.byte_length() - len(sig.__sig__)) + sig.__sig__,
-                              padding.PKCS1v15(), getattr(hashes, sig.hash_algorithm.name)(),)
-
-                elif sig.key_algorithm == PubKeyAlgorithm.DSA:
-                    vargs = (sig.__sig__, getattr(hashes, sig.hash_algorithm.name)(),)
-
-                else:
+                verified = self._key.verify(sig.hashdata(subj), sig.__sig__, getattr(hashes, sig.hash_algorithm.name)())
+                if verified is NotImplemented:
                     raise NotImplementedError(sig.key_algorithm)
 
-                sigdata = sig.hashdata(subj)
-                verifier = self.__key__.__pubkey__().verifier(*vargs)
-                verifier.update(sigdata)
-                verified = False
-
-                try:
-                    verifier.verify()
-
-                except InvalidSignature:
-                    pass
-
-                else:
-                    verified = True
-
-                finally:
-                    sigv.add_sigsubj(sig, self.fingerprint.keyid, subj, verified)
-                    del sigdata, verifier, verified
+                sigv.add_sigsubj(sig, self.fingerprint.keyid, subj, verified)
 
         return sigv
 

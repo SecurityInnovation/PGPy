@@ -194,12 +194,12 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
 
     :Key Types:
         - ECDH,  False, Elliptic Curve Diffie-Hellman
-        - ECDSA, False, Elliptic Curve Digital Signature Algorithm
+        - ECDSA, True,  Elliptic Curve Digital Signature Algorithm
 
     :Curves:
-        - Curve, False, NIST P-256
-        - Curve, False, NIST P-386
-        - Curve, False, NIST P-521
+        - Curve, True, NIST P-256
+        - Curve, True, NIST P-386
+        - Curve, True, NIST P-521
 
     :ECDH Key Actions:
         - Load,       False, Load Keys
@@ -209,38 +209,38 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
         - KDF,        False, Decode KDF data for decryption
 
     :ECDSA Key Actions:
-        - Load,       False, Load Keys
-        - Generate,   False, Generate Keys
-        - Generate,   False, Generate Subkeys
-        - Sign,       False, Generate detached signatures of binary documents
-        - Sign,       False, Generate inline signatures of canonical documents
-        - Sign,       False, One-Pass Sign messages
-        - Sign,       False, Sign messages
-        - Sign,       False, Sign keys
-        - Sign,       False, Certify User IDs
-        - Sign,       False, Certify User Attributes
-        - Sign,       False, Generate key binding signatures
-        - Sign,       False, Revoke certifications
-        - Sign,       False, Revoke keys
-        - Sign,       False, Revoke subkeys
-        - Sign,       False, Generate timestamp signatures
-        - Sign,       False, Generate standalone signatures
+        - Load,       True,  Load Keys
+        - Generate,   True,  Genera te Keys
+        - Generate,   True,  Generate Subkeys
+        - Sign,       True,  Generate detached signatures of binary documents
+        - Sign,       True,  Generate inline signatures of canonical documents
+        - Sign,       True,  One-Pass Sign messages
+        - Sign,       True,  Sign messages
+        - Sign,       True,  Sign keys
+        - Sign,       True,  Certify User IDs
+        - Sign,       True,  Certify User Attributes
+        - Sign,       True,  Generate key binding signatures
+        - Sign,       True,  Revoke certifications
+        - Sign,       True,  Revoke keys
+        - Sign,       True,  Revoke subkeys
+        - Sign,       True,  Generate timestamp signatures
+        - Sign,       True,  Generate standalone signatures
         - Sign,       False, Generate third party confirmation signatures
-        - Verify,     False, Verify detached signatures
-        - Verify,     False, Verify inline signatures of canonical documents
-        - Verify,     False, Verify messages
-        - Verify,     False, Verify key signatures
-        - Verify,     False, Verify User ID certification signatures
-        - Verify,     False, Verify User Attribute certification signatures
-        - Verify,     False, Verify key binding signatures
-        - Verify,     False, Verify key revocation signatures
-        - Verify,     False, Verify subkey revocation signatures
-        - Verify,     False, Verify certification revocation signatures
-        - Verify,     False, Verify timestamp signatures
-        - Verify,     False, Verify standalone signatures
+        - Verify,     True,  Verify detached signatures
+        - Verify,     True,  Verify inline signatures of canonical documents
+        - Verify,     True,  Verify messages
+        - Verify,     True,  Verify key signatures
+        - Verify,     True,  Verify Use r ID certification signatures
+        - Verify,     True,  Verify User Attribute certification signatures
+        - Verify,     True,  Verify key binding signatures
+        - Verify,     True,  Verify key revocation signatures
+        - Verify,     True,  Verify subkey revocation signatures
+        - Verify,     True,  Verify certification revocation signatures
+        - Verify,     True,  Verify timestamp signatures
+        - Verify,     True,  Verify standalone signatures
         - Verify,     False, Verify third party confirmation signatures
-        - Revocation, False, Designate Revocation Key
-        - Revocation, False, Revoke (Sub)Key with Self Signature
+        - Revocation, True,  Designate Revocation Key
+        - Revocation, True,  Revoke (Sub)Key with Self Signature
         - Revocation, False, Revoke (Sub)Key using Designated Revocation Key
 
 Non-RFC Extensions

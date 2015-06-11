@@ -3,6 +3,7 @@
 import pytest
 
 import glob
+import os
 
 from datetime import datetime
 
@@ -21,7 +22,10 @@ from pgpy.pgp import PGPSignature
 # generic block tests
 class TestBlocks(object):
     params = {
-        'block': glob.glob('tests/testdata/blocks/*.asc')
+        'block': sorted(glob.glob('tests/testdata/blocks/*.asc'))
+    }
+    ids = {
+        'test_load': [ os.path.basename(fn).replace('.', '_') for fn in sorted(glob.glob('tests/testdata/blocks/*.asc')) ]
     }
     attrs = {
         'tests/testdata/blocks/message.compressed.asc':

@@ -39,12 +39,17 @@ def _read(f, mode='r'):
         return ff.read()
 
 
+comp_algs = [ CompressionAlgorithm.Uncompressed, CompressionAlgorithm.ZIP, CompressionAlgorithm.ZLIB, CompressionAlgorithm.BZ2 ]
+
+
 class TestPGPMessage(object):
     params = {
-        'comp_alg': [ CompressionAlgorithm.Uncompressed, CompressionAlgorithm.ZIP, CompressionAlgorithm.ZLIB,
-                      CompressionAlgorithm.BZ2 ],
+        'comp_alg': comp_algs,
         'enc_msg':  [ PGPMessage.from_file(f) for f in glob.glob('tests/testdata/messages/message*.pass*.asc') ],
         'file':    ['tests/testdata/lit', 'tests/testdata/lit2', 'tests/testdata/lit_de']
+    }
+    ids = {
+        'test_new': [ str(ca).split('.')[-1] for ca in comp_algs ],
     }
     attrs = {
         'tests/testdata/lit':
@@ -190,6 +195,9 @@ def sessionkey():
     return b'\x9d[\xc1\x0e\xec\x01k\xbc\xf4\x04UW\xbb\xfb\xb2\xb9'
 
 
+key_algs = [ PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.DSA, PubKeyAlgorithm.ECDSA ]
+
+
 class TestPGPKey(object):
     params = {
         'pub':        [ PGPKey.from_file(f)[0] for f in sorted(glob.glob('tests/testdata/keys/*.pub.asc')) ],
@@ -198,7 +206,13 @@ class TestPGPKey(object):
         'sigkey':     [ PGPKey.from_file(f)[0] for f in sorted(glob.glob('tests/testdata/signatures/*.key.asc')) ],
         'sigsig':     [ PGPSignature.from_file(f) for f in sorted(glob.glob('tests/testdata/signatures/*.sig.asc')) ],
         'sigsubj':    sorted(glob.glob('tests/testdata/signatures/*.subj')),
-        'key_alg':    [ PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.DSA ],
+        'key_alg':    key_algs,
+    }
+    ids = {
+        'test_verify_detached':    [ os.path.basename(f).replace('.', '_') for f in sorted(glob.glob('tests/testdata/signatures/*.key.asc')) ],
+        'test_new_key':            [ str(ka).split('.')[-1] for ka in key_algs ],
+        'test_new_subkey':         [ str(ka).split('.')[-1] for ka in key_algs ],
+        'test_gpg_verify_new_key': [ str(ka).split('.')[-1] for ka in key_algs ],
     }
     string_sigs = dict()
     timestamp_sigs = dict()
@@ -259,10 +273,12 @@ class TestPGPKey(object):
         assert sig.is_expired
 
         # verify with GnuPG
-        with write_clean('tests/testdata/string', 'w', string), \
-                write_clean('tests/testdata/string.asc', 'w', str(sig)), \
-                gpg_import('./pubtest.asc'):
-            assert gpg_verify('./string', './string.asc', keyid=sig.signer)
+        if sig.key_algorithm not in {PubKeyAlgorithm.ECDSA}:
+            # TODO: cannot test ECDSA against GnuPG as there isn't an easy way of installing v2.1 yet on CI
+            with write_clean('tests/testdata/string', 'w', string), \
+                    write_clean('tests/testdata/string.asc', 'w', str(sig)), \
+                    gpg_import('./pubtest.asc'):
+                assert gpg_verify('./string', './string.asc', keyid=sig.signer)
 
         self.string_sigs[sec.fingerprint.keyid] = sig
 
@@ -288,8 +304,10 @@ class TestPGPKey(object):
         ctmessage |= sig
 
         # verify with GnuPG
-        with write_clean('tests/testdata/ctmessage.asc', 'w', str(ctmessage)), gpg_import('./pubtest.asc'):
-            assert gpg_verify('./ctmessage.asc', keyid=sig.signer)
+        if sig.key_algorithm not in {PubKeyAlgorithm.ECDSA}:
+            # TODO: cannot test ECDSA against GnuPG as there isn't an easy way of installing v2.1 yet on CI
+            with write_clean('tests/testdata/ctmessage.asc', 'w', str(ctmessage)), gpg_import('./pubtest.asc'):
+                assert gpg_verify('./ctmessage.asc', keyid=sig.signer)
 
     def test_verify_ctmessage(self, pub, ctmessage):
         with self.assert_warnings():
@@ -526,10 +544,14 @@ class TestPGPKey(object):
         assert subkey in sv
 
     def test_gpg_verify_new_key(self, key_alg, write_clean, gpg_import, gpg_check_sigs):
+        # if key_alg in {PubKeyAlgorithm.ECDSA, PubKeyAlgorithm.ECDH}:
+        #     pytest.skip("GnuPG version in use cannot import/verify ")
+
         # with GnuPG
         key = self.gen_keys[key_alg]
         with write_clean('tests/testdata/genkey.asc', 'w', str(key)), \
                 gpg_import('./genkey.asc') as kio:
+
             assert 'invalid self-signature' not in kio
             assert gpg_check_sigs(key.fingerprint.keyid, *[skid for skid in key._children.keys()])
 
@@ -564,6 +586,9 @@ class TestPGPKey(object):
         pytest.skip("not implemented yet")
 
     def test_revoke_subkey(self, sec, pub, write_clean, gpg_import, gpg_check_sigs):
+        if sec.key_algorithm == PubKeyAlgorithm.ECDSA:
+            pytest.skip("ECDH not implemented yet which causes this test to fail")
+
         subkey = next(iter(pub.subkeys.values()))
         with self.assert_warnings():
             # revoke the first subkey
@@ -571,13 +596,13 @@ class TestPGPKey(object):
             assert 'ReasonForRevocation' in rsig._signature.subpackets
             subkey |= rsig
 
-            # # verify with PGPy
+            # verify with PGPy
             assert pub.verify(subkey)
             sv = pub.verify(pub)
             assert sv
             assert rsig in iter(s.signature for s in sv.good_signatures)
 
-        # verify with GPG
+        # verify with GnuPG
         kfp = '{:s}.asc'.format(pub.fingerprint.shortid)
         with write_clean(os.path.join('tests', 'testdata', kfp), 'w', str(kfp)), \
                 gpg_import(os.path.join('.', kfp)) as kio:
@@ -586,7 +611,3 @@ class TestPGPKey(object):
         # and remove it, for good measure
         subkey._signatures.remove(rsig)
         assert rsig not in subkey
-
-    # tests where ordering is important
-
-
