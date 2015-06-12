@@ -1325,8 +1325,23 @@ class PGPKey(PGPObject, Armorable):
         raise TypeError("unsupported operand type(s) for |: '{:s}' and '{:s}'"
                         "".format(self.__class__.__name__, other.__class__.__name__))
 
-    def protect(self):
-        raise NotImplementedError()
+    def protect(self, passphrase, enc_alg, hash_alg):
+        ##TODO: specify strong defaults for enc_alg and hash_alg
+        if self.is_public:
+            # we can't protect public keys because only private key material is ever protected
+            warnings.warn("Public keys cannot be passphrase-protected", stacklevel=3)
+            return
+
+        if self.is_protected and not self.is_unlocked:
+            # we can't protect a key that is already protected unless it is unlocked first
+            warnings.warn("This key is already protected with a passphrase - "
+                          "please unlock it before attempting to specify a new passphrase", stacklevel=3)
+            return
+
+        for sk in itertools.chain([self], self.subkeys.values()):
+            sk._key.protect(passphrase, enc_alg, hash_alg)
+
+        del passphrase
 
     @contextlib.contextmanager
     def unlock(self, passphrase):

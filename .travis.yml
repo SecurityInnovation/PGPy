@@ -13,7 +13,13 @@ matrix:
       env: TOXENV=pep8
     # add a test of setup.py using python 3.4
     - python: 3.4
-      env: TOXENV=setup
+      env: TOXENV=setup34
+    # add a test of setup.py using python 3.3
+    - python: 3.3
+      env: TOXENV=setup33
+    # add a test of setup.py using python 3.2
+    - python: 3.2
+      env: TOXENV=setup32
     # add a setup.py test using python 2.7
     - python: 2.7
       env: TOXENV=setup27
@@ -23,10 +29,10 @@ matrix:
     - python: "pypy3"
 # install requirements
 install:
-  # make sure gnupg, pgpdump, and the requested version of OpenSSL are installed
+  # make sure libffi-dev, gnupg2, and pgpdump are installed
   - sudo apt-get update
-  - sudo apt-get install -y gnupg2 pgpdump
-  # install coveralls
+  - sudo apt-get install -y libffi-dev gnupg2 pgpdump
+  # ensure tox and coveralls are installed
   - pip install tox python-coveralls
 # set TOXENV if it isn't yet
 before_script:
@@ -35,7 +41,7 @@ before_script:
   - if [[ "$TRAVIS_PYTHON_VERSION" == 'pypy3' ]]; then export TOXENV=pypy3; fi
 # run tox
 script:
- - tox
+  - ./tox.sh
 # and report coverage to coveralls, but only if this was a pytest run
 after_success:
-  if [[ "${TOXENV}" == "py"* ]]; then coveralls; fi
+  - if [[ "${TOXENV}" == "py"* ]]; then coveralls; fi

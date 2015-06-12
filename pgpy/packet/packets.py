@@ -825,6 +825,11 @@ class PrivKeyV4(PrivKey, PubKeyV4):
             return 0 not in list(self.keymaterial)
         return True  # pragma: no cover
 
+    def protect(self, passphrase, enc_alg, hash_alg):
+        self.keymaterial.encrypt_keyblob(passphrase, enc_alg, hash_alg)
+        del passphrase
+        self.update_hlen()
+
     def unprotect(self, passphrase):
         self.keymaterial.decrypt_keyblob(passphrase)
         del passphrase

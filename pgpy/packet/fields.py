@@ -7,6 +7,7 @@ import collections
 import hashlib
 import itertools
 import math
+import os
 
 from pyasn1.codec.der import decoder
 from pyasn1.codec.der import encoder
@@ -42,6 +43,7 @@ from ..errors import PGPDecryptionError
 from ..errors import PGPError
 
 from ..symenc import _decrypt
+from ..symenc import _encrypt
 
 from ..types import Field
 
@@ -813,6 +815,41 @@ class PrivKey(PubKey):
     def publen(self):
         return sum(len(i) for i in super(self.__class__, self).__iter__())
 
+    # @abc.abstractmethod
+    def encrypt_keyblob(self, passphrase, enc_alg, hash_alg):
+        # PGPy will only ever use iterated and salted S2k mode
+        self.s2k.usage = 254
+        self.s2k.encalg = enc_alg
+        self.s2k.specifier = String2KeyType.Iterated
+        self.s2k.iv = enc_alg.gen_iv()
+        self.s2k.halg = hash_alg
+        self.s2k.salt = bytearray(os.urandom(8))
+        self.s2k.count = hash_alg.tuned_count
+
+        # now that String-to-Key is ready to go, derive sessionkey from passphrase
+        # and then unreference passphrase
+        sessionkey = self.s2k.derive_key(passphrase)
+        del passphrase
+
+        pubitems = len(list(super(self.__class__, self).__iter__()))
+        pt = bytearray()
+        for n, i in enumerate(self):
+            # skip public key components
+            if n < pubitems:
+                continue
+
+            pt += i.to_mpibytes() if isinstance(i, MPI) else i
+
+        # append a SHA-1 hash of the plaintext so far to the plaintext
+        pt += hashlib.new('sha1', pt).digest()
+
+        # encrypt
+        self.encbytes = bytearray(_encrypt(bytes(pt), bytes(sessionkey), enc_alg, bytes(self.s2k.iv)))
+
+        # delete pt and clear self
+        del pt
+        self.clear()
+
     @abc.abstractmethod
     def decrypt_keyblob(self, passphrase):
         if not self.s2k:  # pragma: no cover
@@ -827,7 +864,7 @@ class PrivKey(PubKey):
         # With V4 keys, a simpler method is used.  All secret MPI values are
         # encrypted in CFB mode, including the MPI bitcount prefix.
 
-        # derive the session key from our passphrase, and then dereference passphrase
+        # derive the session key from our passphrase, and then unreference passphrase
         sessionkey = self.s2k.derive_key(passphrase)
         del passphrase
 

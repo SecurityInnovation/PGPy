@@ -2,6 +2,7 @@
 """
 import pytest
 
+import copy
 import glob
 import os
 import time
@@ -195,6 +196,14 @@ def sessionkey():
     return b'\x9d[\xc1\x0e\xec\x01k\xbc\xf4\x04UW\xbb\xfb\xb2\xb9'
 
 
+def _compare_keys(keyA, keyB):
+            for Ai, Bi in zip(keyA._key.keymaterial, keyB._key.keymaterial):
+                if Ai != Bi:
+                    return False
+
+            return True
+
+
 key_algs = [ PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.DSA, PubKeyAlgorithm.ECDSA ]
 
 
@@ -235,8 +244,31 @@ class TestPGPKey(object):
                         e.args += (warning.message,)
                         raise
 
-    def test_protect(self):
-        pytest.skip("not implemented yet")
+    def test_protect(self, sec):
+        if sec.key_algorithm == PubKeyAlgorithm.ECDSA:
+            pytest.skip("Cannot properly encrypt ECDSA keys yet")
+
+        assert sec.is_protected is False
+
+        # copy sec so we have a comparison point
+        sec2 = copy.deepcopy(sec)
+        # ensure that the key material values are the same
+        assert _compare_keys(sec, sec2)
+
+        sec2.protect('There Are Many Like It, But This Key Is Mine',
+                     SymmetricKeyAlgorithm.AES256, HashAlgorithm.SHA256)
+
+        assert sec2.is_protected
+        assert sec2.is_unlocked is False
+        # ensure that sec2 is now
+        assert _compare_keys(sec, sec2) is False
+
+        assert sec2._key.keymaterial.__bytes__()[sec2._key.keymaterial.publen():] not in sec._key.keymaterial.__bytes__()
+
+        # unlock with the correct passphrase and compare the keys
+        with sec2.unlock('There Are Many Like It, But This Key Is Mine') as _unlocked:
+            assert _unlocked.is_unlocked
+            assert _compare_keys(sec, sec2)
 
     def test_unlock(self, enc, sec):
         assert enc.is_protected
@@ -247,6 +279,27 @@ class TestPGPKey(object):
         with enc.unlock('QwertyUiop') as _unlocked, self.assert_warnings():
             assert _unlocked is enc
             assert enc.is_unlocked
+
+    def test_change_passphrase(self, enc):
+        enc2 = copy.deepcopy(enc)
+
+        assert enc.is_protected
+        assert enc2.is_protected
+        assert enc.is_unlocked is False
+        assert enc2.is_unlocked is False
+
+        assert enc._key.keymaterial.encbytes == enc2._key.keymaterial.encbytes
+
+        # change the passphrase on enc2
+        with enc.unlock('QwertyUiop') as e1u, enc2.unlock('QwertyUiop') as e2u, self.assert_warnings():
+            assert _compare_keys(e1u, e2u)
+            enc2.protect('AsdfGhjkl', enc2._key.keymaterial.s2k.encalg, enc2._key.keymaterial.s2k.halg)
+
+        assert enc._key.keymaterial.encbytes != enc2._key.keymaterial.encbytes
+
+        # unlock again and verify that we still have the same key hiding in there
+        with enc.unlock('QwertyUiop') as e1u, enc2.unlock('AsdfGhjkl') as e2u, self.assert_warnings():
+            assert _compare_keys(e1u, e2u)
 
     def test_verify_detached(self, sigkey, sigsig, sigsubj):
         assert sigkey.verify(_read(sigsubj), sigsig)

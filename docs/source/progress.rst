@@ -62,7 +62,7 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
         - 0x1C,  True,  Signer's User ID
         - 0x1D,  True,  Reason For Revocation
         - 0x1E,  True,  Features
-        - 0x1F,  False, Siganture Target
+        - 0x1F,  False, Signature Target
         - 0x20,  True,  Embedded Signature
 
     :User Attribute Subpackets:
@@ -83,6 +83,10 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
         - ElGamal, True, ElGamal
 
     :Key Actions:
+        - Protect,   True,  Protect private keys encryped with CAST5
+        - Protect,   True,  Protect private keys encryped with Blowfish
+        - Protect,   True,  Protect private keys encryped with AES
+        - Protect,   False, Protect private keys encryped with Twofish
         - Unprotect, True,  Unprotect private keys encrypted with IDEA*
         - Unprotect, True,  Unprotect private keys encrypted with Triple-DES
         - Unprotect, True,  Unprotect private keys encrypted with CAST5
@@ -261,9 +265,25 @@ This section covers things that are considered extensions to PGP, but are not co
         - HKP, False, Look up and retrieve keys from key server
         - HKP, False, Send keys to key server
 
-.. note::
+.. progress:: EdDSA for OpenPGP
+    :text: Use of Ed25519 with ECDSA and ECDH in OpenPGP is currently specified in an in-progress RFC draft by Werner Koch, `draft-koch-eddsa-for-openpgp-02`.
+
+
+.. progress:: Additional Curves for OpenPGP
+    :text: Some additional curves that can be used with ECDSA/ECDH that are not explicitly called out in :rfc:`6637`, but have standardized OIDs and are implemented in other software.
+
+    :Curves:
+        - Curve, False, Brainpool P-256
+        - Curve, False, Brainpool P-384
+        - Curve, False, Brainpool P-512
+
+.. note:: Use of Brainpool curves with ECDSA/ECDH
+    :text: Although these curves are not explicitly
 
     \* Cipher availability depends on the currently installed OpenSSL being compiled with support for it
 
+
+
 .. _`Marc Horowitz's thesis paper`: http://www.mit.edu/afs/net.mit.edu/project/pks/thesis/paper/thesis.html
-.. _`draft-shaw-openpgp-hkp-00.txt`: http://tools.ietf.org/html/draft-shaw-openpgp-hkp-00
+.. _`draft-shaw-openpgp-hkp-00.txt`: https://tools.ietf.org/html/draft-shaw-openpgp-hkp-00
+.. _`draft-koch-eddsa-for-openpgp-02`: https://tools.ietf.org/html/draft-koch-eddsa-for-openpgp-02
