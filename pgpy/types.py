@@ -322,12 +322,17 @@ class Header(Field):
                 self._len = ((dlen - (192 << 8)) & 0xFF00) + ((dlen & 0xFF) + 192)
                 del b[:2]
 
+            elif 255 > fo:  # >= 224 is implied
+                # this is a partial-length header
+                self._partial = True
+                self._len = 1 << (fo & 0x1f)
+
             elif 255 == fo:
                 self._len = self.bytes_to_int(b[1:5])
                 del b[:5]
 
             else:  # pragma: no cover
-                raise ValueError("Malformed length!")
+                raise ValueError("Malformed length: 0x{:02x}".format(fo))
 
         def _old_len(b):
             if self.llen > 0:
@@ -370,6 +375,7 @@ class Header(Field):
         self._len = 1
         self._llen = 1
         self._lenfmt = 1
+        self._partial = False
 
 
 class MetaDispatchable(abc.ABCMeta):

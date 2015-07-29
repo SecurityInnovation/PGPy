@@ -115,7 +115,8 @@ class TestBlocks(object):
         'tests/testdata/blocks/revochiio.asc':
             [('created',       datetime(2014, 9, 11, 22, 55, 53)),
              ('fingerprint',   "AE15 9FF3 4C1A 2426 B7F8 0F1A 560C F308 EF60 CFA3"),
-             ('is_expired',    True),
+             ('expires_at',    datetime(2018, 9, 12, 1, 0, 59)),
+             ('is_expired',    False),
              ('is_primary',    True),
              ('is_protected',  False),
              ('is_public',     True),
@@ -124,6 +125,11 @@ class TestBlocks(object):
              ('magic',         "PUBLIC KEY BLOCK"),
              ('parent',        None),
              ('signers',       {'560CF308EF60CFA3'}),],
+        'tests/testdata/blocks/expyro.asc':
+            [('created',       datetime(1970, 1, 1)),
+             ('expires_at',    datetime(1970, 1, 2)),
+             ('fingerprint',   '24EB C1B0 29B1 FCF8 29A5  C150 1A48 291A FB91 A533'),
+             ('is_expired',    True),],
         'tests/testdata/blocks/rsapubkey.asc':
             [('created',       datetime(2014, 7, 23, 21, 19, 24)),
              ('expires_at',    None),
@@ -211,5 +217,8 @@ class TestBlocks(object):
         assert block in self.attrs
         for attr, val in self.attrs[block]:
             attrval = getattr(p, attr)
-            assert attrval == val
+            # this is probably more helpful than just 'assert attrval == val'
+            if attrval != val:
+                raise AssertionError('expected block.{attr:s} = {aval}; got block.{attr:s} = {rval}'
+                                     ''.format(attr=attr, aval=val, rval=attrval))
 

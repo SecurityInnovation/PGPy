@@ -36,7 +36,7 @@ def binload(f):
         return bytearray(ff.read())
 
 
-skip_files = {'tests/testdata/packets/{:s}'.format(pkt) for pkt in ['07.v4.ecdh.privsubkey', '14.v4.ecdh.pubsubkey']}
+skip_files = {'tests/testdata/packets/{:s}'.format(pkt) for pkt in ['07.v4.ecdh.privsubkey', '11.literal.partial', '14.v4.ecdh.pubsubkey']}
 
 
 class TestPacket(object):

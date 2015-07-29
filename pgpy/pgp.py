@@ -115,12 +115,12 @@ class PGPSignature(PGPObject, Armorable):
     def expires_at(self):
         """
         A :py:obj:`~datetime.datetime` of when this signature expires, if a signature expiration date is specified.
-        Otherwise, ``False``
+        Otherwise, ``None``
         """
         if 'SignatureExpirationTime' in self._signature.subpackets:
             expd = next(iter(self._signature.subpackets['SignatureExpirationTime'])).expires
             return self.created + expd
-        return False
+        return None
 
     @property
     def exportable(self):
@@ -167,7 +167,7 @@ class PGPSignature(PGPObject, Armorable):
         ``True`` if the signature has an expiration date, and is expired. Otherwise, ``False``
         """
         expires_at = self.expires_at
-        if expires_at is not False and expires_at != self.created:
+        if expires_at is not None and expires_at != self.created:
             return expires_at < datetime.utcnow()
 
         return False
@@ -1140,7 +1140,7 @@ class PGPKey(PGPObject, Armorable):
         """``True`` if this key is expired, otherwise ``False``"""
         expires = self.expires_at
         if expires is not None:
-            return datetime.utcnow() <= expires
+            return expires <= datetime.utcnow()
 
         return False
 
