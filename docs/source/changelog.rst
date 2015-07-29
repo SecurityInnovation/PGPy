@@ -13,6 +13,7 @@ Bugs Fixed
 ----------
  * Occasionally, the ASN.1 encoding of DSA signatures was being built in a way that although GPG could parse and verify them,
    it was incorrect, and PGPy incorrectly failed to verify them.
+ * Fixed an issue where keys with expiration dates set would have the wrong value returned from the ``key.is_expired`` property (#151)
 
 New Features
 ------------
