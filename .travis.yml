@@ -1,5 +1,6 @@
 language: python
 python:
+  - "3.5"
   - "3.4"
   - "3.3"
   - "3.2"
@@ -9,8 +10,11 @@ python:
 matrix:
   include:
     # add a pep8 test
-    - python: 3.4
+    - python: 3.5
       env: TOXENV=pep8
+    # add a test of setup.py using python 3.5
+    - python: 3.5
+      env: TOXENV=setup35
     # add a test of setup.py using python 3.4
     - python: 3.4
       env: TOXENV=setup34
