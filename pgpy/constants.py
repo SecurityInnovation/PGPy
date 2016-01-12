@@ -309,7 +309,8 @@ class HashAlgorithm(IntEnum):
         c2 = (ct.bit_length() - 11)
         c = ((c2 << 4) + c1)
 
-        self._tuned_count = c
+        # constrain self._tuned_count to be between 0 and 255
+        self._tuned_count = max(min(c, 255), 0)
 
 
 class RevocationReason(IntEnum):

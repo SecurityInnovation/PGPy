@@ -659,6 +659,8 @@ class String2Key(Field):
 
     @count.register(int)
     def count_int(self, val):
+        if val < 0 or val > 255:
+            raise ValueError("count must be between 0 and 256")
         self._count = val
 
     def __init__(self):

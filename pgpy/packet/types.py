@@ -228,7 +228,7 @@ class Sub(Key):
 
 
 # This is required for class MPI to work in both Python 2 and 3
-if six.PY3:
+if not six.PY2:
     long = int
 
 

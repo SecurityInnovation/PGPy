@@ -5,7 +5,12 @@ import functools
 import six
 import warnings
 
-from singledispatch import singledispatch
+try:
+    from singledispatch import singledispatch
+
+except ImportError:
+    from functools import singledispatch
+
 
 from .errors import PGPError
 
