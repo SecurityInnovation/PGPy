@@ -41,15 +41,17 @@ Documentation
 Requirements
 ------------
 
-- Python >= 2.7
+- Python 3 >= 3.3; Python 2 >= 2.7
 
-  Tested with: 3.4, 3.3, 3.2, 2.7
+  Tested with: 3.5, 3.4, 3.3, 2.7
 
 - `Cryptography <https://pypi.python.org/pypi/cryptography>`_
 
 - `enum34 <https://pypi.python.org/pypi/enum34>`_
 
 - `singledispatch <https://pypi.python.org/pypi/singledispatch>`_
+
+- `pyasn1 <https://pypi.python.org/pypi/pyasn1/>`_
 
 - `six <https://pypi.python.org/pypi/six>`_
 
