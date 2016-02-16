@@ -248,7 +248,7 @@ def pytest_configure(config):
             exit(-1)
 
     # get the GnuPG version
-    gpg_ver.parse(_run(_which('gpg'), '--version')[0].splitlines()[0].split(' ')[-1])
+    gpg_ver.parse(_run(_which('gpg2'), '--version')[0].splitlines()[0].split(' ')[-1])
 
     # get the pgpdump version
     v, _ = _run(_which('pgpdump'), '-v', stderr=subprocess.STDOUT)
