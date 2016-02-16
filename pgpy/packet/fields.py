@@ -3,6 +3,7 @@
 from __future__ import absolute_import, division
 
 import abc
+import binascii
 import collections
 import hashlib
 import itertools
@@ -18,10 +19,19 @@ from cryptography.exceptions import InvalidSignature
 
 from cryptography.hazmat.backends import default_backend
 
+from cryptography.hazmat.primitives import hashes
+
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric import dsa
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric import padding
+
+from cryptography.hazmat.primitives.kdf.concatkdf import ConcatKDFHash
+
+from cryptography.hazmat.primitives.keywrap import aes_key_wrap
+from cryptography.hazmat.primitives.keywrap import aes_key_unwrap
+
+from cryptography.hazmat.primitives.padding import PKCS7
 
 from .subpackets import Signature as SignatureSP
 from .subpackets import UserAttribute
@@ -59,6 +69,7 @@ __all__ = ['SubPackets',
            'DSAPub',
            'ElGPub',
            'ECDSAPub',
+           'ECDHPub',
            'String2Key',
            'PrivKey',
            'OpaquePrivKey',
@@ -66,6 +77,7 @@ __all__ = ['SubPackets',
            'DSAPriv',
            'ElGPriv',
            'ECDSAPriv',
+           'ECDHPriv',
            'CipherText',
            'RSACipherText',
            'ElGCipherText', ]
@@ -305,23 +317,6 @@ class DSASignature(Signature):
 
 
 class ECDSASignature(DSASignature):
-    # def __init__(self):
-    #     super(ECDSASignature, self).__init__()
-    #     self.r = MPI(0)
-    #     self.s = MPI(0)
-
-    # def __iter__(self):
-    #     yield self.r
-    #     yield self.s
-
-    # def __sig__(self):
-    #     # return the signature data into an ASN.1 sequence of integers in DER format
-    #     seq = Sequence()
-    #     for i in self:
-    #         seq.setComponentByPosition(len(seq), Integer(i))
-    #
-    #     return encoder.encode(seq)
-
     def from_signer(self, sig):
         seq, _ = decoder.decode(sig)
         self.r = MPI(seq[0])
@@ -496,7 +491,6 @@ class ECDSAPub(PubKey):
 
     def parse(self, packet):
         oidlen = packet[0]
-        print(oidlen)
         del packet[0]
         _oid = bytearray(b'\x06')
         _oid.append(oidlen)
@@ -519,6 +513,153 @@ class ECDSAPub(PubKey):
         x, y = xy[:xylen // 2], xy[xylen // 2:]
         self.x = MPI(self.bytes_to_int(x))
         self.y = MPI(self.bytes_to_int(y))
+
+
+class ECDHPub(PubKey):
+    """
+    8.  EC DH Algorithm (ECDH)
+
+    The method is a combination of an ECC Diffie-Hellman method to
+    establish a shared secret, a key derivation method to process the
+    shared secret into a derived key, and a key wrapping method that uses
+    the derived key to protect a session key used to encrypt a message.
+
+    The One-Pass Diffie-Hellman method C(1, 1, ECC CDH) [NIST-SP800-56A]
+    MUST be implemented with the following restrictions: the ECC CDH
+    primitive employed by this method is modified to always assume the
+    cofactor as 1, the KDF specified in Section 7 is used, and the KDF
+    parameters specified below are used.
+
+    The KDF parameters are encoded as a concatenation of the following 5
+    variable-length and fixed-length fields, compatible with the
+    definition of the OtherInfo bitstring [NIST-SP800-56A]:
+
+    o  a variable-length field containing a curve OID, formatted as
+       follows:
+
+         -  a one-octet size of the following field
+
+         - the octets representing a curve OID, defined in Section 11
+
+    o  a one-octet public key algorithm ID defined in Section 5
+
+    o  a variable-length field containing KDF parameters, identical to
+       the corresponding field in the ECDH public key, formatted as
+       follows:
+
+         -  a one-octet size of the following fields; values 0 and 0xff
+            are reserved for future extensions
+
+         -  a one-octet value 01, reserved for future extensions
+
+         -  a one-octet hash function ID used with the KDF
+
+         -  a one-octet algorithm ID for the symmetric algorithm used to
+            wrap the symmetric key for message encryption; see Section 8
+            for details
+
+    o  20 octets representing the UTF-8 encoding of the string
+       "Anonymous Sender    ", which is the octet sequence
+       41 6E 6F 6E 79 6D 6F 75 73 20 53 65 6E 64 65 72 20 20 20 20
+
+    o  20 octets representing a recipient encryption subkey or a master
+       key fingerprint, identifying the key material that is needed for
+       the decryption
+
+    """
+    def __init__(self):
+        super(ECDHPub, self).__init__()
+        self.oid = None
+        self.x = MPI(0)
+        self.y = MPI(0)
+        self.kdf = ECKDF()
+
+    def __iter__(self):
+        yield self.x
+        yield self.y
+
+    def __len__(self):
+        return sum([len(i) - 2 for i in self] +
+                   [3,
+                    len(self.kdf),
+                    len(encoder.encode(self.oid.value)) - 1])
+
+    def __pubkey__(self):
+        return ec.EllipticCurvePublicNumbers(self.x, self.y, self.oid.curve()).public_key(default_backend())
+
+    # test
+    # def publen(self):
+    #     return len(self)
+
+    def __bytearray__(self):
+        _b = bytearray()
+        _b += encoder.encode(self.oid.value)[1:]
+        # 0x04 || x || y
+        # where x and y are the same length
+        _xy = b'\x04' + self.x.to_mpibytes()[2:] + self.y.to_mpibytes()[2:]
+        _b += MPI(self.bytes_to_int(_xy, 'big')).to_mpibytes()
+        _b += self.kdf.__bytearray__()
+
+        return _b
+
+    # ECDH does not do signatures, so this should cancel inheriting the verify method
+    verify = False
+
+    def parse(self, packet):
+        """
+        Algorithm-Specific Fields for ECDH keys:
+
+          o  a variable-length field containing a curve OID, formatted
+             as follows:
+
+             -  a one-octet size of the following field; values 0 and
+                0xFF are reserved for future extensions
+
+             -  the octets representing a curve OID, defined in
+                Section 11
+
+             -  MPI of an EC point representing a public key
+
+          o  a variable-length field containing KDF parameters,
+             formatted as follows:
+
+             -  a one-octet size of the following fields; values 0 and
+                0xff are reserved for future extensions
+
+             -  a one-octet value 01, reserved for future extensions
+
+             -  a one-octet hash function ID used with a KDF
+
+             -  a one-octet algorithm ID for the symmetric algorithm
+                used to wrap the symmetric key used for the message
+                encryption; see Section 8 for details
+        """
+        oidlen = packet[0]
+        del packet[0]
+        _oid = bytearray(b'\x06')
+        _oid.append(oidlen)
+        _oid += bytearray(packet[:oidlen])
+        # try:
+        oid, _  = decoder.decode(bytes(_oid))
+
+        # except:
+        #     raise PGPError("Bad OID octet stream: b'{:s}'".format(''.join(['\\x{:02X}'.format(c) for c in _oid])))
+        self.oid = EllipticCurveOID(oid)
+        del packet[:oidlen]
+
+        # flen = (self.oid.bit_length // 8)
+        xy = bytearray(MPI(packet).to_mpibytes()[2:])
+        # xy = bytearray(MPI(packet).to_bytes(flen, 'big'))
+        # the first byte is just \x04
+        del xy[:1]
+        # now xy needs to be separated into x, y
+        xylen = len(xy)
+        x, y = xy[:xylen // 2], xy[xylen // 2:]
+        self.x = MPI(self.bytes_to_int(x))
+        self.y = MPI(self.bytes_to_int(y))
+
+
+        self.kdf.parse(packet)
 
 
 class String2Key(Field):
@@ -771,6 +912,76 @@ class String2Key(Field):
 
         # and return the key!
         return b''.join(hc.digest() for hc in h)[:(keylen // 8)]
+
+
+class ECKDF(Field):
+    """
+    o  a variable-length field containing KDF parameters,
+       formatted as follows:
+
+       -  a one-octet size of the following fields; values 0 and
+          0xff are reserved for future extensions
+
+       -  a one-octet value 01, reserved for future extensions
+
+       -  a one-octet hash function ID used with a KDF
+
+       -  a one-octet algorithm ID for the symmetric algorithm
+          used to wrap the symmetric key used for the message
+          encryption; see Section 8 for details
+    """
+    @sdproperty
+    def halg(self):
+        return self._halg
+
+    @halg.register(int)
+    @halg.register(HashAlgorithm)
+    def halg_int(self, val):
+        self._halg = HashAlgorithm(val)
+
+    @sdproperty
+    def encalg(self):
+        return self._encalg
+
+    @encalg.register(int)
+    @encalg.register(SymmetricKeyAlgorithm)
+    def encalg_int(self, val):
+        self._encalg = SymmetricKeyAlgorithm(val)
+
+    def __init__(self):
+        super(ECKDF, self).__init__()
+        self.halg = 0
+        self.encalg = 0
+
+    def __bytearray__(self):
+        _bytes = bytearray()
+        _bytes.append(len(self) - 1)
+        _bytes.append(0x01)
+        _bytes.append(self.halg)
+        _bytes.append(self.encalg)
+        return _bytes
+
+    def __len__(self):
+        return 4
+
+    def parse(self, packet):
+        # packet[0] should always be 3
+        # packet[1] should always be 1
+        # TODO: this assert is likely not necessary, but we should raise some kind of exception
+        #       if parsing fails due to these fields being incorrect
+        assert packet[:2] == b'\x03\x01'
+        del packet[:2]
+
+        self.halg = packet[0]
+        del packet[0]
+
+        self.encalg = packet[0]
+        del packet[0]
+
+    def derive_key(self, s, zlen, data):
+        # wrapper around the Concatenation KDF method provided by cryptography
+        ckdf = ConcatKDFHash(algorithm=getattr(hashes, self.halg.name)(), length=zlen, otherinfo=bytes(data), backend=default_backend())
+        return ckdf.derive(s)
 
 
 class PrivKey(PubKey):
@@ -1160,11 +1371,11 @@ class ECDSAPriv(PrivKey, ECDSAPub):
 
         self.oid = EllipticCurveOID(oid)
 
-        pk = ec.generate_private_key(self.oid.value, default_backend())
+        pk = ec.generate_private_key(self.oid.curve(), default_backend())
         pubn = pk.public_key().public_numbers()
-        self.x = pubn.x
-        self.y = pubn.y
-        self.s = pk.private_numbers().private_value
+        self.x = MPI(pubn.x)
+        self.y = MPI(pubn.y)
+        self.s = MPI(pk.private_numbers().private_value)
 
     def publen(self):
         return sum([len(i) - 2 for i in ECDSAPub.__iter__(self)] + [3, len(encoder.encode(self.oid.value)) - 1])
@@ -1185,17 +1396,13 @@ class ECDSAPriv(PrivKey, ECDSAPub):
             self.encbytes = packet
 
     def decrypt_keyblob(self, passphrase):
-        raise NotImplementedError("ECDSA private key unlocking is not implemented yet")
+        kb = super(ECDSAPriv, self).decrypt_keyblob(passphrase)
+        del passphrase
+
+        self.s = MPI(kb)
 
     def clear(self):
-        del self.oid
-        del self.x
-        del self.y
         del self.s
-
-        self.oid = None
-        self.x = MPI(0)
-        self.y = MPI(0)
         self.s = MPI(0)
 
     def sign(self, sigdata, hash_alg):
@@ -1204,19 +1411,91 @@ class ECDSAPriv(PrivKey, ECDSAPub):
         return signer.finalize()
 
 
+class ECDHPriv(ECDSAPriv, ECDHPub):
+    def __bytearray__(self):
+        _b = ECDHPub.__bytearray__(self)
+        _b += self.s2k.__bytearray__()
+        if not self.s2k:
+            _b += self.s.to_mpibytes()
+
+            if self.s2k.usage == 0:
+                _b += self.chksum
+
+        else:
+            _b += self.encbytes
+
+        return _b
+
+    def _generate(self, oid):
+        super(ECDHPriv, self)._generate(oid)
+        # set the KDF hash and symmetric encryption algorithms
+
+        _halgs = {EllipticCurveOID.NIST_P256: HashAlgorithm.SHA256,
+                  EllipticCurveOID.NIST_P384: HashAlgorithm.SHA384,
+                  EllipticCurveOID.NIST_P521: HashAlgorithm.SHA512}
+
+        _kalgs = {EllipticCurveOID.NIST_P256: SymmetricKeyAlgorithm.AES128,
+                  EllipticCurveOID.NIST_P384: SymmetricKeyAlgorithm.AES192,
+                  EllipticCurveOID.NIST_P521: SymmetricKeyAlgorithm.AES256}
+
+        self.kdf.halg = _halgs[self.oid]
+        self.kdf.encalg = _kalgs[self.oid]
+
+    def publen(self):
+        return sum([len(i) - 2 for i in ECDHPub.__iter__(self)] +
+                   [3,
+                    len(encoder.encode(self.oid.value)) - 1,
+                    len(self.kdf)])
+
+    def parse(self, packet):
+        ECDHPub.parse(self, packet)
+        self.s2k.parse(packet)
+
+        if not self.s2k:
+            self.s = MPI(packet)
+
+            if self.s2k.usage == 0:
+                self.chksum = packet[:2]
+                del packet[:2]
+
+        else:
+            ##TODO: this needs to be bounded to the length of the encrypted key material
+            self.encbytes = packet
+
+
+    #
+    # # as in ECDHPub, ECDH cannot sign, so we set this property so the sign method
+    # # isn't inherited from ECDSAPriv
+    # sign = False
+
+
 class CipherText(MPIs):
+    @classmethod
+    @abc.abstractmethod
+    def encrypt(cls, encfn, *args):
+        """create and populate a concrete CipherText class instance"""
+
+    @abc.abstractmethod
+    def decrypt(self, decfn, *args):
+        """decrypt the ciphertext contained in this CipherText instance"""
+
     def __bytearray__(self):
         _bytes = bytearray()
         for i in self:
             _bytes += i.to_mpibytes()
         return _bytes
 
-    @abc.abstractmethod
-    def from_encrypter(self, ct):
-        """create and parse a concrete CipherText class instance"""
-
 
 class RSACipherText(CipherText):
+    @classmethod
+    def encrypt(cls, encfn, *args):
+        ct = cls()
+        ct.me_mod_n = MPI(cls.bytes_to_int(encfn(*args)))
+        return ct
+
+    def decrypt(self, decfn, *args):
+        return decfn(*args)
+
     def __init__(self):
         super(RSACipherText, self).__init__()
         self.me_mod_n = MPI(0)
@@ -1227,11 +1506,15 @@ class RSACipherText(CipherText):
     def parse(self, packet):
         self.me_mod_n = MPI(packet)
 
-    def from_encrypter(self, ct):
-        self.me_mod_n = MPI(self.bytes_to_int(ct))
-
 
 class ElGCipherText(CipherText):
+    @classmethod
+    def encrypt(cls, encfn, *args):
+        raise NotImplementedError()
+
+    def decrypt(self, decfn, *args):
+        raise NotImplementedError()
+
     def __init__(self):
         super(ElGCipherText, self).__init__()
         self.gk_mod_p = MPI(0)
@@ -1245,5 +1528,129 @@ class ElGCipherText(CipherText):
         self.gk_mod_p = MPI(packet)
         self.myk_mod_p = MPI(packet)
 
-    def from_encrypter(self, ct):
-        raise NotImplementedError()
+
+class ECDHCipherText(CipherText):
+    @classmethod
+    def encrypt(cls, pk, *args):
+        """
+        For convenience, the synopsis of the encoding method is given below;
+        however, this section, [NIST-SP800-56A], and [RFC3394] are the
+        normative sources of the definition.
+
+            Obtain the authenticated recipient public key R
+            Generate an ephemeral key pair {v, V=vG}
+            Compute the shared point S = vR;
+            m = symm_alg_ID || session key || checksum || pkcs5_padding;
+            curve_OID_len = (byte)len(curve_OID);
+            Param = curve_OID_len || curve_OID || public_key_alg_ID || 03
+            || 01 || KDF_hash_ID || KEK_alg_ID for AESKeyWrap || "Anonymous
+            Sender    " || recipient_fingerprint;
+            Z_len = the key size for the KEK_alg_ID used with AESKeyWrap
+            Compute Z = KDF( S, Z_len, Param );
+            Compute C = AESKeyWrap( Z, m ) as per [RFC3394]
+            VB = convert point V to the octet string
+            Output (MPI(VB) || len(C) || C).
+
+        The decryption is the inverse of the method given.  Note that the
+        recipient obtains the shared secret by calculating
+        """
+        # *args should be:
+        # - m
+        # -
+        _m, = args
+
+        # m may need to be PKCS5-padded
+        padder = PKCS7(64).padder()
+        m = padder.update(_m) + padder.finalize()
+
+        km = pk.keymaterial
+
+        ct = cls()
+
+        # generate ephemeral key pair, then store it in ct
+        v = ec.generate_private_key(km.oid.curve(), default_backend())
+        ct.vX = MPI(v.public_key().public_numbers().x)
+        ct.vY = MPI(v.public_key().public_numbers().y)
+
+        # compute the shared point S
+        s = v.exchange(ec.ECDH(), km.__pubkey__())
+
+        # additional data for the KDF
+        data = bytearray()
+        data += encoder.encode(km.oid.value)[1:]
+        data.append(PubKeyAlgorithm.ECDH)
+        data += b'\x03\x01'
+        data.append(km.kdf.halg)
+        data.append(km.kdf.encalg)
+        data += b'Anonymous Sender    '
+        data += binascii.unhexlify(pk.fingerprint.replace(' ', ''))
+
+        # TODO: how do we get 16 here?
+        z = km.kdf.derive_key(s, 16, data)
+
+        # compute C
+        ct.c = aes_key_wrap(z, m, default_backend())
+
+        return ct
+
+    def decrypt(self, pk, *args):
+        km = pk.keymaterial
+        # assemble the public component of ephemeral key v
+        v = ec.EllipticCurvePublicNumbers(self.vX, self.vY, km.oid.curve()).public_key(default_backend())
+
+        # compute s using the inverse of how it was derived during encryption
+        s = km.__privkey__().exchange(ec.ECDH(), v)
+
+        # additional data for the KDF
+        data = bytearray()
+        #  - DER encoded OID, sans the first octet
+        data += encoder.encode(km.oid.value)[1:]
+        data.append(PubKeyAlgorithm.ECDH)
+        data += b'\x03\x01'
+        data.append(km.kdf.halg)
+        data.append(km.kdf.encalg)
+        data += b'Anonymous Sender    '
+        data += binascii.unhexlify(pk.fingerprint.replace(' ', ''))
+
+        # z = pk.kdf.derive_key(s, self.vY, data)
+        # TODO: derive 16 ... how?
+        z = km.kdf.derive_key(s, 16, data)
+
+        _m = aes_key_unwrap(z, self.c, default_backend())
+
+        padder = PKCS7(64).unpadder()
+        return padder.update(_m) + padder.finalize()
+
+
+    def __init__(self):
+        super(ECDHCipherText, self).__init__()
+        self.vX = MPI(0)
+        self.vY = MPI(0)
+        self.c = bytearray(0)
+
+    def __iter__(self):
+        yield self.v
+
+    def __bytearray__(self):
+        _bytes = bytearray()
+        _xy = b'\x04' + self.vX.to_mpibytes()[2:] + self.vY.to_mpibytes()[2:]
+        _bytes += MPI(self.bytes_to_int(_xy, 'big')).to_mpibytes()
+        _bytes.append(len(self.c))
+        _bytes += self.c
+
+        return _bytes
+
+    def parse(self, packet):
+        # self.v = MPI(packet)
+        xy = bytearray(MPI(packet).to_mpibytes()[2:])
+        del xy[:1]
+        xylen = len(xy)
+        x, y = xy[:xylen // 2], xy[xylen // 2:]
+        self.vX = MPI(self.bytes_to_int(x))
+        self.vY = MPI(self.bytes_to_int(y))
+
+        clen = packet[0]
+        del packet[0]
+
+        self.c += packet[:clen]
+        del packet[:clen]

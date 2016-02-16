@@ -8,6 +8,7 @@ import re
 import six
 import subprocess
 import sys
+import time
 
 from distutils.version import LooseVersion
 
@@ -125,11 +126,22 @@ def gpg_import():
         gpg_kwargs = _gpg_kwargs.copy()
         gpgo, _ = _run(_gpg_bin, *gpg_args, **gpg_kwargs)
 
+        # if GPG version is 2.1 or newer, we need to add a setup/teardown step in creating the keybox folder
+        if gpg_ver >= '2.1':
+            if not os.path.exists('tests/testdata/private-keys-v1.d'):
+                os.mkdir('tests/testdata/private-keys-v1.d')
+                time.sleep(5)
+
         try:
             yield gpgo
 
         finally:
             [os.remove(f) for f in glob.glob('tests/testdata/testkeys.*')]
+            if gpg_ver >= '2.1':
+                [os.remove(f) for f in glob.glob('tests/testdata/private-keys-v1.d/*')]
+            #     os.rmdir('tests/testdata/private-keys-v1.d')
+
+            time.sleep(0.5)
 
     return _gpg_import
 

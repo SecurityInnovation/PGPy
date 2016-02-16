@@ -66,6 +66,7 @@ class TestPGPKey(object):
         PubKeyAlgorithm.RSAEncryptOrSign: 256,
         PubKeyAlgorithm.DSA: 512,
         PubKeyAlgorithm.ECDSA: 1,
+        PubKeyAlgorithm.ECDH: 1,
     }
 
     def test_unlock_pubkey(self, rsa_pub, recwarn):

@@ -14,21 +14,13 @@ import six
 from cryptography.hazmat.primitives import constant_time
 from cryptography.hazmat.primitives.asymmetric import padding
 
-from .fields import DSAPriv
-from .fields import DSAPub
-from .fields import DSASignature
-from .fields import ECDSAPub
-from .fields import ECDSAPriv
-from .fields import ECDSASignature
-from .fields import ElGCipherText
-from .fields import ElGPriv
-from .fields import ElGPub
+from .fields import DSAPriv, DSAPub, DSASignature
+from .fields import ECDSAPub, ECDSAPriv, ECDSASignature
+from .fields import ECDHPub, ECDHPriv, ECDHCipherText
+from .fields import ElGCipherText, ElGPriv, ElGPub
 from .fields import OpaquePubKey
 from .fields import OpaquePrivKey
-from .fields import RSACipherText
-from .fields import RSAPriv
-from .fields import RSAPub
-from .fields import RSASignature
+from .fields import RSACipherText, RSAPriv, RSAPub, RSASignature
 from .fields import String2Key
 from .fields import SubPackets
 from .fields import UserAttributeSubPackets
@@ -91,6 +83,10 @@ class PKESessionKey(VersionedPacket):
 
     @abc.abstractmethod
     def decrypt_sk(self, pk):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def encrypt_sk(self, pk, symalg, symkey):
         raise NotImplementedError()
 
 
@@ -179,7 +175,8 @@ class PKESessionKeyV3(PKESessionKey):
         _c = {PubKeyAlgorithm.RSAEncryptOrSign: RSACipherText,
               PubKeyAlgorithm.RSAEncrypt: RSACipherText,
               PubKeyAlgorithm.ElGamal: ElGCipherText,
-              PubKeyAlgorithm.FormerlyElGamalEncryptOrSign: ElGCipherText}
+              PubKeyAlgorithm.FormerlyElGamalEncryptOrSign: ElGCipherText,
+              PubKeyAlgorithm.ECDH: ECDHCipherText}
 
         ct = _c.get(self._pkalg, None)
         self.ct = ct() if ct is not None else ct
@@ -202,14 +199,19 @@ class PKESessionKeyV3(PKESessionKey):
         if self.pkalg == PubKeyAlgorithm.RSAEncryptOrSign:
             # pad up ct with null bytes if necessary
             ct = self.ct.me_mod_n.to_mpibytes()[2:]
-            ct = b'\x00' * ((pk.key_size // 8) - len(ct)) + ct
+            ct = b'\x00' * ((pk.keymaterial.__privkey__().key_size // 8) - len(ct)) + ct
 
+            decrypter = pk.keymaterial.__privkey__().decrypt
             decargs = (ct, padding.PKCS1v15(),)
+
+        elif self.pkalg == PubKeyAlgorithm.ECDH:
+            decrypter = pk
+            decargs = ()
 
         else:
             raise NotImplementedError(self.pkalg)
 
-        m = bytearray(pk.decrypt(*decargs))
+        m = bytearray(self.ct.decrypt(decrypter, *decargs))
 
         """
         The value "m" in the above formulas is derived from the session key
@@ -243,12 +245,17 @@ class PKESessionKeyV3(PKESessionKey):
         m += self.int_to_bytes(sum(bytearray(symkey)) % 65536, 2)
 
         if self.pkalg == PubKeyAlgorithm.RSAEncryptOrSign:
+            encrypter = pk.keymaterial.__pubkey__().encrypt
             encargs = (bytes(m), padding.PKCS1v15(),)
+
+        elif self.pkalg == PubKeyAlgorithm.ECDH:
+            encrypter = pk
+            encargs = (bytes(m),)
 
         else:
             raise NotImplementedError(self.pkalg)
 
-        self.ct.from_encrypter(pk.encrypt(*encargs))
+        self.ct = self.ct.encrypt(encrypter, *encargs)
         self.update_hlen()
 
     def parse(self, packet):
@@ -721,6 +728,7 @@ class PubKeyV4(PubKey):
             (True, PubKeyAlgorithm.ElGamal): ElGPub,
             (True, PubKeyAlgorithm.FormerlyElGamalEncryptOrSign): ElGPub,
             (True, PubKeyAlgorithm.ECDSA): ECDSAPub,
+            (True, PubKeyAlgorithm.ECDH): ECDHPub,
             # False means private
             (False, PubKeyAlgorithm.RSAEncryptOrSign): RSAPriv,
             (False, PubKeyAlgorithm.RSAEncrypt): RSAPriv,
@@ -729,6 +737,7 @@ class PubKeyV4(PubKey):
             (False, PubKeyAlgorithm.ElGamal): ElGPriv,
             (False, PubKeyAlgorithm.FormerlyElGamalEncryptOrSign): ElGPriv,
             (False, PubKeyAlgorithm.ECDSA): ECDSAPriv,
+            (False, PubKeyAlgorithm.ECDH): ECDHPriv,
         }
 
         k = (self.public, self.pkalg)

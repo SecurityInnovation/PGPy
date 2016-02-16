@@ -197,8 +197,8 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
     :text: :rfc:`6637` extends OpenPGP to officially add support for elliptic curve cryptography
 
     :Key Types:
-        - ECDH,  False, Elliptic Curve Diffie-Hellman
-        - ECDSA, True,  Elliptic Curve Digital Signature Algorithm
+        - ECDH,  True, Elliptic Curve Diffie-Hellman
+        - ECDSA, True, Elliptic Curve Digital Signature Algorithm
 
     :Curves:
         - Curve, True, NIST P-256
@@ -206,11 +206,11 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
         - Curve, True, NIST P-521
 
     :ECDH Key Actions:
-        - Load,       False, Load Keys
-        - Generate,   False, Generate Keys
-        - Generate,   False, Generate Subkeys
-        - KDF,        False, Encode KDF data for encryption
-        - KDF,        False, Decode KDF data for decryption
+        - Load,       True,  Load Keys
+        - Generate,   True,  Generate Keys
+        - Generate,   True,  Generate Subkeys
+        - KDF,        True,  Encode KDF data for encryption
+        - KDF,        True,  Decode KDF data for decryption
 
     :ECDSA Key Actions:
         - Load,       True,  Load Keys

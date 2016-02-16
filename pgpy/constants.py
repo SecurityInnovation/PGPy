@@ -201,15 +201,16 @@ class PubKeyAlgorithm(IntEnum):
     def can_gen(self):
         return self in {PubKeyAlgorithm.RSAEncryptOrSign,
                         PubKeyAlgorithm.DSA,
-                        PubKeyAlgorithm.ECDSA}
+                        PubKeyAlgorithm.ECDSA,
+                        PubKeyAlgorithm.ECDH}
 
     @property
     def can_encrypt(self):  # pragma: no cover
-        return self in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.ElGamal}
+        return self in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.ElGamal, PubKeyAlgorithm.ECDH}
 
     @property
     def can_sign(self):
-        return self in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.DSA}
+        return self in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.DSA, PubKeyAlgorithm.ECDSA}
 
     @property
     def deprecated(self):

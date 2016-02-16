@@ -20,6 +20,12 @@ New Features
  * Keys can be generated with the following algorithms:
    - RSA
    - DSA
+   - ECDSA
+   - ECDH
+
+Other Changes
+-------------
+ * Removed support for Python 3.2, as multiple dependency libraries have already done so
 
 v0.3.0
 ======

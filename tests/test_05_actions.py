@@ -17,6 +17,7 @@ from pgpy import PGPSignature
 from pgpy import PGPUID
 
 from pgpy.constants import CompressionAlgorithm
+from pgpy.constants import EllipticCurveOID
 from pgpy.constants import Features
 from pgpy.constants import HashAlgorithm
 from pgpy.constants import ImageEncoding
@@ -33,6 +34,8 @@ from pgpy.errors import PGPError
 
 from pgpy.packet.packets import PrivKeyV4
 from pgpy.packet.packets import PrivSubKeyV4
+
+from conftest import gpg_ver
 
 
 def _read(f, mode='r'):
@@ -205,6 +208,17 @@ def _compare_keys(keyA, keyB):
 
 
 key_algs = [ PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.DSA, PubKeyAlgorithm.ECDSA ]
+subkey_alg = {
+    PubKeyAlgorithm.RSAEncryptOrSign: PubKeyAlgorithm.RSAEncryptOrSign,
+    PubKeyAlgorithm.DSA: PubKeyAlgorithm.DSA,  # TODO: when it becomes possible to generate ElGamal keys, switch this to generate it as the subkey
+    PubKeyAlgorithm.ECDSA: PubKeyAlgorithm.ECDH,
+}
+key_alg_size = {
+    PubKeyAlgorithm.RSAEncryptOrSign: 1024,
+    PubKeyAlgorithm.DSA: 1024,
+    PubKeyAlgorithm.ECDSA: EllipticCurveOID.NIST_P256,
+    PubKeyAlgorithm.ECDH: EllipticCurveOID.NIST_P256,
+}
 
 
 class TestPGPKey(object):
@@ -392,7 +406,7 @@ class TestPGPKey(object):
             assert gpg_verify('./message.asc')
 
     def test_encrypt_message(self, pub, message, sessionkey):
-        if pub.key_algorithm != PubKeyAlgorithm.RSAEncryptOrSign:
+        if pub.key_algorithm not in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.ECDSA}:
             pytest.skip('Asymmetric encryption only implemented for RSA currently')
             return
 
@@ -404,7 +418,7 @@ class TestPGPKey(object):
             self.encmessage.append(enc)
 
     def test_decrypt_encmessage(self, sec, message):
-        if sec.key_algorithm != PubKeyAlgorithm.RSAEncryptOrSign:
+        if sec.key_algorithm not in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.ECDSA}:
             pytest.skip('Asymmetric encryption only implemented for RSA currently')
             return
 
@@ -417,8 +431,15 @@ class TestPGPKey(object):
 
     def test_gpg_decrypt_encmessage(self, write_clean, gpg_import, gpg_decrypt):
         emsg = self.encmessage.pop(0)
-        with write_clean('tests/testdata/aemsg.asc', 'w', str(emsg)), gpg_import('./sectest.asc'):
-            assert gpg_decrypt('./aemsg.asc', keyid='EEE097A017B979CA')
+        with write_clean('tests/testdata/aemsg.asc', 'w', str(emsg)):
+            # decrypt using RSA
+            with gpg_import('./sectest.asc'):
+                assert gpg_decrypt('./aemsg.asc', keyid='EEE097A017B979CA')
+
+            # decrypt using ECDH
+            if gpg_ver >= '2.1':
+                with gpg_import('./keys/ecc.1.sec.asc'):
+                    assert gpg_decrypt('./aemsg.asc', keyid='D01055FBCADD268E')
 
     def test_sign_timestamp(self, sec):
         with self.assert_warnings():
@@ -569,7 +590,7 @@ class TestPGPKey(object):
     def test_new_key(self, key_alg):
         # create a key and a user id and add the UID to the key
         uid = PGPUID.new('Hugo Gernsback', 'Science Fiction Plus', 'hugo.gernsback@space.local')
-        key = PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 1024)
+        key = PGPKey.new(key_alg, key_alg_size[key_alg])
         key.add_uid(uid, hashes=[HashAlgorithm.SHA224])
 
         # self-verify the key
@@ -579,7 +600,7 @@ class TestPGPKey(object):
 
     def test_new_subkey(self, key_alg):
         key = self.gen_keys[key_alg]
-        subkey = PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 1024)
+        subkey = PGPKey.new(subkey_alg[key_alg], key_alg_size[subkey_alg[key_alg]])
 
         assert subkey._key
         assert not isinstance(subkey._key, PrivSubKeyV4)
@@ -597,8 +618,8 @@ class TestPGPKey(object):
         assert subkey in sv
 
     def test_gpg_verify_new_key(self, key_alg, write_clean, gpg_import, gpg_check_sigs):
-        # if key_alg in {PubKeyAlgorithm.ECDSA, PubKeyAlgorithm.ECDH}:
-        #     pytest.skip("GnuPG version in use cannot import/verify ")
+        if gpg_ver < '2.1' and key_alg in {PubKeyAlgorithm.ECDSA, PubKeyAlgorithm.ECDH}:
+            pytest.skip("GnuPG version in use cannot import/verify ")
 
         # with GnuPG
         key = self.gen_keys[key_alg]

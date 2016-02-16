@@ -1942,7 +1942,8 @@ class PGPKey(PGPObject, Armorable):
         pkesk = PKESessionKeyV3()
         pkesk.encrypter = bytearray(binascii.unhexlify(self.fingerprint.keyid.encode('latin-1')))
         pkesk.pkalg = self.key_algorithm
-        pkesk.encrypt_sk(self.__key__.__pubkey__(), cipher_algo, sessionkey)
+        # pkesk.encrypt_sk(self.__key__, cipher_algo, sessionkey)
+        pkesk.encrypt_sk(self._key, cipher_algo, sessionkey)
 
         if message.is_encrypted:  # pragma: no cover
             _m = message
@@ -1981,7 +1982,7 @@ class PGPKey(PGPObject, Armorable):
             raise PGPError("Cannot decrypt the provided message with this key")
 
         pkesk = next(pk for pk in message._sessionkeys if pk.pkalg == self.key_algorithm and pk.encrypter == self.fingerprint.keyid)
-        alg, key = pkesk.decrypt_sk(self.__key__.__privkey__())
+        alg, key = pkesk.decrypt_sk(self._key)
 
         # now that we have the symmetric cipher used and the key, we can decrypt the actual message
         decmsg = PGPMessage()
