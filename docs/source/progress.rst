@@ -23,22 +23,22 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
         - Tag 14, False, Public-SubKey Packet
 
     :Versioned Packets, v4:
-        - Tag 2,  True,  Signature Packet
-        - Tag 3,  True,  Symmetric-Key Encrypted Session Key Packet
-        - Tag 5,  True,  Secret-Key Packet
-        - Tag 6,  True,  Public-Key Packet
-        - Tag 7,  True,  Secret-Subkey Packet
-        - Tag 14, True,  Public-SubKey Packet
+        - Tag 2,  True, Signature Packet
+        - Tag 3,  True, Symmetric-Key Encrypted Session Key Packet
+        - Tag 5,  True, Secret-Key Packet
+        - Tag 6,  True, Public-Key Packet
+        - Tag 7,  True, Secret-Subkey Packet
+        - Tag 14, True, Public-SubKey Packet
 
     :Unversioned Packets:
-        - Tag 8,  True,  Compressed Data Packet
-        - Tag 9,  True,  Symetrically Encrypted Data Packet
-        - Tag 10, False, Marker Packet
-        - Tag 11, True,  Literal Data Packet
-        - Tag 12, True,  Trust Packet
-        - Tag 13, True,  User ID Packet
-        - Tag 17, True,  User Attribute Packet
-        - Tag 19, True,  Modification Detection Code Packet
+        - Tag 8,  True, Compressed Data Packet
+        - Tag 9,  True, Symetrically Encrypted Data Packet
+        - Tag 10, True, Marker Packet
+        - Tag 11, True, Literal Data Packet
+        - Tag 12, True, Trust Packet
+        - Tag 13, True, User ID Packet
+        - Tag 17, True, User Attribute Packet
+        - Tag 19, True, Modification Detection Code Packet
 
     :Signature Subpackets:
         - 0x02,  True,  Signature Creation Time

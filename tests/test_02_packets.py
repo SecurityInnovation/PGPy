@@ -20,7 +20,7 @@ _pclasses = {
     (0x07, 4): 'PrivSubKeyV4',
     0x08: 'CompressedData',
     0x09: 'SKEData',
-    # 0x0A: 'Marker', ##TODO: obtain one of these ##TODO: implement this
+    0x0A: 'Marker',
     0x0B: 'LiteralData',
     0x0C: 'Trust',
     0x0D: 'UserID',

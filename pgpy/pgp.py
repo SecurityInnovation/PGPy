@@ -59,6 +59,7 @@ from .packet.packets import PKESessionKeyV3
 from .packet.packets import Signature
 from .packet.packets import SignatureV4
 from .packet.packets import SKEData
+from .packet.packets import Marker
 from .packet.packets import SKESessionKey
 from .packet.packets import SKESessionKeyV4
 
@@ -800,6 +801,9 @@ class PGPMessage(PGPObject, Armorable):
                 yield sig
 
     def __or__(self, other):
+        if isinstance(other, Marker):
+            return self
+
         if isinstance(other, CompressedData):
             self._compression = CompressedData.calg
             for pkt in other.packets:
@@ -2009,7 +2013,7 @@ class PGPKey(PGPObject, Armorable):
 
         ##TODO: see issue #141 and fix this better
         getpkt = lambda d: Packet(d) if len(d) > 0 else None  # flake8: noqa
-        # getpkt = iter(functools.partial(getpkt, data), None)
+        # some packets are filtered out
         getpkt = filter(lambda p: p.header.tag != PacketTag.Trust, iter(functools.partial(getpkt, data), None))
 
         def pktgrouper():

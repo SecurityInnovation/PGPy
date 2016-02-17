@@ -1003,8 +1003,22 @@ class SKEData(Packet):
 
 
 class Marker(Packet):
-    # __typeid__ = 0x10
-    pass
+    __typeid__ = 0x0a
+
+    def __init__(self):
+        super(Marker, self).__init__()
+        self.data = b'PGP'
+
+    def __bytearray__(self):
+        _bytes = bytearray()
+        _bytes += super(Marker, self).__bytearray__()
+        _bytes += self.data
+        return _bytes
+
+    def parse(self, packet):
+        super(Marker, self).parse(packet)
+        self.data = packet[:self.header.length]
+        del packet[:self.header.length]
 
 
 class LiteralData(Packet):
