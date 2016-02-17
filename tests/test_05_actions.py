@@ -206,11 +206,12 @@ def _compare_keys(keyA, keyB):
 
             return True
 
-
+# list of tuples of alg, size
 key_algs = [ PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.DSA, PubKeyAlgorithm.ECDSA ]
 subkey_alg = {
     PubKeyAlgorithm.RSAEncryptOrSign: PubKeyAlgorithm.RSAEncryptOrSign,
-    PubKeyAlgorithm.DSA: PubKeyAlgorithm.DSA,  # TODO: when it becomes possible to generate ElGamal keys, switch this to generate it as the subkey
+    # TODO: when it becomes possible to generate ElGamal keys, change the DSA key's subkey algorithm to ElGamal
+    PubKeyAlgorithm.DSA: PubKeyAlgorithm.DSA,
     PubKeyAlgorithm.ECDSA: PubKeyAlgorithm.ECDH,
 }
 key_alg_size = {
@@ -232,6 +233,8 @@ class TestPGPKey(object):
         'key_alg':    key_algs,
     }
     ids = {
+        'test_encrypt_message':    [ '-'.join(os.path.basename(f).split('.')[:-2]) for f in sorted(glob.glob('tests/testdata/keys/*.pub.asc')) ],
+        'test_decrypt_message':    [ '-'.join(os.path.basename(f).split('.')[:-2]) for f in sorted(glob.glob('tests/testdata/keys/*.sec.asc')) ],
         'test_verify_detached':    [ os.path.basename(f).replace('.', '_') for f in sorted(glob.glob('tests/testdata/signatures/*.key.asc')) ],
         'test_new_key':            [ str(ka).split('.')[-1] for ka in key_algs ],
         'test_new_subkey':         [ str(ka).split('.')[-1] for ka in key_algs ],
@@ -419,7 +422,7 @@ class TestPGPKey(object):
 
     def test_decrypt_encmessage(self, sec, message):
         if sec.key_algorithm not in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.ECDSA}:
-            pytest.skip('Asymmetric encryption only implemented for RSA currently')
+            pytest.skip('Asymmetric encryption only implemented for RSA and ECDH currently')
             return
 
         encmessage = self.encmessage[0]

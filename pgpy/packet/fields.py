@@ -978,9 +978,20 @@ class ECKDF(Field):
         self.encalg = packet[0]
         del packet[0]
 
-    def derive_key(self, s, zlen, data):
+    def derive_key(self, s, curve, pkalg, fingerprint):
         # wrapper around the Concatenation KDF method provided by cryptography
-        ckdf = ConcatKDFHash(algorithm=getattr(hashes, self.halg.name)(), length=zlen, otherinfo=bytes(data), backend=default_backend())
+        # assemble the additional data as defined in RFC 6637:
+        #  Param = curve_OID_len || curve_OID || public_key_alg_ID || 03 || 01 || KDF_hash_ID || KEK_alg_ID for AESKeyWrap || "Anonymous
+        data = bytearray()
+        data += encoder.encode(curve.value)[1:]
+        data.append(pkalg)
+        data += b'\x03\x01'
+        data.append(self.halg)
+        data.append(self.encalg)
+        data += b'Anonymous Sender    '
+        data += binascii.unhexlify(fingerprint.replace(' ', ''))
+
+        ckdf = ConcatKDFHash(algorithm=getattr(hashes, self.halg.name)(), length=self.encalg.key_size // 8, otherinfo=bytes(data), backend=default_backend())
         return ckdf.derive(s)
 
 
@@ -1371,6 +1382,9 @@ class ECDSAPriv(PrivKey, ECDSAPub):
 
         self.oid = EllipticCurveOID(oid)
 
+        if not self.oid.can_gen:
+            raise ValueError("Curve not currently supported: {}".format(oid.name))
+
         pk = ec.generate_private_key(self.oid.curve(), default_backend())
         pubn = pk.public_key().public_numbers()
         self.x = MPI(pubn.x)
@@ -1556,7 +1570,7 @@ class ECDHCipherText(CipherText):
         """
         # *args should be:
         # - m
-        # -
+        #
         _m, = args
 
         # m may need to be PKCS5-padded
@@ -1575,18 +1589,8 @@ class ECDHCipherText(CipherText):
         # compute the shared point S
         s = v.exchange(ec.ECDH(), km.__pubkey__())
 
-        # additional data for the KDF
-        data = bytearray()
-        data += encoder.encode(km.oid.value)[1:]
-        data.append(PubKeyAlgorithm.ECDH)
-        data += b'\x03\x01'
-        data.append(km.kdf.halg)
-        data.append(km.kdf.encalg)
-        data += b'Anonymous Sender    '
-        data += binascii.unhexlify(pk.fingerprint.replace(' ', ''))
-
-        # TODO: how do we get 16 here?
-        z = km.kdf.derive_key(s, 16, data)
+        # derive the wrapping key
+        z = km.kdf.derive_key(s, km.oid, PubKeyAlgorithm.ECDH, pk.fingerprint)
 
         # compute C
         ct.c = aes_key_wrap(z, m, default_backend())
@@ -1601,21 +1605,10 @@ class ECDHCipherText(CipherText):
         # compute s using the inverse of how it was derived during encryption
         s = km.__privkey__().exchange(ec.ECDH(), v)
 
-        # additional data for the KDF
-        data = bytearray()
-        #  - DER encoded OID, sans the first octet
-        data += encoder.encode(km.oid.value)[1:]
-        data.append(PubKeyAlgorithm.ECDH)
-        data += b'\x03\x01'
-        data.append(km.kdf.halg)
-        data.append(km.kdf.encalg)
-        data += b'Anonymous Sender    '
-        data += binascii.unhexlify(pk.fingerprint.replace(' ', ''))
+        # derive the wrapping key
+        z = km.kdf.derive_key(s, km.oid, PubKeyAlgorithm.ECDH, pk.fingerprint)
 
-        # z = pk.kdf.derive_key(s, self.vY, data)
-        # TODO: derive 16 ... how?
-        z = km.kdf.derive_key(s, 16, data)
-
+        # unwrap and unpad m
         _m = aes_key_unwrap(z, self.c, default_backend())
 
         padder = PKCS7(64).unpadder()

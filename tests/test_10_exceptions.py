@@ -50,16 +50,25 @@ def targette_sec():
 
 
 key_algs = [ pka for pka in PubKeyAlgorithm if pka.can_gen and not pka.deprecated ]
-key_algs_unim = [ pka for pka in PubKeyAlgorithm if not pka.can_gen and not pka.deprecated]
+key_algs_unim = [ pka for pka in PubKeyAlgorithm if not pka.can_gen and not pka.deprecated ]
+
+key_algs_badsizes = {
+    PubKeyAlgorithm.RSAEncryptOrSign: [256],
+    PubKeyAlgorithm.DSA: [512],
+    PubKeyAlgorithm.ECDSA: [curve for curve in EllipticCurveOID if not curve.can_gen],
+    PubKeyAlgorithm.ECDH: [curve for curve in EllipticCurveOID if not curve.can_gen],
+}
 
 
 class TestPGPKey(object):
     params = {
-        'key_alg': key_algs,
+        # 'key_alg': key_algs,
+        'badkey': [ (alg, size) for alg in key_algs_badsizes.keys() for size in key_algs_badsizes[alg] ],
         'key_alg_unim': key_algs_unim,
     }
     ids = {
-        'test_new_key_invalid_size':      [ str(ka).split('.')[-1] for ka in key_algs ],
+        # 'test_new_key_invalid_size':      [ str(ka).split('.')[-1] for ka in key_algs ],
+        'test_new_key_invalid_size': [ '{}-{}'.format(ka.name, ks.name if not isinstance(ks, int) else ks) for ka, kss in key_algs_badsizes.items() for ks in kss],
         'test_new_key_unimplemented_alg': [ str(ka).split('.')[-1] for ka in key_algs_unim ],
     }
     key_badsize = {
@@ -190,9 +199,10 @@ class TestPGPKey(object):
         with pytest.raises(PGPError):
             key.sign('asdf')
 
-    def test_new_key_invalid_size(self, key_alg):
+    def test_new_key_invalid_size(self, badkey):
+        key_alg, key_size = badkey
         with pytest.raises(ValueError):
-            PGPKey.new(key_alg, self.key_badsize[key_alg])
+            PGPKey.new(key_alg, key_size)
 
     def test_new_key_unimplemented_alg(self, key_alg_unim):
         with pytest.raises(NotImplementedError):

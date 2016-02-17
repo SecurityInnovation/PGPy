@@ -6,6 +6,8 @@ import abc
 
 import six
 
+from ..constants import PacketTag
+
 from ..decorators import sdproperty
 
 from ..types import Dispatchable
@@ -32,8 +34,14 @@ class Header(_Header):
         return self._tag
 
     @tag.register(int)
+    @tag.register(PacketTag)
     def tag_int(self, val):
-        self._tag = (val & 0x3F) if self._lenfmt else ((val & 0x3C) >> 2)
+        _tag = (val & 0x3F) if self._lenfmt else ((val & 0x3C) >> 2)
+        try:
+            self._tag = PacketTag(_tag)
+
+        except ValueError:
+            self._tag = _tag
 
     @property
     def typeid(self):

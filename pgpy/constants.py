@@ -49,39 +49,60 @@ class Backend(Enum):
 
 
 class EllipticCurveOID(Enum):
-    Invalid = ObjectIdentifier('0')
-    Ed25519 = None
-    NIST_P256 = ObjectIdentifier('1.2.840.10045.3.1.7')
-    NIST_P384 = ObjectIdentifier('1.3.132.0.34')
-    NIST_P521 = ObjectIdentifier('1.3.132.0.35')
-    Brainpool_P256 = None
-    Brainpool_P384 = None
-    Brainpool_P512 = None
+    # these are specified as:
+    # id = (oid, curve)
+    Invalid = ('', )
+    Curve25519 = ('1.3.6.1.4.1.3029.1.5.1', )
+    Ed25519 = ('1.3.6.1.4.1.11591.15.1', )
+    NIST_P256 = ('1.2.840.10045.3.1.7', ec.SECP256R1)
+    NIST_P384 = ('1.3.132.0.34', ec.SECP384R1)
+    NIST_P521 = ('1.3.132.0.35', ec.SECP521R1)
+    Brainpool_P256 = ('1.3.36.3.3.2.8.1.1.7', )
+    Brainpool_P384 = ('1.3.36.3.3.2.8.1.1.11', )
+    Brainpool_P512 = ('1.3.36.3.3.2.8.1.1.13', )
+
+
+    def __new__(cls, oid, curve=None):
+        # preprocessing stage for enum members:
+        #  - set enum_member.value to ObjectIdentifier(oid)
+        #  - set enum_member.curve to curve
+        obj = object.__new__(cls)
+        obj._value_ = ObjectIdentifier(oid)
+        obj.curve = curve
+        return obj
 
     @property
-    def curve(self):
-        curves = {EllipticCurveOID.NIST_P256: ec.SECP256R1,
-                  EllipticCurveOID.NIST_P384: ec.SECP384R1,
-                  EllipticCurveOID.NIST_P521: ec.SECP521R1}
-
-        if self in curves:
-            return curves[self]
-
-        raise NotImplementedError(repr(self))
+    def can_gen(self):
+        return self.curve is not None
 
     @property
-    def bit_length(self):
-        curves = {EllipticCurveOID.NIST_P256: 256,
-                  EllipticCurveOID.NIST_P384: 384,
-                  EllipticCurveOID.NIST_P521: 521}
+    def key_size(self):
+        if self.curve is not None:
+            return self.curve.key_size
 
-        if self in curves:
-            return curves[self]
+        return None
 
-        raise NotImplementedError(repr(self))
+    @property
+    def kdf_halg(self):
+        # return the hash algorithm to specify in the KDF fields when generating a key
+        algs = {256: HashAlgorithm.SHA256,
+                384: HashAlgorithm.SHA384,
+                521: HashAlgorithm.SHA512}
+
+        return algs.get(self.key_size, None)
+
+    @property
+    def kek_alg(self):
+        # return the AES algorithm to specify in the KDF fields when generating a key
+        algs = {256: SymmetricKeyAlgorithm.AES128,
+                384: SymmetricKeyAlgorithm.AES192,
+                521: SymmetricKeyAlgorithm.AES256}
+
+        return algs.get(self.key_size, None)
 
 
 class PacketTag(IntEnum):
+    Invalid = 0
     PublicKeyEncryptedSessionKey = 1
     Signature = 2
     SymmetricKeyEncryptedSessionKey = 3
