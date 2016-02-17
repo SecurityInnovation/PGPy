@@ -1,9 +1,6 @@
 """ PGPy :: Pretty Good Privacy for Python
 """
-from ._author import __author__, __copyright__, __license__, __version__
-
-from . import constants
-from . import errors
+from ._author import *
 
 from .pgp import PGPKey
 from .pgp import PGPKeyring

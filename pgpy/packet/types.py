@@ -267,11 +267,14 @@ class MPI(long):
 
 
 class MPIs(Field):
-    # this differs from MPI in that its' subclasses hold/parse several MPI fields
+    # this differs from MPI in that it's subclasses hold/parse several MPI fields
     # and, in the case of v4 private keys, also a String2Key specifier/information.
+    __mpis__ = ()
+
     def __len__(self):
         return sum(len(i) for i in self)
 
-    @abc.abstractmethod
     def __iter__(self):
         """yield all components of an MPI so it can be iterated over"""
+        for i in self.__mpis__:
+            yield getattr(self, i)

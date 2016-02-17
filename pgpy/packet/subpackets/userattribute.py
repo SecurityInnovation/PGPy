@@ -11,6 +11,9 @@ from ...constants import ImageEncoding
 from ...decorators import sdproperty
 
 
+__all__ = ('Image',)
+
+
 class Image(UserAttribute):
     """
     5.12.1. The Image Attribute Subpacket

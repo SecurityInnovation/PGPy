@@ -234,7 +234,7 @@ class TestPGPKey(object):
     }
     ids = {
         'test_encrypt_message':    [ '-'.join(os.path.basename(f).split('.')[:-2]) for f in sorted(glob.glob('tests/testdata/keys/*.pub.asc')) ],
-        'test_decrypt_message':    [ '-'.join(os.path.basename(f).split('.')[:-2]) for f in sorted(glob.glob('tests/testdata/keys/*.sec.asc')) ],
+        'test_decrypt_encmessage': [ '-'.join(os.path.basename(f).split('.')[:-2]) for f in sorted(glob.glob('tests/testdata/keys/*.sec.asc')) ],
         'test_verify_detached':    [ os.path.basename(f).replace('.', '_') for f in sorted(glob.glob('tests/testdata/signatures/*.key.asc')) ],
         'test_new_key':            [ str(ka).split('.')[-1] for ka in key_algs ],
         'test_new_subkey':         [ str(ka).split('.')[-1] for ka in key_algs ],

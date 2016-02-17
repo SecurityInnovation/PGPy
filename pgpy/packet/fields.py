@@ -71,6 +71,7 @@ __all__ = ['SubPackets',
            'ECDSAPub',
            'ECDHPub',
            'String2Key',
+           'ECKDF',
            'PrivKey',
            'OpaquePrivKey',
            'RSAPriv',
@@ -80,7 +81,8 @@ __all__ = ['SubPackets',
            'ECDHPriv',
            'CipherText',
            'RSACipherText',
-           'ElGCipherText', ]
+           'ElGCipherText',
+           'ECDHCipherText', ]
 
 
 class SubPackets(collections.MutableMapping, Field):
@@ -219,6 +221,10 @@ class UserAttributeSubPackets(SubPackets):
 
 
 class Signature(MPIs):
+    def __init__(self):
+        for i in self.__mpis__:
+            setattr(self, i, MPI(0))
+
     def __bytearray__(self):
         _bytes = bytearray()
         for i in self:
@@ -235,12 +241,7 @@ class Signature(MPIs):
 
 
 class RSASignature(Signature):
-    def __init__(self):
-        super(RSASignature, self).__init__()
-        self.md_mod_n = MPI(0)
-
-    def __iter__(self):
-        yield self.md_mod_n
+    __mpis__ = ('md_mod_n', )
 
     def __sig__(self):
         return self.md_mod_n.to_mpibytes()[2:]
@@ -253,14 +254,7 @@ class RSASignature(Signature):
 
 
 class DSASignature(Signature):
-    def __init__(self):
-        super(DSASignature, self).__init__()
-        self.r = MPI(0)
-        self.s = MPI(0)
-
-    def __iter__(self):
-        yield self.r
-        yield self.s
+    __mpis__ = ('r', 's')
 
     def __sig__(self):
         # return the signature data into an ASN.1 sequence of integers in DER format
@@ -324,14 +318,30 @@ class ECDSASignature(DSASignature):
 
 
 class PubKey(MPIs):
+    __pubfields__ = ()
+
+    @property
+    def __mpis__(self):
+        for i in self.__pubfields__:
+            yield i
+
+    def __init__(self):
+        super(PubKey, self).__init__()
+        for field in self.__pubfields__:
+            setattr(self, field, MPI(0))
+
     @abc.abstractmethod
     def __pubkey__(self):
         """return the requisite *PublicKey class from the cryptography library"""
 
+    def __len__(self):
+        return sum(len(getattr(self, i)) for i in self.__pubfields__)
+
     def __bytearray__(self):
         _bytes = bytearray()
-        for i in self:
-            _bytes += i.to_mpibytes()
+        for field in self.__pubfields__:
+            _bytes += getattr(self, field).to_mpibytes()
+
         return _bytes
 
     def publen(self):
@@ -361,14 +371,7 @@ class OpaquePubKey(PubKey):
 
 
 class RSAPub(PubKey):
-    def __init__(self):
-        super(RSAPub, self).__init__()
-        self.n = MPI(0)
-        self.e = MPI(0)
-
-    def __iter__(self):
-        yield self.n
-        yield self.e
+    __pubfields__ = ('n', 'e')
 
     def __pubkey__(self):
         return rsa.RSAPublicNumbers(self.e, self.n).public_key(default_backend())
@@ -393,18 +396,7 @@ class RSAPub(PubKey):
 
 
 class DSAPub(PubKey):
-    def __init__(self):
-        super(DSAPub, self).__init__()
-        self.p = MPI(0)
-        self.q = MPI(0)
-        self.g = MPI(0)
-        self.y = MPI(0)
-
-    def __iter__(self):
-        yield self.p
-        yield self.q
-        yield self.g
-        yield self.y
+    __pubfields__ = ('p', 'q', 'g', 'y')
 
     def __pubkey__(self):
         params = dsa.DSAParameterNumbers(self.p, self.q, self.g)
@@ -430,16 +422,7 @@ class DSAPub(PubKey):
 
 
 class ElGPub(PubKey):
-    def __init__(self):
-        super(ElGPub, self).__init__()
-        self.p = MPI(0)
-        self.g = MPI(0)
-        self.y = MPI(0)
-
-    def __iter__(self):
-        yield self.p
-        yield self.g
-        yield self.y
+    __pubfields__ = ('p', 'g', 'y')
 
     def __pubkey__(self):
         raise NotImplementedError()
@@ -451,18 +434,15 @@ class ElGPub(PubKey):
 
 
 class ECDSAPub(PubKey):
+    __pubfields__ = ('x', 'y')
+
     def __init__(self):
         super(ECDSAPub, self).__init__()
         self.oid = None
-        self.x = MPI(0)
-        self.y = MPI(0)
-
-    def __iter__(self):
-        yield self.x
-        yield self.y
 
     def __len__(self):
-        return sum([len(i) - 2 for i in self] + [3, len(encoder.encode(self.oid.value)) - 1])
+        return sum([len(getattr(self, i)) - 2 for i in self.__pubfields__] +
+                   [3, len(encoder.encode(self.oid.value)) - 1])
 
     def __pubkey__(self):
         return ec.EllipticCurvePublicNumbers(self.x, self.y, self.oid.curve()).public_key(default_backend())
@@ -516,80 +496,21 @@ class ECDSAPub(PubKey):
 
 
 class ECDHPub(PubKey):
-    """
-    8.  EC DH Algorithm (ECDH)
+    __pubfields__ = ('x', 'y')
 
-    The method is a combination of an ECC Diffie-Hellman method to
-    establish a shared secret, a key derivation method to process the
-    shared secret into a derived key, and a key wrapping method that uses
-    the derived key to protect a session key used to encrypt a message.
-
-    The One-Pass Diffie-Hellman method C(1, 1, ECC CDH) [NIST-SP800-56A]
-    MUST be implemented with the following restrictions: the ECC CDH
-    primitive employed by this method is modified to always assume the
-    cofactor as 1, the KDF specified in Section 7 is used, and the KDF
-    parameters specified below are used.
-
-    The KDF parameters are encoded as a concatenation of the following 5
-    variable-length and fixed-length fields, compatible with the
-    definition of the OtherInfo bitstring [NIST-SP800-56A]:
-
-    o  a variable-length field containing a curve OID, formatted as
-       follows:
-
-         -  a one-octet size of the following field
-
-         - the octets representing a curve OID, defined in Section 11
-
-    o  a one-octet public key algorithm ID defined in Section 5
-
-    o  a variable-length field containing KDF parameters, identical to
-       the corresponding field in the ECDH public key, formatted as
-       follows:
-
-         -  a one-octet size of the following fields; values 0 and 0xff
-            are reserved for future extensions
-
-         -  a one-octet value 01, reserved for future extensions
-
-         -  a one-octet hash function ID used with the KDF
-
-         -  a one-octet algorithm ID for the symmetric algorithm used to
-            wrap the symmetric key for message encryption; see Section 8
-            for details
-
-    o  20 octets representing the UTF-8 encoding of the string
-       "Anonymous Sender    ", which is the octet sequence
-       41 6E 6F 6E 79 6D 6F 75 73 20 53 65 6E 64 65 72 20 20 20 20
-
-    o  20 octets representing a recipient encryption subkey or a master
-       key fingerprint, identifying the key material that is needed for
-       the decryption
-
-    """
     def __init__(self):
         super(ECDHPub, self).__init__()
         self.oid = None
-        self.x = MPI(0)
-        self.y = MPI(0)
         self.kdf = ECKDF()
 
-    def __iter__(self):
-        yield self.x
-        yield self.y
-
     def __len__(self):
-        return sum([len(i) - 2 for i in self] +
+        return sum([len(getattr(self, i)) - 2 for i in self.__pubfields__] +
                    [3,
                     len(self.kdf),
                     len(encoder.encode(self.oid.value)) - 1])
 
     def __pubkey__(self):
         return ec.EllipticCurvePublicNumbers(self.x, self.y, self.oid.curve()).public_key(default_backend())
-
-    # test
-    # def publen(self):
-    #     return len(self)
 
     def __bytearray__(self):
         _b = bytearray()
@@ -657,7 +578,6 @@ class ECDHPub(PubKey):
         x, y = xy[:xylen // 2], xy[xylen // 2:]
         self.x = MPI(self.bytes_to_int(x))
         self.y = MPI(self.bytes_to_int(y))
-
 
         self.kdf.parse(packet)
 
@@ -996,24 +916,37 @@ class ECKDF(Field):
 
 
 class PrivKey(PubKey):
+    __privfields__ = ()
+
+    @property
+    def __mpis__(self):
+        for i in super(PrivKey, self).__mpis__:
+            yield i
+
+        for i in self.__privfields__:
+            yield i
+
     def __init__(self):
         super(PrivKey, self).__init__()
+
         self.s2k = String2Key()
         self.encbytes = bytearray()
         self.chksum = bytearray()
 
+        for field in self.__privfields__:
+            setattr(self, field, MPI(0))
+
     def __bytearray__(self):
-        pubitems = len(list(super(self.__class__, self).__iter__()))
         _bytes = bytearray()
-        for n, i in enumerate(self):
-            if n == pubitems:
-                _bytes += self.s2k.__bytearray__()
+        _bytes += super(PrivKey, self).__bytearray__()
 
-                if self.s2k:
-                    _bytes += self.encbytes
-                    break
+        _bytes += self.s2k.__bytearray__()
+        if self.s2k:
+            _bytes += self.encbytes
 
-            _bytes += i.to_mpibytes() if isinstance(i, MPI) else i
+        else:
+            for field in self.__privfields__:
+                _bytes += getattr(self, field).to_mpibytes()
 
         if self.s2k.usage == 0:
             _bytes += self.chksum
@@ -1021,8 +954,14 @@ class PrivKey(PubKey):
         return _bytes
 
     def __len__(self):
-        l = super(PrivKey, self).__len__() if not self.encbytes else (self.publen() + len(self.encbytes))
-        return l + sum([len(self.s2k), len(self.chksum)])
+        l = super(PrivKey, self).__len__() + len(self.s2k) + len(self.chksum)
+        if self.s2k:
+            l += len(self.encbytes)
+
+        else:
+            l += sum(len(getattr(self, i)) for i in self.__privfields__)
+
+        return l
 
     @abc.abstractmethod
     def __privkey__(self):
@@ -1037,9 +976,8 @@ class PrivKey(PubKey):
         self.chksum = bytearray(self.int_to_bytes(chs, 2))
 
     def publen(self):
-        return sum(len(i) for i in super(self.__class__, self).__iter__())
+        return super(PrivKey, self).__len__()
 
-    # @abc.abstractmethod
     def encrypt_keyblob(self, passphrase, enc_alg, hash_alg):
         # PGPy will only ever use iterated and salted S2k mode
         self.s2k.usage = 254
@@ -1055,14 +993,9 @@ class PrivKey(PubKey):
         sessionkey = self.s2k.derive_key(passphrase)
         del passphrase
 
-        pubitems = len(list(super(self.__class__, self).__iter__()))
         pt = bytearray()
-        for n, i in enumerate(self):
-            # skip public key components
-            if n < pubitems:
-                continue
-
-            pt += i.to_mpibytes() if isinstance(i, MPI) else i
+        for pf in self.__privfields__:
+            pt += getattr(self, pf).to_mpibytes()
 
         # append a SHA-1 hash of the plaintext so far to the plaintext
         pt += hashlib.new('sha1', pt).digest()
@@ -1111,9 +1044,11 @@ class PrivKey(PubKey):
     def sign(self, sigdata, hash_alg):
         return NotImplemented
 
-    @abc.abstractmethod
     def clear(self):
-        """delete and re-initialize as zero, all private components"""
+        """delete and re-initialize all private components to zero"""
+        for field in self.__privfields__:
+            delattr(self, field)
+            setattr(self, field, MPI(0))
 
 
 class OpaquePrivKey(PrivKey, OpaquePubKey):
@@ -1127,26 +1062,9 @@ class OpaquePrivKey(PrivKey, OpaquePubKey):
     def decrypt_keyblob(self, passphrase):
         return NotImplemented
 
-    def clear(self):
-        del self.data
-        self.data = bytearray()
-
 
 class RSAPriv(PrivKey, RSAPub):
-    def __init__(self):
-        super(RSAPriv, self).__init__()
-        self.d = MPI(0)
-        self.p = MPI(0)
-        self.q = MPI(0)
-        self.u = MPI(0)
-
-    def __iter__(self):
-        for i in RSAPub.__iter__(self):
-            yield i
-        yield self.d
-        yield self.p
-        yield self.q
-        yield self.u
+    __privfields__ = ('d', 'p', 'q', 'u')
 
     def __privkey__(self):
         return rsa.RSAPrivateNumbers(self.p, self.q, self.d,
@@ -1217,26 +1135,9 @@ class RSAPriv(PrivKey, RSAPub):
         signer.update(sigdata)
         return signer.finalize()
 
-    def clear(self):
-        del self.d
-        del self.p
-        del self.q
-        del self.u
-        self.d = MPI(0)
-        self.p = MPI(0)
-        self.q = MPI(0)
-        self.u = MPI(0)
-
 
 class DSAPriv(PrivKey, DSAPub):
-    def __init__(self):
-        super(DSAPriv, self).__init__()
-        self.x = 0
-
-    def __iter__(self):
-        for i in DSAPub.__iter__(self):
-            yield i
-        yield self.x
+    __privfields__ = ('x',)
 
     def __privkey__(self):
         params = dsa.DSAParameterNumbers(self.p, self.q, self.g)
@@ -1287,10 +1188,6 @@ class DSAPriv(PrivKey, DSAPub):
             self.chksum = kb
             del kb
 
-    def clear(self):
-        del self.x
-        self.x = MPI(0)
-
     def sign(self, sigdata, hash_alg):
         signer = self.__privkey__().signer(hash_alg)
         signer.update(sigdata)
@@ -1298,14 +1195,7 @@ class DSAPriv(PrivKey, DSAPub):
 
 
 class ElGPriv(PrivKey, ElGPub):
-    def __init__(self):
-        super(ElGPriv, self).__init__()
-        self.x = MPI(0)
-
-    def __iter__(self):
-        for i in ElGPub.__iter__(self):
-            yield i
-        yield self.x
+    __privfields__ = ('x', )
 
     def __privkey__(self):
         raise NotImplementedError()
@@ -1337,40 +1227,9 @@ class ElGPriv(PrivKey, ElGPub):
             self.chksum = kb
             del kb
 
-    def clear(self):
-        del self.x
-        self.x = MPI(0)
-
 
 class ECDSAPriv(PrivKey, ECDSAPub):
-    def __init__(self):
-        super(ECDSAPriv, self).__init__()
-        self.s = MPI(0)
-
-    def __iter__(self):
-        for i in ECDSAPub.__iter__(self):
-            yield i
-        yield self.s
-
-    def __bytearray__(self):
-        _b = ECDSAPub.__bytearray__(self)
-        _b += self.s2k.__bytearray__()
-        if not self.s2k:
-            _b += self.s.to_mpibytes()
-
-            if self.s2k.usage == 0:
-                _b += self.chksum
-
-        else:
-            _b += self.encbytes
-
-        return _b
-
-    def __len__(self):
-        return sum([self.publen(),
-                    len(self.s) if not self.encbytes else len(self.encbytes),
-                    len(self.s2k),
-                    len(self.chksum)])
+    __privfields__ = ('s', )
 
     def __privkey__(self):
         ecp = ec.EllipticCurvePublicNumbers(self.x, self.y, self.oid.curve())
@@ -1390,9 +1249,6 @@ class ECDSAPriv(PrivKey, ECDSAPub):
         self.x = MPI(pubn.x)
         self.y = MPI(pubn.y)
         self.s = MPI(pk.private_numbers().private_value)
-
-    def publen(self):
-        return sum([len(i) - 2 for i in ECDSAPub.__iter__(self)] + [3, len(encoder.encode(self.oid.value)) - 1])
 
     def parse(self, packet):
         super(ECDSAPriv, self).parse(packet)
@@ -1415,10 +1271,6 @@ class ECDSAPriv(PrivKey, ECDSAPub):
 
         self.s = MPI(kb)
 
-    def clear(self):
-        del self.s
-        self.s = MPI(0)
-
     def sign(self, sigdata, hash_alg):
         signer = self.__privkey__().signer(ec.ECDSA(hash_alg))
         signer.update(sigdata)
@@ -1440,8 +1292,13 @@ class ECDHPriv(ECDSAPriv, ECDHPub):
 
         return _b
 
+    def __len__(self):
+        # because of the inheritance used for this, ECDSAPub.__len__ is called instead of ECDHPub.__len__
+        # the only real difference is self.kdf, so we can just add that
+        return super(ECDHPriv, self).__len__() + len(self.kdf)
+
     def _generate(self, oid):
-        super(ECDHPriv, self)._generate(oid)
+        ECDSAPriv._generate(self, oid)
         # set the KDF hash and symmetric encryption algorithms
 
         _halgs = {EllipticCurveOID.NIST_P256: HashAlgorithm.SHA256,
@@ -1456,10 +1313,7 @@ class ECDHPriv(ECDSAPriv, ECDHPub):
         self.kdf.encalg = _kalgs[self.oid]
 
     def publen(self):
-        return sum([len(i) - 2 for i in ECDHPub.__iter__(self)] +
-                   [3,
-                    len(encoder.encode(self.oid.value)) - 1,
-                    len(self.kdf)])
+        return ECDHPub.__len__(self)
 
     def parse(self, packet):
         ECDHPub.parse(self, packet)
@@ -1477,13 +1331,12 @@ class ECDHPriv(ECDSAPriv, ECDHPub):
             self.encbytes = packet
 
 
-    #
-    # # as in ECDHPub, ECDH cannot sign, so we set this property so the sign method
-    # # isn't inherited from ECDSAPriv
-    # sign = False
-
-
 class CipherText(MPIs):
+    def __init__(self):
+        super(CipherText, self).__init__()
+        for i in self.__mpis__:
+            setattr(self, i, MPI(0))
+
     @classmethod
     @abc.abstractmethod
     def encrypt(cls, encfn, *args):
@@ -1501,6 +1354,8 @@ class CipherText(MPIs):
 
 
 class RSACipherText(CipherText):
+    __mpis__ = ('me_mod_n', )
+
     @classmethod
     def encrypt(cls, encfn, *args):
         ct = cls()
@@ -1510,18 +1365,13 @@ class RSACipherText(CipherText):
     def decrypt(self, decfn, *args):
         return decfn(*args)
 
-    def __init__(self):
-        super(RSACipherText, self).__init__()
-        self.me_mod_n = MPI(0)
-
-    def __iter__(self):
-        yield self.me_mod_n
-
     def parse(self, packet):
         self.me_mod_n = MPI(packet)
 
 
 class ElGCipherText(CipherText):
+    __mpis__ = ('gk_mod_p', 'myk_mod_p')
+
     @classmethod
     def encrypt(cls, encfn, *args):
         raise NotImplementedError()
@@ -1529,21 +1379,14 @@ class ElGCipherText(CipherText):
     def decrypt(self, decfn, *args):
         raise NotImplementedError()
 
-    def __init__(self):
-        super(ElGCipherText, self).__init__()
-        self.gk_mod_p = MPI(0)
-        self.myk_mod_p = MPI(0)
-
-    def __iter__(self):  # pragma: no cover
-        yield self.gk_mod_p
-        yield self.myk_mod_p
-
     def parse(self, packet):
         self.gk_mod_p = MPI(packet)
         self.myk_mod_p = MPI(packet)
 
 
 class ECDHCipherText(CipherText):
+    __mpis__ = ('vX', 'vY')
+
     @classmethod
     def encrypt(cls, pk, *args):
         """
@@ -1614,15 +1457,9 @@ class ECDHCipherText(CipherText):
         padder = PKCS7(64).unpadder()
         return padder.update(_m) + padder.finalize()
 
-
     def __init__(self):
         super(ECDHCipherText, self).__init__()
-        self.vX = MPI(0)
-        self.vY = MPI(0)
         self.c = bytearray(0)
-
-    def __iter__(self):
-        yield self.v
 
     def __bytearray__(self):
         _bytes = bytearray()

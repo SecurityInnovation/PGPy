@@ -22,6 +22,7 @@ from .decorators import classproperty
 from .types import FlagEnum
 
 __all__ = ['Backend',
+           'EllipticCurveOID',
            'PacketTag',
            'SymmetricKeyAlgorithm',
            'PubKeyAlgorithm',
@@ -60,7 +61,6 @@ class EllipticCurveOID(Enum):
     Brainpool_P256 = ('1.3.36.3.3.2.8.1.1.7', )
     Brainpool_P384 = ('1.3.36.3.3.2.8.1.1.11', )
     Brainpool_P512 = ('1.3.36.3.3.2.8.1.1.13', )
-
 
     def __new__(cls, oid, curve=None):
         # preprocessing stage for enum members:
