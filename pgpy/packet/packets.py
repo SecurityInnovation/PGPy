@@ -3,6 +3,7 @@
 import abc
 import binascii
 import calendar
+import copy
 import hashlib
 import os
 import re
@@ -402,6 +403,19 @@ class SignatureV4(Signature):
 
         return _bytes
 
+    def __copy__(self):
+        spkt = SignatureV4()
+        spkt.header = copy.copy(self.header)
+        spkt._sigtype = self._sigtype
+        spkt._pubalg = self._pubalg
+        spkt._halg = self._halg
+
+        spkt.subpackets = copy.copy(self.subpackets)
+        spkt.hash2 = copy.copy(self.hash2)
+        spkt.signature = copy.copy(self.signature)
+
+        return spkt
+
     def update_hlen(self):
         self.subpackets.update_hlen()
         super(SignatureV4, self).update_hlen()
@@ -792,6 +806,15 @@ class PubKeyV4(PubKey):
         _bytes += self.keymaterial.__bytearray__()
         return _bytes
 
+    def __copy__(self):
+        pk = self.__class__()
+        pk.header = copy.copy(self.header)
+        pk.created = self.created
+        pk.pkalg = self.pkalg
+        pk.keymaterial = copy.copy(self.keymaterial)
+
+        return pk
+
     def verify(self, subj, sigbytes, hash_alg):
         return self.keymaterial.verify(subj, sigbytes, hash_alg)
 
@@ -821,6 +844,26 @@ class PrivKeyV4(PrivKey, PubKeyV4):
         if pk.keymaterial is None:
             raise NotImplementedError(key_algorithm)
         pk.keymaterial._generate(key_size)
+        pk.update_hlen()
+        return pk
+
+    def pubkey(self):
+        # return a copy of ourselves, but just the public half
+        pk = PubKeyV4()
+        pk.created = self.created
+        pk.pkalg = self.pkalg
+
+        # copy over MPIs
+        for pm in self.keymaterial.__pubfields__:
+            setattr(pk.keymaterial, pm, copy.copy(getattr(self.keymaterial, pm)))
+
+        if self.pkalg == PubKeyAlgorithm.ECDSA:
+            pk.keymaterial.oid = self.keymaterial.oid
+
+        if self.pkalg == PubKeyAlgorithm.ECDH:
+            pk.keymaterial.oid = self.keymaterial.oid
+            pk.keymaterial.kdf = copy.copy(self.keymaterial.kdf)
+
         pk.update_hlen()
         return pk
 
@@ -1113,6 +1156,16 @@ class LiteralData(Packet):
         _bytes += self._contents
         return _bytes
 
+    def __copy__(self):
+        pkt = LiteralData()
+        pkt.header = copy.copy(self.header)
+        pkt.format = self.format
+        pkt.filename = self.filename
+        pkt.mtime = self.mtime
+        pkt._contents = self._contents[:]
+
+        return pkt
+
     def parse(self, packet):
         super(LiteralData, self).parse(packet)
         self.format = chr(packet[0])
@@ -1219,6 +1272,14 @@ class UserID(Packet):
             _bytes += b' <' + self.text_to_bytes(self.email) + b'>'
 
         return _bytes
+
+    def __copy__(self):
+        uid = UserID()
+        uid.header = copy.copy(self.header)
+        uid.name = self.name
+        uid.comment = self.comment
+        uid.email = self.email
+        return uid
 
     def parse(self, packet):
         super(UserID, self).parse(packet)

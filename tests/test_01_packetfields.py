@@ -186,12 +186,12 @@ class TestSignatureSubPackets(object):
     }
     def test_load(self, sigsubpacket):
         spb = sigsubpacket[:]
-        sp = Signature(sigsubpacket)
+        sp = Signature(spb)
 
-        assert sigsubpacket == b'\xca\xfe\xba\xbe'
-        assert len(sp) == len(spb) - 4
+        assert spb == b'\xca\xfe\xba\xbe'
+        assert len(sp) == len(sigsubpacket) - 4
         assert len(sp) == len(sp.__bytes__())
-        assert sp.__bytes__() == bytes(spb[:-4])
+        assert sp.__bytes__() == bytes(sigsubpacket[:-4])
 
         if sp.header.typeid in _sspclasses:
             assert sp.__class__.__name__ == _sspclasses[sp.header.typeid]
@@ -255,12 +255,12 @@ class TestUserAttributeSubPackets(object):
     }
     def test_load(self, uasubpacket):
         spb = uasubpacket[:]
-        sp = UserAttribute(uasubpacket)
+        sp = UserAttribute(spb)
 
-        assert uasubpacket == b'\xca\xfe\xba\xbe'
-        assert len(sp) == len(spb) - 4
+        assert spb == b'\xca\xfe\xba\xbe'
+        assert len(sp) == len(uasubpacket) - 4
         assert len(sp) == len(sp.__bytes__())
-        assert sp.__bytes__() == spb[:-4]
+        assert sp.__bytes__() == uasubpacket[:-4]
 
         if sp.header.typeid in _uaspclasses:
             assert sp.__class__.__name__ == _uaspclasses[sp.header.typeid]
@@ -342,3 +342,16 @@ class TestString2Key(object):
         assert s.salt == b'\xCA\xFE\xBA\xBE\xCA\xFE\xBA\xBE'
         assert s.count == 2048
         assert s.iv == b'\xDE\xAD\xBE\xEF\xDE\xAD\xBE\xEF'
+
+
+class TestKeyMaterial(object):
+    params = {
+        'pkt': [],
+    }
+
+    ids = {
+        'test_keymaterial': [],
+    }
+
+    def test_keymaterial(self, pkt):
+        pass

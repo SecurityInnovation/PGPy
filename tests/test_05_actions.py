@@ -238,6 +238,7 @@ class TestPGPKey(object):
         'test_verify_detached':    [ os.path.basename(f).replace('.', '_') for f in sorted(glob.glob('tests/testdata/signatures/*.key.asc')) ],
         'test_new_key':            [ str(ka).split('.')[-1] for ka in key_algs ],
         'test_new_subkey':         [ str(ka).split('.')[-1] for ka in key_algs ],
+        'test_pub_from_sec':       [ str(ka).split('.')[-1] for ka in key_algs ],
         'test_gpg_verify_new_key': [ str(ka).split('.')[-1] for ka in key_algs ],
     }
     string_sigs = dict()
@@ -619,6 +620,18 @@ class TestPGPKey(object):
 
         assert sv
         assert subkey in sv
+
+    def test_pub_from_sec(self, key_alg):
+        priv = self.gen_keys[key_alg]
+
+        pub = priv.pubkey
+
+        assert pub.fingerprint == priv.fingerprint
+        assert len(pub._key) == len(pub._key.__bytes__())
+        for skid, subkey in priv.subkeys.items():
+            assert skid in pub.subkeys
+            assert pub.subkeys[skid].is_public
+            assert len(subkey._key) == len(subkey._key.__bytes__())
 
     def test_gpg_verify_new_key(self, key_alg, write_clean, gpg_import, gpg_check_sigs):
         if gpg_ver < '2.1' and key_alg in {PubKeyAlgorithm.ECDSA, PubKeyAlgorithm.ECDH}:

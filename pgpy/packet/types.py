@@ -3,6 +3,7 @@
 from __future__ import division
 
 import abc
+import copy
 
 import six
 
@@ -278,3 +279,10 @@ class MPIs(Field):
         """yield all components of an MPI so it can be iterated over"""
         for i in self.__mpis__:
             yield getattr(self, i)
+
+    def __copy__(self):
+        pk = self.__class__()
+        for m in self.__mpis__:
+            setattr(pk, m, copy.copy(getattr(self, m)))
+
+        return pk

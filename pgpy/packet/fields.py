@@ -5,6 +5,7 @@ from __future__ import absolute_import, division
 import abc
 import binascii
 import collections
+import copy
 import hashlib
 import itertools
 import math
@@ -157,6 +158,13 @@ class SubPackets(collections.MutableMapping, Field):
 
     def __contains__(self, key):
         return key in set(k for k, _ in itertools.chain(self._hashed_sp, self._unhashed_sp))
+
+    def __copy__(self):
+        sp = SubPackets()
+        sp._hashed_sp = self._hashed_sp.copy()
+        sp._unhashed_sp = self._unhashed_sp.copy()
+
+        return sp
 
     def addnew(self, spname, hashed=False, **kwargs):
         nsp = getattr(self._spmodule, spname)()
@@ -328,7 +336,13 @@ class PubKey(MPIs):
     def __init__(self):
         super(PubKey, self).__init__()
         for field in self.__pubfields__:
-            setattr(self, field, MPI(0))
+            if isinstance(field, tuple):
+                field, val = field
+
+            else:
+                val = MPI(0)
+
+            setattr(self, field, val)
 
     @abc.abstractmethod
     def __pubkey__(self):
@@ -457,6 +471,11 @@ class ECDSAPub(PubKey):
 
         return _b
 
+    def __copy__(self):
+        pkt = super(ECDSAPub, self).__copy__()
+        pkt.oid = self.oid
+        return pkt
+
     def verify(self, subj, sigbytes, hash_alg):
         verifier = self.__pubkey__().verifier(sigbytes, ec.ECDSA(hash_alg))
         verifier.update(subj)
@@ -523,8 +542,11 @@ class ECDHPub(PubKey):
 
         return _b
 
-    # ECDH does not do signatures, so this should cancel inheriting the verify method
-    verify = False
+    def __copy__(self):
+        pkt = super(ECDHPub, self).__copy__()
+        pkt.oid = self.oid
+        pkt.kdf = copy.copy(self.kdf)
+        return pkt
 
     def parse(self, packet):
         """

@@ -10,6 +10,8 @@ from ...constants import ImageEncoding
 
 from ...decorators import sdproperty
 
+from ...memoryview import memoryview
+
 
 __all__ = ('Image',)
 
@@ -100,18 +102,10 @@ class Image(UserAttribute):
     def parse(self, packet):
         super(Image, self).parse(packet)
 
-        ##TODO: it probably makes more sense to have a wrapper object so we can just do 'with memoryview(...) as ...'
-        #       regardless of the version of Python in play
-        _head = memoryview(packet)
-        _, self.version, self.iencoding, _, _, _ = struct.unpack_from('<hbbiii', _head[:16].tobytes())
-
-        # memoryviews need to be released in Python >= 3.x, and deleted on Py2.x
-        if six.PY2:
-            del _head
-
-        else:
-            _head.release()
-
+        # on Python 2, this will be the wrapper object from memoryview.py
+        with memoryview(packet) as _head:
+            _, self.version, self.iencoding, _, _, _ = struct.unpack_from('<hbbiii', _head[:16].tobytes())
         del packet[:16]
+
         self.image = packet[:(self.header.length - 17)]
         del packet[:(self.header.length - 17)]

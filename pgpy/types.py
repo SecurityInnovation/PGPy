@@ -12,6 +12,7 @@ import os
 import re
 import sys
 import warnings
+import weakref
 
 from enum import EnumMeta
 from enum import IntEnum
@@ -25,6 +26,7 @@ from .decorators import sdproperty
 from .errors import PGPError
 
 __all__ = ['Armorable',
+           'ParentRef',
            'PGPObject',
            'Field',
            'Header',
@@ -203,6 +205,37 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
             packet=payload,
             crc=base64.b64encode(PGPObject.int_to_bytes(self.crc24(self.__bytes__()), 3)).decode('latin-1')
         )
+
+    def __copy__(self):
+        obj = self.__class__()
+        obj.ascii_headers = self.ascii_headers.copy()
+
+        return obj
+
+
+class ParentRef(object):
+    # mixin class to handle weak-referencing a parent object
+    @property
+    def _parent(self):
+        if isinstance(self.__parent, weakref.ref):
+            return self.__parent()
+        return self.__parent
+
+    @_parent.setter
+    def _parent(self, parent):
+        try:
+            self.__parent = weakref.ref(parent)
+
+        except TypeError:
+            self.__parent = parent
+
+    @property
+    def parent(self):
+        return self._parent
+
+    def __init__(self):
+        super(ParentRef, self).__init__()
+        self._parent = None
 
 
 class PGPObject(six.with_metaclass(abc.ABCMeta, object)):

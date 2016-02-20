@@ -5,12 +5,14 @@ this is where the armorable PGP block objects live
 import binascii
 import collections
 import contextlib
+import copy
 import functools
 import itertools
 import operator
 import os
 import re
 import warnings
+import weakref
 
 import six
 
@@ -41,6 +43,8 @@ from .packet import MDC
 from .packet import Packet
 from .packet import Primary
 from .packet import Private
+from .packet import PubKeyV4
+from .packet import PubSubKeyV4
 from .packet import PrivKeyV4
 from .packet import PrivSubKeyV4
 from .packet import Public
@@ -67,6 +71,7 @@ from .packet.types import Opaque
 
 from .types import Armorable
 from .types import Fingerprint
+from .types import ParentRef
 from .types import PGPObject
 from .types import SignatureVerification
 from .types import SorteDeque
@@ -78,7 +83,7 @@ __all__ = ['PGPSignature',
            'PGPKeyring']
 
 
-class PGPSignature(PGPObject, Armorable):
+class PGPSignature(PGPObject, Armorable, ParentRef):
     @property
     def __sig__(self):
         return self._signature.signature.__sig__()
@@ -257,7 +262,7 @@ class PGPSignature(PGPObject, Armorable):
 
     @property
     def target_signature(self):
-        raise NotImplementedError()
+        return NotImplemented
 
     @property
     def type(self):
@@ -297,7 +302,6 @@ class PGPSignature(PGPObject, Armorable):
         """
         super(PGPSignature, self).__init__()
         self._signature = None
-        self.parent = None
 
     def __bytearray__(self):
         return self._signature.__bytearray__()
@@ -320,6 +324,15 @@ class PGPSignature(PGPObject, Armorable):
             return self
 
         raise TypeError
+
+    def __copy__(self):
+        # because the default shallow copy isn't actually all that useful,
+        # and deepcopy does too much work
+        sig = super(PGPSignature, self).__copy__()
+        # sig = PGPSignature()
+        # sig.ascii_headers = self.ascii_headers.copy()
+        sig |= copy.copy(self._signature)
+        return sig
 
     def hashdata(self, subject):
         _data = bytearray()
@@ -473,7 +486,7 @@ class PGPSignature(PGPObject, Armorable):
             raise ValueError('Expected: Signature. Got: {:s}'.format(pkt.__class__.__name__))
 
 
-class PGPUID(object):
+class PGPUID(ParentRef):
     @property
     def __sig__(self):
         return list(self._signatures)
@@ -533,8 +546,8 @@ class PGPUID(object):
         """
         This will be the most recent, self-signature of this User ID or Attribute. If there isn't one, this will be ``None``.
         """
-        if self._parent is not None:
-            return next((sig for sig in reversed(self._signatures) if sig.signer == self._parent.fingerprint.keyid), None)
+        if self.parent is not None:
+            return next((sig for sig in reversed(self._signatures) if sig.signer == self.parent.fingerprint.keyid), None)
 
     @property
     def signers(self):
@@ -594,7 +607,6 @@ class PGPUID(object):
         super(PGPUID, self).__init__()
         self._uid = None
         self._signatures = SorteDeque()
-        self._parent = None
 
     def __repr__(self):
         if self.selfsig is not None:
@@ -620,8 +632,8 @@ class PGPUID(object):
     def __or__(self, other):
         if isinstance(other, PGPSignature):
             self._signatures.insort(other)
-            if self._parent is not None and self in self._parent._uids:
-                self._parent._uids.resort(self)
+            if self.parent is not None and self in self.parent._uids:
+                self.parent._uids.resort(self)
 
             return self
 
@@ -635,6 +647,15 @@ class PGPUID(object):
 
         raise TypeError("unsupported operand type(s) for |: '{:s}' and '{:s}'"
                         "".format(self.__class__.__name__, other.__class__.__name__))
+
+    def __copy__(self):
+        # because the default shallow copy isn't actually all that useful,
+        # and deepcopy does too much work
+        uid = PGPUID()
+        uid |= copy.copy(self._uid)
+        for sig in self._signatures:
+            uid |= copy.copy(sig)
+        return uid
 
     def __format__(self, format_spec):
         if self.is_uid:
@@ -805,7 +826,7 @@ class PGPMessage(PGPObject, Armorable):
             return self
 
         if isinstance(other, CompressedData):
-            self._compression = CompressedData.calg
+            self._compression = other.calg
             for pkt in other.packets:
                 self |= pkt
             return self
@@ -844,6 +865,20 @@ class PGPMessage(PGPObject, Armorable):
             return self
 
         raise NotImplementedError(str(type(other)))
+
+    def __copy__(self):
+        msg = super(PGPMessage, self).__copy__()
+        msg._compression = self._compression
+        msg._message = copy.copy(self._message)
+        msg._mdc = copy.copy(self._mdc)
+
+        for sig in self._signatures:
+            msg |= copy.copy(sig)
+
+        for sk in self._sessionkeys:
+            msg |= copy.copy(sk)
+
+        return msg
 
     @classmethod
     def new(cls, message, **kwargs):
@@ -1011,7 +1046,7 @@ class PGPMessage(PGPObject, Armorable):
                 self |= Packet(data)
 
 
-class PGPKey(PGPObject, Armorable):
+class PGPKey(PGPObject, Armorable, ParentRef):
     """
     11.1.  Transferable Public Keys
 
@@ -1188,11 +1223,37 @@ class PGPKey(PGPObject, Armorable):
                                        'PRIVATE' if isinstance(self._key, Private) else '')
 
     @property
-    def parent(self):
-        """The :py:obj:`PGPKey` object of this subkey's parent primary key, if applicable, otherwise ``None``"""
-        if self.is_primary:
-            return None
-        return self._parent
+    def pubkey(self):
+        """If the :py:obj:`PGPKey` object is a private key, this method returns a corresponding public key object with all the trimmings.
+        Otherwise, returns ``None``
+        """
+        if not self.is_public:
+            if self._sibling is None or isinstance(self._sibling, weakref.ref):
+                # create a new key shell
+                pub = PGPKey()
+                pub.ascii_headers = self.ascii_headers.copy()
+
+                # get the public half of the primary key
+                pub._key = self._key.pubkey()
+
+                # get the public half of each subkey
+                for skid, subkey in self.subkeys.items():
+                    pub.subkeys[skid] = subkey.pubkey
+
+                # copy user ids and user attributes
+                for uid in self._uids:
+                    pub |= copy.copy(uid)
+
+                # copy signatures that weren't copied with uids
+                for sig in self._signatures:
+                    pub |= copy.copy(sig)
+
+                # keep connect the two halves using a weak reference
+                self._sibling = weakref.ref(pub)
+                pub._sibling = weakref.ref(self)
+
+            return self._sibling()
+        return None
 
     @property
     def self_signatures(self):
@@ -1254,9 +1315,9 @@ class PGPKey(PGPObject, Armorable):
         super(PGPKey, self).__init__()
         self._key = None
         self._children = collections.OrderedDict()
-        self._parent = None
         self._signatures = SorteDeque()
         self._uids = SorteDeque()
+        self._sibling = None
 
     def __bytearray__(self):
         _bytes = bytearray()
@@ -1302,32 +1363,48 @@ class PGPKey(PGPObject, Armorable):
     def __or__(self, other):
         if isinstance(other, Key) and self._key is None:
             self._key = other
-            return self
 
-        if isinstance(other, PGPKey) and not other.is_primary and other.is_public == self.is_public:
+        elif isinstance(other, PGPKey) and not other.is_primary and other.is_public == self.is_public:
             other._parent = self
             self._children[other.fingerprint.keyid] = other
-            return self
 
-        if isinstance(other, PGPSignature):
+        elif isinstance(other, PGPSignature):
             self._signatures.insort(other)
 
             # if this is a subkey binding signature that has embedded primary key binding signatures, add them to parent
             if other.type == SignatureType.Subkey_Binding:
                 for es in iter(pkb for pkb in other._signature.subpackets['EmbeddedSignature']):
                     esig = PGPSignature() | es
-                    esig.parent = other
+                    esig._parent = other
                     self._signatures.insort(esig)
 
-            return self
-
-        if isinstance(other, PGPUID):
-            other._parent = self
+        elif isinstance(other, PGPUID):
+            other._parent = weakref.ref(self)
             self._uids.insort(other)
-            return self
 
-        raise TypeError("unsupported operand type(s) for |: '{:s}' and '{:s}'"
+        else:
+            raise TypeError("unsupported operand type(s) for |: '{:s}' and '{:s}'"
                         "".format(self.__class__.__name__, other.__class__.__name__))
+
+        if isinstance(self._sibling, weakref.ref):
+            self.pubkey |= other
+
+        return self
+
+    def __copy__(self):
+        key = super(PGPKey, self).__copy__()
+        key._key = copy.copy(self._key)
+
+        for id, subkey in self._children.items():
+            key |= copy.copy(subkey)
+
+        for uid in self._uids:
+            key |= copy.copy(uid)
+
+        for sig in self._signatures:
+            key |= copy.copy(sig)
+
+        return key
 
     def protect(self, passphrase, enc_alg, hash_alg):
         ##TODO: specify strong defaults for enc_alg and hash_alg
