@@ -120,6 +120,9 @@ class TestUnicode(object):
     def test_unicode_text_to_bytes(self, binary_string, unicode_text_to_bytes):
         assert binary_string == unicode_text_to_bytes
 
+    def test_unicode_decode(self, unicode_string, unicode_message_bytearray):
+        assert unicode_string == unicode_message_bytearray.decode('utf-8')
+
     def test_bytearray_message_message(self, binary_string, bytearray_message):
         assert binary_string == bytearray_message.message
 
@@ -128,3 +131,6 @@ class TestUnicode(object):
 
     def test_bytearray_text_to_bytes(self, binary_string, bytearray_text_to_bytes):
         assert binary_string == bytearray_text_to_bytes
+
+    def test_bytearray_decode(self, unicode_string, bytearray_message_bytearray):
+        assert unicode_string == bytearray_message_bytearray.decode('utf-8')
