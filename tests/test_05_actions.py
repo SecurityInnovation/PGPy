@@ -1,3 +1,4 @@
+# coding=utf-8
 """ test doing things with keys/signatures/etc
 """
 import pytest
@@ -72,12 +73,13 @@ class TestPGPMessage(object):
              ('message', bytearray(range(256)))],
     }
     def test_new(self, comp_alg, write_clean, gpg_print):
-        msg = PGPMessage.new("This is a new message!")
+        msg = PGPMessage.new(u"This is a new message!", compression=comp_alg)
 
         assert msg.type == 'literal'
-        assert msg.message == "This is a new message!"
-        assert msg._message.format == 't'
+        assert msg.message == u"This is a new message!"
+        assert msg._message.format == 'u'
         assert msg._message.filename == ''
+        assert msg.is_compressed is bool(comp_alg != CompressionAlgorithm.Uncompressed)
 
         with write_clean('tests/testdata/cmsg.asc', 'w', str(msg)):
             assert gpg_print('cmsg.asc') == "This is a new message!"
@@ -93,6 +95,29 @@ class TestPGPMessage(object):
         with write_clean('tests/testdata/csmsg.asc', 'w', str(msg)):
             assert gpg_print('csmsg.asc') == "This is a sensitive message!"
 
+    def test_new_non_unicode(self, write_clean, gpg_print):
+        # this message text comes from http://www.columbia.edu/~fdc/utf8/
+        text = u'色は匂へど 散りぬるを\n' \
+               u'我が世誰ぞ 常ならむ\n' \
+               u'有為の奥山 今日越えて\n' \
+               u'浅き夢見じ 酔ひもせず\n'
+        msg = PGPMessage.new(text.encode('jisx0213'), encoding='jisx0213')
+
+        assert msg.type == 'literal'
+        assert msg.message == text.encode('jisx0213')
+
+    def test_new_non_unicode_cleartext(self, write_clean, gpg_print):
+        # this message text comes from http://www.columbia.edu/~fdc/utf8/
+        text = u'色は匂へど 散りぬるを\n' \
+               u'我が世誰ぞ 常ならむ\n' \
+               u'有為の奥山 今日越えて\n' \
+               u'浅き夢見じ 酔ひもせず\n'
+
+        msg = PGPMessage.new(text.encode('jisx0213'), cleartext=True, encoding='jisx0213')
+
+        assert msg.type == 'cleartext'
+        assert msg.message == text
+
     def test_new_from_file(self, file, write_clean, gpg_print):
         msg = PGPMessage.new(file, file=True)
 
@@ -106,7 +131,10 @@ class TestPGPMessage(object):
             assert val == expected
 
         with write_clean('tests/testdata/cmsg.asc', 'w', str(msg)):
-            assert gpg_print('cmsg.asc') == msg.message
+            out = gpg_print('cmsg.asc')
+            if msg._message.format == 'b':
+                out = out.encode('latin-1')
+            assert out == msg.message
 
     def test_decrypt_passphrase_message(self, enc_msg):
         decmsg = enc_msg.decrypt("QwertyUiop")

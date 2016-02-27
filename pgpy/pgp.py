@@ -83,7 +83,7 @@ __all__ = ['PGPSignature',
            'PGPKeyring']
 
 
-class PGPSignature(PGPObject, Armorable, ParentRef):
+class PGPSignature(Armorable, ParentRef, PGPObject):
     @property
     def __sig__(self):
         return self._signature.signature.__sig__()
@@ -666,7 +666,7 @@ class PGPUID(ParentRef):
         raise NotImplementedError
 
 
-class PGPMessage(PGPObject, Armorable):
+class PGPMessage(Armorable, PGPObject):
     @staticmethod
     def dash_unescape(text):
         return re.subn(r'^- -', '-', text, flags=re.MULTILINE)[0]
@@ -722,11 +722,14 @@ class PGPMessage(PGPObject, Armorable):
     @property
     def message(self):
         """The message contents"""
-        if self.type in ['cleartext', 'encrypted']:
-            return self._message
+        if self.type == 'cleartext':
+            return self.bytes_to_text(self._message)
 
         if self.type == 'literal':
             return self._message.contents
+
+        if self.type == 'encrypted':
+            return self._message
 
     @property
     def signatures(self):
@@ -741,7 +744,7 @@ class PGPMessage(PGPObject, Armorable):
     @property
     def type(self):
         ##TODO: it might be better to use an Enum for the output of this
-        if isinstance(self._message, six.string_types):
+        if isinstance(self._message, (six.string_types, six.binary_type, bytearray)):
             return 'cleartext'
 
         if isinstance(self._message, LiteralData):
@@ -790,8 +793,8 @@ class PGPMessage(PGPObject, Armorable):
             return "-----BEGIN PGP SIGNED MESSAGE-----\n" \
                    "Hash: {hashes:s}\n\n" \
                    "{cleartext:s}\n" \
-                   "{signature:s}".format(hashes=','.join(s.hash_algorithm.name for s in self.signatures),
-                                          cleartext=self.dash_escape(self._message),
+                   "{signature:s}".format(hashes=','.join(set(s.hash_algorithm.name for s in self.signatures)),
+                                          cleartext=self.dash_escape(self.bytes_to_text(self._message)),
                                           signature=super(PGPMessage, self).__str__())
 
         return super(PGPMessage, self).__str__()
@@ -831,7 +834,12 @@ class PGPMessage(PGPObject, Armorable):
                 self |= pkt
             return self
 
-        if isinstance(other, (six.string_types, LiteralData, SKEData, IntegrityProtectedSKEData)):
+        if isinstance(other, (six.string_types, six.binary_type, bytearray)):
+            if self._message is None:
+                self._message = self.text_to_bytes(other)
+                return self
+
+        if isinstance(other, (LiteralData, SKEData, IntegrityProtectedSKEData)):
             if self._message is None:
                 self._message = other
                 return self
@@ -899,18 +907,32 @@ class PGPMessage(PGPObject, Armorable):
         :keyword sensitive: if True, the filename will be set to '_CONSOLE' to signal other OpenPGP clients to treat
                             this message as being 'for your eyes only'. Ignored if cleartext is True.
         :type sensitive: ``bool``
+        :keyword format: Set the message format identifier. Ignored if cleartext is True.
+        :type format: ``str``
         :keyword compression: Set the compression algorithm for the new message.
                               Defaults to :py:obj:`CompressionAlgorithm.ZIP`. Ignored if cleartext is True.
+        :keyword encoding: Set the Charset header for the message.
+        :type encoding: ``str`` representing a valid codec in codecs
         """
+        # TODO: have 'codecs' above (in :type encoding:) link to python documentation page on codecs
         cleartext = kwargs.pop('cleartext', False)
+        format = kwargs.pop('format', None)
         sensitive = kwargs.pop('sensitive', False)
         compression = kwargs.pop('compression', CompressionAlgorithm.ZIP)
         file = kwargs.pop('file', False)
+        charset = kwargs.pop('encoding', None)
 
         filename = ''
         mtime = datetime.utcnow()
 
         msg = PGPMessage()
+
+        if charset:
+            msg.charset = charset
+
+        # if format in 'tu' and isinstance(message, (six.binary_type, bytearray)):
+        #     # if message format is text or unicode and we got binary data, we'll need to transcode it to UTF-8
+        #     message =
 
         if file and os.path.isfile(message):
             filename = message
@@ -920,20 +942,37 @@ class PGPMessage(PGPObject, Armorable):
             with open(filename, 'rb') as mf:
                 mf.readinto(message)
 
+        # if format is None, we can try to detect it
+        if format is None:
+            if isinstance(message, six.text_type):
+                # message is definitely UTF-8 already
+                format = 'u'
+
+            elif cls.is_ascii(message):
+                # message is probably text
+                format = 't'
+
+            else:
+                # message is probably binary
+                format = 'b'
+
+        # if message is a binary type and we're building a textual message, we need to transcode the bytes to UTF-8
+        if isinstance(message, (six.binary_type, bytearray)) and (cleartext or format in 'tu'):
+            message = message.decode(charset or 'utf-8')
+
         if cleartext:
-            # cleartext message
             msg |= message
 
         else:
             # load literal data
             lit = LiteralData()
-            lit._contents = bytearray(cls.text_to_bytes(message))
+            lit._contents = bytearray(msg.text_to_bytes(message))
             lit.filename = '_CONSOLE' if sensitive else os.path.basename(filename)
             lit.mtime = mtime
-            lit.format = 'b'
+            lit.format = format
 
-            if cls.is_ascii(message):
-                lit.format = 't'
+            # if cls.is_ascii(message):
+            #     lit.format = 't'
 
             lit.update_hlen()
 
@@ -1046,7 +1085,7 @@ class PGPMessage(PGPObject, Armorable):
                 self |= Packet(data)
 
 
-class PGPKey(PGPObject, Armorable, ParentRef):
+class PGPKey(Armorable, ParentRef, PGPObject):
     """
     11.1.  Transferable Public Keys
 

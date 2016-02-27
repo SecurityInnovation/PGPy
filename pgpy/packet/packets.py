@@ -1134,8 +1134,8 @@ class LiteralData(Packet):
         if self.format == 't':
             return self._contents.decode('latin-1')
 
-        if self.format == 'u':  # pragma: no cover
-            return six.u(self._contents.decode('latin-1'))
+        if self.format == 'u':
+            return self._contents.decode('utf-8')
 
         return self._contents
 

@@ -6,6 +6,7 @@ import abc
 import base64
 import binascii
 import bisect
+import codecs
 import collections
 import operator
 import os
@@ -52,6 +53,14 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
                     '{packet}\n' \
                     '={crc}\n' \
                     '-----END PGP {block_type}-----\n'
+
+    @property
+    def charset(self):
+        return self.ascii_headers.get('Charset', 'utf-8')
+
+    @charset.setter
+    def charset(self, encoding):
+        self.ascii_headers['Charset'] = codecs.lookup(encoding).name
 
     @staticmethod
     def is_ascii(text):
@@ -191,10 +200,6 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
         self.ascii_headers = collections.OrderedDict()
         self.ascii_headers['Version'] = 'PGPy v' + __version__  # Default value
 
-    @abc.abstractmethod
-    def __bytes__(self):
-        """This method is too abstract to understand"""
-
     def __str__(self):
         payload = base64.b64encode(self.__bytes__()).decode('latin-1')
         payload = '\n'.join(payload[i:(i + 64)] for i in range(0, len(payload), 64))
@@ -274,19 +279,23 @@ class PGPObject(six.with_metaclass(abc.ABCMeta, object)):
 
     @staticmethod
     def text_to_bytes(text):
-        bin = bytearray()
-
-        if text is None or isinstance(text, bytearray):
+        if text is None:
             return text
 
-        for c in iter(ord(c) for c in text):
-            if c < 256:
-                bin.append(c)
+        # if we got bytes, just return it
+        if isinstance(text, (bytearray, six.binary_type)):
+            return text
 
-            else:
-                bin += PGPObject.int_to_bytes(c)
+        # if we were given a unicode string, or if we translated the string into utf-8,
+        # we know that Python already has it in utf-8 encoding, so we can now just encode it to bytes
+        return text.encode('utf-8')
 
-        return bytes(bin)
+    @staticmethod
+    def bytes_to_text(text):
+        if text is None or isinstance(text, six.text_type):
+            return text
+
+        return text.decode('utf-8')
 
     @abc.abstractmethod
     def parse(self, packet):
