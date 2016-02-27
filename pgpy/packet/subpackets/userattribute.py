@@ -2,8 +2,6 @@
 """
 import struct
 
-import six
-
 from .types import UserAttribute
 
 from ...constants import ImageEncoding
