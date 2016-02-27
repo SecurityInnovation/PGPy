@@ -71,7 +71,8 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
     :Storage Formats:
         - ASCII,  True, ASCII armored PGP blocks
         - binary, True, binary PGP packets
-        - GPG,    True, GPG keyrings
+        - GPG,    True, GPG <= 2.0.x keyrings
+        - KBX,    False, GPG >= 2.1.x keyboxes
 
     :Other Sources:
         - Retrieve, False, Retrieve from HKP key servers
