@@ -7,6 +7,8 @@ import os
 
 import six
 
+from pgpy.packet import Packet
+
 from pgpy import PGPKey
 from pgpy import PGPKeyring
 from pgpy import PGPMessage
@@ -41,6 +43,25 @@ def abe_image():
         abef.readinto(abebytes)
 
     return PGPUID.new(abebytes)
+
+
+class TestPGPMessage(object):
+    params = {
+        'msgfile': sorted(glob.glob('tests/testdata/messages/*.asc')),
+    }
+    ids = {
+        'test_load_from_file': [ os.path.basename(f) for f in params['msgfile'] ],
+    }
+    def test_load_from_file(self, msgfile):
+        # TODO: figure out a good way to verify that all went well here, because
+        #       PGPy reorders signatures sometimes, and also unwraps compressed messages
+        #       so comparing str(msg) to the contents of msgfile doesn't actually work
+        msg = PGPMessage.from_file(msgfile)
+
+        with open(msgfile, 'r') as mf:
+            mt = mf.read()
+
+            assert len(str(msg)) == len(mt)
 
 
 class TestPGPUID(object):

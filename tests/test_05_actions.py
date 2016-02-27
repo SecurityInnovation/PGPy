@@ -50,22 +50,26 @@ class TestPGPMessage(object):
     params = {
         'comp_alg': comp_algs,
         'enc_msg':  [ PGPMessage.from_file(f) for f in glob.glob('tests/testdata/messages/message*.pass*.asc') ],
-        'file':    ['tests/testdata/lit', 'tests/testdata/lit2', 'tests/testdata/lit_de']
+        'file':    sorted(glob.glob('tests/testdata/files/literal*')),
     }
     ids = {
         'test_new': [ str(ca).split('.')[-1] for ca in comp_algs ],
+        'test_new_from_file': [ os.path.basename(fn).replace('.', '_') for fn in params['file'] ],
     }
     attrs = {
-        'tests/testdata/lit':
-            [('filename', 'lit'),
+        'tests/testdata/files/literal.1.txt':
+            [('filename', 'literal.1.txt'),
              ('message', os.linesep.join(['This is stored, literally\!', os.linesep]))],
-        'tests/testdata/lit2':
-            [('filename', 'lit2'),
+        'tests/testdata/files/literal.2.txt':
+            [('filename', 'literal.2.txt'),
              ('message', os.linesep.join(['This is stored, literally!', os.linesep]))],
-        'tests/testdata/lit_de':
-            [('filename', 'lit_de'),
+        'tests/testdata/files/literal.dashesc.txt':
+            [('filename', 'literal.dashesc.txt'),
              ('message', os.linesep.join(['The following items are stored, literally:', '- This one', '- Also this one',
                                           '- And finally, this one!', os.linesep]))],
+        'tests/testdata/files/literal.bin':
+            [('filename', 'literal.bin'),
+             ('message', bytearray(range(256)))],
     }
     def test_new(self, comp_alg, write_clean, gpg_print):
         msg = PGPMessage.new("This is a new message!")
