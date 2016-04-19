@@ -592,9 +592,6 @@ class PGPUID(ParentRef):
             uid._uid.email = email
             uid._uid.update_hlen()
 
-        if uid._uid is None:
-            raise ValueError()
-
         return uid
 
     def __init__(self):
