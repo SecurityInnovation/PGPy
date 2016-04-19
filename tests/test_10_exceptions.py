@@ -11,6 +11,7 @@ from pgpy import PGPSignature
 from pgpy import PGPUID
 
 from pgpy.types import Armorable
+from pgpy.types import PGPObject
 from pgpy.types import Fingerprint
 from pgpy.types import SignatureVerification
 
@@ -74,14 +75,16 @@ class TestArmorable(object):
         with pytest.raises(PGPError):
             Armorable.ascii_unarmor(data)
 
+
+class TestPGPObject(object):
     def test_text_to_bytes_none(self):
-        assert Armorable.text_to_bytes(None) is None
+        assert PGPObject.text_to_bytes(None) is None
 
     def test_bytes_to_text_none(self):
-        assert Armorable.bytes_to_text(None) is None
+        assert PGPObject.bytes_to_text(None) is None
 
     def test_bytes_to_text_text(self):
-        assert Armorable.bytes_to_text('asdf') == 'asdf'
+        assert PGPObject.bytes_to_text('asdf') == 'asdf'
 
 
 class TestPGPKey(object):
