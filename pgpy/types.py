@@ -129,7 +129,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
                 m['body'] = bytearray(base64.b64decode(m['body'].encode()))
 
             except binascii.Error as ex:
-                six.reraise(PGPError, ex)
+                six.raise_from(PGPError, ex)
 
         if m['crc'] is not None:
             m['crc'] = Header.bytes_to_int(base64.b64decode(m['crc'].encode()))
@@ -515,7 +515,7 @@ class MetaDispatchable(abc.ABCMeta):
                             nh.parse(packet)
 
                         except Exception as ex:
-                            six.reraise(PGPError, ex)
+                            six.raise_from(PGPError, ex)
 
                         header = nh
 
@@ -535,7 +535,7 @@ class MetaDispatchable(abc.ABCMeta):
                 obj.parse(packet)
 
             except Exception as ex:
-                six.reraise(PGPError, ex, sys.exc_info()[2])
+                six.raise_from(PGPError, ex, sys.exc_info()[2])
 
         else:
             obj = _makeobj(cls)

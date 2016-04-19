@@ -234,7 +234,6 @@ class TestBlocks(object):
         elif 'KEY' in bc.splitlines()[0]:
             p = PGPKey()
 
-
         elif 'MESSAGE' in bc.splitlines()[0]:
             p = PGPMessage()
 
@@ -256,4 +255,3 @@ class TestBlocks(object):
             if attrval != val:
                 raise AssertionError('expected block.{attr:s} = {aval}; got block.{attr:s} = {rval}'
                                      ''.format(attr=attr, aval=val, rval=attrval))
-

@@ -10,6 +10,7 @@ from pgpy import PGPMessage
 from pgpy import PGPSignature
 from pgpy import PGPUID
 
+from pgpy.types import Armorable
 from pgpy.types import Fingerprint
 from pgpy.types import SignatureVerification
 
@@ -58,6 +59,29 @@ key_algs_badsizes = {
     PubKeyAlgorithm.ECDSA: [curve for curve in EllipticCurveOID if not curve.can_gen],
     PubKeyAlgorithm.ECDH: [curve for curve in EllipticCurveOID if not curve.can_gen],
 }
+
+
+class TestArmorable(object):
+    # some basic test cases specific to the Armorable mixin class
+    def test_malformed_base64(self):
+        # 'asdf' base64-encoded becomes 'YXNkZg=='
+        # remove one of the pad characters and we should get a PGPError
+        data = '-----BEGIN PGP SOMETHING-----\n' \
+               '\n' \
+               'YXNkZg=\n' \
+               '=ZEO6\n' \
+               '-----END PGP SOMETHING-----\n'
+        with pytest.raises(PGPError):
+            Armorable.ascii_unarmor(data)
+
+    def test_text_to_bytes_none(self):
+        assert Armorable.text_to_bytes(None) is None
+
+    def test_bytes_to_text_none(self):
+        assert Armorable.bytes_to_text(None) is None
+
+    def test_bytes_to_text_text(self):
+        assert Armorable.bytes_to_text('asdf') == 'asdf'
 
 
 class TestPGPKey(object):
