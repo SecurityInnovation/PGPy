@@ -1294,6 +1294,21 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             return self._sibling()
         return None
 
+    @pubkey.setter
+    def pubkey(self, pubkey):
+        if self.is_public:
+            raise TypeError("cannot add public sibling to pubkey")
+
+        if self._sibling is not None and self._sibling() is not None:
+            raise ValueError("public key reference already set")
+
+        if pubkey.fingerprint != self.fingerprint:
+            raise ValueError("key fingerprint mismatch")
+
+        self._sibling = weakref.ref(pubkey)
+        pubkey._sibling = weakref.ref(self)
+        self._sync_sibling()
+
     @property
     def self_signatures(self):
         keyid, keytype = (self.fingerprint.keyid, SignatureType.DirectlyOnKey) if self.is_primary \
@@ -1426,7 +1441,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                         "".format(self.__class__.__name__, other.__class__.__name__))
 
         if isinstance(self._sibling, weakref.ref):
-            self.pubkey |= other
+            sib = self._sibling()
+            sib |= copy.copy(other)
 
         return self
 
@@ -1575,7 +1591,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             else:
                 user = next(iter(self.userids))
 
-            return user.selfsig.key_flags
+            # RFC 4880 says that primary keys *must* be capable of certification
+            return {KeyFlags.Certify} | user.selfsig.key_flags
 
         return next(self.self_signatures).key_flags
 
