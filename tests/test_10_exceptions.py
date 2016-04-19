@@ -150,9 +150,9 @@ class TestPGPKey(object):
         with pytest.raises(PGPError):
             targette_sec.decrypt(msg)
 
-    def test_add_valueerror(self, rsa_sec):
+    def test_or_typeerror(self, rsa_sec):
         with pytest.raises(TypeError):
-            rsa_sec += 12
+            rsa_sec |= 12
 
     def test_contains_valueerror(self, rsa_sec):
         with pytest.raises(TypeError):
@@ -284,9 +284,9 @@ class TestPGPMessage(object):
 
 
 class TestPGPSignature(object):
-    def test_add_typeerror(self):
+    def test_or_typeerror(self):
         with pytest.raises(TypeError):
-            PGPSignature() + 12
+            PGPSignature() | 12
 
     def test_parse_wrong_magic(self):
         sigtext = _read('tests/testdata/blocks/signature.expired.asc').replace('SIGNATURE', 'SIGANTURE')
@@ -300,12 +300,18 @@ class TestPGPSignature(object):
         with pytest.raises(ValueError):
             sig.parse(notsigtext)
 
+    def test_or_typeerror(self):
+        sig = PGPSignature()
+
+        with pytest.raises(TypeError):
+            sig |= None
+
 
 class TestPGPUID(object):
-    def test_add_typeerror(self):
+    def test_or_typeerror(self):
         u = PGPUID.new("Asdf Qwert")
         with pytest.raises(TypeError):
-            u += 12
+            u |= 12
 
 
 class TestSignatureVerification(object):
