@@ -24,7 +24,7 @@ with open('README.rst') as readme:
 _requires = [
     'cryptography>=1.1',
     'pyasn1',
-    'six>=1.7.2',
+    'six>=1.9.0',
     'singledispatch',
 ]
 
