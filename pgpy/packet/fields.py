@@ -336,7 +336,7 @@ class PubKey(MPIs):
     def __init__(self):
         super(PubKey, self).__init__()
         for field in self.__pubfields__:
-            if isinstance(field, tuple):
+            if isinstance(field, tuple):  # pragma: no cover
                 field, val = field
 
             else:
@@ -362,10 +362,10 @@ class PubKey(MPIs):
         return len(self)
 
     def verify(self, subj, sigbytes, hash_alg):
-        return NotImplemented
+        return NotImplemented  # pragma: no cover
 
 
-class OpaquePubKey(PubKey):
+class OpaquePubKey(PubKey):  # pragma: no cover
     def __init__(self):
         super(OpaquePubKey, self).__init__()
         self.data = bytearray()
@@ -742,7 +742,7 @@ class String2Key(Field):
 
     @count.register(int)
     def count_int(self, val):
-        if val < 0 or val > 255:
+        if val < 0 or val > 255:  # pragma: no cover
             raise ValueError("count must be between 0 and 256")
         self._count = val
 
@@ -1064,7 +1064,7 @@ class PrivKey(PubKey):
         return bytearray(pt)
 
     def sign(self, sigdata, hash_alg):
-        return NotImplemented
+        return NotImplemented  # pragma: no cover
 
     def clear(self):
         """delete and re-initialize all private components to zero"""
@@ -1073,7 +1073,7 @@ class PrivKey(PubKey):
             setattr(self, field, MPI(0))
 
 
-class OpaquePrivKey(PrivKey, OpaquePubKey):
+class OpaquePrivKey(PrivKey, OpaquePubKey):  # pragma: no cover
     def __privkey__(self):
         return NotImplemented
 
@@ -1096,8 +1096,7 @@ class RSAPriv(PrivKey, RSAPub):
                                      rsa.RSAPublicNumbers(self.e, self.n)).private_key(default_backend())
 
     def _generate(self, key_size):
-        if any(c != 0 for c in self):
-            ##TODO:
+        if any(c != 0 for c in self):  # pragma: no cover
             raise PGPError("key is already populated")
 
         # generate some big numbers!
@@ -1167,8 +1166,7 @@ class DSAPriv(PrivKey, DSAPub):
         return dsa.DSAPrivateNumbers(self.x, pn).private_key(default_backend())
 
     def _generate(self, key_size):
-        if any(c != 0 for c in self):
-            ##TODO:
+        if any(c != 0 for c in self):  # pragma: no cover
             raise PGPError("key is already populated")
 
         # generate some big numbers!
@@ -1258,7 +1256,7 @@ class ECDSAPriv(PrivKey, ECDSAPub):
         return ec.EllipticCurvePrivateNumbers(self.s, ecp).private_key(default_backend())
 
     def _generate(self, oid):
-        if any(c != 0 for c in self):
+        if any(c != 0 for c in self):  # pragma: no cover
             raise PGPError("Key is already populated!")
 
         self.oid = EllipticCurveOID(oid)

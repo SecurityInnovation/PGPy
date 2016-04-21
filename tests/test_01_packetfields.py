@@ -344,14 +344,15 @@ class TestString2Key(object):
         assert s.iv == b'\xDE\xAD\xBE\xEF\xDE\xAD\xBE\xEF'
 
 
-class TestKeyMaterial(object):
-    params = {
-        'pkt': [],
-    }
-
-    ids = {
-        'test_keymaterial': [],
-    }
-
-    def test_keymaterial(self, pkt):
-        pass
+# TODO: this
+# class TestKeyMaterial(object):
+#     params = {
+#         'pkt': [],
+#     }
+#
+#     ids = {
+#         'test_keymaterial': [],
+#     }
+#
+#     def test_keymaterial(self, pkt):
+#         pass

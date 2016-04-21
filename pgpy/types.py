@@ -11,7 +11,6 @@ import collections
 import operator
 import os
 import re
-import sys
 import warnings
 import weakref
 
@@ -179,7 +178,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
         if po is not None:
             return (obj, po)
 
-        return obj
+        return obj  # pragma: no cover
 
     @classmethod
     def from_blob(cls, blob):
@@ -193,7 +192,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
         if po is not None:
             return (obj, po)
 
-        return obj
+        return obj  # pragma: no cover
 
     def __init__(self):
         super(Armorable, self).__init__()
@@ -364,7 +363,9 @@ class Header(Field):
                 self._len = ((dlen - (192 << 8)) & 0xFF00) + ((dlen & 0xFF) + 192)
                 del b[:2]
 
-            elif 255 > fo:  # >= 224 is implied
+            elif 255 > fo:  # pragma: no cover
+                # not testable until partial body lengths actually work
+                # >= 224 is implied
                 # this is a partial-length header
                 self._partial = True
                 self._len = 1 << (fo & 0x1f)
@@ -535,7 +536,7 @@ class MetaDispatchable(abc.ABCMeta):
                 obj.parse(packet)
 
             except Exception as ex:
-                six.raise_from(PGPError, ex, sys.exc_info()[2])
+                six.raise_from(PGPError, ex)
 
         else:
             obj = _makeobj(cls)

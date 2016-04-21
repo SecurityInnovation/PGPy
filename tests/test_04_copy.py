@@ -15,7 +15,6 @@ import pgpy
 from pgpy import PGPSignature, PGPUID, PGPMessage, PGPKey
 
 
-
 def sig():
     return PGPSignature.from_file('tests/testdata/blocks/rsasignature.asc')
 
@@ -24,6 +23,9 @@ def uid():
 
 def msg():
     return PGPMessage.from_file('tests/testdata/messages/message.signed.asc')
+
+def encmsg():
+    return PGPMessage.from_file('tests/testdata/messages/message.rsa.cast5.asc')
 
 def key(fn):
     key, _ = PGPKey.from_file(fn)
@@ -48,10 +50,10 @@ _keys = glob.glob('tests/testdata/keys/*.1.pub.asc') + glob.glob('tests/testdata
 
 class TestCopy(object):
     params = {
-        'obj': [sig(), uid(), msg()] + [ key(fn) for fn in _keys ],
+        'obj': [sig(), uid(), msg(), encmsg()] + [ key(fn) for fn in _keys ],
     }
     ids = {
-        'test_copy_obj': ['sig' , 'uid', 'msg'] + [ '-'.join(os.path.basename(fn).split('.')[:3]) for fn in _keys ],
+        'test_copy_obj': ['sig' , 'uid', 'msg', 'encmsg'] + [ '-'.join(os.path.basename(fn).split('.')[:3]) for fn in _keys ],
     }
 
     @staticmethod
@@ -81,7 +83,6 @@ class TestCopy(object):
         # return a tuple of key, key.count('.') so we get a descending alphabetical, ascending depth ordering
         return key, key.count('.')
 
-
     def test_copy_obj(self, request, obj):
         obj2 = copy.copy(obj)
 
@@ -100,7 +101,7 @@ class TestCopy(object):
 
             # check identity, but only types that should definitely be copied
             if self.check_id(objflat[k]):
-                print("[id]")
+                print("[id] {}".format(type(objflat[k])))
                 assert objflat[k] is not obj2flat[k], "{}: {}".format(type(objflat[k]), k)
 
             else:

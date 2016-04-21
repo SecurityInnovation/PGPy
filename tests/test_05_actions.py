@@ -33,8 +33,11 @@ from pgpy.constants import TrustLevel
 from pgpy.errors import PGPDecryptionError
 from pgpy.errors import PGPError
 
+from pgpy.packet import Packet
+
 from pgpy.packet.packets import PrivKeyV4
 from pgpy.packet.packets import PrivSubKeyV4
+
 
 from conftest import gpg_ver
 
@@ -72,9 +75,11 @@ class TestPGPMessage(object):
             [('filename', 'literal.bin'),
              ('message', bytearray(range(256)))],
     }
+
     def test_new(self, comp_alg, write_clean, gpg_print):
         msg = PGPMessage.new(u"This is a new message!", compression=comp_alg)
 
+        assert msg.filename == ''
         assert msg.type == 'literal'
         assert msg.message == u"This is a new message!"
         assert msg._message.format == 'u'
@@ -135,6 +140,11 @@ class TestPGPMessage(object):
             if msg._message.format == 'b':
                 out = out.encode('latin-1')
             assert out == msg.message
+
+    def test_add_marker(self):
+        msg = PGPMessage.new(u"This is a new message")
+        marker = Packet(bytearray(b'\xa8\x03\x50\x47\x50'))
+        msg |= marker
 
     def test_decrypt_passphrase_message(self, enc_msg):
         decmsg = enc_msg.decrypt("QwertyUiop")
@@ -265,6 +275,7 @@ class TestPGPKey(object):
         'key_alg':    key_algs,
     }
     ids = {
+        'test_protect':            [ '-'.join(os.path.basename(f).split('.')[:-2]) for f in sorted(glob.glob('tests/testdata/keys/*.sec.asc')) ],
         'test_encrypt_message':    [ '-'.join(os.path.basename(f).split('.')[:-2]) for f in sorted(glob.glob('tests/testdata/keys/*.pub.asc')) ],
         'test_decrypt_encmessage': [ '-'.join(os.path.basename(f).split('.')[:-2]) for f in sorted(glob.glob('tests/testdata/keys/*.sec.asc')) ],
         'test_verify_detached':    [ os.path.basename(f).replace('.', '_') for f in sorted(glob.glob('tests/testdata/signatures/*.key.asc')) ],
@@ -272,6 +283,7 @@ class TestPGPKey(object):
         'test_new_subkey':         [ str(ka).split('.')[-1] for ka in key_algs ],
         'test_pub_from_sec':       [ str(ka).split('.')[-1] for ka in key_algs ],
         'test_gpg_verify_new_key': [ str(ka).split('.')[-1] for ka in key_algs ],
+        'test_verify_invalid_sig': [ str(ka).split('.')[-1] for ka in key_algs ],
     }
     string_sigs = dict()
     timestamp_sigs = dict()
@@ -295,8 +307,8 @@ class TestPGPKey(object):
                         raise
 
     def test_protect(self, sec):
-        if sec.key_algorithm == PubKeyAlgorithm.ECDSA:
-            pytest.skip("Cannot properly encrypt ECDSA keys yet")
+        # if sec.key_algorithm == PubKeyAlgorithm.ECDSA:
+        #     pytest.skip("Cannot properly encrypt ECDSA keys yet")
 
         assert sec.is_protected is False
 
@@ -441,9 +453,20 @@ class TestPGPKey(object):
         with write_clean('tests/testdata/message.asc', 'w', str(message)), gpg_import('./pubtest.asc'):
             assert gpg_verify('./message.asc')
 
+    def test_verify_invalid_sig(self, string, key_alg):
+        # generate a keypair
+        u = PGPUID.new('asdf')
+        k = PGPKey.new(key_alg, key_alg_size[key_alg])
+        k.add_uid(u, usage={KeyFlags.Certify, KeyFlags.Sign}, hashes=[HashAlgorithm.SHA1])
+
+        # sign string with extra characters (this means k.pubkey.verify(string) will return false
+        sig = k.sign(string + 'asdf')
+
+        assert not k.pubkey.verify(string, sig)
+
     def test_encrypt_message(self, pub, message, sessionkey):
         if pub.key_algorithm not in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.ECDSA}:
-            pytest.skip('Asymmetric encryption only implemented for RSA currently')
+            pytest.skip('Asymmetric encryption only implemented for RSA/ECDSA currently')
             return
 
         if len(self.encmessage) == 1:

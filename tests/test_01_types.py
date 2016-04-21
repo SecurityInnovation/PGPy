@@ -80,3 +80,12 @@ class TestPGPObject(object):
         # this should fail
         with pytest.raises(UnicodeDecodeError):
             pgpo.data.decode('utf-8')
+
+    def test_text_to_bytes_none(self):
+        assert PGPObject.text_to_bytes(None) is None
+
+    def test_bytes_to_text_none(self):
+        assert PGPObject.bytes_to_text(None) is None
+
+    def test_bytes_to_text_text(self):
+        assert PGPObject.bytes_to_text('asdf') == 'asdf'

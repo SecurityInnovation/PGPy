@@ -8,7 +8,7 @@ import warnings
 try:
     from singledispatch import singledispatch
 
-except ImportError:
+except ImportError:  # pragma: no cover
     from functools import singledispatch
 
 

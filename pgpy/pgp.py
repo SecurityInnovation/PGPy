@@ -1198,8 +1198,6 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         if self._key:
             return self._key.fingerprint
 
-        return None
-
     @property
     def hashdata(self):
         # when signing a key, only the public portion of the keys is hashed
@@ -1296,15 +1294,18 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         if self.is_public:
             raise TypeError("cannot add public sibling to pubkey")
 
+        if not pubkey.is_public:
+            raise TypeError("sibling must be public")
+
         if self._sibling is not None and self._sibling() is not None:
             raise ValueError("public key reference already set")
 
         if pubkey.fingerprint != self.fingerprint:
             raise ValueError("key fingerprint mismatch")
 
+        # TODO: sync packets with sibling
         self._sibling = weakref.ref(pubkey)
         pubkey._sibling = weakref.ref(self)
-        self._sync_sibling()
 
     @property
     def self_signatures(self):
@@ -1342,7 +1343,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         key = PGPKey()
 
         if key_algorithm in {PubKeyAlgorithm.RSAEncrypt, PubKeyAlgorithm.RSASign}:  # pragma: no cover
-            warnings.warn('{:s} is deprecated - generating key using RSAEncryptOrSign')
+            warnings.warn('{:s} is deprecated - generating key using RSAEncryptOrSign'.format(key_algorithm.name), stacklevel=2)
             key_algorithm = PubKeyAlgorithm.RSAEncryptOrSign
 
         # generate some key data to match key_algorithm and key_size
@@ -1437,7 +1438,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             raise TypeError("unsupported operand type(s) for |: '{:s}' and '{:s}'"
                         "".format(self.__class__.__name__, other.__class__.__name__))
 
-        if isinstance(self._sibling, weakref.ref):
+        if isinstance(self._sibling, weakref.ref):  # pragma: no cover
             sib = self._sibling()
             sib |= copy.copy(other)
 
@@ -1462,13 +1463,13 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         ##TODO: specify strong defaults for enc_alg and hash_alg
         if self.is_public:
             # we can't protect public keys because only private key material is ever protected
-            warnings.warn("Public keys cannot be passphrase-protected", stacklevel=3)
+            warnings.warn("Public keys cannot be passphrase-protected", stacklevel=2)
             return
 
         if self.is_protected and not self.is_unlocked:
             # we can't protect a key that is already protected unless it is unlocked first
             warnings.warn("This key is already protected with a passphrase - "
-                          "please unlock it before attempting to specify a new passphrase", stacklevel=3)
+                          "please unlock it before attempting to specify a new passphrase", stacklevel=2)
             return
 
         for sk in itertools.chain([self], self.subkeys.values()):
@@ -1951,10 +1952,10 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                 subkeyid = key.fingerprint.keyid
                 esig = None
 
-                if not key.is_public:  # pragma: no cover
+                if not key.is_public:
                     esig = key.bind(self)
 
-                elif subkeyid in self.subkeys:
+                elif subkeyid in self.subkeys:  # pragma: no cover
                     esig = self.subkeys[subkeyid].bind(self)
 
                 if esig is not None:
@@ -2224,7 +2225,7 @@ class PGPKeyring(collections.Container, collections.Iterable, collections.Sized)
         if isinstance(alias, six.string_types):
             return alias in aliases or alias.replace(' ', '') in aliases
 
-        return alias in aliases
+        return alias in aliases  # pragma: no cover
 
     def __len__(self):
         return len(self._keys)
@@ -2304,8 +2305,11 @@ class PGPKeyring(collections.Container, collections.Iterable, collections.Sized)
             self._add_alias(pgpkey.fingerprint.shortid, pkid)
             for uid in pgpkey.userids:
                 self._add_alias(uid.name, pkid)
-                self._add_alias(uid.comment, pkid)
-                self._add_alias(uid.email, pkid)
+                if uid.comment:
+                    self._add_alias(uid.comment, pkid)
+
+                if uid.email:
+                    self._add_alias(uid.email, pkid)
 
             # subkeys
             for subkey in pgpkey.subkeys.values():

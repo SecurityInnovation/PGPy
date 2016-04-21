@@ -196,6 +196,16 @@ class PKESessionKeyV3(PKESessionKey):
         _bytes += self.ct.__bytearray__() if self.ct is not None else b'\x00' * (self.header.length - 10)
         return _bytes
 
+    def __copy__(self):
+        sk = self.__class__()
+        sk.header = copy.copy(self.header)
+        sk._encrypter = self._encrypter
+        sk.pkalg = self.pkalg
+        if self.ct is not None:
+            sk.ct = copy.copy(self.ct)
+
+        return sk
+
     def decrypt_sk(self, pk):
         if self.pkalg == PubKeyAlgorithm.RSAEncryptOrSign:
             # pad up ct with null bytes if necessary
@@ -520,6 +530,14 @@ class SKESessionKeyV4(SKESessionKey):
         _bytes += self.s2k.__bytearray__()[1:]
         _bytes += self.ct
         return _bytes
+
+    def __copy__(self):
+        sk = self.__class__()
+        sk.header = copy.copy(self.header)
+        sk.s2k = copy.copy(self.s2k)
+        sk.ct = self.ct.copy()
+
+        return sk
 
     def parse(self, packet):
         super(SKESessionKeyV4, self).parse(packet)
@@ -1025,6 +1043,11 @@ class SKEData(Packet):
         _bytes += self.ct
         return _bytes
 
+    def __copy__(self):
+        skd = self.__class__()
+        skd.ct = self.ct.copy()
+        return skd
+
     def parse(self, packet):
         super(SKEData, self).parse(packet)
         self.ct = packet[:self.header.length]
@@ -1496,6 +1519,11 @@ class IntegrityProtectedSKEDataV1(IntegrityProtectedSKEData):
         _bytes += super(IntegrityProtectedSKEDataV1, self).__bytearray__()
         _bytes += self.ct
         return _bytes
+
+    def __copy__(self):
+        skd = self.__class__()
+        skd.ct = self.ct[:]
+        return skd
 
     def parse(self, packet):
         super(IntegrityProtectedSKEDataV1, self).parse(packet)
