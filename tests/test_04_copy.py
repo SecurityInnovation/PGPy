@@ -18,18 +18,15 @@ from pgpy import PGPSignature, PGPUID, PGPMessage, PGPKey
 def sig():
     return PGPSignature.from_file('tests/testdata/blocks/rsasignature.asc')
 
+
 def uid():
     return PGPUID.new('Abraham Lincoln', comment='Honest Abe', email='abraham.lincoln@whitehouse.gov')
 
-def msg():
-    return PGPMessage.from_file('tests/testdata/messages/message.signed.asc')
-
-def encmsg():
-    return PGPMessage.from_file('tests/testdata/messages/message.rsa.cast5.asc')
 
 def key(fn):
     key, _ = PGPKey.from_file(fn)
     return key
+
 
 def walk_obj(obj, prefix=""):
     from enum import Enum
@@ -46,14 +43,15 @@ def walk_obj(obj, prefix=""):
 
 
 _keys = glob.glob('tests/testdata/keys/*.1.pub.asc') + glob.glob('tests/testdata/keys/*.1.sec.asc')
+_msgs = [ 'tests/testdata/messages/message.{}.asc'.format(f) for f in ['signed', 'rsa.cast5.no-mdc', 'rsa.dsa.pass.aes']]
 
 
 class TestCopy(object):
     params = {
-        'obj': [sig(), uid(), msg(), encmsg()] + [ key(fn) for fn in _keys ],
+        'obj': [sig(), uid()] + [ PGPMessage.from_file(m) for m in _msgs ] + [ key(fn) for fn in _keys ],
     }
     ids = {
-        'test_copy_obj': ['sig' , 'uid', 'msg', 'encmsg'] + [ '-'.join(os.path.basename(fn).split('.')[:3]) for fn in _keys ],
+        'test_copy_obj': ['sig' , 'uid'] + [ '-'.join(os.path.basename(fn).split('.')[:3]) for fn in _msgs ] + [ '-'.join(os.path.basename(fn).split('.')[:3]) for fn in _keys ],
     }
 
     @staticmethod

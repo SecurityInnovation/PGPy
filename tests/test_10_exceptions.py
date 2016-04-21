@@ -338,6 +338,10 @@ class TestPGPKey(object):
         with pytest.raises(ValueError):
             rsa_sec.pubkey = rsa_pub
 
+    def test_set_pubkey_privkey(self, rsa_sec, targette_sec):
+        with pytest.raises(TypeError):
+            rsa_sec.pubkey = targette_sec
+
     def test_add_subkey_to_pubkey(self, rsa_pub, temp_subkey):
         with pytest.raises(PGPError):
             rsa_pub.add_subkey(temp_subkey)

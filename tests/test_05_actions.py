@@ -500,6 +500,24 @@ class TestPGPKey(object):
                 with gpg_import('./keys/ecc.1.sec.asc'):
                     assert gpg_decrypt('./aemsg.asc', keyid='D01055FBCADD268E')
 
+    def test_encrypt_message_select_uid(self):
+        # generate a temporary key with two UIDs, then encrypt a message
+        u1 = PGPUID.new('UID One')
+        u2 = PGPUID.new('UID Two')
+        k = PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 512)
+
+        flags = {KeyFlags.Certify, KeyFlags.Sign, KeyFlags.EncryptCommunications, KeyFlags.EncryptStorage}
+
+        k.add_uid(u1, usage=flags, hashes=[HashAlgorithm.SHA1], ciphers=[SymmetricKeyAlgorithm.AES128])
+        k.add_uid(u2, usage=flags, hashes=[HashAlgorithm.SHA1], ciphers=[SymmetricKeyAlgorithm.Camellia128])
+
+        emsg = k.pubkey.encrypt(PGPMessage.new('This message is about to be encrypted'), user='UID Two')
+
+        # assert that it was encrypted with Camellia128 and that we can decrypt it normally
+        assert emsg._sessionkeys[0].decrypt_sk(k._key)[0] == SymmetricKeyAlgorithm.Camellia128
+        assert k.decrypt(emsg).message == 'This message is about to be encrypted'
+
+
     def test_sign_timestamp(self, sec):
         with self.assert_warnings():
             sig = sec.sign(None)

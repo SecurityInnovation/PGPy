@@ -41,7 +41,7 @@ class Header(_Header):
         try:
             self._tag = PacketTag(_tag)
 
-        except ValueError:
+        except ValueError:  # pragma: no cover
             self._tag = _tag
 
     @property

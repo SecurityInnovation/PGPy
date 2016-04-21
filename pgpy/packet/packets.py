@@ -535,7 +535,7 @@ class SKESessionKeyV4(SKESessionKey):
         sk = self.__class__()
         sk.header = copy.copy(self.header)
         sk.s2k = copy.copy(self.s2k)
-        sk.ct = self.ct.copy()
+        sk.ct = self.ct[:]
 
         return sk
 
@@ -1045,7 +1045,7 @@ class SKEData(Packet):
 
     def __copy__(self):
         skd = self.__class__()
-        skd.ct = self.ct.copy()
+        skd.ct = self.ct[:]
         return skd
 
     def parse(self, packet):

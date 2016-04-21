@@ -52,6 +52,7 @@ class TestPGPMessage(object):
     ids = {
         'test_load_from_file': [ os.path.basename(f) for f in params['msgfile'] ],
     }
+
     def test_load_from_file(self, msgfile):
         # TODO: figure out a good way to verify that all went well here, because
         #       PGPy reorders signatures sometimes, and also unwraps compressed messages
