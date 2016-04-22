@@ -8,6 +8,7 @@ Classes
 
 .. autoclass:: PGPKey
     :members:
+    :noindex:
 
     .. py:attribute:: ascii_header
         :noindex:
@@ -29,7 +30,6 @@ Classes
 
                     key, others = PGPKey.from_file('path/to/keyfile')
                     # others: { (Fingerprint, bool(key.is_public): PGPKey }
-
 
     .. py:classmethod:: from_blob(blob)
         :noindex:

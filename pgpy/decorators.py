@@ -2,11 +2,22 @@
 """
 import contextlib
 import functools
+import six
 import warnings
 
-from singledispatch import singledispatch
+try:
+    from singledispatch import singledispatch
+
+except ImportError:  # pragma: no cover
+    from functools import singledispatch
+
 
 from .errors import PGPError
+
+__all__ = ['classproperty',
+           'sdmethod',
+           'sdproperty',
+           'KeyAction']
 
 
 def classproperty(fget):
@@ -101,8 +112,16 @@ class KeyAction(object):
                                "".format(attr=attr, eval=str(expected), got=str(getattr(key, attr))))
 
     def __call__(self, action):
-        @functools.wraps(action)
+        # @functools.wraps(action)
+        @six.wraps(action)
         def _action(key, *args, **kwargs):
+            if key._key is None:
+                raise PGPError("No key!")
+
+            # if a key is in the process of being created, it needs to be allowed to certify its own user id
+            if len(key._uids) == 0 and key.is_primary and action is not key.certify.__wrapped__:
+                raise PGPError("Key is not complete - please add a User ID!")
+
             with self.usage(key, kwargs.get('user', None)) as _key:
                 self.check_attributes(key)
 

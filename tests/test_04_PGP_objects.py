@@ -7,6 +7,9 @@ import os
 
 import six
 
+from pgpy.packet import Packet
+
+from pgpy import PGPKey
 from pgpy import PGPKeyring
 from pgpy import PGPMessage
 from pgpy import PGPSignature
@@ -42,6 +45,26 @@ def abe_image():
     return PGPUID.new(abebytes)
 
 
+class TestPGPMessage(object):
+    params = {
+        'msgfile': sorted(glob.glob('tests/testdata/messages/*.asc')),
+    }
+    ids = {
+        'test_load_from_file': [ os.path.basename(f) for f in params['msgfile'] ],
+    }
+
+    def test_load_from_file(self, msgfile):
+        # TODO: figure out a good way to verify that all went well here, because
+        #       PGPy reorders signatures sometimes, and also unwraps compressed messages
+        #       so comparing str(msg) to the contents of msgfile doesn't actually work
+        msg = PGPMessage.from_file(msgfile)
+
+        with open(msgfile, 'r') as mf:
+            mt = mf.read()
+
+            assert len(str(msg)) == len(mt)
+
+
 class TestPGPUID(object):
     def test_userid(self, abe):
         assert abe.name == 'Abraham Lincoln'
@@ -63,6 +86,38 @@ class TestPGPUID(object):
         assert six.u("{:s}").format(unc) == six.u('Temperair\xe9e Youx\'seur (\u2603)')
         assert six.u("{:s}").format(une) == six.u('Temperair\xe9e Youx\'seur <snowman@not.an.email.addre.ss>')
         assert six.u("{:s}").format(unce) == six.u('Temperair\xe9e Youx\'seur (\u2603) <snowman@not.an.email.addre.ss>')
+
+
+class TestPGPKey(object):
+    kf = next(iter(sorted(glob.glob('tests/testdata/keys/*.pub.asc'))))
+
+    def test_load_from_file(self, gpg_keyid_file):
+        key, _ = PGPKey.from_file(self.kf)
+
+        assert key.fingerprint.keyid in gpg_keyid_file(self.kf.replace('tests/testdata/', ''))
+
+    def test_load_from_str(self, gpg_keyid_file):
+        with open(self.kf, 'r') as tkf:
+            key, _ = PGPKey.from_blob(tkf.read())
+
+        assert key.fingerprint.keyid in gpg_keyid_file(self.kf.replace('tests/testdata/', ''))
+
+    @pytest.mark.regression(issue=140)
+    def test_load_from_bytes(self, gpg_keyid_file):
+        with open(self.kf, 'rb') as tkf:
+            key, _ = PGPKey.from_blob(tkf.read())
+
+        assert key.fingerprint.keyid in gpg_keyid_file(self.kf.replace('tests/testdata/', ''))
+
+    @pytest.mark.regression(issue=140)
+    def test_load_from_bytearray(self, gpg_keyid_file):
+        tkb = bytearray(os.stat(self.kf).st_size)
+        with open(self.kf, 'rb') as tkf:
+            tkf.readinto(tkb)
+
+        key, _ = PGPKey.from_blob(tkb)
+
+        assert key.fingerprint.keyid in gpg_keyid_file(self.kf.replace('tests/testdata/', ''))
 
 
 @pytest.fixture(scope='module')
@@ -119,8 +174,10 @@ class TestPGPKeyring(object):
     def test_select_fingerprint(self, keyring):
         for fp, name in [("F429 4BC8 094A 7E05 85C8 5E86 3747 3B37 58C4 4F36", "RSA von TestKey"),
                          (six.u("F429 4BC8 094A 7E05 85C8 5E86 3747 3B37 58C4 4F36"), six.u("RSA von TestKey")),
+                         (Fingerprint("F429 4BC8 094A 7E05 85C8 5E86 3747 3B37 58C4 4F36"), "RSA von TestKey"),
                          ("EBC8 8A94 ACB1 10F1 BE3F E3C1 2B47 4BB0 2084 C712", "DSA von TestKey"),
-                         (six.u("EBC8 8A94 ACB1 10F1 BE3F E3C1 2B47 4BB0 2084 C712"), six.u("DSA von TestKey"))]:
+                         (six.u("EBC8 8A94 ACB1 10F1 BE3F E3C1 2B47 4BB0 2084 C712"), six.u("DSA von TestKey")),
+                         (Fingerprint("EBC8 8A94 ACB1 10F1 BE3F E3C1 2B47 4BB0 2084 C712"), "DSA von TestKey"),]:
             with keyring.key(fp) as key:
                 assert key.fingerprint == fp
                 assert key.userids[0].name == name
@@ -193,10 +250,28 @@ class TestPGPKeyring(object):
         assert "usc-kus@securityinnovation.com" not in keyring
 
         # fingerprints
-        assert "513B 160A A994 8C1F 3D77 952D CE57 0774 D0FD CA20"
+        assert "513B 160A A994 8C1F 3D77 952D CE57 0774 D0FD CA20" not in keyring
 
         # keyid(s)
         assert "CE570774D0FDCA20" not in keyring
 
         # shortids
         assert "D0FDCA20" not in keyring
+
+    def test_unload_key_half(self, keyring):
+        with keyring.key('RSA von TestKey') as key:
+            keyring.unload(key)
+
+        # key was unloaded for real
+        assert id(key) not in keyring._keys
+
+        # but it was not a unique alias, because we only unloaded half of the key
+        # userid components
+        assert 'RSA von TestKey' in keyring
+        assert '2048-bit RSA' in keyring
+        assert 'rsa@test.key' in keyring
+
+        # fingerprint, keyid, shortid
+        assert 'F429 4BC8 094A 7E05 85C8  5E86 3747 3B37 58C4 4F36' in keyring
+        assert '37473B3758C44F36' in keyring
+        assert '58C44F36' in keyring

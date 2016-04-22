@@ -1,6 +1,43 @@
 Keys
 ====
 
+Generating Keys
+---------------
+
+PGPy can generate most types keys as defined in the standard.
+
+Generating Primary Keys
+^^^^^^^^^^^^^^^^^^^^^^^
+
+It is possible to generate most types of keys with PGPy now. The process is mostly straightforward::
+
+    from pgpy.constants import PubKeyAlgorithm, KeyFlags, HashAlgorithm, SymmetricKeyAlgorithm, CompressionAlgorithm
+
+    # we can start by generating a primary key. For this example, we'll use RSA, but it could be DSA or ECDSA as well
+    key = pgpy.PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 4096)
+
+    # we now have some key material, but our new key doesn't have a user ID yet, and therefore is not yet usable!
+    uid = pgpy.PGPUID.new('Abraham Lincoln', comment='Honest Abe', email='abraham.lincoln@whitehouse.gov')
+
+    # now we must add the new user id to the key. We'll need to specify all of our preferences at this point
+    # because PGPy doesn't have any built-in key preference defaults at this time
+    # this example is similar to GnuPG 2.1.x defaults, with no expiration or preferred keyserver
+    key.add_uid(uid, usage={KeyFlags.Sign, KeyFlags.EncryptCommunications, KeyFlags.EncryptStorage},
+                hashes=[HashAlgorithm.SHA256, HashAlgorithm.SHA384, HashAlgorithm.SHA512, HashAlgorithm.SHA224],
+                ciphers=[SymmetricKeyAlgorithm.AES256, SymmetricKeyAlgorithm.AES192, SymmetricKeyAlgorithm.AES128],
+                compression=[CompressionAlgorithm.ZLIB, CompressionAlgorithm.BZ2, CompressionAlgorithm.ZIP, CompressionAlgorithm.Uncompressed])
+
+Generating Sub Keys
+^^^^^^^^^^^^^^^^^^^
+
+Generating a subkey is similar to the process above, except that it requires an existing primary key::
+
+    # assuming we already have a primary key, we can generate a new key and add it as a subkey thusly:
+    subkey = pgpy.PGPKey.new(PubKeyAlgorithm.RSA, 4096)
+
+    # preferences that are specific to the subkey can be chosen here, otherwise the key will use the primary key's preferences.
+    key.add_subkey(subkey, usage={KeyFlags.Authentication})
+
 Loading Keys
 ------------
 
@@ -40,7 +77,17 @@ If you intend to maintain multiple keys in memory for extended periods, using a 
 Key Operations
 --------------
 
-Once you have a key, or multiple keys, loaded, there are some things you may need to do before they can be used.
+Once you have one or more keys generated or loaded, there are some things you may need or want to do before they can be used.
+
+Passphrase Protecting Secret Keys
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+It is usually recommended to passphrase-protect private keys. Adding a passphrase to a key is simple::
+
+    # key.is_public is False
+    # key.is_protected is False
+    key.protect("C0rrectPassphr@se")
+    # key.is_protected is now True
 
 Unlocking Protected Secret Keys
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -53,7 +100,7 @@ Key unlocking is quite simple::
     # enc_key.is_public is False
     # enc_key.is_protected is True
     # enc_key.is_unlocked is False
-    # Note that this context manager does not actually yield anything.
+    # Note that this context manager yields self, so while you can supply `as cvar`, it isn't strictly required
     # If the passphrase given is incorrect, this will raise PGPDecryptionError
     with enc_key.unlock("C0rrectPassphr@se"):
         # enc_key.is_unlocked is now True

@@ -4,4 +4,4 @@ from .types import UserAttribute as UserAttribute
 from .signature import *  # NOQA
 from .userattribute import *  # NOQA
 
-__all__ = [Signature, UserAttribute]
+__all__ = ['Signature', 'UserAttribute']

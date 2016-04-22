@@ -23,22 +23,22 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
         - Tag 14, False, Public-SubKey Packet
 
     :Versioned Packets, v4:
-        - Tag 2,  True,  Signature Packet
-        - Tag 3,  True,  Symmetric-Key Encrypted Session Key Packet
-        - Tag 5,  True,  Secret-Key Packet
-        - Tag 6,  True,  Public-Key Packet
-        - Tag 7,  True,  Secret-Subkey Packet
-        - Tag 14, True,  Public-SubKey Packet
+        - Tag 2,  True, Signature Packet
+        - Tag 3,  True, Symmetric-Key Encrypted Session Key Packet
+        - Tag 5,  True, Secret-Key Packet
+        - Tag 6,  True, Public-Key Packet
+        - Tag 7,  True, Secret-Subkey Packet
+        - Tag 14, True, Public-SubKey Packet
 
     :Unversioned Packets:
-        - Tag 8,  True,  Compressed Data Packet
-        - Tag 9,  True,  Symetrically Encrypted Data Packet
-        - Tag 10, False, Marker Packet
-        - Tag 11, True,  Literal Data Packet
-        - Tag 12, True,  Trust Packet
-        - Tag 13, True,  User ID Packet
-        - Tag 17, True,  User Attribute Packet
-        - Tag 19, True,  Modification Detection Code Packet
+        - Tag 8,  True, Compressed Data Packet
+        - Tag 9,  True, Symetrically Encrypted Data Packet
+        - Tag 10, True, Marker Packet
+        - Tag 11, True, Literal Data Packet
+        - Tag 12, True, Trust Packet
+        - Tag 13, True, User ID Packet
+        - Tag 17, True, User Attribute Packet
+        - Tag 19, True, Modification Detection Code Packet
 
     :Signature Subpackets:
         - 0x02,  True,  Signature Creation Time
@@ -62,7 +62,7 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
         - 0x1C,  True,  Signer's User ID
         - 0x1D,  True,  Reason For Revocation
         - 0x1E,  True,  Features
-        - 0x1F,  False, Siganture Target
+        - 0x1F,  False, Signature Target
         - 0x20,  True,  Embedded Signature
 
     :User Attribute Subpackets:
@@ -71,7 +71,8 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
     :Storage Formats:
         - ASCII,  True, ASCII armored PGP blocks
         - binary, True, binary PGP packets
-        - GPG,    True, GPG keyrings
+        - GPG,    True, GPG <= 2.0.x keyrings
+        - KBX,    False, GPG >= 2.1.x keyboxes
 
     :Other Sources:
         - Retrieve, False, Retrieve from HKP key servers
@@ -83,6 +84,10 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
         - ElGamal, True, ElGamal
 
     :Key Actions:
+        - Protect,   True,  Protect private keys encryped with CAST5
+        - Protect,   True,  Protect private keys encryped with Blowfish
+        - Protect,   True,  Protect private keys encryped with AES
+        - Protect,   False, Protect private keys encryped with Twofish
         - Unprotect, True,  Unprotect private keys encrypted with IDEA*
         - Unprotect, True,  Unprotect private keys encrypted with Triple-DES
         - Unprotect, True,  Unprotect private keys encrypted with CAST5
@@ -92,8 +97,8 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
 
     :RSA Key Actions:
         - Load,       True,  Load Keys
-        - Generate,   False, Generate Keys
-        - Generate,   False, Generate Subkeys
+        - Generate,   True,  Generate Keys
+        - Generate,   True,  Generate Subkeys
         - Sign,       True,  Generate detached signatures of binary documents
         - Sign,       True,  Generate inline signatures of canonical documents
         - Sign,       True,  Sign messages
@@ -128,8 +133,8 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
 
     :DSA Key Actions:
         - Load,       True,  Load Keys
-        - Generate,   False, Generate Keys
-        - Generate,   False, Generate Subkeys
+        - Generate,   True,  Generate Keys
+        - Generate,   True,  Generate Subkeys
         - Sign,       True,  Generate detached signatures of binary documents
         - Sign,       True,  Generate inline signatures of canonical documents
         - Sign,       True,  One-Pass Sign messages
@@ -182,7 +187,7 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
 
 
 .. progress:: RFC 5581
-    :text: :rfc:`5881` extends RFC 4880 to officially add support for the Camellia cipher
+    :text: :rfc:`5581` extends RFC 4880 to officially add support for the Camellia cipher
 
     :Actions:
         - Encryption, True, Camellia*
@@ -193,66 +198,97 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
     :text: :rfc:`6637` extends OpenPGP to officially add support for elliptic curve cryptography
 
     :Key Types:
-        - ECDH,  False, Elliptic Curve Diffie-Hellman
-        - ECDSA, False, Elliptic Curve Digital Signature Algorithm
+        - ECDH,  True, Elliptic Curve Diffie-Hellman
+        - ECDSA, True, Elliptic Curve Digital Signature Algorithm
 
     :Curves:
-        - Curve, False, NIST P-256
-        - Curve, False, NIST P-386
-        - Curve, False, NIST P-521
+        - Curve, True, NIST P-256
+        - Curve, True, NIST P-386
+        - Curve, True, NIST P-521
 
     :ECDH Key Actions:
-        - Load,       False, Load Keys
-        - Generate,   False, Generate Keys
-        - Generate,   False, Generate Subkeys
-        - KDF,        False, Encode KDF data for encryption
-        - KDF,        False, Decode KDF data for decryption
+        - Load,       True,  Load Keys
+        - Generate,   True,  Generate Keys
+        - Generate,   True,  Generate Subkeys
+        - KDF,        True,  Encode KDF data for encryption
+        - KDF,        True,  Decode KDF data for decryption
 
     :ECDSA Key Actions:
-        - Load,       False, Load Keys
-        - Generate,   False, Generate Keys
-        - Generate,   False, Generate Subkeys
-        - Sign,       False, Generate detached signatures of binary documents
-        - Sign,       False, Generate inline signatures of canonical documents
-        - Sign,       False, One-Pass Sign messages
-        - Sign,       False, Sign messages
-        - Sign,       False, Sign keys
-        - Sign,       False, Certify User IDs
-        - Sign,       False, Certify User Attributes
-        - Sign,       False, Generate key binding signatures
-        - Sign,       False, Revoke certifications
-        - Sign,       False, Revoke keys
-        - Sign,       False, Revoke subkeys
-        - Sign,       False, Generate timestamp signatures
-        - Sign,       False, Generate standalone signatures
+        - Load,       True,  Load Keys
+        - Generate,   True,  Generate Keys
+        - Generate,   True,  Generate Subkeys
+        - Sign,       True,  Generate detached signatures of binary documents
+        - Sign,       True,  Generate inline signatures of canonical documents
+        - Sign,       True,  One-Pass Sign messages
+        - Sign,       True,  Sign messages
+        - Sign,       True,  Sign keys
+        - Sign,       True,  Certify User IDs
+        - Sign,       True,  Certify User Attributes
+        - Sign,       True,  Generate key binding signatures
+        - Sign,       True,  Revoke certifications
+        - Sign,       True,  Revoke keys
+        - Sign,       True,  Revoke subkeys
+        - Sign,       True,  Generate timestamp signatures
+        - Sign,       True,  Generate standalone signatures
         - Sign,       False, Generate third party confirmation signatures
-        - Verify,     False, Verify detached signatures
-        - Verify,     False, Verify inline signatures of canonical documents
-        - Verify,     False, Verify messages
-        - Verify,     False, Verify key signatures
-        - Verify,     False, Verify User ID certification signatures
-        - Verify,     False, Verify User Attribute certification signatures
-        - Verify,     False, Verify key binding signatures
-        - Verify,     False, Verify key revocation signatures
-        - Verify,     False, Verify subkey revocation signatures
-        - Verify,     False, Verify certification revocation signatures
-        - Verify,     False, Verify timestamp signatures
-        - Verify,     False, Verify standalone signatures
+        - Verify,     True,  Verify detached signatures
+        - Verify,     True,  Verify inline signatures of canonical documents
+        - Verify,     True,  Verify messages
+        - Verify,     True,  Verify key signatures
+        - Verify,     True,  Verify Use r ID certification signatures
+        - Verify,     True,  Verify User Attribute certification signatures
+        - Verify,     True,  Verify key binding signatures
+        - Verify,     True,  Verify key revocation signatures
+        - Verify,     True,  Verify subkey revocation signatures
+        - Verify,     True,  Verify certification revocation signatures
+        - Verify,     True,  Verify timestamp signatures
+        - Verify,     True,  Verify standalone signatures
         - Verify,     False, Verify third party confirmation signatures
-        - Revocation, False, Designate Revocation Key
-        - Revocation, False, Revoke (Sub)Key with Self Signature
+        - Revocation, True,  Designate Revocation Key
+        - Revocation, True,  Revoke (Sub)Key with Self Signature
         - Revocation, False, Revoke (Sub)Key using Designated Revocation Key
 
 Non-RFC Extensions
 ==================
 
+This section covers things that are considered extensions to PGP, but are not codified in the form of an RFC.
+
 .. progress:: DNS PKA
-    :text: This section covers things that are considered extensions to PGP, but are not codified in the form of an RFC.
+    :text: Publishing OpenPGP keys in DNS
 
     :Other Sources:
         - DNS PKA, False, Look up and retrieve keys stored in DNS PKA records.
 
+.. progress:: OpenPGP HTTP Keyserver Protocol (HKP)
+    :text: The protocol is specified in `Marc Horowitz's thesis paper`_, and an expired RFC draft by David Shaw, `draft-shaw-openpgp-hkp-00`_.
 
-.. note::
+    :HKP:
+        - HKP, False, Look up and retrieve keys from key server
+        - HKP, False, Send keys to key server
+
+.. progress:: EdDSA for OpenPGP
+    :text: Use of Ed25519 with ECDSA and ECDH in OpenPGP is currently specified in an in-progress RFC draft by Werner Koch, `draft-koch-eddsa-for-openpgp`_.
+
+    :Curves:
+        - Curve, False, Ed25519
+
+
+.. progress:: Additional Curves for OpenPGP
+    :text: Some additional curves that can be used with ECDSA/ECDH that are not explicitly called out in :rfc:`6637`, but have standardized OIDs and are implemented in other software.
+
+    :Curves:
+        - Curve, False, Brainpool P-256
+        - Curve, False, Brainpool P-384
+        - Curve, False, Brainpool P-512
+        - Curve, False, Curve25519
+        - Curve, True,  SECP256K1
+
+.. note:: Use of Brainpool curves with ECDSA/ECDH
+    :text: Although these curves are not explicitly mentioned in an RFC for OpenPGP at this point, GnuPG 2.1.x+ does support using them, so I have included them here as well.
 
     \* Cipher availability depends on the currently installed OpenSSL being compiled with support for it
+
+
+.. _`Marc Horowitz's thesis paper`: http://www.mit.edu/afs/net.mit.edu/project/pks/thesis/paper/thesis.html
+.. _`draft-shaw-openpgp-hkp-00`: https://tools.ietf.org/html/draft-shaw-openpgp-hkp-00
+.. _`draft-koch-eddsa-for-openpgp`: https://tools.ietf.org/html/draft-koch-eddsa-for-openpgp-04

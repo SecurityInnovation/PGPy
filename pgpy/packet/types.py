@@ -3,14 +3,30 @@
 from __future__ import division
 
 import abc
+import copy
 
 import six
+
+from ..constants import PacketTag
 
 from ..decorators import sdproperty
 
 from ..types import Dispatchable
 from ..types import Field
 from ..types import Header as _Header
+
+__all__ = ['Header',
+           'VersionedHeader',
+           'Packet',
+           'VersionedPacket',
+           'Opaque',
+           'Key',
+           'Public',
+           'Private',
+           'Primary',
+           'Sub',
+           'MPI',
+           'MPIs', ]
 
 
 class Header(_Header):
@@ -19,8 +35,14 @@ class Header(_Header):
         return self._tag
 
     @tag.register(int)
+    @tag.register(PacketTag)
     def tag_int(self, val):
-        self._tag = (val & 0x3F) if self._lenfmt else ((val & 0x3C) >> 2)
+        _tag = (val & 0x3F) if self._lenfmt else ((val & 0x3C) >> 2)
+        try:
+            self._tag = PacketTag(_tag)
+
+        except ValueError:  # pragma: no cover
+            self._tag = _tag
 
     @property
     def typeid(self):
@@ -30,11 +52,11 @@ class Header(_Header):
         super(Header, self).__init__()
         self.tag = 0x00
 
-    def __bytes__(self):
+    def __bytearray__(self):
         tag = 0x80 | (self._lenfmt << 6)
         tag |= (self.tag) if self._lenfmt else ((self.tag << 2) | {1: 0, 2: 1, 4: 2, 0: 3}[self.llen])
 
-        _bytes = self.int_to_bytes(tag)
+        _bytes = bytearray(self.int_to_bytes(tag))
         _bytes += self.encode_length(self.length, self._lenfmt, self.llen)
         return _bytes
 
@@ -106,10 +128,10 @@ class VersionedHeader(Header):
         super(VersionedHeader, self).__init__()
         self.version = 0
 
-    def __bytes__(self):
-        _bytes = bytearray(super(VersionedHeader, self).__bytes__())
-        _bytes.append(self.version)
-        return bytes(_bytes)
+    def __bytearray__(self):
+        _bytes = bytearray(super(VersionedHeader, self).__bytearray__())
+        _bytes += bytearray([self.version])
+        return _bytes
 
     def parse(self, packet):  # pragma: no cover
         if self.tag == 0:
@@ -131,8 +153,8 @@ class Packet(Dispatchable):
             self.header.tag = self.__typeid__
 
     @abc.abstractmethod
-    def __bytes__(self):
-        return self.header.__bytes__()
+    def __bytearray__(self):
+        return self.header.__bytearray__()
 
     def __len__(self):
         return len(self.header) + self.header.length
@@ -141,7 +163,7 @@ class Packet(Dispatchable):
         return "<{cls:s} [tag 0x{tag:02d}] at 0x{id:x}>".format(cls=self.__class__.__name__, tag=self.header.tag, id=id(self))
 
     def update_hlen(self):
-        self.header.length = len(self.__bytes__()) - len(self.header)
+        self.header.length = len(self.__bytearray__()) - len(self.header)
 
     @abc.abstractmethod
     def parse(self, packet):
@@ -178,8 +200,8 @@ class Opaque(Packet):
         super(Opaque, self).__init__()
         self.payload = b''
 
-    def __bytes__(self):
-        _bytes = super(Opaque, self).__bytes__()
+    def __bytearray__(self):
+        _bytes = super(Opaque, self).__bytearray__()
         _bytes += self.payload
         return _bytes
 
@@ -215,7 +237,7 @@ class Sub(Key):
 
 
 # This is required for class MPI to work in both Python 2 and 3
-if six.PY3:
+if not six.PY2:
     long = int
 
 
@@ -246,11 +268,21 @@ class MPI(long):
 
 
 class MPIs(Field):
-    # this differs from MPI in that its' subclasses hold/parse several MPI fields
+    # this differs from MPI in that it's subclasses hold/parse several MPI fields
     # and, in the case of v4 private keys, also a String2Key specifier/information.
+    __mpis__ = ()
+
     def __len__(self):
         return sum(len(i) for i in self)
 
-    @abc.abstractmethod
     def __iter__(self):
         """yield all components of an MPI so it can be iterated over"""
+        for i in self.__mpis__:
+            yield getattr(self, i)
+
+    def __copy__(self):
+        pk = self.__class__()
+        for m in self.__mpis__:
+            setattr(pk, m, copy.copy(getattr(self, m)))
+
+        return pk

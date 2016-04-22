@@ -10,14 +10,35 @@ import zlib
 from collections import namedtuple
 from enum import Enum
 from enum import IntEnum
+from pyasn1.type.univ import ObjectIdentifier
 
 import six
 
 from cryptography.hazmat.backends import openssl
+from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.ciphers import algorithms
 
 from .decorators import classproperty
 from .types import FlagEnum
+
+__all__ = ['Backend',
+           'EllipticCurveOID',
+           'PacketTag',
+           'SymmetricKeyAlgorithm',
+           'PubKeyAlgorithm',
+           'CompressionAlgorithm',
+           'HashAlgorithm',
+           'RevocationReason',
+           'ImageEncoding',
+           'SignatureType',
+           'KeyServerPreferences',
+           'String2KeyType',
+           'TrustLevel',
+           'KeyFlags',
+           'Features',
+           'RevocationKeyClass',
+           'NotationDataFlags',
+           'TrustFlags']
 
 
 # this is 100 KiB
@@ -28,7 +49,83 @@ class Backend(Enum):
     OpenSSL = openssl.backend
 
 
+class EllipticCurveOID(Enum):
+    # these are specified as:
+    # id = (oid, curve)
+    Invalid = ('', )
+    #: DJB's fast elliptic curve
+    #:
+    #: .. warning::
+    #:     This curve is not currently usable by PGPy
+    Curve25519 = ('1.3.6.1.4.1.3029.1.5.1', )
+    #: Twisted Edwards variant of Curve25519
+    #:
+    #: .. warning::
+    #:     This curve is not currently usable by PGPy
+    Ed25519 = ('1.3.6.1.4.1.11591.15.1', )
+    #: NIST P-256, also known as SECG curve secp256r1
+    NIST_P256 = ('1.2.840.10045.3.1.7', ec.SECP256R1)
+    #: NIST P-384, also known as SECG curve secp384r1
+    NIST_P384 = ('1.3.132.0.34', ec.SECP384R1)
+    #: NIST P-521, also known as SECG curve secp521r1
+    NIST_P521 = ('1.3.132.0.35', ec.SECP521R1)
+    #: Brainpool Standard Curve, 256-bit
+    #:
+    #: .. warning::
+    #:     This curve is not currently usable by PGPy
+    Brainpool_P256 = ('1.3.36.3.3.2.8.1.1.7', )
+    #: Brainpool Standard Curve, 384-bit
+    #:
+    #: .. warning::
+    #:     This curve is not currently usable by PGPy
+    Brainpool_P384 = ('1.3.36.3.3.2.8.1.1.11', )
+    #: Brainpool Standard Curve, 512-bit
+    #:
+    #: .. warning::
+    #:     This curve is not currently usable by PGPy
+    Brainpool_P512 = ('1.3.36.3.3.2.8.1.1.13', )
+    #: SECG curve secp256k1
+    SECP256K1 = ('1.3.132.0.10', ec.SECP256K1)
+
+    def __new__(cls, oid, curve=None):
+        # preprocessing stage for enum members:
+        #  - set enum_member.value to ObjectIdentifier(oid)
+        #  - set enum_member.curve to curve
+        obj = object.__new__(cls)
+        obj._value_ = ObjectIdentifier(oid)
+        obj.curve = curve
+        return obj
+
+    @property
+    def can_gen(self):
+        return self.curve is not None
+
+    @property
+    def key_size(self):
+        if self.curve is not None:
+            return self.curve.key_size
+
+    @property
+    def kdf_halg(self):
+        # return the hash algorithm to specify in the KDF fields when generating a key
+        algs = {256: HashAlgorithm.SHA256,
+                384: HashAlgorithm.SHA384,
+                521: HashAlgorithm.SHA512}
+
+        return algs.get(self.key_size, None)
+
+    @property
+    def kek_alg(self):
+        # return the AES algorithm to specify in the KDF fields when generating a key
+        algs = {256: SymmetricKeyAlgorithm.AES128,
+                384: SymmetricKeyAlgorithm.AES192,
+                521: SymmetricKeyAlgorithm.AES256}
+
+        return algs.get(self.key_size, None)
+
+
 class PacketTag(IntEnum):
+    Invalid = 0
     PublicKeyEncryptedSessionKey = 1
     Signature = 2
     SymmetricKeyEncryptedSessionKey = 3
@@ -139,18 +236,33 @@ class PubKeyAlgorithm(IntEnum):
     ElGamal = 0x10
     #: Signifies that a key is a DSA key.
     DSA = 0x11
+    #: Signifies that a key is an ECDH key.
     ECDH = 0x12
+    #: Signifies that a key is an ECDSA key.
     ECDSA = 0x13
     FormerlyElGamalEncryptOrSign = 0x14  # deprecated - do not generate
     # DiffieHellman = 0x15  # X9.42
 
     @property
-    def can_sign(self):
-        return self in [PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.DSA]
+    def can_gen(self):
+        return self in {PubKeyAlgorithm.RSAEncryptOrSign,
+                        PubKeyAlgorithm.DSA,
+                        PubKeyAlgorithm.ECDSA,
+                        PubKeyAlgorithm.ECDH}
 
     @property
     def can_encrypt(self):  # pragma: no cover
-        return self in [PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.ElGamal]
+        return self in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.ElGamal, PubKeyAlgorithm.ECDH}
+
+    @property
+    def can_sign(self):
+        return self in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.DSA, PubKeyAlgorithm.ECDSA}
+
+    @property
+    def deprecated(self):
+        return self in {PubKeyAlgorithm.RSAEncrypt,
+                        PubKeyAlgorithm.RSASign,
+                        PubKeyAlgorithm.FormerlyElGamalEncryptOrSign}
 
 
 class CompressionAlgorithm(IntEnum):
@@ -244,7 +356,8 @@ class HashAlgorithm(IntEnum):
         c2 = (ct.bit_length() - 11)
         c = ((c2 << 4) + c1)
 
-        self._tuned_count = c
+        # constrain self._tuned_count to be between 0 and 255
+        self._tuned_count = max(min(c, 255), 0)
 
 
 class RevocationReason(IntEnum):

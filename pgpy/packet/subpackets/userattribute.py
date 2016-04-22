@@ -8,6 +8,11 @@ from ...constants import ImageEncoding
 
 from ...decorators import sdproperty
 
+from ...memoryview import memoryview
+
+
+__all__ = ('Image',)
+
 
 class Image(UserAttribute):
     """
@@ -81,8 +86,8 @@ class Image(UserAttribute):
         self.iencoding = 1
         self.image = bytearray()
 
-    def __bytes__(self):
-        _bytes = super(Image, self).__bytes__()
+    def __bytearray__(self):
+        _bytes = super(Image, self).__bytearray__()
 
         if self.version == 1:
             # v1 image header length is always 16 bytes
@@ -90,11 +95,15 @@ class Image(UserAttribute):
             _bytes += struct.pack('<hbbiii', 16, self.version, self.iencoding, 0, 0, 0)
 
         _bytes += self.image
-        return bytes(_bytes)
+        return _bytes
 
     def parse(self, packet):
         super(Image, self).parse(packet)
-        _, self.version, self.iencoding, _, _, _ = struct.unpack('<hbbiii', packet[:16])
+
+        # on Python 2, this will be the wrapper object from memoryview.py
+        with memoryview(packet) as _head:
+            _, self.version, self.iencoding, _, _, _ = struct.unpack_from('<hbbiii', _head[:16].tobytes())
         del packet[:16]
+
         self.image = packet[:(self.header.length - 17)]
         del packet[:(self.header.length - 17)]

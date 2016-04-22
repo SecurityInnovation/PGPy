@@ -10,10 +10,17 @@ from pgpy import PGPMessage
 from pgpy import PGPSignature
 from pgpy import PGPUID
 
+from pgpy.packet import Packet
+
+from pgpy.types import Armorable
+from pgpy.types import PGPObject
 from pgpy.types import Fingerprint
 from pgpy.types import SignatureVerification
 
+from pgpy.constants import EllipticCurveOID
 from pgpy.constants import HashAlgorithm
+from pgpy.constants import KeyFlags
+from pgpy.constants import PubKeyAlgorithm
 from pgpy.constants import SymmetricKeyAlgorithm
 
 from pgpy.errors import PGPDecryptionError
@@ -47,7 +54,121 @@ def targette_sec():
     return PGPKey.from_file('tests/testdata/keys/targette.sec.rsa.asc')[0]
 
 
+@pytest.fixture(scope='module')
+def targette_pub():
+    return PGPKey.from_file('tests/testdata/keys/targette.pub.rsa.asc')[0]
+
+
+@pytest.fixture(scope='module')
+def temp_subkey():
+    return PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 512)
+
+@pytest.fixture(scope='module')
+def temp_key():
+    u = PGPUID.new('User')
+    k = PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 512)
+    k.add_uid(u, usage={KeyFlags.Certify, KeyFlags.Sign}, hashes=[HashAlgorithm.SHA1])
+
+    sk = PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 512)
+    k.add_subkey(sk, usage={KeyFlags.EncryptCommunications})
+
+    return k
+
+
+key_algs = [ pka for pka in PubKeyAlgorithm if pka.can_gen and not pka.deprecated ]
+key_algs_unim = [ pka for pka in PubKeyAlgorithm if not pka.can_gen and not pka.deprecated ]
+key_algs_rsa_depr = [ pka for pka in PubKeyAlgorithm if pka.deprecated and pka is not PubKeyAlgorithm.FormerlyElGamalEncryptOrSign ]
+
+key_algs_badsizes = {
+    PubKeyAlgorithm.RSAEncryptOrSign: [256],
+    PubKeyAlgorithm.DSA: [512],
+    PubKeyAlgorithm.ECDSA: [curve for curve in EllipticCurveOID if not curve.can_gen],
+    PubKeyAlgorithm.ECDH: [curve for curve in EllipticCurveOID if not curve.can_gen],
+}
+
+
+class TestArmorable(object):
+    # some basic test cases specific to the Armorable mixin class
+    def test_malformed_base64(self):
+        # 'asdf' base64-encoded becomes 'YXNkZg=='
+        # remove one of the pad characters and we should get a PGPError
+        data = '-----BEGIN PGP SOMETHING-----\n' \
+               '\n' \
+               'YXNkZg=\n' \
+               '=ZEO6\n' \
+               '-----END PGP SOMETHING-----\n'
+        with pytest.raises(PGPError):
+            Armorable.ascii_unarmor(data)
+
+
+class TestMetaDispatchable(object):
+    # test a couple of error cases in MetaDispatchable that affect all packet classes
+    def test_parse_bytes_typeerror(self):
+        # use a marker packet, but don't wrap it in a bytearray to get a TypeError
+        data = b'\xa8\x03\x50\x47\x50'
+        with pytest.raises(TypeError):
+            Packet(data)
+
+    def test_parse_versioned_header_exception(self):
+        # cause an exception during parsing a versioned header by not including the version field
+        data = bytearray(b'\xc1\x01')
+        with pytest.raises(PGPError):
+            Packet(data)
+
+    def test_parse_packet_exceptions(self):
+        # use a signature packet with fuzzed fields to get some exceptions
+        # original packet is a DSA signature
+        data = bytearray(b'\xc2F\x04\x00\x11\x01\x00\x06\x05\x02W\x16\x80\xb0\x00\n\t\x10G\x15FH\x97D\xbc\x0b46\x00'
+                         b'\x9fD\xbc\xd7\x87`\xe0\xfeT\x05\xcd\x82\xf5\x9ae\xa9\xb5\x01ii,\x00\x9d\x14\x0b<)\xb4\xc3'
+                         b'\x81iu\n\xe3W\xe2\x03\xb1\xc3\xd8p\x89W')
+
+        def fuzz_pkt(slice, val, exc_type):
+            d = data[:]
+            d[slice] = val
+
+            if exc_type is not None:
+                with pytest.raises(exc_type):
+                    Packet(d)
+
+            else:
+                Packet(d)
+
+
+        # ensure the base packet works, first
+        Packet(data[:])
+
+        class WhatException(Exception): pass
+
+        # unexpected signature type
+        fuzz_pkt(3, 0x7f, PGPError)
+
+        # unexpected pubkey algorithm
+        fuzz_pkt(4, 0x64, PGPError)
+
+        # unexpected hash algorithm - does not raise an exception during parsing
+        fuzz_pkt(5, 0x64, None)
+
+
 class TestPGPKey(object):
+    params = {
+        # 'key_alg': key_algs,
+        'badkey': [ (alg, size) for alg in key_algs_badsizes.keys() for size in key_algs_badsizes[alg] ],
+        'key_alg_unim': key_algs_unim,
+        'key_alg_rsa_depr': key_algs_rsa_depr,
+    }
+    ids = {
+        # 'test_new_key_invalid_size':      [ str(ka).split('.')[-1] for ka in key_algs ],
+        'test_new_key_invalid_size': [ '{}-{}'.format(ka.name, ks.name if not isinstance(ks, int) else ks) for ka, kss in key_algs_badsizes.items() for ks in kss],
+        'test_new_key_unimplemented_alg': [ str(ka).split('.')[-1] for ka in key_algs_unim ],
+        'test_new_key_deprecated_rsa_alg':    [ str(ka).split('.')[-1] for ka in key_algs_rsa_depr ],
+    }
+    key_badsize = {
+        PubKeyAlgorithm.RSAEncryptOrSign: 256,
+        PubKeyAlgorithm.DSA: 512,
+        PubKeyAlgorithm.ECDSA: 1,
+        PubKeyAlgorithm.ECDH: 1,
+    }
+
     def test_unlock_pubkey(self, rsa_pub, recwarn):
         with rsa_pub.unlock("QwertyUiop") as _unlocked:
             assert _unlocked is rsa_pub
@@ -62,6 +183,20 @@ class TestPGPKey(object):
 
         w = recwarn.pop(UserWarning)
         assert str(w.message) == "This key is not protected with a passphrase"
+        assert w.filename == __file__
+
+    def test_protect_pubkey(self, rsa_pub, recwarn):
+        rsa_pub.protect('QwertyUiop', SymmetricKeyAlgorithm.CAST5, HashAlgorithm.SHA1)
+        w = recwarn.pop(UserWarning)
+        assert str(w.message) == "Public keys cannot be passphrase-protected"
+        assert w.filename == __file__
+
+    def test_protect_protected_key(self, rsa_enc, recwarn):
+        rsa_enc.protect('QwertyUiop', SymmetricKeyAlgorithm.CAST5, HashAlgorithm.SHA1)
+
+        w = recwarn.pop(UserWarning)
+        assert str(w.message) == "This key is already protected with a passphrase - " \
+                                 "please unlock it before attempting to specify a new passphrase"
         assert w.filename == __file__
 
     def test_unlock_wrong_passphrase(self, rsa_enc):
@@ -93,9 +228,9 @@ class TestPGPKey(object):
         with pytest.raises(PGPError):
             targette_sec.decrypt(msg)
 
-    def test_add_valueerror(self, rsa_sec):
+    def test_or_typeerror(self, rsa_sec):
         with pytest.raises(TypeError):
-            rsa_sec += 12
+            rsa_sec |= 12
 
     def test_contains_valueerror(self, rsa_sec):
         with pytest.raises(TypeError):
@@ -157,6 +292,70 @@ class TestPGPKey(object):
         assert str(w.message) == "Incorrect crc24"
         assert w.filename == __file__
 
+    def test_empty_key_action(self):
+        key = PGPKey()
+
+        with pytest.raises(PGPError):
+            key.sign('asdf')
+
+    def test_new_key_no_uid_action(self):
+        key = PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 1024)
+
+        with pytest.raises(PGPError):
+            key.sign('asdf')
+
+    def test_new_key_invalid_size(self, badkey):
+        key_alg, key_size = badkey
+        with pytest.raises(ValueError):
+            PGPKey.new(key_alg, key_size)
+
+    def test_new_key_unimplemented_alg(self, key_alg_unim):
+        with pytest.raises(NotImplementedError):
+            PGPKey.new(key_alg_unim, 512)
+
+    def test_new_key_deprecated_rsa_alg(self, key_alg_rsa_depr, recwarn):
+        k = PGPKey.new(key_alg_rsa_depr, 512)
+
+        w = recwarn.pop()
+        assert str(w.message) == '{:s} is deprecated - generating key using RSAEncryptOrSign'.format(key_alg_rsa_depr.name)
+        assert w.filename == __file__
+        assert k.key_algorithm == PubKeyAlgorithm.RSAEncryptOrSign
+
+    def test_set_pubkey_on_pubkey(self, rsa_pub, targette_pub):
+        with pytest.raises(TypeError):
+            rsa_pub.pubkey = targette_pub
+
+    def test_set_wrong_pubkey(self, rsa_sec, targette_pub):
+        with pytest.raises(ValueError):
+            rsa_sec.pubkey = targette_pub
+
+    def test_set_pubkey_already_set(self, rsa_sec, rsa_pub):
+        rsa_sec.pubkey = rsa_pub
+
+        assert rsa_sec._sibling is not None
+        assert rsa_sec._sibling() is rsa_pub
+
+        with pytest.raises(ValueError):
+            rsa_sec.pubkey = rsa_pub
+
+    def test_set_pubkey_privkey(self, rsa_sec, targette_sec):
+        with pytest.raises(TypeError):
+            rsa_sec.pubkey = targette_sec
+
+    def test_add_subkey_to_pubkey(self, rsa_pub, temp_subkey):
+        with pytest.raises(PGPError):
+            rsa_pub.add_subkey(temp_subkey)
+
+    def test_add_pubsubkey_to_key(self, rsa_sec, temp_subkey):
+        pubtemp = temp_subkey.pubkey
+
+        with pytest.raises(PGPError):
+            rsa_sec.add_subkey(pubtemp)
+
+    def test_add_key_with_subkeys_as_subkey(self, rsa_sec, temp_key):
+        with pytest.raises(PGPError):
+            rsa_sec.add_subkey(temp_key)
+
 
 class TestPGPKeyring(object):
     kr = PGPKeyring(_read('tests/testdata/pubtest.asc'))
@@ -206,9 +405,9 @@ class TestPGPMessage(object):
 
 
 class TestPGPSignature(object):
-    def test_add_typeerror(self):
+    def test_or_typeerror(self):
         with pytest.raises(TypeError):
-            PGPSignature() + 12
+            PGPSignature() | 12
 
     def test_parse_wrong_magic(self):
         sigtext = _read('tests/testdata/blocks/signature.expired.asc').replace('SIGNATURE', 'SIGANTURE')
@@ -222,12 +421,18 @@ class TestPGPSignature(object):
         with pytest.raises(ValueError):
             sig.parse(notsigtext)
 
+    def test_or_typeerror(self):
+        sig = PGPSignature()
+
+        with pytest.raises(TypeError):
+            sig |= None
+
 
 class TestPGPUID(object):
-    def test_add_typeerror(self):
+    def test_or_typeerror(self):
         u = PGPUID.new("Asdf Qwert")
         with pytest.raises(TypeError):
-            u += 12
+            u |= 12
 
 
 class TestSignatureVerification(object):

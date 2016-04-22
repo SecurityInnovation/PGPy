@@ -3,13 +3,36 @@
 from __future__ import absolute_import, division
 
 import abc
+import binascii
 import collections
+import copy
 import hashlib
 import itertools
 import math
+import os
+
+from pyasn1.codec.der import decoder
+from pyasn1.codec.der import encoder
+from pyasn1.type.univ import Integer
+from pyasn1.type.univ import Sequence
+
+from cryptography.exceptions import InvalidSignature
+
+from cryptography.hazmat.backends import default_backend
+
+from cryptography.hazmat.primitives import hashes
 
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric import dsa
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.asymmetric import padding
+
+from cryptography.hazmat.primitives.kdf.concatkdf import ConcatKDFHash
+
+from cryptography.hazmat.primitives.keywrap import aes_key_wrap
+from cryptography.hazmat.primitives.keywrap import aes_key_unwrap
+
+from cryptography.hazmat.primitives.padding import PKCS7
 
 from .subpackets import Signature as SignatureSP
 from .subpackets import UserAttribute
@@ -19,17 +42,48 @@ from .subpackets import userattribute
 from .types import MPI
 from .types import MPIs
 
+from ..constants import EllipticCurveOID
 from ..constants import HashAlgorithm
+from ..constants import PubKeyAlgorithm
 from ..constants import String2KeyType
 from ..constants import SymmetricKeyAlgorithm
 
 from ..decorators import sdproperty
 
 from ..errors import PGPDecryptionError
+from ..errors import PGPError
 
 from ..symenc import _decrypt
+from ..symenc import _encrypt
 
 from ..types import Field
+
+__all__ = ['SubPackets',
+           'UserAttributeSubPackets',
+           'Signature',
+           'RSASignature',
+           'DSASignature',
+           'ECDSASignature',
+           'PubKey',
+           'OpaquePubKey',
+           'RSAPub',
+           'DSAPub',
+           'ElGPub',
+           'ECDSAPub',
+           'ECDHPub',
+           'String2Key',
+           'ECKDF',
+           'PrivKey',
+           'OpaquePrivKey',
+           'RSAPriv',
+           'DSAPriv',
+           'ElGPriv',
+           'ECDSAPriv',
+           'ECDHPriv',
+           'CipherText',
+           'RSACipherText',
+           'ElGCipherText',
+           'ECDHCipherText', ]
 
 
 class SubPackets(collections.MutableMapping, Field):
@@ -40,23 +94,25 @@ class SubPackets(collections.MutableMapping, Field):
         self._hashed_sp = collections.OrderedDict()
         self._unhashed_sp = collections.OrderedDict()
 
-    def __bytes__(self):
+    def __bytearray__(self):
         _bytes = bytearray()
-        _bytes += self.__hashbytes__()
-        _bytes += self.__unhashbytes__()
-        return bytes(_bytes)
+        _bytes += self.__hashbytearray__()
+        _bytes += self.__unhashbytearray__()
+        return _bytes
 
-    def __hashbytes__(self):
+    def __hashbytearray__(self):
         _bytes = bytearray()
         _bytes += self.int_to_bytes(sum(len(sp) for sp in self._hashed_sp.values()), 2)
-        _bytes += b''.join(hsp.__bytes__() for hsp in self._hashed_sp.values())
-        return bytes(_bytes)
+        for hsp in self._hashed_sp.values():
+            _bytes += hsp.__bytearray__()
+        return _bytes
 
-    def __unhashbytes__(self):
+    def __unhashbytearray__(self):
         _bytes = bytearray()
         _bytes += self.int_to_bytes(sum(len(sp) for sp in self._unhashed_sp.values()), 2)
-        _bytes += b''.join(uhsp.__bytes__() for uhsp in self._unhashed_sp.values())
-        return bytes(_bytes)
+        for uhsp in self._unhashed_sp.values():
+            _bytes += uhsp.__bytearray__()
+        return _bytes
 
     def __len__(self):  # pragma: no cover
         return sum(sp.header.length for sp in itertools.chain(self._hashed_sp.values(), self._unhashed_sp.values())) + 4
@@ -103,6 +159,13 @@ class SubPackets(collections.MutableMapping, Field):
     def __contains__(self, key):
         return key in set(k for k, _ in itertools.chain(self._hashed_sp, self._unhashed_sp))
 
+    def __copy__(self):
+        sp = SubPackets()
+        sp._hashed_sp = self._hashed_sp.copy()
+        sp._unhashed_sp = self._unhashed_sp.copy()
+
+        return sp
+
     def addnew(self, spname, hashed=False, **kwargs):
         nsp = getattr(self._spmodule, spname)()
         for p, v in kwargs.items():
@@ -148,8 +211,11 @@ class UserAttributeSubPackets(SubPackets):
     """
     _spmodule = userattribute
 
-    def __bytes__(self):
-        return b''.join(uhsp.__bytes__() for uhsp in self._unhashed_sp.values())
+    def __bytearray__(self):
+        _bytes = bytearray()
+        for uhsp in self._unhashed_sp.values():
+            _bytes += uhsp.__bytearray__()
+        return _bytes
 
     def __len__(self):  # pragma: no cover
         return sum(len(sp) for sp in self._unhashed_sp.values())
@@ -163,8 +229,15 @@ class UserAttributeSubPackets(SubPackets):
 
 
 class Signature(MPIs):
-    def __bytes__(self):
-        return b''.join(i.to_mpibytes() for i in self)
+    def __init__(self):
+        for i in self.__mpis__:
+            setattr(self, i, MPI(0))
+
+    def __bytearray__(self):
+        _bytes = bytearray()
+        for i in self:
+            _bytes += i.to_mpibytes()
+        return _bytes
 
     @abc.abstractproperty
     def __sig__(self):
@@ -176,12 +249,7 @@ class Signature(MPIs):
 
 
 class RSASignature(Signature):
-    def __init__(self):
-        super(RSASignature, self).__init__()
-        self.md_mod_n = MPI(0)
-
-    def __iter__(self):
-        yield self.md_mod_n
+    __mpis__ = ('md_mod_n', )
 
     def __sig__(self):
         return self.md_mod_n.to_mpibytes()[2:]
@@ -194,41 +262,18 @@ class RSASignature(Signature):
 
 
 class DSASignature(Signature):
-    def __init__(self):
-        super(DSASignature, self).__init__()
-        self.r = MPI(0)
-        self.s = MPI(0)
-
-    def __iter__(self):
-        yield self.r
-        yield self.s
+    __mpis__ = ('r', 's')
 
     def __sig__(self):
         # return the signature data into an ASN.1 sequence of integers in DER format
-        # (see http://en.wikipedia.org/wiki/Abstract_Syntax_Notation_One#Example_encoded_in_DER)
+        seq = Sequence()
+        for i in self:
+            seq.setComponentByPosition(len(seq), Integer(i))
 
-        def _der_flen(i):
-            _b = b''
-            # returns the length of byte field i
-            ilen = len(i)
-            bilen = self.int_to_bytes(ilen)
-
-            # long-form must be used ilen > 127
-            if len(bilen) > 127:  # pragma: no cover
-                _b += 0x80 ^ len(bilen)
-            return _b + bilen
-
-        def _der_intf(i):
-            bf = self.int_to_bytes(i, i.byte_length())
-            return b'\x02' + _der_flen(bf) + bf
-
-        # construct the sequence of integers
-        fbytes = b''.join(_der_intf(i) for i in self)
-
-        # now mark it as a sequence and return
-        return b'\x30' + _der_flen(fbytes) + fbytes
+        return encoder.encode(seq)
 
     def from_signer(self, sig):
+        ##TODO: just use pyasn1 for this
         def _der_intf(_asn):
             if _asn[0] != 0x02:  # pragma: no cover
                 raise ValueError("Expected: Integer (0x02). Got: 0x{:02X}".format(_asn[0]))
@@ -273,30 +318,91 @@ class DSASignature(Signature):
         self.s = MPI(packet)
 
 
+class ECDSASignature(DSASignature):
+    def from_signer(self, sig):
+        seq, _ = decoder.decode(sig)
+        self.r = MPI(seq[0])
+        self.s = MPI(seq[1])
+
+
 class PubKey(MPIs):
+    __pubfields__ = ()
+
+    @property
+    def __mpis__(self):
+        for i in self.__pubfields__:
+            yield i
+
+    def __init__(self):
+        super(PubKey, self).__init__()
+        for field in self.__pubfields__:
+            if isinstance(field, tuple):  # pragma: no cover
+                field, val = field
+
+            else:
+                val = MPI(0)
+
+            setattr(self, field, val)
+
     @abc.abstractmethod
     def __pubkey__(self):
         """return the requisite *PublicKey class from the cryptography library"""
 
-    def __bytes__(self):
-        return b''.join(i.to_mpibytes() for i in self)
+    def __len__(self):
+        return sum(len(getattr(self, i)) for i in self.__pubfields__)
+
+    def __bytearray__(self):
+        _bytes = bytearray()
+        for field in self.__pubfields__:
+            _bytes += getattr(self, field).to_mpibytes()
+
+        return _bytes
 
     def publen(self):
         return len(self)
 
+    def verify(self, subj, sigbytes, hash_alg):
+        return NotImplemented  # pragma: no cover
 
-class RSAPub(PubKey):
+
+class OpaquePubKey(PubKey):  # pragma: no cover
     def __init__(self):
-        super(RSAPub, self).__init__()
-        self.n = MPI(0)
-        self.e = MPI(0)
+        super(OpaquePubKey, self).__init__()
+        self.data = bytearray()
 
     def __iter__(self):
-        yield self.n
-        yield self.e
+        yield self.data
 
     def __pubkey__(self):
-        return rsa.RSAPublicKey(public_exponent=self.e, modulus=self.n)
+        return NotImplemented
+
+    def __bytearray__(self):
+        return self.data
+
+    def parse(self, packet):
+        ##TODO: this needs to be length-bounded to the end of the packet
+        self.data = packet
+
+
+class RSAPub(PubKey):
+    __pubfields__ = ('n', 'e')
+
+    def __pubkey__(self):
+        return rsa.RSAPublicNumbers(self.e, self.n).public_key(default_backend())
+
+    def verify(self, subj, sigbytes, hash_alg):
+        # zero-pad sigbytes if necessary
+        sigbytes = (b'\x00' * (self.n.byte_length() - len(sigbytes))) + sigbytes
+        verifier = self.__pubkey__().verifier(sigbytes, padding.PKCS1v15(), hash_alg)
+        verifier.update(subj)
+
+        try:
+            verifier.verify()
+
+        except InvalidSignature:
+            return False
+
+        return True
 
     def parse(self, packet):
         self.n = MPI(packet)
@@ -304,24 +410,23 @@ class RSAPub(PubKey):
 
 
 class DSAPub(PubKey):
-    def __init__(self):
-        super(DSAPub, self).__init__()
-        self.p = MPI(0)
-        self.q = MPI(0)
-        self.g = MPI(0)
-        self.y = MPI(0)
-
-    def __iter__(self):
-        yield self.p
-        yield self.q
-        yield self.g
-        yield self.y
+    __pubfields__ = ('p', 'q', 'g', 'y')
 
     def __pubkey__(self):
-        return dsa.DSAPublicKey(modulus=self.p,
-                                subgroup_order=self.q,
-                                generator=self.g,
-                                y=self.y)
+        params = dsa.DSAParameterNumbers(self.p, self.q, self.g)
+        return dsa.DSAPublicNumbers(self.y, params).public_key(default_backend())
+
+    def verify(self, subj, sigbytes, hash_alg):
+        verifier = self.__pubkey__().verifier(sigbytes, hash_alg)
+        verifier.update(subj)
+
+        try:
+            verifier.verify()
+
+        except InvalidSignature:
+            return False
+
+        return True
 
     def parse(self, packet):
         self.p = MPI(packet)
@@ -331,16 +436,7 @@ class DSAPub(PubKey):
 
 
 class ElGPub(PubKey):
-    def __init__(self):
-        super(ElGPub, self).__init__()
-        self.p = MPI(0)
-        self.g = MPI(0)
-        self.y = MPI(0)
-
-    def __iter__(self):
-        yield self.p
-        yield self.g
-        yield self.y
+    __pubfields__ = ('p', 'g', 'y')
 
     def __pubkey__(self):
         raise NotImplementedError()
@@ -349,6 +445,163 @@ class ElGPub(PubKey):
         self.p = MPI(packet)
         self.g = MPI(packet)
         self.y = MPI(packet)
+
+
+class ECDSAPub(PubKey):
+    __pubfields__ = ('x', 'y')
+
+    def __init__(self):
+        super(ECDSAPub, self).__init__()
+        self.oid = None
+
+    def __len__(self):
+        return sum([len(getattr(self, i)) - 2 for i in self.__pubfields__] +
+                   [3, len(encoder.encode(self.oid.value)) - 1])
+
+    def __pubkey__(self):
+        return ec.EllipticCurvePublicNumbers(self.x, self.y, self.oid.curve()).public_key(default_backend())
+
+    def __bytearray__(self):
+        _b = bytearray()
+        _b += encoder.encode(self.oid.value)[1:]
+        # 0x04 || x || y
+        # where x and y are the same length
+        _xy = b'\x04' + self.x.to_mpibytes()[2:] + self.y.to_mpibytes()[2:]
+        _b += MPI(self.bytes_to_int(_xy, 'big')).to_mpibytes()
+
+        return _b
+
+    def __copy__(self):
+        pkt = super(ECDSAPub, self).__copy__()
+        pkt.oid = self.oid
+        return pkt
+
+    def verify(self, subj, sigbytes, hash_alg):
+        verifier = self.__pubkey__().verifier(sigbytes, ec.ECDSA(hash_alg))
+        verifier.update(subj)
+
+        try:
+            verifier.verify()
+
+        except InvalidSignature:
+            return False
+
+        return True
+
+    def parse(self, packet):
+        oidlen = packet[0]
+        del packet[0]
+        _oid = bytearray(b'\x06')
+        _oid.append(oidlen)
+        _oid += bytearray(packet[:oidlen])
+        # try:
+        oid, _  = decoder.decode(bytes(_oid))
+
+        # except:
+        #     raise PGPError("Bad OID octet stream: b'{:s}'".format(''.join(['\\x{:02X}'.format(c) for c in _oid])))
+        self.oid = EllipticCurveOID(oid)
+        del packet[:oidlen]
+
+        # flen = (self.oid.bit_length // 8)
+        xy = bytearray(MPI(packet).to_mpibytes()[2:])
+        # xy = bytearray(MPI(packet).to_bytes(flen, 'big'))
+        # the first byte is just \x04
+        del xy[:1]
+        # now xy needs to be separated into x, y
+        xylen = len(xy)
+        x, y = xy[:xylen // 2], xy[xylen // 2:]
+        self.x = MPI(self.bytes_to_int(x))
+        self.y = MPI(self.bytes_to_int(y))
+
+
+class ECDHPub(PubKey):
+    __pubfields__ = ('x', 'y')
+
+    def __init__(self):
+        super(ECDHPub, self).__init__()
+        self.oid = None
+        self.kdf = ECKDF()
+
+    def __len__(self):
+        return sum([len(getattr(self, i)) - 2 for i in self.__pubfields__] +
+                   [3,
+                    len(self.kdf),
+                    len(encoder.encode(self.oid.value)) - 1])
+
+    def __pubkey__(self):
+        return ec.EllipticCurvePublicNumbers(self.x, self.y, self.oid.curve()).public_key(default_backend())
+
+    def __bytearray__(self):
+        _b = bytearray()
+        _b += encoder.encode(self.oid.value)[1:]
+        # 0x04 || x || y
+        # where x and y are the same length
+        _xy = b'\x04' + self.x.to_mpibytes()[2:] + self.y.to_mpibytes()[2:]
+        _b += MPI(self.bytes_to_int(_xy, 'big')).to_mpibytes()
+        _b += self.kdf.__bytearray__()
+
+        return _b
+
+    def __copy__(self):
+        pkt = super(ECDHPub, self).__copy__()
+        pkt.oid = self.oid
+        pkt.kdf = copy.copy(self.kdf)
+        return pkt
+
+    def parse(self, packet):
+        """
+        Algorithm-Specific Fields for ECDH keys:
+
+          o  a variable-length field containing a curve OID, formatted
+             as follows:
+
+             -  a one-octet size of the following field; values 0 and
+                0xFF are reserved for future extensions
+
+             -  the octets representing a curve OID, defined in
+                Section 11
+
+             -  MPI of an EC point representing a public key
+
+          o  a variable-length field containing KDF parameters,
+             formatted as follows:
+
+             -  a one-octet size of the following fields; values 0 and
+                0xff are reserved for future extensions
+
+             -  a one-octet value 01, reserved for future extensions
+
+             -  a one-octet hash function ID used with a KDF
+
+             -  a one-octet algorithm ID for the symmetric algorithm
+                used to wrap the symmetric key used for the message
+                encryption; see Section 8 for details
+        """
+        oidlen = packet[0]
+        del packet[0]
+        _oid = bytearray(b'\x06')
+        _oid.append(oidlen)
+        _oid += bytearray(packet[:oidlen])
+        # try:
+        oid, _  = decoder.decode(bytes(_oid))
+
+        # except:
+        #     raise PGPError("Bad OID octet stream: b'{:s}'".format(''.join(['\\x{:02X}'.format(c) for c in _oid])))
+        self.oid = EllipticCurveOID(oid)
+        del packet[:oidlen]
+
+        # flen = (self.oid.bit_length // 8)
+        xy = bytearray(MPI(packet).to_mpibytes()[2:])
+        # xy = bytearray(MPI(packet).to_bytes(flen, 'big'))
+        # the first byte is just \x04
+        del xy[:1]
+        # now xy needs to be separated into x, y
+        xylen = len(xy)
+        x, y = xy[:xylen // 2], xy[xylen // 2:]
+        self.x = MPI(self.bytes_to_int(x))
+        self.y = MPI(self.bytes_to_int(y))
+
+        self.kdf.parse(packet)
 
 
 class String2Key(Field):
@@ -489,6 +742,8 @@ class String2Key(Field):
 
     @count.register(int)
     def count_int(self, val):
+        if val < 0 or val > 255:  # pragma: no cover
+            raise ValueError("count must be between 0 and 256")
         self._count = val
 
     def __init__(self):
@@ -508,7 +763,7 @@ class String2Key(Field):
         # iterated
         self.count = 0
 
-    def __bytes__(self):
+    def __bytearray__(self):
         _bytes = bytearray()
         _bytes.append(self.usage)
         if bool(self):
@@ -522,10 +777,10 @@ class String2Key(Field):
                 _bytes.append(self._count)
             if self.iv is not None:
                 _bytes += self.iv
-        return bytes(_bytes)
+        return _bytes
 
     def __len__(self):
-        return len(self.__bytes__())
+        return len(self.__bytearray__())
 
     def __bool__(self):
         return self.usage in [254, 255]
@@ -601,40 +856,178 @@ class String2Key(Field):
         return b''.join(hc.digest() for hc in h)[:(keylen // 8)]
 
 
+class ECKDF(Field):
+    """
+    o  a variable-length field containing KDF parameters,
+       formatted as follows:
+
+       -  a one-octet size of the following fields; values 0 and
+          0xff are reserved for future extensions
+
+       -  a one-octet value 01, reserved for future extensions
+
+       -  a one-octet hash function ID used with a KDF
+
+       -  a one-octet algorithm ID for the symmetric algorithm
+          used to wrap the symmetric key used for the message
+          encryption; see Section 8 for details
+    """
+    @sdproperty
+    def halg(self):
+        return self._halg
+
+    @halg.register(int)
+    @halg.register(HashAlgorithm)
+    def halg_int(self, val):
+        self._halg = HashAlgorithm(val)
+
+    @sdproperty
+    def encalg(self):
+        return self._encalg
+
+    @encalg.register(int)
+    @encalg.register(SymmetricKeyAlgorithm)
+    def encalg_int(self, val):
+        self._encalg = SymmetricKeyAlgorithm(val)
+
+    def __init__(self):
+        super(ECKDF, self).__init__()
+        self.halg = 0
+        self.encalg = 0
+
+    def __bytearray__(self):
+        _bytes = bytearray()
+        _bytes.append(len(self) - 1)
+        _bytes.append(0x01)
+        _bytes.append(self.halg)
+        _bytes.append(self.encalg)
+        return _bytes
+
+    def __len__(self):
+        return 4
+
+    def parse(self, packet):
+        # packet[0] should always be 3
+        # packet[1] should always be 1
+        # TODO: this assert is likely not necessary, but we should raise some kind of exception
+        #       if parsing fails due to these fields being incorrect
+        assert packet[:2] == b'\x03\x01'
+        del packet[:2]
+
+        self.halg = packet[0]
+        del packet[0]
+
+        self.encalg = packet[0]
+        del packet[0]
+
+    def derive_key(self, s, curve, pkalg, fingerprint):
+        # wrapper around the Concatenation KDF method provided by cryptography
+        # assemble the additional data as defined in RFC 6637:
+        #  Param = curve_OID_len || curve_OID || public_key_alg_ID || 03 || 01 || KDF_hash_ID || KEK_alg_ID for AESKeyWrap || "Anonymous
+        data = bytearray()
+        data += encoder.encode(curve.value)[1:]
+        data.append(pkalg)
+        data += b'\x03\x01'
+        data.append(self.halg)
+        data.append(self.encalg)
+        data += b'Anonymous Sender    '
+        data += binascii.unhexlify(fingerprint.replace(' ', ''))
+
+        ckdf = ConcatKDFHash(algorithm=getattr(hashes, self.halg.name)(), length=self.encalg.key_size // 8, otherinfo=bytes(data), backend=default_backend())
+        return ckdf.derive(s)
+
+
 class PrivKey(PubKey):
+    __privfields__ = ()
+
+    @property
+    def __mpis__(self):
+        for i in super(PrivKey, self).__mpis__:
+            yield i
+
+        for i in self.__privfields__:
+            yield i
+
     def __init__(self):
         super(PrivKey, self).__init__()
+
         self.s2k = String2Key()
         self.encbytes = bytearray()
-        self.chksum = 0
+        self.chksum = bytearray()
 
-    def __bytes__(self):
-        pubitems = len(list(super(self.__class__, self).__iter__()))
+        for field in self.__privfields__:
+            setattr(self, field, MPI(0))
+
+    def __bytearray__(self):
         _bytes = bytearray()
-        for n, i in enumerate(self):
-            if n == pubitems:
-                _bytes += self.s2k.__bytes__()
+        _bytes += super(PrivKey, self).__bytearray__()
 
-                if self.s2k:
-                    _bytes += self.encbytes
-                    break
+        _bytes += self.s2k.__bytearray__()
+        if self.s2k:
+            _bytes += self.encbytes
 
-            _bytes += i.to_mpibytes()
+        else:
+            for field in self.__privfields__:
+                _bytes += getattr(self, field).to_mpibytes()
 
         if self.s2k.usage == 0:
             _bytes += self.chksum
 
-        return bytes(_bytes)
+        return _bytes
 
     def __len__(self):
-        return super(PrivKey, self).__len__() + len(self.s2k)
+        l = super(PrivKey, self).__len__() + len(self.s2k) + len(self.chksum)
+        if self.s2k:
+            l += len(self.encbytes)
+
+        else:
+            l += sum(len(getattr(self, i)) for i in self.__privfields__)
+
+        return l
 
     @abc.abstractmethod
     def __privkey__(self):
         """return the requisite *PrivateKey class from the cryptography library"""
 
+    @abc.abstractmethod
+    def _generate(self, key_size):
+        """Generate a new PrivKey"""
+
+    def _compute_chksum(self):
+        chs = sum(sum(bytearray(c.to_mpibytes())) for c in self) % 65536
+        self.chksum = bytearray(self.int_to_bytes(chs, 2))
+
     def publen(self):
-        return sum(len(i) for i in super(self.__class__, self).__iter__())
+        return super(PrivKey, self).__len__()
+
+    def encrypt_keyblob(self, passphrase, enc_alg, hash_alg):
+        # PGPy will only ever use iterated and salted S2k mode
+        self.s2k.usage = 254
+        self.s2k.encalg = enc_alg
+        self.s2k.specifier = String2KeyType.Iterated
+        self.s2k.iv = enc_alg.gen_iv()
+        self.s2k.halg = hash_alg
+        self.s2k.salt = bytearray(os.urandom(8))
+        self.s2k.count = hash_alg.tuned_count
+
+        # now that String-to-Key is ready to go, derive sessionkey from passphrase
+        # and then unreference passphrase
+        sessionkey = self.s2k.derive_key(passphrase)
+        del passphrase
+
+        pt = bytearray()
+        for pf in self.__privfields__:
+            pt += getattr(self, pf).to_mpibytes()
+
+        # append a SHA-1 hash of the plaintext so far to the plaintext
+        pt += hashlib.new('sha1', pt).digest()
+
+        # encrypt
+        self.encbytes = bytearray(_encrypt(bytes(pt), bytes(sessionkey), enc_alg, bytes(self.s2k.iv)))
+
+        # delete pt and clear self
+        del pt
+        self.clear()
 
     @abc.abstractmethod
     def decrypt_keyblob(self, passphrase):
@@ -650,7 +1043,7 @@ class PrivKey(PubKey):
         # With V4 keys, a simpler method is used.  All secret MPI values are
         # encrypted in CFB mode, including the MPI bitcount prefix.
 
-        # derive the session key from our passphrase, and then dereference passphrase
+        # derive the session key from our passphrase, and then unreference passphrase
         sessionkey = self.s2k.derive_key(passphrase)
         del passphrase
 
@@ -670,38 +1063,62 @@ class PrivKey(PubKey):
 
         return bytearray(pt)
 
-    @abc.abstractmethod
+    def sign(self, sigdata, hash_alg):
+        return NotImplemented  # pragma: no cover
+
     def clear(self):
-        """delete and re-initialize as zero, all private components"""
+        """delete and re-initialize all private components to zero"""
+        for field in self.__privfields__:
+            delattr(self, field)
+            setattr(self, field, MPI(0))
+
+
+class OpaquePrivKey(PrivKey, OpaquePubKey):  # pragma: no cover
+    def __privkey__(self):
+        return NotImplemented
+
+    def _generate(self, key_size):
+        # return NotImplemented
+        raise NotImplementedError()
+
+    def decrypt_keyblob(self, passphrase):
+        return NotImplemented
 
 
 class RSAPriv(PrivKey, RSAPub):
-    def __init__(self):
-        super(RSAPriv, self).__init__()
-        self.d = MPI(0)
-        self.p = MPI(0)
-        self.q = MPI(0)
-        self.u = MPI(0)
-
-    def __iter__(self):
-        for i in RSAPub.__iter__(self):
-            yield i
-        yield self.d
-        yield self.p
-        yield self.q
-        yield self.u
+    __privfields__ = ('d', 'p', 'q', 'u')
 
     def __privkey__(self):
-        return rsa.RSAPrivateKey(
-            p=self.p,
-            q=self.q,
-            private_exponent=self.d,
-            dmp1=rsa.rsa_crt_dmp1(self.d, self.p),
-            dmq1=rsa.rsa_crt_dmq1(self.d, self.q),
-            iqmp=rsa.rsa_crt_iqmp(self.p, self.q),
-            public_exponent=self.e,
-            modulus=self.n
-        )
+        return rsa.RSAPrivateNumbers(self.p, self.q, self.d,
+                                     rsa.rsa_crt_dmp1(self.d, self.p),
+                                     rsa.rsa_crt_dmq1(self.d, self.q),
+                                     rsa.rsa_crt_iqmp(self.p, self.q),
+                                     rsa.RSAPublicNumbers(self.e, self.n)).private_key(default_backend())
+
+    def _generate(self, key_size):
+        if any(c != 0 for c in self):  # pragma: no cover
+            raise PGPError("key is already populated")
+
+        # generate some big numbers!
+        pk = rsa.generate_private_key(65537, key_size, default_backend())
+        pkn = pk.private_numbers()
+
+        self.n = MPI(pkn.public_numbers.n)
+        self.e = MPI(pkn.public_numbers.e)
+        self.d = MPI(pkn.d)
+        self.p = MPI(pkn.p)
+        self.q = MPI(pkn.q)
+        # from the RFC:
+        # "- MPI of u, the multiplicative inverse of p, mod q."
+        # or, simply, p^-1 mod p
+        # rsa.rsa_crt_iqmp(p, q) normally computes q^-1 mod p,
+        # so if we swap the values around we get the answer we want
+        self.u = MPI(rsa.rsa_crt_iqmp(pkn.q, pkn.p))
+
+        del pkn
+        del pk
+
+        self._compute_chksum()
 
     def parse(self, packet):
         super(RSAPriv, self).parse(packet)
@@ -734,33 +1151,38 @@ class RSAPriv(PrivKey, RSAPub):
             self.chksum = kb
             del kb
 
-    def clear(self):
-        del self.d
-        del self.p
-        del self.q
-        del self.u
-        self.d = MPI(0)
-        self.p = MPI(0)
-        self.q = MPI(0)
-        self.u = MPI(0)
+    def sign(self, sigdata, hash_alg):
+        signer = self.__privkey__().signer(padding.PKCS1v15(), hash_alg)
+        signer.update(sigdata)
+        return signer.finalize()
 
 
 class DSAPriv(PrivKey, DSAPub):
-    def __init__(self):
-        super(DSAPriv, self).__init__()
-        self.x = 0
-
-    def __iter__(self):
-        for i in DSAPub.__iter__(self):
-            yield i
-        yield self.x
+    __privfields__ = ('x',)
 
     def __privkey__(self):
-        return dsa.DSAPrivateKey(modulus=self.p,
-                                 subgroup_order=self.q,
-                                 generator=self.g,
-                                 x=self.x,
-                                 y=self.y)
+        params = dsa.DSAParameterNumbers(self.p, self.q, self.g)
+        pn = dsa.DSAPublicNumbers(self.y, params)
+        return dsa.DSAPrivateNumbers(self.x, pn).private_key(default_backend())
+
+    def _generate(self, key_size):
+        if any(c != 0 for c in self):  # pragma: no cover
+            raise PGPError("key is already populated")
+
+        # generate some big numbers!
+        pk = dsa.generate_private_key(key_size, default_backend())
+        pkn = pk.private_numbers()
+
+        self.p = MPI(pkn.public_numbers.parameter_numbers.p)
+        self.q = MPI(pkn.public_numbers.parameter_numbers.q)
+        self.g = MPI(pkn.public_numbers.parameter_numbers.g)
+        self.y = MPI(pkn.public_numbers.y)
+        self.x = MPI(pkn.x)
+
+        del pkn
+        del pk
+
+        self._compute_chksum()
 
     def parse(self, packet):
         super(DSAPriv, self).parse(packet)
@@ -786,23 +1208,20 @@ class DSAPriv(PrivKey, DSAPub):
             self.chksum = kb
             del kb
 
-    def clear(self):
-        del self.x
-        self.x = MPI(0)
+    def sign(self, sigdata, hash_alg):
+        signer = self.__privkey__().signer(hash_alg)
+        signer.update(sigdata)
+        return signer.finalize()
 
 
 class ElGPriv(PrivKey, ElGPub):
-    def __init__(self):
-        super(ElGPriv, self).__init__()
-        self.x = MPI(0)
-
-    def __iter__(self):
-        for i in ElGPub.__iter__(self):
-            yield i
-        yield self.x
+    __privfields__ = ('x', )
 
     def __privkey__(self):
         raise NotImplementedError()
+
+    def _generate(self, key_size):
+        raise NotImplementedError(PubKeyAlgorithm.ElGamal)
 
     def parse(self, packet):
         super(ElGPriv, self).parse(packet)
@@ -828,48 +1247,250 @@ class ElGPriv(PrivKey, ElGPub):
             self.chksum = kb
             del kb
 
-    def clear(self):
-        del self.x
-        self.x = MPI(0)
+
+class ECDSAPriv(PrivKey, ECDSAPub):
+    __privfields__ = ('s', )
+
+    def __privkey__(self):
+        ecp = ec.EllipticCurvePublicNumbers(self.x, self.y, self.oid.curve())
+        return ec.EllipticCurvePrivateNumbers(self.s, ecp).private_key(default_backend())
+
+    def _generate(self, oid):
+        if any(c != 0 for c in self):  # pragma: no cover
+            raise PGPError("Key is already populated!")
+
+        self.oid = EllipticCurveOID(oid)
+
+        if not self.oid.can_gen:
+            raise ValueError("Curve not currently supported: {}".format(oid.name))
+
+        pk = ec.generate_private_key(self.oid.curve(), default_backend())
+        pubn = pk.public_key().public_numbers()
+        self.x = MPI(pubn.x)
+        self.y = MPI(pubn.y)
+        self.s = MPI(pk.private_numbers().private_value)
+
+    def parse(self, packet):
+        super(ECDSAPriv, self).parse(packet)
+        self.s2k.parse(packet)
+
+        if not self.s2k:
+            self.s = MPI(packet)
+
+            if self.s2k.usage == 0:
+                self.chksum = packet[:2]
+                del packet[:2]
+
+        else:
+            ##TODO: this needs to be bounded to the length of the encrypted key material
+            self.encbytes = packet
+
+    def decrypt_keyblob(self, passphrase):
+        kb = super(ECDSAPriv, self).decrypt_keyblob(passphrase)
+        del passphrase
+
+        self.s = MPI(kb)
+
+    def sign(self, sigdata, hash_alg):
+        signer = self.__privkey__().signer(ec.ECDSA(hash_alg))
+        signer.update(sigdata)
+        return signer.finalize()
+
+
+class ECDHPriv(ECDSAPriv, ECDHPub):
+    def __bytearray__(self):
+        _b = ECDHPub.__bytearray__(self)
+        _b += self.s2k.__bytearray__()
+        if not self.s2k:
+            _b += self.s.to_mpibytes()
+
+            if self.s2k.usage == 0:
+                _b += self.chksum
+
+        else:
+            _b += self.encbytes
+
+        return _b
+
+    def __len__(self):
+        # because of the inheritance used for this, ECDSAPub.__len__ is called instead of ECDHPub.__len__
+        # the only real difference is self.kdf, so we can just add that
+        return super(ECDHPriv, self).__len__() + len(self.kdf)
+
+    def _generate(self, oid):
+        ECDSAPriv._generate(self, oid)
+        self.kdf.halg = self.oid.kdf_halg
+        self.kdf.encalg = self.oid.kek_alg
+
+    def publen(self):
+        return ECDHPub.__len__(self)
+
+    def parse(self, packet):
+        ECDHPub.parse(self, packet)
+        self.s2k.parse(packet)
+
+        if not self.s2k:
+            self.s = MPI(packet)
+
+            if self.s2k.usage == 0:
+                self.chksum = packet[:2]
+                del packet[:2]
+
+        else:
+            ##TODO: this needs to be bounded to the length of the encrypted key material
+            self.encbytes = packet
 
 
 class CipherText(MPIs):
-    def __bytes__(self):
-        return b''.join(i.to_mpibytes() for i in self)
+    def __init__(self):
+        super(CipherText, self).__init__()
+        for i in self.__mpis__:
+            setattr(self, i, MPI(0))
+
+    @classmethod
+    @abc.abstractmethod
+    def encrypt(cls, encfn, *args):
+        """create and populate a concrete CipherText class instance"""
 
     @abc.abstractmethod
-    def from_encrypter(self, ct):
-        """create and parse a concrete CipherText class instance"""
+    def decrypt(self, decfn, *args):
+        """decrypt the ciphertext contained in this CipherText instance"""
+
+    def __bytearray__(self):
+        _bytes = bytearray()
+        for i in self:
+            _bytes += i.to_mpibytes()
+        return _bytes
 
 
 class RSACipherText(CipherText):
-    def __init__(self):
-        super(RSACipherText, self).__init__()
-        self.me_mod_n = MPI(0)
+    __mpis__ = ('me_mod_n', )
 
-    def __iter__(self):
-        yield self.me_mod_n
+    @classmethod
+    def encrypt(cls, encfn, *args):
+        ct = cls()
+        ct.me_mod_n = MPI(cls.bytes_to_int(encfn(*args)))
+        return ct
+
+    def decrypt(self, decfn, *args):
+        return decfn(*args)
 
     def parse(self, packet):
         self.me_mod_n = MPI(packet)
 
-    def from_encrypter(self, ct):
-        self.me_mod_n = MPI(self.bytes_to_int(ct))
-
 
 class ElGCipherText(CipherText):
-    def __init__(self):
-        super(ElGCipherText, self).__init__()
-        self.gk_mod_p = MPI(0)
-        self.myk_mod_p = MPI(0)
+    __mpis__ = ('gk_mod_p', 'myk_mod_p')
 
-    def __iter__(self):  # pragma: no cover
-        yield self.gk_mod_p
-        yield self.myk_mod_p
+    @classmethod
+    def encrypt(cls, encfn, *args):
+        raise NotImplementedError()
+
+    def decrypt(self, decfn, *args):
+        raise NotImplementedError()
 
     def parse(self, packet):
         self.gk_mod_p = MPI(packet)
         self.myk_mod_p = MPI(packet)
 
-    def from_encrypter(self, ct):
-        raise NotImplementedError()
+
+class ECDHCipherText(CipherText):
+    __mpis__ = ('vX', 'vY')
+
+    @classmethod
+    def encrypt(cls, pk, *args):
+        """
+        For convenience, the synopsis of the encoding method is given below;
+        however, this section, [NIST-SP800-56A], and [RFC3394] are the
+        normative sources of the definition.
+
+            Obtain the authenticated recipient public key R
+            Generate an ephemeral key pair {v, V=vG}
+            Compute the shared point S = vR;
+            m = symm_alg_ID || session key || checksum || pkcs5_padding;
+            curve_OID_len = (byte)len(curve_OID);
+            Param = curve_OID_len || curve_OID || public_key_alg_ID || 03
+            || 01 || KDF_hash_ID || KEK_alg_ID for AESKeyWrap || "Anonymous
+            Sender    " || recipient_fingerprint;
+            Z_len = the key size for the KEK_alg_ID used with AESKeyWrap
+            Compute Z = KDF( S, Z_len, Param );
+            Compute C = AESKeyWrap( Z, m ) as per [RFC3394]
+            VB = convert point V to the octet string
+            Output (MPI(VB) || len(C) || C).
+
+        The decryption is the inverse of the method given.  Note that the
+        recipient obtains the shared secret by calculating
+        """
+        # *args should be:
+        # - m
+        #
+        _m, = args
+
+        # m may need to be PKCS5-padded
+        padder = PKCS7(64).padder()
+        m = padder.update(_m) + padder.finalize()
+
+        km = pk.keymaterial
+
+        ct = cls()
+
+        # generate ephemeral key pair, then store it in ct
+        v = ec.generate_private_key(km.oid.curve(), default_backend())
+        ct.vX = MPI(v.public_key().public_numbers().x)
+        ct.vY = MPI(v.public_key().public_numbers().y)
+
+        # compute the shared point S
+        s = v.exchange(ec.ECDH(), km.__pubkey__())
+
+        # derive the wrapping key
+        z = km.kdf.derive_key(s, km.oid, PubKeyAlgorithm.ECDH, pk.fingerprint)
+
+        # compute C
+        ct.c = aes_key_wrap(z, m, default_backend())
+
+        return ct
+
+    def decrypt(self, pk, *args):
+        km = pk.keymaterial
+        # assemble the public component of ephemeral key v
+        v = ec.EllipticCurvePublicNumbers(self.vX, self.vY, km.oid.curve()).public_key(default_backend())
+
+        # compute s using the inverse of how it was derived during encryption
+        s = km.__privkey__().exchange(ec.ECDH(), v)
+
+        # derive the wrapping key
+        z = km.kdf.derive_key(s, km.oid, PubKeyAlgorithm.ECDH, pk.fingerprint)
+
+        # unwrap and unpad m
+        _m = aes_key_unwrap(z, self.c, default_backend())
+
+        padder = PKCS7(64).unpadder()
+        return padder.update(_m) + padder.finalize()
+
+    def __init__(self):
+        super(ECDHCipherText, self).__init__()
+        self.c = bytearray(0)
+
+    def __bytearray__(self):
+        _bytes = bytearray()
+        _xy = b'\x04' + self.vX.to_mpibytes()[2:] + self.vY.to_mpibytes()[2:]
+        _bytes += MPI(self.bytes_to_int(_xy, 'big')).to_mpibytes()
+        _bytes.append(len(self.c))
+        _bytes += self.c
+
+        return _bytes
+
+    def parse(self, packet):
+        # self.v = MPI(packet)
+        xy = bytearray(MPI(packet).to_mpibytes()[2:])
+        del xy[:1]
+        xylen = len(xy)
+        x, y = xy[:xylen // 2], xy[xylen // 2:]
+        self.vX = MPI(self.bytes_to_int(x))
+        self.vY = MPI(self.bytes_to_int(y))
+
+        clen = packet[0]
+        del packet[0]
+
+        self.c += packet[:clen]
+        del packet[:clen]

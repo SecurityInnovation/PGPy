@@ -6,12 +6,13 @@ import abc
 import base64
 import binascii
 import bisect
+import codecs
 import collections
 import operator
 import os
 import re
-import sys
 import warnings
+import weakref
 
 from enum import EnumMeta
 from enum import IntEnum
@@ -23,6 +24,19 @@ from ._author import __version__
 from .decorators import sdproperty
 
 from .errors import PGPError
+
+__all__ = ['Armorable',
+           'ParentRef',
+           'PGPObject',
+           'Field',
+           'Header',
+           'MetaDispatchable',
+           'Dispatchable',
+           'SignatureVerification',
+           'FlagEnumMeta',
+           'FlagEnum',
+           'Fingerprint',
+           'SorteDeque']
 
 if six.PY2:
     FileNotFoundError = IOError
@@ -38,6 +52,14 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
                     '{packet}\n' \
                     '={crc}\n' \
                     '-----END PGP {block_type}-----\n'
+
+    @property
+    def charset(self):
+        return self.ascii_headers.get('Charset', 'utf-8')
+
+    @charset.setter
+    def charset(self, encoding):
+        self.ascii_headers['Charset'] = codecs.lookup(encoding).name
 
     @staticmethod
     def is_ascii(text):
@@ -105,8 +127,8 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
             try:
                 m['body'] = bytearray(base64.b64decode(m['body'].encode()))
 
-            except binascii.Error as ex:
-                six.reraise(PGPError, ex)
+            except (binascii.Error, TypeError) as ex:
+                six.raise_from(PGPError, ex)
 
         if m['crc'] is not None:
             m['crc'] = Header.bytes_to_int(base64.b64decode(m['crc'].encode()))
@@ -156,26 +178,26 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
         if po is not None:
             return (obj, po)
 
-        return obj
+        return obj  # pragma: no cover
 
     @classmethod
     def from_blob(cls, blob):
         obj = cls()
-        po = obj.parse(bytearray(blob, 'latin-1'))
+        if (not isinstance(blob, six.binary_type)) and (not isinstance(blob, bytearray)):
+            po = obj.parse(bytearray(blob, 'latin-1'))
+
+        else:
+            po = obj.parse(bytearray(blob))
 
         if po is not None:
             return (obj, po)
 
-        return obj
+        return obj  # pragma: no cover
 
     def __init__(self):
         super(Armorable, self).__init__()
         self.ascii_headers = collections.OrderedDict()
         self.ascii_headers['Version'] = 'PGPy v' + __version__  # Default value
-
-    @abc.abstractmethod
-    def __bytes__(self):
-        """This method is too abstract to understand"""
 
     def __str__(self):
         payload = base64.b64encode(self.__bytes__()).decode('latin-1')
@@ -187,6 +209,37 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
             packet=payload,
             crc=base64.b64encode(PGPObject.int_to_bytes(self.crc24(self.__bytes__()), 3)).decode('latin-1')
         )
+
+    def __copy__(self):
+        obj = self.__class__()
+        obj.ascii_headers = self.ascii_headers.copy()
+
+        return obj
+
+
+class ParentRef(object):
+    # mixin class to handle weak-referencing a parent object
+    @property
+    def _parent(self):
+        if isinstance(self.__parent, weakref.ref):
+            return self.__parent()
+        return self.__parent
+
+    @_parent.setter
+    def _parent(self, parent):
+        try:
+            self.__parent = weakref.ref(parent)
+
+        except TypeError:
+            self.__parent = parent
+
+    @property
+    def parent(self):
+        return self._parent
+
+    def __init__(self):
+        super(ParentRef, self).__init__()
+        self._parent = None
 
 
 class PGPObject(six.with_metaclass(abc.ABCMeta, object)):
@@ -225,30 +278,42 @@ class PGPObject(six.with_metaclass(abc.ABCMeta, object)):
 
     @staticmethod
     def text_to_bytes(text):
-        bin = bytearray()
-
-        if text is None or isinstance(text, bytearray):
+        if text is None:
             return text
 
-        for c in iter(ord(c) for c in text):
-            if c < 256:
-                bin.append(c)
+        # if we got bytes, just return it
+        if isinstance(text, (bytearray, six.binary_type)):
+            return text
 
-            else:
-                bin += PGPObject.int_to_bytes(c)
+        # if we were given a unicode string, or if we translated the string into utf-8,
+        # we know that Python already has it in utf-8 encoding, so we can now just encode it to bytes
+        return text.encode('utf-8')
 
-        return bytes(bin)
+    @staticmethod
+    def bytes_to_text(text):
+        if text is None or isinstance(text, six.text_type):
+            return text
+
+        return text.decode('utf-8')
 
     @abc.abstractmethod
     def parse(self, packet):
         """this method is too abstract to understand"""
 
     @abc.abstractmethod
-    def __bytes__(self):
+    def __bytearray__(self):
         """
-        Return the contents of concrete sublcasses in a binary format that can be understood by other OpenPGP
+        Returns the contents of concrete subclasses in a binary format that can be understood by other OpenPGP
         implementations
         """
+
+    def __bytes__(self):
+        """
+        Return the contents of concrete subclasses in a binary format that can be understood by other OpenPGP
+        implementations
+        """
+        # this is what all subclasses will do anyway, so doing this here we can reduce code duplication significantly
+        return bytes(self.__bytearray__())
 
 
 class Field(PGPObject):
@@ -298,12 +363,19 @@ class Header(Field):
                 self._len = ((dlen - (192 << 8)) & 0xFF00) + ((dlen & 0xFF) + 192)
                 del b[:2]
 
+            elif 255 > fo:  # pragma: no cover
+                # not testable until partial body lengths actually work
+                # >= 224 is implied
+                # this is a partial-length header
+                self._partial = True
+                self._len = 1 << (fo & 0x1f)
+
             elif 255 == fo:
                 self._len = self.bytes_to_int(b[1:5])
                 del b[:5]
 
             else:  # pragma: no cover
-                raise ValueError("Malformed length!")
+                raise ValueError("Malformed length: 0x{:02x}".format(fo))
 
         def _old_len(b):
             if self.llen > 0:
@@ -346,6 +418,7 @@ class Header(Field):
         self._len = 1
         self._llen = 1
         self._lenfmt = 1
+        self._partial = False
 
 
 class MetaDispatchable(abc.ABCMeta):
@@ -443,7 +516,7 @@ class MetaDispatchable(abc.ABCMeta):
                             nh.parse(packet)
 
                         except Exception as ex:
-                            six.reraise(PGPError, ex)
+                            six.raise_from(PGPError, ex)
 
                         header = nh
 
@@ -463,7 +536,7 @@ class MetaDispatchable(abc.ABCMeta):
                 obj.parse(packet)
 
             except Exception as ex:
-                six.reraise(PGPError, ex)
+                six.raise_from(PGPError, ex)
 
         else:
             obj = _makeobj(cls)
@@ -530,6 +603,9 @@ class SignatureVerification(object):
         """
         super(SignatureVerification, self).__init__()
         self._subjects = []
+
+    def __contains__(self, item):
+        return item in {ii for i in self._subjects for ii in [i.signature, i.subject]}
 
     def __len__(self):
         return len(self._subjects)

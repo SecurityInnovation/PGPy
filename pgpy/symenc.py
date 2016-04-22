@@ -13,6 +13,9 @@ from .errors import PGPDecryptionError
 from .errors import PGPEncryptionError
 from .errors import PGPInsecureCipher
 
+__all__ = ['_encrypt',
+           '_decrypt']
+
 
 def _encrypt(pt, key, alg, iv=None):
     if iv is None:
@@ -28,7 +31,7 @@ def _encrypt(pt, key, alg, iv=None):
         encryptor = Cipher(alg.cipher(key), modes.CFB(iv), default_backend()).encryptor()
 
     except UnsupportedAlgorithm as ex:  # pragma: no cover
-        six.reraise(PGPEncryptionError, ex)
+        six.raise_from(PGPEncryptionError, ex)
 
     else:
         return bytearray(encryptor.update(pt) + encryptor.finalize())
@@ -49,7 +52,7 @@ def _decrypt(ct, key, alg, iv=None):
         decryptor = Cipher(alg.cipher(key), modes.CFB(iv), default_backend()).decryptor()
 
     except UnsupportedAlgorithm as ex:  # pragma: no cover
-        six.reraise(PGPDecryptionError, ex)
+        six.raise_from(PGPDecryptionError, ex)
 
     else:
         return bytearray(decryptor.update(ct) + decryptor.finalize())

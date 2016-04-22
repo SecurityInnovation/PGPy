@@ -10,7 +10,7 @@ PGPy: Pretty Good Privacy for Python
     :alt: Travis-CI
 
 .. image:: https://coveralls.io/repos/SecurityInnovation/PGPy/badge.png?branch=master
-    :target: https://coveralls.io/r/SecurityInnovation/PGPy?branch=master
+    :target: https://coveralls.io/github/SecurityInnovation/PGPy?branch=master
     :alt: Coveralls
 
 Homepage: None yet.
@@ -22,7 +22,7 @@ Features
 
 Currently, PGPy can load keys and signatures of all kinds in both ASCII armored and binary formats.
 
-It can create and verify RSA and DSA signatures, at the moment.
+It can create and verify RSA, DSA, and ECDSA signatures, at the moment. It can also encrypt and decrypt messages using RSA and ECDH.
 
 Installation
 ------------
@@ -41,9 +41,9 @@ Documentation
 Requirements
 ------------
 
-- Python >= 2.7
+- Python 3 >= 3.3; Python 2 >= 2.7
 
-  Tested with: 3.4, 3.3, 3.2, 2.7
+  Tested with: 3.5, 3.4, 3.3, 2.7
 
 - `Cryptography <https://pypi.python.org/pypi/cryptography>`_
 
@@ -51,10 +51,11 @@ Requirements
 
 - `singledispatch <https://pypi.python.org/pypi/singledispatch>`_
 
+- `pyasn1 <https://pypi.python.org/pypi/pyasn1/>`_
+
 - `six <https://pypi.python.org/pypi/six>`_
 
 License
 -------
 
 BSD 3-Clause licensed. See the bundled `LICENSE <https://github.com/SecurityInnovation/PGPy/blob/master/LICENSE>`_ file for more details.
-

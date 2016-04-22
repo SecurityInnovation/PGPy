@@ -112,8 +112,9 @@ class ProgressTable(Directive):
                                         classes=['field-value'])
                 body += tr
 
-        # finish up the final hrow
-        self.add_progbar(shrow, len([c for c in comps[cur] if c == True]), len(comps[cur]))
+        if self.content:
+            # finish up the final hrow
+            self.add_progbar(shrow, len([c for c in comps[cur] if c == True]), len(comps[cur]))
 
 
         # and fill in the end of mrow

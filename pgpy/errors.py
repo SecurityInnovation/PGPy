@@ -1,6 +1,13 @@
 """ errors.py
 """
 
+__all__ = ('PGPError',
+           'PGPEncryptionError',
+           'PGPDecryptionError',
+           'PGPOpenSSLCipherNotSupported',
+           'PGPInsecureCipher',
+           'WontImplementError',)
+
 
 class PGPError(Exception):
     """Raised as a general error in PGPy"""

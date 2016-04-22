@@ -1,4 +1,5 @@
-cryptography==0.6
+cryptography>=1.1
 enum34
-six>=1.7.2
+pyasn1
+six>=1.9.0
 singledispatch

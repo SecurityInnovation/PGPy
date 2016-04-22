@@ -3,6 +3,7 @@
 import pytest
 
 import glob
+import os
 
 from datetime import datetime
 
@@ -21,7 +22,10 @@ from pgpy.pgp import PGPSignature
 # generic block tests
 class TestBlocks(object):
     params = {
-        'block': glob.glob('tests/testdata/blocks/*.asc')
+        'block': sorted(glob.glob('tests/testdata/blocks/*.asc'))
+    }
+    ids = {
+        'test_load': [ os.path.basename(fn).replace('.', '_') for fn in sorted(glob.glob('tests/testdata/blocks/*.asc')) ]
     }
     attrs = {
         'tests/testdata/blocks/message.compressed.asc':
@@ -108,10 +112,20 @@ class TestBlocks(object):
              ('issuers',       {'EEE097A017B979CA'}),
              ('signers',       set()),
              ('type',          'encrypted')],
+        'tests/testdata/blocks/message.ecc.encrypted.asc':
+            [('encrypters',    {'77CEB7A34089AB73'}),
+             ('is_compressed', False),
+             ('is_encrypted',  True),
+             ('is_signed',     False),
+             ('issuers',       {'77CEB7A34089AB73'}),
+             ('signers',       set()),
+             ('type',          'encrypted')],
+
         'tests/testdata/blocks/revochiio.asc':
             [('created',       datetime(2014, 9, 11, 22, 55, 53)),
              ('fingerprint',   "AE15 9FF3 4C1A 2426 B7F8 0F1A 560C F308 EF60 CFA3"),
-             ('is_expired',    True),
+             ('expires_at',    datetime(2018, 9, 12, 1, 0, 59)),
+             ('is_expired',    False),
              ('is_primary',    True),
              ('is_protected',  False),
              ('is_public',     True),
@@ -120,6 +134,11 @@ class TestBlocks(object):
              ('magic',         "PUBLIC KEY BLOCK"),
              ('parent',        None),
              ('signers',       {'560CF308EF60CFA3'}),],
+        'tests/testdata/blocks/expyro.asc':
+            [('created',       datetime(1970, 1, 1)),
+             ('expires_at',    datetime(1970, 1, 2)),
+             ('fingerprint',   '24EB C1B0 29B1 FCF8 29A5  C150 1A48 291A FB91 A533'),
+             ('is_expired',    True),],
         'tests/testdata/blocks/rsapubkey.asc':
             [('created',       datetime(2014, 7, 23, 21, 19, 24)),
              ('expires_at',    None),
@@ -175,6 +194,32 @@ class TestBlocks(object):
             ('revocation_key', None),
             ('signer',         'FCAE54F74BA27CF7'),
             ('type',           SignatureType.BinaryDocument)],
+        'tests/testdata/blocks/eccpubkey.asc':
+            [('created',       datetime(2010, 9, 17, 20, 33, 49)),
+             ('expires_at',    None),
+             ('fingerprint',   "502D 1A53 65D1 C0CA A699 4539 0BA5 2DF0 BAA5 9D9C"),
+             ('is_expired',    False),
+             ('is_primary',    True),
+             ('is_protected',  False),
+             ('is_public',     True),
+             ('is_unlocked',   True),
+             ('key_algorithm', PubKeyAlgorithm.ECDSA),
+             ('magic',         "PUBLIC KEY BLOCK"),
+             ('parent',        None),
+             ('signers',       set()),],
+        'tests/testdata/blocks/eccseckey.asc':
+            [('created',       datetime(2010, 9, 17, 20, 33, 49)),
+             ('expires_at',    None),
+             ('fingerprint',   "502D 1A53 65D1 C0CA A699 4539 0BA5 2DF0 BAA5 9D9C"),
+             ('is_expired',    False),
+             ('is_primary',    True),
+             ('is_protected',  True),
+             ('is_public',     False),
+             ('is_unlocked',   False),
+             ('key_algorithm', PubKeyAlgorithm.ECDSA),
+             ('magic',         "PRIVATE KEY BLOCK"),
+             ('parent',        None),
+             ('signers',       set()),],
         'tests/testdata/blocks/signature.expired.asc':
             [('created',       datetime(2014, 9, 28, 20, 54, 42)),
              ('is_expired',    True),],
@@ -188,7 +233,6 @@ class TestBlocks(object):
 
         elif 'KEY' in bc.splitlines()[0]:
             p = PGPKey()
-
 
         elif 'MESSAGE' in bc.splitlines()[0]:
             p = PGPMessage()
@@ -207,5 +251,7 @@ class TestBlocks(object):
         assert block in self.attrs
         for attr, val in self.attrs[block]:
             attrval = getattr(p, attr)
-            assert attrval == val
-
+            # this is probably more helpful than just 'assert attrval == val'
+            if attrval != val:
+                raise AssertionError('expected block.{attr:s} = {aval}; got block.{attr:s} = {rval}'
+                                     ''.format(attr=attr, aval=val, rval=attrval))

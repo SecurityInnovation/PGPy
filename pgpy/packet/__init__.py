@@ -8,4 +8,4 @@ from .types import Sub
 
 from .packets import *  # NOQA
 
-__all__ = [Key, Opaque, Packet, Primary, Private, Public, Sub]
+__all__ = ['Key', 'Opaque', 'Packet', 'Primary', 'Private', 'Public', 'Sub']
