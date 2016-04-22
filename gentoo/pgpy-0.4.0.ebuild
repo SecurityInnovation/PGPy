@@ -9,7 +9,7 @@ inherit distutils-r1
 
 DESCRIPTION="Pretty Good Privacy for Python - a pure Python OpenPGP implementation."
 HOMEPAGE="https://github.com/SecurityInnovation/PGPy"
-SRC_URI="mirror://pypi/P/PGPy/PGPy-${PV}.tar.gz"
+SRC_URI="https://pypi.python.org/packages/0a/2c/bfe57ac97d31fcd7172df43770d68bab1fbd38d629448ec8013f4714e779/PGPy-0.4.0a.tar.gz"
 
 LICENSE="BSD"
 SLOT="0"
