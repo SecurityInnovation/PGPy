@@ -22,7 +22,7 @@ Features
 
 Currently, PGPy can load keys and signatures of all kinds in both ASCII armored and binary formats.
 
-It can create and verify RSA and DSA signatures, at the moment.
+It can create and verify RSA, DSA, and ECDSA signatures, at the moment. It can also encrypt and decrypt messages using RSA and ECDH.
 
 Installation
 ------------
@@ -59,4 +59,3 @@ License
 -------
 
 BSD 3-Clause licensed. See the bundled `LICENSE <https://github.com/SecurityInnovation/PGPy/blob/master/LICENSE>`_ file for more details.
-
