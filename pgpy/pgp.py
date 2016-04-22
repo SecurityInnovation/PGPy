@@ -1801,10 +1801,10 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         :keyword compression: A list of preferred compression algorithms, as :py:obj:`~constants.CompressionAlgorithm`.
                               This keyword is ignored for non-self-certifications.
         :type compression: ``list``
-        :keyword key_expires: Specify a key expiration date for when this key should expire, or a
+        :keyword key_expiration: Specify a key expiration date for when this key should expire, or a
                               :py:obj:`~datetime.timedelta` of how long after the key was created it should expire.
                               This keyword is ignored for non-self-certifications.
-        :type key_expires: :py:obj:`datetime.datetime`, :py:obj:`datetime.timedelta`
+        :type key_expiration: :py:obj:`datetime.datetime`, :py:obj:`datetime.timedelta`
         :keyword keyserver: Specify the URI of the preferred key server of the user.
                             This keyword is ignored for non-self-certifications.
         :type keyserver: ``str``, ``unicode``, ``bytes``

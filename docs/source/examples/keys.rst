@@ -27,6 +27,21 @@ It is possible to generate most types of keys with PGPy now. The process is most
                 ciphers=[SymmetricKeyAlgorithm.AES256, SymmetricKeyAlgorithm.AES192, SymmetricKeyAlgorithm.AES128],
                 compression=[CompressionAlgorithm.ZLIB, CompressionAlgorithm.BZ2, CompressionAlgorithm.ZIP, CompressionAlgorithm.Uncompressed])
 
+Specifying key expiration can be done using the ``key_expires`` keyword when adding the user id. Expiration can be specified
+using a :py:obj:`datetime.datetime` or a :py:obj:`datetime.timedelta` object::
+
+    from datetime import timedelta
+
+    # in this example, we'll use fewer preferences for the sake of brevity, and set the key to expire in 10 years
+    key = pgpy.PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 4096)
+    uid = pgpy.PGPUID.new('Nikola Tesla')  # comment and email are optional
+
+    # the key_expires keyword accepts a :py:obj:`datetime.datetime`
+    key.add_uid(uid, usage={KeyFlags.Sign}, hashes=[HashAlgorithm.SHA512, HashAlgorithm.SHA256],
+                ciphers=[SymmetricKeyAlgorithm.AES256, SymmetricKeyAlgorithm.Camellia256],
+                compression=[CompressionAlgorithm.BZ2, CompressionAlgorithm.Uncompressed],
+                key_expires=timedelta(days=365))
+
 Generating Sub Keys
 ^^^^^^^^^^^^^^^^^^^
 
@@ -86,7 +101,7 @@ It is usually recommended to passphrase-protect private keys. Adding a passphras
 
     # key.is_public is False
     # key.is_protected is False
-    key.protect("C0rrectPassphr@se")
+    key.protect("C0rrectPassphr@se", SymmetricKeyAlgorithm.AES256, HashAlgorithm.SHA256)
     # key.is_protected is now True
 
 Unlocking Protected Secret Keys

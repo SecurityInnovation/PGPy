@@ -432,7 +432,7 @@ class KeyFlags(FlagEnum):
     Sign = 0x02
     #: Signifies that a key may be used to encrypt messages.
     EncryptCommunications = 0x04
-    #: Signifies that a key may be used to encrypt storage. Currently equivalent to :py:obj:~pgpy.constants.EncryptCommunications`.
+    #: Signifies that a key may be used to encrypt storage. Currently equivalent to :py:obj:`~pgpy.constants.EncryptCommunications`.
     EncryptStorage = 0x08
     #: Signifies that the private component of a given key may have been split by a secret-sharing mechanism. Split
     #: keys are not currently supported by PGPy.

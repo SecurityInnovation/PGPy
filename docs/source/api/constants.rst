@@ -100,6 +100,14 @@ Constants
         :noindex:
         :annotation:
 
+    .. autoattribute:: AES192
+        :noindex:
+        :annotation:
+
+    .. autoattribute:: AES256
+        :noindex:
+        :annotation:
+
     .. autoattribute:: Camellia128
         :noindex:
         :annotation:
