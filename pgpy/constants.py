@@ -53,14 +53,38 @@ class EllipticCurveOID(Enum):
     # these are specified as:
     # id = (oid, curve)
     Invalid = ('', )
+    #: DJB's fast elliptic curve
+    #:
+    #: .. warning::
+    #:     This curve is not currently usable by PGPy
     Curve25519 = ('1.3.6.1.4.1.3029.1.5.1', )
+    #: Twisted Edwards variant of Curve25519
+    #:
+    #: .. warning::
+    #:     This curve is not currently usable by PGPy
     Ed25519 = ('1.3.6.1.4.1.11591.15.1', )
+    #: NIST P-256, also known as SECG curve secp256r1
     NIST_P256 = ('1.2.840.10045.3.1.7', ec.SECP256R1)
+    #: NIST P-384, also known as SECG curve secp384r1
     NIST_P384 = ('1.3.132.0.34', ec.SECP384R1)
+    #: NIST P-521, also known as SECG curve secp521r1
     NIST_P521 = ('1.3.132.0.35', ec.SECP521R1)
+    #: Brainpool Standard Curve, 256-bit
+    #:
+    #: .. warning::
+    #:     This curve is not currently usable by PGPy
     Brainpool_P256 = ('1.3.36.3.3.2.8.1.1.7', )
+    #: Brainpool Standard Curve, 384-bit
+    #:
+    #: .. warning::
+    #:     This curve is not currently usable by PGPy
     Brainpool_P384 = ('1.3.36.3.3.2.8.1.1.11', )
+    #: Brainpool Standard Curve, 512-bit
+    #:
+    #: .. warning::
+    #:     This curve is not currently usable by PGPy
     Brainpool_P512 = ('1.3.36.3.3.2.8.1.1.13', )
+    #: SECG curve secp256k1
     SECP256K1 = ('1.3.132.0.10', ec.SECP256K1)
 
     def __new__(cls, oid, curve=None):
@@ -212,7 +236,9 @@ class PubKeyAlgorithm(IntEnum):
     ElGamal = 0x10
     #: Signifies that a key is a DSA key.
     DSA = 0x11
+    #: Signifies that a key is an ECDH key.
     ECDH = 0x12
+    #: Signifies that a key is an ECDSA key.
     ECDSA = 0x13
     FormerlyElGamalEncryptOrSign = 0x14  # deprecated - do not generate
     # DiffieHellman = 0x15  # X9.42

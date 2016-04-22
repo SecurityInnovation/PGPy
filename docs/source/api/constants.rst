@@ -22,6 +22,56 @@ Constants
         :noindex:
         :annotation:
 
+    .. autoattribute:: ECDH
+        :noindex:
+        :annotation:
+
+    .. autoattribute:: ECDSA
+        :noindex:
+        :annotation:
+
+:py:class:`EllipticCurveOID`
+----------------------------
+
+.. autoclass:: EllipticCurveOID
+    :noindex:
+
+    .. autoattribute:: Curve25519
+        :noindex:
+        :annotation:
+
+    .. autoattribute:: Ed25519
+        :noindex:
+        :annotation:
+
+    .. autoattribute:: NIST_P256
+        :noindex:
+        :annotation:
+
+    .. autoattribute:: NIST_P384
+        :noindex:
+        :annotation:
+
+    .. autoattribute:: NIST_P521
+        :noindex:
+        :annotation:
+
+    .. autoattribute:: Brainpool_P256
+        :noindex:
+        :annotation:
+
+    .. autoattribute:: Brainpool_P384
+        :noindex:
+        :annotation:
+
+    .. autoattribute:: Brainpool_P512
+        :noindex:
+        :annotation:
+
+    .. autoattribute:: SECP256K1
+        :noindex:
+        :annotation:
+
 
 :py:class:`SymmetricKeyAlgorithm`
 ---------------------------------

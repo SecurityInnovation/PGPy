@@ -679,6 +679,7 @@ class PGPMessage(Armorable, PGPObject):
 
     @property
     def filename(self):
+        """If applicable, returns the original filename of the message. Otherwise, returns an empty string."""
         if self.type == 'literal':
             return self._message.filename
         return ''
@@ -695,6 +696,7 @@ class PGPMessage(Armorable, PGPObject):
 
     @property
     def is_sensitive(self):
+        """``True`` if this message is marked sensitive; otherwise ``False``"""
         return self.type == 'literal' and self._message.filename == '_CONSOLE'
 
     @property
@@ -1258,8 +1260,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
     @property
     def pubkey(self):
-        """If the :py:obj:`PGPKey` object is a private key, this method returns a corresponding public key object with all the trimmings.
-        Otherwise, returns ``None``
+        """If the :py:obj:`PGPKey` object is a private key, this method returns a corresponding public key object with
+        all the trimmings. Otherwise, returns ``None``
         """
         if not self.is_public:
             if self._sibling is None or isinstance(self._sibling, weakref.ref):
@@ -1319,6 +1321,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
     @property
     def signers(self):
+        """A ``set`` of key ids of keys that were used to sign this key"""
         return {sig.signer for sig in self.__sig__}
 
     @property
@@ -1338,12 +1341,22 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return [u for u in self._uids if u.is_ua]
 
     @classmethod
-    def new(cls, key_algorithm, key_size, **kwargs):
+    def new(cls, key_algorithm, key_size):
+        """
+        Generate a new PGP key
+
+        :param key_algorithm: Key algorithm to use.
+        :type key_algorithm: A :py:obj:`~constants.PubKeyAlgorithm`
+        :param key_size: Key size in bits, unless `key_algorithm` is :py:obj:`~constants.PubKeyAlgorithm.ECDSA` or
+               :py:obj:`~constants.PubKeyAlgorithm.ECDH`, in which case it should be the Curve OID to use.
+        :type key_size: ``int`` or :py:obj:`~constants.EllipticCurveOID`
+        :return: A newly generated :py:obj:`PGPKey`
+        """
         # new private key shell first
         key = PGPKey()
 
         if key_algorithm in {PubKeyAlgorithm.RSAEncrypt, PubKeyAlgorithm.RSASign}:  # pragma: no cover
-            warnings.warn('{:s} is deprecated - generating key using RSAEncryptOrSign'.format(key_algorithm.name), stacklevel=2)
+            warnings.warn('{:s} is deprecated - generating key using RSAEncryptOrSign'.format(key_algorithm.name))
             key_algorithm = PubKeyAlgorithm.RSAEncryptOrSign
 
         # generate some key data to match key_algorithm and key_size
@@ -1460,6 +1473,19 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return key
 
     def protect(self, passphrase, enc_alg, hash_alg):
+        """
+        Add a passphrase to a private key. If the key is already passphrase protected, it should be unlocked before
+        a new passphrase can be specified.
+
+        Has no effect on public keys.
+
+        :param passphrase: A passphrase to protect the key with
+        :type passphrase: ``str``, ``unicode``
+        :param enc_alg: Symmetric encryption algorithm to use to protect the key
+        :type enc_alg: :py:obj:`~constants.SymmetricKeyAlgorithm`
+        :param hash_alg: Hash algorithm to use in the String-to-Key specifier
+        :type hash_alg: :py:obj:`~constants.HashAlgorithm`
+        """
         ##TODO: specify strong defaults for enc_alg and hash_alg
         if self.is_public:
             # we can't protect public keys because only private key material is ever protected
@@ -1532,6 +1558,17 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                 sk._key.keymaterial.clear()
 
     def add_uid(self, uid, selfsign=True, **prefs):
+        """
+        Add a User ID to this key.
+
+        :param uid: The user id to add
+        :type uid: :py:obj:`~pgpy.PGPUID`
+        :param selfsign: Whether or not to self-sign the user id before adding it
+        :type selfsign: ``bool``
+
+        Valid optional keyword arguments are identical to those of self-signatures for :py:meth:`PGPKey.certify`.
+        Any such keyword arguments are ignored if selfsign is ``False``
+        """
         uid._parent = self
         if selfsign:
             uid |= self.certify(uid, SignatureType.Positive_Cert, **prefs)
@@ -1539,11 +1576,25 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         self |= uid
 
     def get_uid(self, search):
+        """
+        Find and return a User ID that matches the search string given.
+
+        :param search: A text string to match name, comment, or email address against
+        :type search: ``str``, ``unicode``
+        :return: The first matching :py:obj:`~pgpy.PGPUID`, or ``None`` if no matches were found.
+        """
         if self.is_primary:
             return next((u for u in self._uids if search in filter(lambda a: a is not None, (u.name, u.comment, u.email))), None)
         return self.parent.get_uid(search)
 
     def del_uid(self, search):
+        """
+        Find and remove a user id that matches the search string given. This method does not modify the corresponding
+        :py:obj:`~pgpy.PGPUID` object; it only removes it from the list of user ids on the key.
+
+        :param search: A text string to match name, comment, or email address against
+        :type search: ``str``, ``unicode``
+        """
         u = self.get_uid(search)
 
         if u is None:
@@ -1553,6 +1604,15 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         self._uids.remove(u)
 
     def add_subkey(self, key, **prefs):
+        """
+        Add a key as a subkey to this key.
+        :param key: A private :py:obj:`~pgpy.PGPKey` that does not have any subkeys of its own
+
+        :keyword usage: A ``set`` of key usage flags, as :py:obj:`~constants.KeyFlags` for the subkey to be added.
+        :type usage: ``set``
+
+        Other valid optional keyword arguments are identical to those of self-signatures for :py:meth:`PGPKey.certify`
+        """
         if self.is_public:
             raise PGPError("Cannot add a subkey to a public key. Add the subkey to the private component first!")
 
@@ -1729,6 +1789,9 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
         These optional keywords only make sense, and thus only have an effect, when self-signing a key or User ID:
 
+        :keyword usage: A ``set`` of key usage flags, as :py:obj:`~constants.KeyFlags`.
+                        This keyword is ignored for non-self-certifications.
+        :type usage: ``set``
         :keyword ciphers: A list of preferred symmetric ciphers, as :py:obj:`~constants.SymmetricKeyAlgorithm`.
                           This keyword is ignored for non-self-certifications.
         :type ciphers: ``list``

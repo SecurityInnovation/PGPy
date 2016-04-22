@@ -98,7 +98,7 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
     :RSA Key Actions:
         - Load,       True,  Load Keys
         - Generate,   True,  Generate Keys
-        - Generate,   False, Generate Subkeys
+        - Generate,   True,  Generate Subkeys
         - Sign,       True,  Generate detached signatures of binary documents
         - Sign,       True,  Generate inline signatures of canonical documents
         - Sign,       True,  Sign messages
@@ -134,7 +134,7 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
     :DSA Key Actions:
         - Load,       True,  Load Keys
         - Generate,   True,  Generate Keys
-        - Generate,   False, Generate Subkeys
+        - Generate,   True,  Generate Subkeys
         - Sign,       True,  Generate detached signatures of binary documents
         - Sign,       True,  Generate inline signatures of canonical documents
         - Sign,       True,  One-Pass Sign messages
@@ -215,7 +215,7 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
 
     :ECDSA Key Actions:
         - Load,       True,  Load Keys
-        - Generate,   True,  Genera te Keys
+        - Generate,   True,  Generate Keys
         - Generate,   True,  Generate Subkeys
         - Sign,       True,  Generate detached signatures of binary documents
         - Sign,       True,  Generate inline signatures of canonical documents
@@ -260,14 +260,17 @@ This section covers things that are considered extensions to PGP, but are not co
         - DNS PKA, False, Look up and retrieve keys stored in DNS PKA records.
 
 .. progress:: OpenPGP HTTP Keyserver Protocol (HKP)
-    :text: The protocol is specified in `Marc Horowitz's thesis paper`_ and an expired RFC draft by David Shaw, `draft-shaw-openpgp-hkp-00.txt`_.
+    :text: The protocol is specified in `Marc Horowitz's thesis paper`_, and an expired RFC draft by David Shaw, `draft-shaw-openpgp-hkp-00`_.
 
     :HKP:
         - HKP, False, Look up and retrieve keys from key server
         - HKP, False, Send keys to key server
 
 .. progress:: EdDSA for OpenPGP
-    :text: Use of Ed25519 with ECDSA and ECDH in OpenPGP is currently specified in an in-progress RFC draft by Werner Koch, `draft-koch-eddsa-for-openpgp-02`.
+    :text: Use of Ed25519 with ECDSA and ECDH in OpenPGP is currently specified in an in-progress RFC draft by Werner Koch, `draft-koch-eddsa-for-openpgp`_.
+
+    :Curves:
+        - Curve, False, Ed25519
 
 
 .. progress:: Additional Curves for OpenPGP
@@ -277,14 +280,15 @@ This section covers things that are considered extensions to PGP, but are not co
         - Curve, False, Brainpool P-256
         - Curve, False, Brainpool P-384
         - Curve, False, Brainpool P-512
+        - Curve, False, Curve25519
+        - Curve, True,  SECP256K1
 
 .. note:: Use of Brainpool curves with ECDSA/ECDH
-    :text: Although these curves are not explicitly
+    :text: Although these curves are not explicitly mentioned in an RFC for OpenPGP at this point, GnuPG 2.1.x+ does support using them, so I have included them here as well.
 
     \* Cipher availability depends on the currently installed OpenSSL being compiled with support for it
 
 
-
 .. _`Marc Horowitz's thesis paper`: http://www.mit.edu/afs/net.mit.edu/project/pks/thesis/paper/thesis.html
-.. _`draft-shaw-openpgp-hkp-00.txt`: https://tools.ietf.org/html/draft-shaw-openpgp-hkp-00
-.. _`draft-koch-eddsa-for-openpgp-02`: https://tools.ietf.org/html/draft-koch-eddsa-for-openpgp-02
+.. _`draft-shaw-openpgp-hkp-00`: https://tools.ietf.org/html/draft-shaw-openpgp-hkp-00
+.. _`draft-koch-eddsa-for-openpgp`: https://tools.ietf.org/html/draft-koch-eddsa-for-openpgp-04

@@ -11,21 +11,35 @@ Released: |today|
 
 Bugs Fixed
 ----------
+ * Armorable.from_blob was incorrectly not accepting bytes objects; this has been fixed (#140)
+ * Fixed an issue where string-formatting PGPUID objects would sometimes raise an exception (#142)
  * Occasionally, the ASN.1 encoding of DSA signatures was being built in a way that although GPG could parse and verify them,
-   it was incorrect, and PGPy incorrectly failed to verify them.
+   it was incorrect, and PGPy incorrectly failed to verify them. (#143)
  * Fixed an issue where keys with expiration dates set would have the wrong value returned from the ``key.is_expired`` property (#151)
+ * Fixed an issue where PGPy would try to incorrectly coerce non-ASCII-compatible characters to ASCII-compatible bytes, potentially resulting in mojibake. (#154)
 
 New Features
 ------------
+ * ECDSA and ECDH keys can now be loaded (#109, #110)
  * Keys can be generated with the following algorithms:
+
    - RSA
    - DSA
    - ECDSA
    - ECDH
 
+ * Keys can now be passphrase-protected. It is also possible to change the passphrase on a key that is already protected. (#149)
+ * ECDSA keys can now be used to sign and verify (#111)
+ * ECDH keys can now be used to encrypt and decrypt
+ * It is now possible to recover a public key from a private key (#92)
+ * Marker packets are now understood
+
 Other Changes
 -------------
  * Removed support for Python 3.2, as multiple dependency libraries have already done so
+ * Added explicit support for Python 3.5
+ * Updated library dependencies where required or useful
+ * Reworked some IO-intensive routines to be less IO-intensive, and therefore faster
 
 v0.3.0
 ======
