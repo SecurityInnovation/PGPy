@@ -80,8 +80,6 @@ class EllipticCurveOID(Enum):
         if self.curve is not None:
             return self.curve.key_size
 
-        return None
-
     @property
     def kdf_halg(self):
         # return the hash algorithm to specify in the KDF fields when generating a key

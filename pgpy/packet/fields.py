@@ -1319,18 +1319,8 @@ class ECDHPriv(ECDSAPriv, ECDHPub):
 
     def _generate(self, oid):
         ECDSAPriv._generate(self, oid)
-        # set the KDF hash and symmetric encryption algorithms
-
-        _halgs = {EllipticCurveOID.NIST_P256: HashAlgorithm.SHA256,
-                  EllipticCurveOID.NIST_P384: HashAlgorithm.SHA384,
-                  EllipticCurveOID.NIST_P521: HashAlgorithm.SHA512}
-
-        _kalgs = {EllipticCurveOID.NIST_P256: SymmetricKeyAlgorithm.AES128,
-                  EllipticCurveOID.NIST_P384: SymmetricKeyAlgorithm.AES192,
-                  EllipticCurveOID.NIST_P521: SymmetricKeyAlgorithm.AES256}
-
-        self.kdf.halg = _halgs[self.oid]
-        self.kdf.encalg = _kalgs[self.oid]
+        self.kdf.halg = self.oid.kdf_halg
+        self.kdf.encalg = self.oid.kek_alg
 
     def publen(self):
         return ECDHPub.__len__(self)
