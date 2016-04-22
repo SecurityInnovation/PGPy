@@ -9,7 +9,7 @@ PGPy: Pretty Good Privacy for Python
     :target: https://travis-ci.org/SecurityInnovation/PGPy?branch=develop
     :alt: Travis-CI
 
-.. image:: https://coveralls.io/repos/SecurityInnovation/PGPy/badge.png?branch=develop
+.. image:: https://coveralls.io/repos/github/SecurityInnovation/PGPy/badge.png?branch=develop
     :target: https://coveralls.io/github/SecurityInnovation/PGPy?branch=develop
     :alt: Coveralls
 
