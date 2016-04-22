@@ -94,8 +94,9 @@ class FlagList(Signature):
         return self._flags
 
     @flags.register(list)
+    @flags.register(tuple)
     def flags_list(self, val):
-        self._flags = val
+        self._flags = list(val)
 
     @flags.register(int)
     @flags.register(CompressionAlgorithm)

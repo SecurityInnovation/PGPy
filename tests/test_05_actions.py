@@ -100,6 +100,7 @@ class TestPGPMessage(object):
         with write_clean('tests/testdata/csmsg.asc', 'w', str(msg)):
             assert gpg_print('csmsg.asc') == "This is a sensitive message!"
 
+    @pytest.mark.regression(issue=154)
     def test_new_non_unicode(self, write_clean, gpg_print):
         # this message text comes from http://www.columbia.edu/~fdc/utf8/
         text = u'色は匂へど 散りぬるを\n' \
@@ -111,6 +112,7 @@ class TestPGPMessage(object):
         assert msg.type == 'literal'
         assert msg.message == text.encode('jisx0213')
 
+    @pytest.mark.regression(issue=154)
     def test_new_non_unicode_cleartext(self, write_clean, gpg_print):
         # this message text comes from http://www.columbia.edu/~fdc/utf8/
         text = u'色は匂へど 散りぬるを\n' \
@@ -516,7 +518,6 @@ class TestPGPKey(object):
         # assert that it was encrypted with Camellia128 and that we can decrypt it normally
         assert emsg._sessionkeys[0].decrypt_sk(k._key)[0] == SymmetricKeyAlgorithm.Camellia128
         assert k.decrypt(emsg).message == 'This message is about to be encrypted'
-
 
     def test_sign_timestamp(self, sec):
         with self.assert_warnings():

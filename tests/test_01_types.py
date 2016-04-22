@@ -70,11 +70,14 @@ class TestPGPObject(object):
         'test_text_to_bytes': [ k for k, _ in sorted(text.items()) ],
         'test_text_to_bytes_encodings': [ k for k, _ in sorted(encoded_text.items()) ],
     }
+
+    @pytest.mark.regression(issue=154)
     def test_text_to_bytes(self, text):
         pgpo = FakePGPObject.new(text)
 
         assert pgpo.__bytearray__() == bytearray(b'_fake_') + bytearray(text, 'utf-8')
 
+    @pytest.mark.regression(issue=154)
     def test_text_to_bytes_encodings(self, encoded_text):
         pgpo = FakePGPObject.new(encoded_text)
         # this should fail

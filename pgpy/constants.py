@@ -61,6 +61,7 @@ class EllipticCurveOID(Enum):
     Brainpool_P256 = ('1.3.36.3.3.2.8.1.1.7', )
     Brainpool_P384 = ('1.3.36.3.3.2.8.1.1.11', )
     Brainpool_P512 = ('1.3.36.3.3.2.8.1.1.13', )
+    SECP256K1 = ('1.3.132.0.10', ec.SECP256K1)
 
     def __new__(cls, oid, curve=None):
         # preprocessing stage for enum members:
