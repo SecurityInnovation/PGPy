@@ -4,10 +4,19 @@
 Changelog
 *********
 
-v0.4.0
+v0.5.0
 ======
 
 Released: |today|
+
+New Features
+------------
+ * Added support for Brainpool Standard curves for users who have OpenSSL 1.0.2 available
+
+v0.4.0
+======
+
+Released: April 21, 2016
 
 Bugs Fixed
 ----------

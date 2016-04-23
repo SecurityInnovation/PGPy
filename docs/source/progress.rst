@@ -277,9 +277,9 @@ This section covers things that are considered extensions to PGP, but are not co
     :text: Some additional curves that can be used with ECDSA/ECDH that are not explicitly called out in :rfc:`6637`, but have standardized OIDs and are implemented in other software.
 
     :Curves:
-        - Curve, False, Brainpool P-256
-        - Curve, False, Brainpool P-384
-        - Curve, False, Brainpool P-512
+        - Curve, True,  Brainpool P-256
+        - Curve, True,  Brainpool P-384
+        - Curve, True,  Brainpool P-512
         - Curve, False, Curve25519
         - Curve, True,  SECP256K1
 

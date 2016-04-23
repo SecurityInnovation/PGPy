@@ -20,6 +20,7 @@ from cryptography.hazmat.primitives.ciphers import algorithms
 
 from .decorators import classproperty
 from .types import FlagEnum
+from ._curves import BrainpoolP256R1, BrainpoolP384R1, BrainpoolP512R1
 
 __all__ = ['Backend',
            'EllipticCurveOID',
@@ -71,29 +72,34 @@ class EllipticCurveOID(Enum):
     NIST_P521 = ('1.3.132.0.35', ec.SECP521R1)
     #: Brainpool Standard Curve, 256-bit
     #:
-    #: .. warning::
-    #:     This curve is not currently usable by PGPy
-    Brainpool_P256 = ('1.3.36.3.3.2.8.1.1.7', )
+    #: .. note::
+    #:     Requires OpenSSL >= 1.0.2
+    Brainpool_P256 = ('1.3.36.3.3.2.8.1.1.7', BrainpoolP256R1)
     #: Brainpool Standard Curve, 384-bit
     #:
-    #: .. warning::
-    #:     This curve is not currently usable by PGPy
-    Brainpool_P384 = ('1.3.36.3.3.2.8.1.1.11', )
+    #: .. note::
+    #:     Requires OpenSSL >= 1.0.2
+    Brainpool_P384 = ('1.3.36.3.3.2.8.1.1.11', BrainpoolP384R1)
     #: Brainpool Standard Curve, 512-bit
     #:
-    #: .. warning::
-    #:     This curve is not currently usable by PGPy
-    Brainpool_P512 = ('1.3.36.3.3.2.8.1.1.13', )
+    #: .. note::
+    #:     Requires OpenSSL >= 1.0.2
+    Brainpool_P512 = ('1.3.36.3.3.2.8.1.1.13', BrainpoolP512R1)
     #: SECG curve secp256k1
     SECP256K1 = ('1.3.132.0.10', ec.SECP256K1)
 
     def __new__(cls, oid, curve=None):
         # preprocessing stage for enum members:
         #  - set enum_member.value to ObjectIdentifier(oid)
-        #  - set enum_member.curve to curve
+        #  - if curve is not None and curve.name is in ec._CURVE_TYPES, set enum_member.curve to curve
+        #  - otherwise, set enum_member.curve to None
         obj = object.__new__(cls)
         obj._value_ = ObjectIdentifier(oid)
-        obj.curve = curve
+        obj.curve = None
+
+        if curve is not None and curve.name in ec._CURVE_TYPES:
+            obj.curve = curve
+
         return obj
 
     @property
@@ -110,6 +116,7 @@ class EllipticCurveOID(Enum):
         # return the hash algorithm to specify in the KDF fields when generating a key
         algs = {256: HashAlgorithm.SHA256,
                 384: HashAlgorithm.SHA384,
+                512: HashAlgorithm.SHA512,
                 521: HashAlgorithm.SHA512}
 
         return algs.get(self.key_size, None)
@@ -119,6 +126,7 @@ class EllipticCurveOID(Enum):
         # return the AES algorithm to specify in the KDF fields when generating a key
         algs = {256: SymmetricKeyAlgorithm.AES128,
                 384: SymmetricKeyAlgorithm.AES192,
+                512: SymmetricKeyAlgorithm.AES256,
                 521: SymmetricKeyAlgorithm.AES256}
 
         return algs.get(self.key_size, None)

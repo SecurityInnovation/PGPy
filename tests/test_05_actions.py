@@ -264,6 +264,7 @@ key_alg_size = {
     PubKeyAlgorithm.ECDSA: EllipticCurveOID.NIST_P256,
     PubKeyAlgorithm.ECDH: EllipticCurveOID.NIST_P256,
 }
+ec_curves = [ c for c in EllipticCurveOID if c.can_gen ]
 
 
 class TestPGPKey(object):
@@ -275,6 +276,7 @@ class TestPGPKey(object):
         'sigsig':     [ PGPSignature.from_file(f) for f in sorted(glob.glob('tests/testdata/signatures/*.sig.asc')) ],
         'sigsubj':    sorted(glob.glob('tests/testdata/signatures/*.subj')),
         'key_alg':    key_algs,
+        'curve':      ec_curves,
     }
     ids = {
         'test_protect':            [ '-'.join(os.path.basename(f).split('.')[:-2]) for f in sorted(glob.glob('tests/testdata/keys/*.sec.asc')) ],
@@ -286,6 +288,7 @@ class TestPGPKey(object):
         'test_pub_from_sec':       [ str(ka).split('.')[-1] for ka in key_algs ],
         'test_gpg_verify_new_key': [ str(ka).split('.')[-1] for ka in key_algs ],
         'test_verify_invalid_sig': [ str(ka).split('.')[-1] for ka in key_algs ],
+        'test_new_key_ec_curves':  [ c.name for c in ec_curves ],
     }
     string_sigs = dict()
     timestamp_sigs = dict()
@@ -675,6 +678,20 @@ class TestPGPKey(object):
         assert key.verify(key)
 
         self.gen_keys[key_alg] = key
+
+    def test_new_key_ec_curves(self, curve):
+        # generate an ECDSA primary key and an ECDH subkey using each working curve, to verify they all work
+        uid = PGPUID.new('Hugo Gernsback', 'Science Fiction Plus', 'hugo.gernsback@space.local')
+        key = PGPKey.new(PubKeyAlgorithm.ECDSA, curve)
+        subkey = PGPKey.new(PubKeyAlgorithm.ECDH, curve)
+
+        key.add_uid(uid,
+                    usage={KeyFlags.Sign},
+                    hashes=[HashAlgorithm.SHA256],
+                    ciphers=[SymmetricKeyAlgorithm.AES256],
+                    compression=[CompressionAlgorithm.Uncompressed])
+        key.add_subkey(subkey, usage={KeyFlags.EncryptCommunications, KeyFlags.EncryptStorage})
+
 
     def test_new_subkey(self, key_alg):
         key = self.gen_keys[key_alg]
