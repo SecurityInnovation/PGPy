@@ -16,25 +16,31 @@ from pgpy import PGPSignature
 from pgpy import PGPUID
 from pgpy.types import Fingerprint
 
+
 @pytest.fixture
 def un():
     return PGPUID.new(six.u('Temperair\xe9e Youx\'seur'))
+
 
 @pytest.fixture
 def unc():
     return PGPUID.new(six.u('Temperair\xe9e Youx\'seur'), comment=six.u('\u2603'))
 
+
 @pytest.fixture
 def une():
     return PGPUID.new(six.u('Temperair\xe9e Youx\'seur'), email='snowman@not.an.email.addre.ss')
+
 
 @pytest.fixture
 def unce():
     return PGPUID.new(six.u('Temperair\xe9e Youx\'seur'), comment=six.u('\u2603'), email='snowman@not.an.email.addre.ss')
 
+
 @pytest.fixture
 def abe():
     return PGPUID.new('Abraham Lincoln', comment='Honest Abe', email='abraham.lincoln@whitehouse.gov')
+
 
 @pytest.fixture
 def abe_image():
@@ -89,35 +95,45 @@ class TestPGPUID(object):
 
 
 class TestPGPKey(object):
-    kf = next(iter(sorted(glob.glob('tests/testdata/keys/*.pub.asc'))))
+    params = {
+        'kf': sorted(glob.glob('tests/testdata/keys/*.pub.asc'))
+    }
+    ids = {
+        'test_load_from_file':       [ os.path.basename(f).replace('.pub.asc', '').replace('.', '_') for f in params['kf'] ],
+        'test_load_from_str':        [ os.path.basename(f).replace('.pub.asc', '').replace('.', '_') for f in params['kf'] ],
+        'test_load_from_bytes':      [ os.path.basename(f).replace('.pub.asc', '').replace('.', '_') for f in params['kf'] ],
+        'test_load_from_bytearray':  [ os.path.basename(f).replace('.pub.asc', '').replace('.', '_') for f in params['kf'] ],
+    }
+    # kf = next(iter(sorted(glob.glob('tests/testdata/keys/*.pub.asc'))))
+    keyfiles = iter(sorted(glob.glob('tests/testdata/keys/*.pub.asc')))
 
-    def test_load_from_file(self, gpg_keyid_file):
-        key, _ = PGPKey.from_file(self.kf)
+    def test_load_from_file(self, kf, gpg_keyid_file):
+        key, _ = PGPKey.from_file(kf)
 
-        assert key.fingerprint.keyid in gpg_keyid_file(self.kf.replace('tests/testdata/', ''))
+        assert key.fingerprint.keyid in gpg_keyid_file(kf.replace('tests/testdata/', ''))
 
-    def test_load_from_str(self, gpg_keyid_file):
-        with open(self.kf, 'r') as tkf:
+    def test_load_from_str(self, kf, gpg_keyid_file):
+        with open(kf, 'r') as tkf:
             key, _ = PGPKey.from_blob(tkf.read())
 
-        assert key.fingerprint.keyid in gpg_keyid_file(self.kf.replace('tests/testdata/', ''))
+        assert key.fingerprint.keyid in gpg_keyid_file(kf.replace('tests/testdata/', ''))
 
     @pytest.mark.regression(issue=140)
-    def test_load_from_bytes(self, gpg_keyid_file):
-        with open(self.kf, 'rb') as tkf:
+    def test_load_from_bytes(self, kf, gpg_keyid_file):
+        with open(kf, 'rb') as tkf:
             key, _ = PGPKey.from_blob(tkf.read())
 
-        assert key.fingerprint.keyid in gpg_keyid_file(self.kf.replace('tests/testdata/', ''))
+        assert key.fingerprint.keyid in gpg_keyid_file(kf.replace('tests/testdata/', ''))
 
     @pytest.mark.regression(issue=140)
-    def test_load_from_bytearray(self, gpg_keyid_file):
-        tkb = bytearray(os.stat(self.kf).st_size)
-        with open(self.kf, 'rb') as tkf:
+    def test_load_from_bytearray(self, kf, gpg_keyid_file):
+        tkb = bytearray(os.stat(kf).st_size)
+        with open(kf, 'rb') as tkf:
             tkf.readinto(tkb)
 
         key, _ = PGPKey.from_blob(tkb)
 
-        assert key.fingerprint.keyid in gpg_keyid_file(self.kf.replace('tests/testdata/', ''))
+        assert key.fingerprint.keyid in gpg_keyid_file(kf.replace('tests/testdata/', ''))
 
 
 @pytest.fixture(scope='module')

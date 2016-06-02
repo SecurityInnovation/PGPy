@@ -220,11 +220,25 @@ class TestBlocks(object):
              ('magic',         "PRIVATE KEY BLOCK"),
              ('parent',        None),
              ('signers',       set()),],
+        'tests/testdata/blocks/openpgp.js.asc':
+            [('created',        datetime(2016, 6, 2, 21, 27, 1)),
+             ('expires_at',     None),
+             ('fingerprint',    "C875 20AB 8A41 BC24 07B0  7251 D4A4 7AFE 7C5A C4E8"),
+             ('is_expired',     False),
+             ('is_primary',     True),
+             ('is_protected',   False),
+             ('is_public',      True),
+             ('is_unlocked',    True),
+             ('key_algorithm',  PubKeyAlgorithm.RSAEncryptOrSign),
+             ('magic',          "PUBLIC KEY BLOCK"),
+             ('parent',         None),
+             ('signers',        set()), ],
         'tests/testdata/blocks/signature.expired.asc':
             [('created',       datetime(2014, 9, 28, 20, 54, 42)),
              ('is_expired',    True),],
     }
-    def test_load(self, block):
+
+    def test_load_blob(self, block):
         with open(block) as bf:
             bc = bf.read()
 
@@ -255,3 +269,4 @@ class TestBlocks(object):
             if attrval != val:
                 raise AssertionError('expected block.{attr:s} = {aval}; got block.{attr:s} = {rval}'
                                      ''.format(attr=attr, aval=val, rval=attrval))
+
