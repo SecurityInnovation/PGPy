@@ -92,23 +92,23 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
         # the re.VERBOSE flag allows for:
         #  - whitespace is ignored except when in a character class or escaped
         #  - anything after a '#' that is not escaped or in a character class is ignored, allowing for comments
-        m = re.match(r"""# This capture group is optional because it will only be present in signed cleartext messages
-                         (^-{5}BEGIN\ PGP\ SIGNED\ MESSAGE-{5}(?:\s*\n)
-                          (Hash:\ (?P<hashes>[A-Za-z0-9\-,]+)(?:\s*\n){2})?
-                          (?P<cleartext>(.*\n)+)(?:\s*\n)
+        m = re.search(r"""# This capture group is optional because it will only be present in signed cleartext messages
+                         (^-{5}BEGIN\ PGP\ SIGNED\ MESSAGE-{5}(?:\r?\n)
+                          (Hash:\ (?P<hashes>[A-Za-z0-9\-,]+)(?:\r?\n){2})?
+                          (?P<cleartext>(.*\n)+)(?:\r?\n)
                          )?
                          # armor header line; capture the variable part of the magic text
-                         ^-{5}BEGIN\ PGP\ (?P<magic>[A-Z0-9 ,]+)-{5}(?:\s*\n)
+                         ^-{5}BEGIN\ PGP\ (?P<magic>[A-Z0-9 ,]+)-{5}(?:\r?\n)
                          # try to capture all the headers into one capture group
                          # if this doesn't match, m['headers'] will be None
-                         (?P<headers>(^.+:\ .+(?:\s*\n))+)?(?:\s\n)?
+                         (?P<headers>(^.+:\ .+(?:\r?\n))+)?(?:\r?\n)?
                          # capture all lines of the body, up to 76 characters long,
                          # including the newline, and the pad character(s)
-                         (?P<body>([A-Za-z0-9+/]{1,75}={,2}(?:\s*\n))+)
+                         (?P<body>([A-Za-z0-9+/]{1,75}={,2}(?:\r?\n))+)
                          # capture the armored CRC24 value
-                         ^=(?P<crc>[A-Za-z0-9+/]{4})(?:\s*\n)
+                         ^=(?P<crc>[A-Za-z0-9+/]{4})(?:\r?\n)
                          # finally, capture the armor tail line, which must match the armor header line
-                         ^-{5}END\ PGP\ (?P=magic)-{5}(?:\s*\n)?
+                         ^-{5}END\ PGP\ (?P=magic)-{5}(?:\r?\n)?
                          """,
                      text, flags=re.MULTILINE | re.VERBOSE)
 

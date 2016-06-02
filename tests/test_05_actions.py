@@ -312,9 +312,6 @@ class TestPGPKey(object):
                         raise
 
     def test_protect(self, sec):
-        # if sec.key_algorithm == PubKeyAlgorithm.ECDSA:
-        #     pytest.skip("Cannot properly encrypt ECDSA keys yet")
-
         assert sec.is_protected is False
 
         # copy sec so we have a comparison point

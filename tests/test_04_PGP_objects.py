@@ -96,7 +96,7 @@ class TestPGPUID(object):
 
 class TestPGPKey(object):
     params = {
-        'kf': sorted(glob.glob('tests/testdata/keys/*.pub.asc'))
+        'kf': sorted(glob.glob('tests/testdata/blocks/*key*.asc'))
     }
     ids = {
         'test_load_from_file':       [ os.path.basename(f).replace('.pub.asc', '').replace('.', '_') for f in params['kf'] ],

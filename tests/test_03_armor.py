@@ -220,10 +220,10 @@ class TestBlocks(object):
              ('magic',         "PRIVATE KEY BLOCK"),
              ('parent',        None),
              ('signers',       set()),],
-        'tests/testdata/blocks/openpgp.js.asc':
-            [('created',        datetime(2016, 6, 2, 21, 27, 1)),
+        'tests/testdata/blocks/openpgp.js.pubkey.asc':
+            [('created',        datetime(2016, 6, 2, 21, 57, 13)),
              ('expires_at',     None),
-             ('fingerprint',    "C875 20AB 8A41 BC24 07B0  7251 D4A4 7AFE 7C5A C4E8"),
+             ('fingerprint',    "C7C3 8ECE E94A 4AD3 2DDB  064E 14AB 44C7 4D1B DAB8"),
              ('is_expired',     False),
              ('is_primary',     True),
              ('is_protected',   False),
@@ -231,6 +231,19 @@ class TestBlocks(object):
              ('is_unlocked',    True),
              ('key_algorithm',  PubKeyAlgorithm.RSAEncryptOrSign),
              ('magic',          "PUBLIC KEY BLOCK"),
+             ('parent',         None),
+             ('signers',        set()), ],
+        'tests/testdata/blocks/openpgp.js.seckey.asc':
+            [('created',        datetime(2016, 6, 2, 21, 57, 13)),
+             ('expires_at',     None),
+             ('fingerprint',    "C7C3 8ECE E94A 4AD3 2DDB  064E 14AB 44C7 4D1B DAB8"),
+             ('is_expired',     False),
+             ('is_primary',     True),
+             ('is_protected',   False),
+             ('is_public',      False),
+             ('is_unlocked',    True),
+             ('key_algorithm',  PubKeyAlgorithm.RSAEncryptOrSign),
+             ('magic',          "PRIVATE KEY BLOCK"),
              ('parent',         None),
              ('signers',        set()), ],
         'tests/testdata/blocks/signature.expired.asc':
@@ -252,7 +265,7 @@ class TestBlocks(object):
             p = PGPMessage()
 
         else:
-            pytest.skip("not ready for this one")
+            pytest.skip("not ready for file '{}'".format(os.path.basename(block)))
             assert False
 
         # load ASCII
