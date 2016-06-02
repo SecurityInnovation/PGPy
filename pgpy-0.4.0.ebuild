@@ -10,7 +10,7 @@ inherit distutils-r1
 
 if [[ "${PV}" == "0.4.0" ]]; then
 	# PGPy 0.4.0's filename is slightly different because of difficulties with PyPI when uploading
-	MY_PV="${PV}a"
+	MY_PV="${PV}.post1"
 fi
 
 DESCRIPTION="Pretty Good Privacy for Python - a pure Python OpenPGP implementation."
