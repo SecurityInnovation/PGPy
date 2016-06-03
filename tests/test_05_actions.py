@@ -723,7 +723,7 @@ class TestPGPKey(object):
 
     def test_gpg_verify_new_key(self, key_alg, write_clean, gpg_import, gpg_check_sigs):
         if gpg_ver < '2.1' and key_alg in {PubKeyAlgorithm.ECDSA, PubKeyAlgorithm.ECDH}:
-            pytest.skip("GnuPG version in use cannot import/verify ")
+            pytest.skip("GnuPG version in use cannot import/verify ECC keys")
 
         # with GnuPG
         key = self.gen_keys[key_alg]
