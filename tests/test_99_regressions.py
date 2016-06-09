@@ -149,7 +149,8 @@ def test_reg_bug_56(write_clean, gpg_import, gpg_verify):
 
 def test_reg_bug_157(monkeypatch):
     # local imports for this
-    import pgpy
+    import pgpy.constants
+    from pgpy.packet.fields import String2Key
     from time import time as rtime
 
     # to more easily replicate this bug, hash only 8 bytes instead of 100 KiB
@@ -160,3 +161,20 @@ def test_reg_bug_157(monkeypatch):
 
     pgpy.constants.HashAlgorithm.SHA256.tune_count()
     assert pgpy.constants.HashAlgorithm.SHA256.tuned_count > 0
+
+    # now let's try it out and ensure that the count actually worked
+    s2k = String2Key()
+    s2k.encalg = pgpy.constants.SymmetricKeyAlgorithm.AES256
+    s2k.specifier = pgpy.constants.String2KeyType.Iterated
+    s2k.halg = pgpy.constants.HashAlgorithm.SHA256
+    s2k.count = pgpy.constants.HashAlgorithm.SHA256.tuned_count
+
+    monkeypatch.undo()
+
+    start = rtime()
+    sk = s2k.derive_key('sooper_sekret')
+    elapsed = rtime() - start
+
+    # check that we're actually close to our target
+    assert len(sk) == 32
+    assert 0.1 <= round(elapsed, 1) <= 0.2
