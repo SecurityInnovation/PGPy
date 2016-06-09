@@ -25,7 +25,7 @@ class TestBlocks(object):
         'block': sorted(glob.glob('tests/testdata/blocks/*.asc'))
     }
     ids = {
-        'test_load': [ os.path.basename(fn).replace('.', '_') for fn in sorted(glob.glob('tests/testdata/blocks/*.asc')) ]
+        'test_load_blob': [ os.path.basename(fn).replace('.', '_') for fn in sorted(glob.glob('tests/testdata/blocks/*.asc')) ],
     }
     attrs = {
         'tests/testdata/blocks/message.compressed.asc':

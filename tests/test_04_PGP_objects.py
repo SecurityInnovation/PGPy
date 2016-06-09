@@ -58,7 +58,7 @@ class TestPGPMessage(object):
         'msgfile': sorted(glob.glob('tests/testdata/messages/*.asc')),
     }
     ids = {
-        'test_load_from_file': [ os.path.basename(f) for f in params['msgfile'] ],
+        'test_load_from_file': [ os.path.basename(f).replace('.', '_') for f in params['msgfile'] ],
     }
 
     def test_load_from_file(self, msgfile):
