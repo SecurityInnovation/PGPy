@@ -351,15 +351,22 @@ class HashAlgorithm(IntEnum):
         return self._tuned_count
 
     def tune_count(self):
-        start = time.time()
+        start = end = time.time()
+        i = 0
         h = self.hasher
-        h.update(_hashtunedata)
-        end = time.time()
+
+        while start == end:
+            # do this multiple times in case the resolution of time.time is low enough that
+            # hashing 100 KiB isn't enough time to produce a measurable difference
+            # (e.g. if the timer for time.time doesn't have enough precision)
+            h.update(_hashtunedata)
+            i += 1
+            end = time.time()
 
         # now calculate how many bytes need to be hashed to reach our expected time period
         # GnuPG tunes for about 100ms, so we'll do that as well
         _TIME = 0.100
-        ct = int(len(_hashtunedata) * (_TIME / (end - start)))
+        ct = int((len(_hashtunedata) * i) * (_TIME / (end - start)))
         c1 = ((ct >> (ct.bit_length() - 5)) - 16)
         c2 = (ct.bit_length() - 11)
         c = ((c2 << 4) + c1)

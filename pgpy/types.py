@@ -109,8 +109,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
                          ^=(?P<crc>[A-Za-z0-9+/]{4})(?:\r?\n)
                          # finally, capture the armor tail line, which must match the armor header line
                          ^-{5}END\ PGP\ (?P=magic)-{5}(?:\r?\n)?
-                         """,
-                     text, flags=re.MULTILINE | re.VERBOSE)
+                         """, text, flags=re.MULTILINE | re.VERBOSE)
 
         if m is None:  # pragma: no cover
             raise ValueError("Expected: ASCII-armored PGP data")
