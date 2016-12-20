@@ -373,7 +373,7 @@ class TestPGPKey(object):
             # add all of the subpackets we should be allowed to
             sig = sec.sign(string,
                            user=sec.userids[0].name,
-                           expires=timedelta(seconds=30),
+                           expires=timedelta(seconds=1),
                            revocable=False,
                            notation={'Testing': 'This signature was generated during unit testing'},
                            policy_uri='about:blank')
@@ -385,10 +385,9 @@ class TestPGPKey(object):
         assert sig.policy_uri == 'about:blank'
         # assert sig.sig.signer_uid == "{:s}".format(sec.userids[0])
         assert next(iter(sig._signature.subpackets['SignersUserID'])).userid == "{:s}".format(sec.userids[0])
-        # TODO: move this to another test
-        # if not sig.is_expired:
-        #     time.sleep((sig.expires_at - datetime.utcnow()).total_seconds())
-        # assert sig.is_expired
+        if not sig.is_expired:
+            time.sleep((sig.expires_at - datetime.utcnow()).total_seconds())
+        assert sig.is_expired
 
         # verify with GnuPG
         if sig.key_algorithm not in {PubKeyAlgorithm.ECDSA}:
