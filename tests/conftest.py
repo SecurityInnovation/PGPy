@@ -90,7 +90,7 @@ class CWD_As(object):
 
 
 _gpg_bin = _which('gpg2')
-_gpg_args = ['--options', './pgpy.gpg.conf', '--expert']
+_gpg_args = ['--options', './pgpy.gpg.conf', '--expert', '--status-fd', '1']
 _gpg_env = os.environ.copy()
 _gpg_env['GNUPGHOME'] = os.path.abspath(os.path.abspath('tests/testdata'))
 _gpg_kwargs = dict()
@@ -159,25 +159,35 @@ def gpg_check_sigs():
 
 @pytest.fixture()
 def gpg_verify():
+    sfd_verify = re.compile(r'^\[GNUPG:\] (?:GOOD|EXP)SIG (?P<keyid>[0-9A-F]+) .*'
+                            r'^\[GNUPG:\] VALIDSIG (?:[0-9A-F]{,24})\1', flags=re.MULTILINE | re.DOTALL)
+
     def _gpg_verify(gpg_subjpath, gpg_sigpath=None, keyid=None):
         gpg_args = _gpg_args + [ a for a in ['--verify', gpg_sigpath, gpg_subjpath] if a is not None ]
         gpg_kwargs = _gpg_kwargs.copy()
         gpgo, _ = _run(_gpg_bin, *gpg_args, **gpg_kwargs)
 
-        sigs = dict(re.findall(r'^gpg: Signature made .+\ngpg: \s+ using [A-Z]+ key ([0-9A-F]+)\n'
-                               r'(?:gpg: using .+\n)*gpg: ([^\s]+) signature', gpgo, flags=re.MULTILINE))
+        sigs = [ sv.group('keyid') for sv in sfd_verify.finditer(gpgo) ]
 
         if keyid is not None:
-            return sigs.get(keyid, '') in ['Good', 'Expired']
+            return keyid in sigs
 
-        else:
-            return all(v in ['Good', 'Expired'] for v in sigs.values())
+        return sigs
 
     return _gpg_verify
 
 
 @pytest.fixture
 def gpg_decrypt():
+    sfd_decrypt = re.compile(r'^\[GNUPG:\] BEGIN_DECRYPTION\n'
+                             r'^\[GNUPG:\] DECRYPTION_INFO \d+ \d+\n'
+                             r'^\[GNUPG:\] PLAINTEXT \d+ \S+ \n'
+                             r'^\[GNUPG:\] PLAINTEXT_LENGTH \d+\n'
+                             r'(?P<text>(?:.|\n)*)'
+                             r'\[GNUPG:\] DECRYPTION_OKAY\n'
+                             r'^\[GNUPG:\] GOODMDC\n'
+                             r'^\[GNUPG:\] END_DECRYPTION', flags=re.MULTILINE)
+
     def _gpg_decrypt(encmsgpath, passphrase=None, keyid=None):
         gpg_args = [_gpg_bin] + _gpg_args[:]
         gpg_kwargs = _gpg_kwargs.copy()
@@ -198,20 +208,26 @@ def gpg_decrypt():
         gpgo, gpge = gpgdec.communicate(*_comargs)
         gpgdec.wait()
 
-        return gpgo.decode() if gpgo is not None else gpge
+        return sfd_decrypt.search(gpgo.decode()).group('text')
+
+        # return gpgo.decode() if gpgo is not None else gpge
 
     return _gpg_decrypt
 
 
 @pytest.fixture
 def gpg_print():
+    sfd_text = re.compile(r'^\[GNUPG:\] PLAINTEXT (?:62|74|75) .*\n'
+                          r'^\[GNUPG:\] PLAINTEXT_LENGTH (?P<len>\d+)\n'
+                          r'^(?P<text>(.|\n)*)', re.MULTILINE)
+
     def _gpg_print(infile):
         gpg_args = _gpg_args + ['-o-', infile]
         gpg_kwargs = _gpg_kwargs.copy()
         gpg_kwargs['stderr'] = subprocess.PIPE
 
         gpgo, _ = _run(_gpg_bin, *gpg_args, **gpg_kwargs)
-        return gpgo
+        return sfd_text.match(gpgo).group('text')
 
     return _gpg_print
 
