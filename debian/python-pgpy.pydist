@@ -1,4 +1,0 @@
-enum34 python-enum34
-singledispatch python-singledispatch
-six python-six (>= 1.7.2)
-cryptography python-cryptography (>= 0.5.2), python-cryptography (<= 0.6.0)
