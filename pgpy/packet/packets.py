@@ -556,7 +556,7 @@ class SKESessionKeyV4(SKESessionKey):
 
         # if there is no ciphertext, then the first session key is the session key being used
         if len(self.ct) == 0:
-            return sk
+            return self.symalg, sk
 
         # otherwise, we now need to decrypt the encrypted session key
         m = bytearray(_decrypt(bytes(self.ct), sk, self.symalg))
@@ -565,7 +565,7 @@ class SKESessionKeyV4(SKESessionKey):
         symalg = SymmetricKeyAlgorithm(m[0])
         del m[0]
 
-        return (symalg, bytes(m))
+        return symalg, bytes(m)
 
     def encrypt_sk(self, passphrase, sk):
         # generate the salt and derive the key to encrypt sk with from it
