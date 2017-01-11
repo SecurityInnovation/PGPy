@@ -788,6 +788,17 @@ class String2Key(Field):
     def __nonzero__(self):
         return self.__bool__()
 
+    def __copy__(self):
+        s2k = String2Key()
+        s2k.usage = self.usage
+        s2k.encalg = self.encalg
+        s2k.specifier = self.specifier
+        s2k.iv = self.iv
+        s2k.halg = self.halg
+        s2k.salt = copy.copy(self.salt)
+        s2k.count = self._count
+        return s2k
+
     def parse(self, packet, iv=True):
         self.usage = packet[0]
         del packet[0]
@@ -984,6 +995,13 @@ class PrivKey(PubKey):
             l += sum(len(getattr(self, i)) for i in self.__privfields__)
 
         return l
+
+    def __copy__(self):
+        pk = super(PrivKey, self).__copy__()
+        pk.s2k = copy.copy(self.s2k)
+        pk.encbytes = copy.copy(self.encbytes)
+        pk.chksum = copy.copy(self.chksum)
+        return pk
 
     @abc.abstractmethod
     def __privkey__(self):

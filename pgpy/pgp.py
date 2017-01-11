@@ -3,6 +3,7 @@
 this is where the armorable PGP block objects live
 """
 import binascii
+import calendar
 import collections
 import contextlib
 import copy
@@ -360,10 +361,9 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
             """
             _data += re.subn(br'\r?\n', b'\r\n', subject)[0]
 
-        if self.type in [SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
+        if self.type in {SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
                          SignatureType.Positive_Cert, SignatureType.CertRevocation, SignatureType.Subkey_Binding,
-                         SignatureType.PrimaryKey_Binding, SignatureType.DirectlyOnKey, SignatureType.KeyRevocation,
-                         SignatureType.SubkeyRevocation]:
+                         SignatureType.PrimaryKey_Binding}:
             """
             When a signature is made over a key, the hash data starts with the
             octet 0x99, followed by a two-octet length of the key, and then body
@@ -385,7 +385,7 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
             if len(_s) > 0:
                 _data += b'\x99' + self.int_to_bytes(len(_s), 2) + _s
 
-        if self.type in [SignatureType.Subkey_Binding, SignatureType.PrimaryKey_Binding, SignatureType.SubkeyRevocation]:
+        if self.type in {SignatureType.Subkey_Binding, SignatureType.PrimaryKey_Binding}:
             """
             A subkey binding signature
             (type 0x18) or primary key binding signature (type 0x19) then hashes
@@ -400,8 +400,34 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
 
             _data += b'\x99' + self.int_to_bytes(len(_s), 2) + _s
 
-        if self.type in [SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
-                         SignatureType.Positive_Cert, SignatureType.CertRevocation]:
+        if self.type in {SignatureType.KeyRevocation, SignatureType.SubkeyRevocation, SignatureType.DirectlyOnKey}:
+            """
+            The signature is calculated directly on the key being revoked.  A
+            revoked key is not to be used.  Only revocation signatures by the
+            key being revoked, or by an authorized revocation key, should be
+            considered valid revocation signatures.
+
+            Subkey revocation signature
+            The signature is calculated directly on the subkey being revoked.
+            A revoked subkey is not to be used.  Only revocation signatures
+            by the top-level signature key that is bound to this subkey, or
+            by an authorized revocation key, should be considered valid
+            revocation signatures.
+
+            Signature directly on a key
+            This signature is calculated directly on a key.  It binds the
+            information in the Signature subpackets to the key, and is
+            appropriate to be used for subpackets that provide information
+            about the key, such as the Revocation Key subpacket.  It is also
+            appropriate for statements that non-self certifiers want to make
+            about the key itself, rather than the binding between a key and a
+            name.
+            """
+            _s = subject.hashdata
+            _data += b'\x99' + self.int_to_bytes(len(_s), 2) + _s
+
+        if self.type in {SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
+                         SignatureType.Positive_Cert, SignatureType.CertRevocation}:
             """
             A certification signature (type 0x10 through 0x13) hashes the User
             ID being bound to the key into the hash context after the above
@@ -421,10 +447,12 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
 
             _s = subject.hashdata
             if subject.is_uid:
-                _data += b'\xb4' + self.int_to_bytes(len(_s), 4) + _s
+                _data += b'\xb4'
 
-            if subject.is_ua:
-                _data += b'\xd1' + self.int_to_bytes(len(_s), 4) + _s
+            else:
+                _data += b'\xd1'
+
+            _data += self.int_to_bytes(len(_s), 4) + _s
 
         # if this is a new signature, do update_hlen
         if 0 in list(self._signature.signature):
@@ -789,12 +817,18 @@ class PGPMessage(Armorable, PGPObject):
 
     def __str__(self):
         if self.type == 'cleartext':
-            return "-----BEGIN PGP SIGNED MESSAGE-----\n" \
-                   "Hash: {hashes:s}\n\n" \
+            tmpl = "-----BEGIN PGP SIGNED MESSAGE-----\n" \
+                   "{hhdr:s}\n" \
                    "{cleartext:s}\n" \
-                   "{signature:s}".format(hashes=','.join(set(s.hash_algorithm.name for s in self.signatures)),
-                                          cleartext=self.dash_escape(self.bytes_to_text(self._message)),
-                                          signature=super(PGPMessage, self).__str__())
+                   "{signature:s}"
+
+            # only add a Hash: header if we actually have at least one signature
+            hashes = set(s.hash_algorithm.name for s in self.signatures)
+            hhdr = 'Hash: {hashes:s}\n'.format(hashes=','.join(sorted(hashes))) if hashes else ''
+
+            return tmpl.format(hhdr=hhdr,
+                               cleartext=self.dash_escape(self.bytes_to_text(self._message)),
+                               signature=super(PGPMessage, self).__str__())
 
         return super(PGPMessage, self).__str__()
 
@@ -1207,8 +1241,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         if self.is_public:
             return self._key.__bytearray__()[len(self._key.header):]
 
-        publen = len(self._key) - len(self._key.keymaterial) + self._key.keymaterial.publen()
-        return self._key.__bytearray__()[len(self._key.header):publen]
+        pub = self._key.pubkey()
+        return pub.__bytearray__()[len(pub.header):]
 
     @property
     def is_expired(self):
@@ -1252,6 +1286,15 @@ class PGPKey(Armorable, ParentRef, PGPObject):
     def key_algorithm(self):
         """The :py:obj:`constants.PubKeyAlgorithm` pertaining to this key"""
         return self._key.pkalg
+
+    @property
+    def key_size(self):
+        """*new in 0.5.0*
+        The size pertaining to this key. ``int`` for non-EC key algorithms; :py:pbj:`constants.EllipticCurveOID` for EC keys.
+        """
+        if self.key_algorithm in {PubKeyAlgorithm.ECDSA, PubKeyAlgorithm.ECDH}:
+            return self._key.keymaterial.oid
+        return next(iter(self._key.keymaterial)).bit_length()
 
     @property
     def magic(self):
@@ -1425,7 +1468,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
         raise TypeError
 
-    def __or__(self, other):
+    def __or__(self, other, from_sib=False):
         if isinstance(other, Key) and self._key is None:
             self._key = other
 
@@ -1451,9 +1494,13 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             raise TypeError("unsupported operand type(s) for |: '{:s}' and '{:s}'"
                         "".format(self.__class__.__name__, other.__class__.__name__))
 
-        if isinstance(self._sibling, weakref.ref):  # pragma: no cover
+        if isinstance(self._sibling, weakref.ref) and not from_sib:
             sib = self._sibling()
-            sib |= copy.copy(other)
+            if sib is None:
+                self._sibling = None
+
+            else:
+                sib.__or__(copy.copy(other), True)
 
         return self
 
@@ -1461,13 +1508,18 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         key = super(PGPKey, self).__copy__()
         key._key = copy.copy(self._key)
 
-        for id, subkey in self._children.items():
-            key |= copy.copy(subkey)
-
         for uid in self._uids:
             key |= copy.copy(uid)
 
+        for id, subkey in self._children.items():
+            key |= copy.copy(subkey)
+
         for sig in self._signatures:
+            if sig.embedded:
+                # embedded signatures don't need to be explicitly copied
+                continue
+
+            print(len(key._signatures))
             key |= copy.copy(sig)
 
         return key
@@ -2049,24 +2101,28 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             return [ sig for sig in sigs if sig.signer in _ids ]
 
         # collect signature(s)
-        if isinstance(signature, PGPSignature):
-            if signature.signer != self.fingerprint.keyid and signature.signer not in self.subkeys:
-                raise PGPError("Incorrect key. Expected: {:s}".format(signature.signer))
-            sspairs.append((signature, subject))
+        if signature is None:
+            if isinstance(signature, PGPSignature):
+                if signature.signer != self.fingerprint.keyid and signature.signer not in self.subkeys:
+                    raise PGPError("Incorrect key. Expected: {:s}".format(signature.signer))
+                sspairs.append((signature, subject))
 
-        if isinstance(subject, PGPMessage):
-            sspairs += [ (sig, subject.message) for sig in _filter_sigs(subject.signatures) ]
+            if isinstance(subject, PGPMessage):
+                sspairs += [ (sig, subject.message) for sig in _filter_sigs(subject.signatures) ]
 
-        if isinstance(subject, (PGPUID, PGPKey)):
-            sspairs += [ (sig, subject) for sig in _filter_sigs(subject.__sig__) ]
+            if isinstance(subject, (PGPUID, PGPKey)):
+                sspairs += [ (sig, subject) for sig in _filter_sigs(subject.__sig__) ]
 
-        if isinstance(subject, PGPKey):
-            # user ids
-            sspairs += [ (sig, uid) for uid in subject.userids for sig in _filter_sigs(uid.__sig__) ]
-            # user attributes
-            sspairs += [ (sig, ua) for ua in subject.userattributes for sig in _filter_sigs(ua.__sig__) ]
-            # subkey binding signatures
-            sspairs += [ (sig, subkey) for subkey in subject.subkeys.values() for sig in _filter_sigs(subkey.__sig__) ]
+            if isinstance(subject, PGPKey):
+                # user ids
+                sspairs += [ (sig, uid) for uid in subject.userids for sig in _filter_sigs(uid.__sig__) ]
+                # user attributes
+                sspairs += [ (sig, ua) for ua in subject.userattributes for sig in _filter_sigs(ua.__sig__) ]
+                # subkey binding signatures
+                sspairs += [ (sig, subkey) for subkey in subject.subkeys.values() for sig in _filter_sigs(subkey.__sig__) ]
+
+        elif signature.signer in {self.fingerprint.keyid} | set(self.subkeys):
+            sspairs += [(signature, subject)]
 
         if len(sspairs) == 0:
             raise PGPError("No signatures to verify")

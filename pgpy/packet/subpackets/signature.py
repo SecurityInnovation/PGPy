@@ -162,8 +162,8 @@ class ByteFlag(Signature):
         _bytes = super(ByteFlag, self).__bytearray__()
         _bytes += self.int_to_bytes(sum(self.flags))
         # null-pad _bytes if they are not up to the end now
-        if self.header.length + len(self.header) != len(_bytes):
-            _bytes += b'\x00' * (len(_bytes) - len(self.header) - 1)
+        if len(_bytes) < len(self):
+            _bytes += b'\x00' * (len(self) - len(_bytes))
         return _bytes
 
     def parse(self, packet):
