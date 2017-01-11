@@ -3,22 +3,7 @@
 """
 import pytest
 
-import glob
-
-from pgpy.types import Armorable, PGPObject
-
-
-# read txt files in tests/testdata/text/*.txt and yield ids and strings
-# TODO: figure out how to set ids
-# @pytest.yield_fixture
-def get_text():
-    for tf in sorted(glob.glob('tests/testdata/text/*.txt')):
-        with open(tf, 'r') as f:
-            for line in f:
-                # skip comments and blank lines
-                if line.startswith('#') or line == "":
-                    continue
-                yield line.split(': ')
+from pgpy.types import PGPObject
 
 text = {
     # some basic utf-8 test strings - these should all pass
@@ -62,22 +47,15 @@ class FakePGPObject(PGPObject):
 
 
 class TestPGPObject(object):
-    params = {
-        'text': [ v for _, v in sorted(text.items()) ],
-        'encoded_text': [ v for _, v in sorted(encoded_text.items()) ],
-    }
-    ids = {
-        'test_text_to_bytes': [ k for k, _ in sorted(text.items()) ],
-        'test_text_to_bytes_encodings': [ k for k, _ in sorted(encoded_text.items()) ],
-    }
-
     @pytest.mark.regression(issue=154)
+    @pytest.mark.parametrize('text', [v for _, v in sorted(text.items())], ids=sorted(text.keys()))
     def test_text_to_bytes(self, text):
         pgpo = FakePGPObject.new(text)
 
         assert pgpo.__bytearray__() == bytearray(b'_fake_') + bytearray(text, 'utf-8')
 
     @pytest.mark.regression(issue=154)
+    @pytest.mark.parametrize('encoded_text', [v for _, v in sorted(encoded_text.items())], ids=sorted(encoded_text.keys()))
     def test_text_to_bytes_encodings(self, encoded_text):
         pgpo = FakePGPObject.new(encoded_text)
         # this should fail

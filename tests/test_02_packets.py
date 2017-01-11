@@ -5,14 +5,13 @@ import pytest
 import glob
 import os
 
-
 from pgpy.packet import Packet
 from pgpy.packet import PubKeyV4, PubSubKeyV4, PrivKeyV4, PrivSubKeyV4
 from pgpy.packet import Opaque
 
-import pgpy.packet.fields
+# import pgpy.packet.fields
 
-
+_trailer = b'\xde\xca\xff\xba\xdd'
 _pclasses = {
     (0x01, 3): 'PKESessionKeyV3',
     (0x02, 4): 'SignatureV4',
@@ -36,39 +35,35 @@ _pclasses = {
 
 def binload(f):
     with open(f, 'rb') as ff:
-        return bytearray(ff.read())
+        buf = bytearray(os.fstat(ff.fileno()).st_size)
+        ff.readinto(buf)
+        return buf
 
 
-skip_files = {'tests/testdata/packets/{:s}'.format(pkt) for pkt in ['11.literal.partial']}
+skip_files = {'tests/testdata/packets/{:s}'.format(pkt) for pkt in ['11.partial.literal']}
+pktfiles = sorted(glob.glob('tests/testdata/packets/[0-9]*'))
 
 
 class TestPacket(object):
-    params = {
-        # 'packet': sorted([f for f in glob.glob('tests/testdata/packets/[0-9]*') if f not in skip_files])
-        'packet': sorted([f for f in glob.glob('tests/testdata/packets/[0-9]*')])
-    }
-    ids = {
-        'test_load': sorted([os.path.basename(f).replace('.', '_') for f in glob.glob('tests/testdata/packets/[0-9]*')])
-    }
-
+    @pytest.mark.parametrize('packet', pktfiles, ids=[os.path.basename(f) for f in pktfiles])
     def test_load(self, packet):
         if packet in skip_files:
             pytest.skip("not implemented yet")
 
-        b = binload(packet) + b'\xca\xfe\xba\xbe'
+        b = binload(packet) + _trailer
         _b = b[:]
         p = Packet(_b)
 
         # parsed all bytes
-        assert _b == b'\xca\xfe\xba\xbe'
+        assert _b == _trailer
 
         # length is computed correctly
         assert p.header.length + len(p.header) == len(p)
-        assert len(p) == len(b) - 4
-        assert len(p.__bytes__()) == len(b) - 4
+        assert len(p) == len(b) - len(_trailer)
+        assert len(p.__bytes__()) == len(b) - len(_trailer)
 
         # __bytes__ output is correct
-        assert p.__bytes__() == b[:-4]
+        assert p.__bytes__() == b[:-len(_trailer)]
 
         # instantiated class is what we expected
         if hasattr(p.header, 'version') and (p.header.tag, p.header.version) in _pclasses:

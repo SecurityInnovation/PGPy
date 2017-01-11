@@ -1,9 +1,12 @@
 """ I've got 99 problems but regression testing ain't one
 """
+import pytest
+import tempfile
 import warnings
 
 
-def test_reg_bug_56(write_clean, gpg_import, gpg_verify):
+@pytest.mark.regression(issue=56)
+def test_reg_bug_56(gpg_import, gpg_verify):
     # some imports only used by this regression test
     import hashlib
     from datetime import datetime
@@ -141,13 +144,22 @@ def test_reg_bug_56(write_clean, gpg_import, gpg_verify):
     assert pk.verify(sigsubject, sig)
 
     # with GnuPG
-    with write_clean('tests/testdata/subj', 'w', sigsubject.decode('latin-1')), \
-            write_clean('tests/testdata/subj.asc', 'w', str(sig)), \
-            write_clean('tests/testdata/pub.asc', 'w', str(pk)), \
-            gpg_import('pub.asc'):
-        assert gpg_verify('subj', 'subj.asc')
+    with tempfile.NamedTemporaryFile('w+') as subjf, \
+            tempfile.NamedTemporaryFile('w+') as sigf, \
+            tempfile.NamedTemporaryFile('w+') as pubf:
+        subjf.write(sigsubject.decode('latin-1'))
+        sigf.write(str(sig))
+        pubf.write(str(pk))
+
+        subjf.flush()
+        sigf.flush()
+        pubf.flush()
+
+        with gpg_import(pubf.name):
+            assert gpg_verify(subjf.name, sigf.name)
 
 
+@pytest.mark.regression(issue=157)
 def test_reg_bug_157(monkeypatch):
     # local imports for this
     import pgpy.constants

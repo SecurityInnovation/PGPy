@@ -1,14 +1,12 @@
 """ test the functionality of PGPKeyring
 """
 import pytest
-
+#
 import glob
 import os
-
 import six
 
-from pgpy.packet import Packet
-
+import pgpy
 from pgpy import PGPKey
 from pgpy import PGPKeyring
 from pgpy import PGPMessage
@@ -17,6 +15,32 @@ from pgpy import PGPUID
 from pgpy.types import Fingerprint
 
 from conftest import gpg_ver
+
+
+@pytest.fixture
+def abe_image():
+    with open('tests/testdata/abe.jpg', 'rb') as abef:
+        abebytes = bytearray(os.path.getsize('tests/testdata/abe.jpg'))
+        abef.readinto(abebytes)
+
+    return PGPUID.new(abebytes)
+
+
+_msgfiles = sorted(glob.glob('tests/testdata/messages/*.asc'))
+
+
+class TestPGPMessage(object):
+    @pytest.mark.parametrize('msgfile', _msgfiles, ids=[os.path.basename(f) for f in _msgfiles])
+    def test_load_from_file(self, msgfile):
+        # TODO: figure out a good way to verify that all went well here, because
+        #       PGPy reorders signatures sometimes, and also unwraps compressed messages
+        #       so comparing str(msg) to the contents of msgfile doesn't actually work
+        msg = PGPMessage.from_file(msgfile)
+
+        with open(msgfile, 'r') as mf:
+            mt = mf.read()
+
+            assert len(str(msg)) == len(mt)
 
 
 @pytest.fixture
@@ -44,35 +68,6 @@ def abe():
     return PGPUID.new('Abraham Lincoln', comment='Honest Abe', email='abraham.lincoln@whitehouse.gov')
 
 
-@pytest.fixture
-def abe_image():
-    with open('tests/testdata/abe.jpg', 'rb') as abef:
-        abebytes = bytearray(os.path.getsize('tests/testdata/abe.jpg'))
-        abef.readinto(abebytes)
-
-    return PGPUID.new(abebytes)
-
-
-class TestPGPMessage(object):
-    params = {
-        'msgfile': sorted(glob.glob('tests/testdata/messages/*.asc')),
-    }
-    ids = {
-        'test_load_from_file': [ os.path.basename(f).replace('.', '_') for f in params['msgfile'] ],
-    }
-
-    def test_load_from_file(self, msgfile):
-        # TODO: figure out a good way to verify that all went well here, because
-        #       PGPy reorders signatures sometimes, and also unwraps compressed messages
-        #       so comparing str(msg) to the contents of msgfile doesn't actually work
-        msg = PGPMessage.from_file(msgfile)
-
-        with open(msgfile, 'r') as mf:
-            mt = mf.read()
-
-            assert len(str(msg)) == len(mt)
-
-
 class TestPGPUID(object):
     def test_userid(self, abe):
         assert abe.name == 'Abraham Lincoln'
@@ -96,19 +91,11 @@ class TestPGPUID(object):
         assert six.u("{:s}").format(unce) == six.u('Temperair\xe9e Youx\'seur (\u2603) <snowman@not.an.email.addre.ss>')
 
 
-class TestPGPKey(object):
-    params = {
-        'kf': sorted(glob.glob('tests/testdata/blocks/*key*.asc'))
-    }
-    ids = {
-        'test_load_from_file':       [ os.path.basename(f).replace('.pub.asc', '').replace('.', '_') for f in params['kf'] ],
-        'test_load_from_str':        [ os.path.basename(f).replace('.pub.asc', '').replace('.', '_') for f in params['kf'] ],
-        'test_load_from_bytes':      [ os.path.basename(f).replace('.pub.asc', '').replace('.', '_') for f in params['kf'] ],
-        'test_load_from_bytearray':  [ os.path.basename(f).replace('.pub.asc', '').replace('.', '_') for f in params['kf'] ],
-    }
-    # kf = next(iter(sorted(glob.glob('tests/testdata/keys/*.pub.asc'))))
-    keyfiles = iter(sorted(glob.glob('tests/testdata/keys/*.pub.asc')))
+_keyfiles = sorted(glob.glob('tests/testdata/blocks/*key*.asc'))
 
+
+class TestPGPKey(object):
+    @pytest.mark.parametrize('kf', _keyfiles, ids=[os.path.basename(f) for f in _keyfiles])
     def test_load_from_file(self, kf, gpg_keyid_file):
         key, _ = PGPKey.from_file(kf)
 
@@ -119,6 +106,7 @@ class TestPGPKey(object):
         else:
             assert key.fingerprint.keyid in gpg_keyid_file(kf.replace('tests/testdata/', ''))
 
+    @pytest.mark.parametrize('kf', _keyfiles, ids=[os.path.basename(f) for f in _keyfiles])
     def test_load_from_str(self, kf, gpg_keyid_file):
         with open(kf, 'r') as tkf:
             key, _ = PGPKey.from_blob(tkf.read())
@@ -131,6 +119,7 @@ class TestPGPKey(object):
             assert key.fingerprint.keyid in gpg_keyid_file(kf.replace('tests/testdata/', ''))
 
     @pytest.mark.regression(issue=140)
+    @pytest.mark.parametrize('kf', _keyfiles, ids=[os.path.basename(f) for f in _keyfiles])
     def test_load_from_bytes(self, kf, gpg_keyid_file):
         with open(kf, 'rb') as tkf:
             key, _ = PGPKey.from_blob(tkf.read())
@@ -143,6 +132,7 @@ class TestPGPKey(object):
             assert key.fingerprint.keyid in gpg_keyid_file(kf.replace('tests/testdata/', ''))
 
     @pytest.mark.regression(issue=140)
+    @pytest.mark.parametrize('kf', _keyfiles, ids=[os.path.basename(f) for f in _keyfiles])
     def test_load_from_bytearray(self, kf, gpg_keyid_file):
         tkb = bytearray(os.stat(kf).st_size)
         with open(kf, 'rb') as tkf:
@@ -156,6 +146,17 @@ class TestPGPKey(object):
 
         else:
             assert key.fingerprint.keyid in gpg_keyid_file(kf.replace('tests/testdata/', ''))
+
+    @pytest.mark.parametrize('kf', sorted(filter(lambda f: not f.endswith('enc.asc'), glob.glob('tests/testdata/keys/*.asc'))))
+    def test_save(self, kf):
+        # load the key and export it back to binary
+        key, _ = PGPKey.from_file(kf)
+        pgpyblob = key.__bytes__()
+
+        # try loading the exported key
+        reloaded, _ = PGPKey.from_file(kf)
+
+        assert pgpyblob == reloaded.__bytes__()
 
 
 @pytest.fixture(scope='module')
