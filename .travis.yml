@@ -1,3 +1,6 @@
+os:
+  - linux
+  - osx
 language: python
 python:
   - "3.5"
@@ -26,11 +29,11 @@ matrix:
     # pypy and pypy3 tests are just for fun
     - python: "pypy"
     - python: "pypy3"
+    - os: osx
 # install requirements
 install:
-  # make sure libffi-dev, gnupg2, and pgpdump are installed
-  - sudo apt-get update
-  - sudo apt-get install -y libffi-dev gnupg2 pgpdump
+  - echo $PATH
+  - sudo sh install_dependencies.$TRAVIS_OS_NAME.sh
   # ensure tox and coveralls are installed
   - pip install tox python-coveralls
 # set TOXENV if it isn't yet

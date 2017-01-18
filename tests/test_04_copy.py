@@ -88,19 +88,19 @@ class TestCopy(object):
         obj2flat = {name: val for name, val in walk_obj(obj2, '{}.'.format(request.node.callspec.id))}
 
         for k in sorted(objflat, key=self.ksort):
-            print("checking attribute: {} ".format(k), end="")
+            # print("checking attribute: {} ".format(k), end="")
             if isinstance(objflat[k], pgpy.types.SorteDeque):
-                print("[SorteDeque] ", end="")
+                # print("[SorteDeque] ", end="")
                 assert len(objflat[k]) == len(obj2flat[k])
 
             if not isinstance(objflat[k], (pgpy.types.PGPObject, pgpy.types.SorteDeque)):
-                print("[{} ]".format(type(objflat[k])), end="")
+                # print("[{} ]".format(type(objflat[k])), end="")
                 assert objflat[k] == objflat[k], k
 
             # check identity, but only types that should definitely be copied
             if self.check_id(objflat[k]):
-                print("[id] {}".format(type(objflat[k])))
+                # print("[id] {}".format(type(objflat[k])))
                 assert objflat[k] is not obj2flat[k], "{}: {}".format(type(objflat[k]), k)
 
-            else:
-                print()
+            # else:
+            #     print()
