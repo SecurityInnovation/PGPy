@@ -32,6 +32,7 @@ matrix:
     - os: osx
 # install requirements
 install:
+  - echo $PATH
   - sudo sh install_dependencies.$TRAVIS_OS_NAME.sh
   # ensure tox and coveralls are installed
   - pip install tox python-coveralls
