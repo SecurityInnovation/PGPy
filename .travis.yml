@@ -1,48 +1,50 @@
 os:
-  - linux
+  # - linux
   - osx
 language: python
 python:
-  - "3.5"
-  - "3.4"
-  - "3.3"
+  # - "3.5"
+  # - "3.4"
+  # - "3.3"
   - "2.7"
-  - "pypy"
-  - "pypy3"
+  # - "pypy"
+  # - "pypy3"
 matrix:
   include:
     # add a pep8 test
     - python: 3.5
-      env: TOXENV=pep8
-    # test setup.py using each tested version
-    - python: 3.5
-      env: TOXENV=setup35
-    - python: 3.4
-      env: TOXENV=setup34
-    - python: 3.3
-      env: TOXENV=setup33
-    - python: 2.7
-      env: TOXENV=setup27
+    #   env: TOXENV=pep8
+    # # test setup.py using each tested version
+    # - python: 3.5
+    #   env: TOXENV=setup35
+    # - python: 3.4
+    #   env: TOXENV=setup34
+    # - python: 3.3
+    #   env: TOXENV=setup33
+    # - python: 2.7
+    #   env: TOXENV=setup27
   allow_failures:
-    # pep8 failures shouldn't be considered fatal
-    - env: TOXENV=pep8
-    # pypy and pypy3 tests are just for fun
-    - python: "pypy"
-    - python: "pypy3"
+    # # pep8 failures shouldn't be considered fatal
+    # - env: TOXENV=pep8
+    # # pypy and pypy3 tests are just for fun
+    # - python: "pypy"
+    # - python: "pypy3"
     - os: osx
 # install requirements
 install:
-  - sudo sh install_dependencies.$TRAVIS_OS_NAME.sh
-  # ensure tox and coveralls are installed
-  - pip install tox python-coveralls
+  - echo $PATH
+  # - sudo sh install_dependencies.$TRAVIS_OS_NAME.sh
+  # # ensure tox and coveralls are installed
+  # - pip install tox python-coveralls
 # set TOXENV if it isn't yet
 before_script:
-  - if [[ -z "$TOXENV" ]]; then export TOXENV=py${TRAVIS_PYTHON_VERSION//.}; fi
-  - if [[ "$TRAVIS_PYTHON_VERSION" == 'pypy' ]]; then export TOXENV=pypy; fi
-  - if [[ "$TRAVIS_PYTHON_VERSION" == 'pypy3' ]]; then export TOXENV=pypy3; fi
+  # - if [[ -z "$TOXENV" ]]; then export TOXENV=py${TRAVIS_PYTHON_VERSION//.}; fi
+  # - if [[ "$TRAVIS_PYTHON_VERSION" == 'pypy' ]]; then export TOXENV=pypy; fi
+  # - if [[ "$TRAVIS_PYTHON_VERSION" == 'pypy3' ]]; then export TOXENV=pypy3; fi
 # run tox
 script:
-  - ./tox.sh
+  # - ./tox.sh
+  - echo 'Hello World!'
 # and report coverage to coveralls, but only if this was a pytest run
-after_success:
-  - if [[ "${TOXENV}" == "py"* ]]; then coveralls; fi
+# after_success:
+#   - if [[ "${TOXENV}" == "py"* ]]; then coveralls; fi
