@@ -235,7 +235,7 @@ class TestPGPKey_Management(object):
 
     @pytest.mark.run('first')
     @pytest.mark.parametrize('alg,size', pkeyspecs)
-    def test_gen_key(self, alg, size, gpg_import):
+    def test_gen_key(self, alg, size):
         # create a primary key with a UID
         uid = PGPUID.new('Test Key', '{}.{}'.format(alg.name, size), 'user@localhost.local')
         key = PGPKey.new(alg, size)
@@ -264,7 +264,7 @@ class TestPGPKey_Management(object):
             pytest.xfail('Key algorithm {} not yet supported'.format(alg.name))
 
         if isinstance(size, EllipticCurveOID) and not size.can_gen:
-            pytest.xfail('Curve { }not yet supportedd'.format(size.name))
+            pytest.xfail('Curve {} not yet supported'.format(size.name))
 
         key = self.keys[pkspec]
         subkey = PGPKey.new(*skspec)
@@ -457,6 +457,9 @@ class TestPGPKey_Management(object):
         alg, size = skspec
         if not alg.can_gen:
             pytest.xfail('Key algorithm {} not yet supported'.format(alg.name))
+
+        if isinstance(size, EllipticCurveOID) and not size.can_gen:
+            pytest.xfail('Curve {} not yet supported'.format(size.name))
 
         # revoke the subkey
         key = self.keys[pkspec]
