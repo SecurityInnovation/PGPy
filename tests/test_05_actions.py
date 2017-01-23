@@ -263,6 +263,9 @@ class TestPGPKey_Management(object):
         if not alg.can_gen:
             pytest.xfail('Key algorithm {} not yet supported'.format(alg.name))
 
+        if isinstance(size, EllipticCurveOID) and not size.can_gen:
+            pytest.xfail('Curve { }not yet supportedd'.format(size.name))
+
         key = self.keys[pkspec]
         subkey = PGPKey.new(*skspec)
 
