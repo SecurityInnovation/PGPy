@@ -291,6 +291,9 @@ class TestPGPKey_Management(object):
     @pytest.mark.run(after='test_add_subkey')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
     def test_add_altuid(self, pkspec):
+        if pkspec not in self.keys:
+            pytest.skip('Keyspec {} not in keys; must not have generated'.format(pkspec))
+
         key = self.keys[pkspec]
         uid = PGPUID.new('T. Keyerson', 'Secondary UID', 'testkey@localhost.local')
 
@@ -326,6 +329,9 @@ class TestPGPKey_Management(object):
     @pytest.mark.run(after='test_add_altuid')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
     def test_add_photo(self, pkspec, userphoto):
+        if pkspec not in self.keys:
+            pytest.skip('Keyspec {} not in keys; must not have generated'.format(pkspec))
+
         # add a photo
         key = self.keys[pkspec]
         photo = copy.copy(userphoto)
@@ -337,6 +343,9 @@ class TestPGPKey_Management(object):
     @pytest.mark.run(after='test_add_photo')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
     def test_remove_altuid(self, pkspec):
+        if pkspec not in self.keys:
+            pytest.skip('Keyspec {} not in keys; must not have generated'.format(pkspec))
+
         # remove the UID added in test_add_altuid
         key = self.keys[pkspec]
         key.del_uid('T. Keyerson')
@@ -346,6 +355,9 @@ class TestPGPKey_Management(object):
     @pytest.mark.run(after='test_remove_altuid')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
     def test_add_revocation_key(self, pkspec):
+        if pkspec not in self.keys:
+            pytest.skip('Keyspec {} not in keys; must not have generated'.format(pkspec))
+
         # add a revocation key
         rev = self.keys[next(pks for pks in pkeyspecs if pks != pkspec)]
         key = self.keys[pkspec]
@@ -357,6 +369,9 @@ class TestPGPKey_Management(object):
     @pytest.mark.run(after='test_add_revocation_key')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
     def test_protect(self, pkspec):
+        if pkspec not in self.keys:
+            pytest.skip('Keyspec {} not in keys; must not have generated'.format(pkspec))
+
         # add a passphrase
         key = self.keys[pkspec]
 
@@ -373,6 +388,9 @@ class TestPGPKey_Management(object):
     @pytest.mark.run(after='test_protect')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
     def test_unlock(self, pkspec):
+        if pkspec not in self.keys:
+            pytest.skip('Keyspec {} not in keys; must not have generated'.format(pkspec))
+
         # unlock the key using the passphrase
         key = self.keys[pkspec]
 
@@ -385,6 +403,9 @@ class TestPGPKey_Management(object):
     @pytest.mark.run(after='test_unlock')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
     def test_change_passphrase(self, pkspec):
+        if pkspec not in self.keys:
+            pytest.skip('Keyspec {} not in keys; must not have generated'.format(pkspec))
+
         # change the passphrase on the key
         key = self.keys[pkspec]
 
@@ -394,6 +415,9 @@ class TestPGPKey_Management(object):
     @pytest.mark.run(after='test_change_passphrase')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
     def test_unlock2(self, pkspec):
+        if pkspec not in self.keys:
+            pytest.skip('Keyspec {} not in keys; must not have generated'.format(pkspec))
+
         # unlock the key using the updated passphrase
         key = self.keys[pkspec]
 
@@ -403,6 +427,9 @@ class TestPGPKey_Management(object):
     @pytest.mark.run(after='test_unlock2')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
     def test_pub_from_sec(self, pkspec):
+        if pkspec not in self.keys:
+            pytest.skip('Keyspec {} not in keys; must not have generated'.format(pkspec))
+
         # get the public half of the key
         priv = self.keys[pkspec]
         pub = priv.pubkey
@@ -424,6 +451,9 @@ class TestPGPKey_Management(object):
                              ids=['{}-{}-{}'.format(pk[0].name, sk[0].name, sk[1]) for pk, sk in
                                   itertools.product(pkeyspecs, skeyspecs)])
     def test_revoke_subkey(self, pkspec, skspec):
+        if pkspec not in self.keys:
+            pytest.skip('Keyspec {} not in keys; must not have generated'.format(pkspec))
+
         alg, size = skspec
         if not alg.can_gen:
             pytest.xfail('Key algorithm {} not yet supported'.format(alg.name))
@@ -450,6 +480,9 @@ class TestPGPKey_Management(object):
     @pytest.mark.run(after='test_revoke_subkey')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
     def test_revoke_key(self, pkspec):
+        if pkspec not in self.keys:
+            pytest.skip('Keyspec {} not in keys; must not have generated'.format(pkspec))
+
         # revoke the key
         key = self.keys[pkspec]
 
