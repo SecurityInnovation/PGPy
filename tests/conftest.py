@@ -272,12 +272,15 @@ def gpg_decrypt():
 def gpg_print():
     sfd_text = re.compile(r'^\[GNUPG:\] PLAINTEXT (?:62|74|75) (?P<tstamp>\d+) (?P<fname>.*)\n'
                           r'^\[GNUPG:\] PLAINTEXT_LENGTH (?P<len>\d+)\n', re.MULTILINE)
+
+    gpg_text = re.compile(r'(?:- gpg control packet\n)?(?P<text>.*)', re.MULTILINE | re.DOTALL)
+
     def _gpg_print(infile):
         gpgc, gpgo, gpge = _gpg('-o-', infile, stderr=subprocess.PIPE)
         status = sfd_text.match(gpgc)
         tlen = len(gpgo) if status is None else int(status.group('len'))
 
-        return gpgo[:tlen]
+        return gpg_text.match(gpgo).group('text')[:tlen]
 
     return _gpg_print
 
@@ -328,19 +331,3 @@ def pytest_configure(config):
     print("Using GnuPG   " + str(gpg_ver))
     print("Using pgpdump " + str(pgpdump_ver))
     print("")
-
-
-# pytest_generate_tests
-# called when each test method is collected to generate parametrizations
-# def pytest_generate_tests(metafunc):
-#     if metafunc.cls is not None and hasattr(metafunc.cls, 'params'):
-#         funcargs = [ (k, v) for k, v in metafunc.cls.params.items() if k in metafunc.fixturenames ]
-#
-#         args = [','.join(k for k, _ in funcargs),
-#                 list(zip(*[v for _, v in funcargs])) if len(funcargs) > 1 else [vi for _, v in funcargs for vi in v]]
-#         kwargs = {}
-#
-#         if hasattr(metafunc.cls, 'ids') and metafunc.function.__name__ in metafunc.cls.ids:
-#             kwargs['ids'] = metafunc.cls.ids[metafunc.function.__name__]
-#
-#         metafunc.parametrize(*args, **kwargs)
