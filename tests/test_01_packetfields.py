@@ -354,17 +354,3 @@ class TestString2Key(object):
         assert s.salt == _salt
         assert s.count == 2048
         assert s.iv == _iv
-
-
-# TODO: this
-# class TestKeyMaterial(object):
-#     params = {
-#         'pkt': [],
-#     }
-#
-#     ids = {
-#         'test_keymaterial': [],
-#     }
-#
-#     def test_keymaterial(self, pkt):
-#         pass

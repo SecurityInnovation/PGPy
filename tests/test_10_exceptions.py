@@ -146,25 +146,6 @@ class TestMetaDispatchable(object):
 
 
 class TestPGPKey(object):
-#     params = {
-#         # 'key_alg': key_algs,
-#         'badkey': [ (alg, size) for alg in key_algs_badsizes.keys() for size in key_algs_badsizes[alg] ],
-#         'key_alg_unim': key_algs_unim,
-#         'key_alg_rsa_depr': key_algs_rsa_depr,
-#     }
-#     ids = {
-#         # 'test_new_key_invalid_size':      [ str(ka).split('.')[-1] for ka in key_algs ],
-#         'test_new_key_invalid_size': [ '{}-{}'.format(ka.name, ks.name if not isinstance(ks, int) else ks) for ka, kss in key_algs_badsizes.items() for ks in kss],
-#         'test_new_key_unimplemented_alg': [ str(ka).split('.')[-1] for ka in key_algs_unim ],
-#         'test_new_key_deprecated_rsa_alg':    [ str(ka).split('.')[-1] for ka in key_algs_rsa_depr ],
-#     }
-#     key_badsize = {
-#         PubKeyAlgorithm.RSAEncryptOrSign: 256,
-#         PubKeyAlgorithm.DSA: 512,
-#         PubKeyAlgorithm.ECDSA: 1,
-#         PubKeyAlgorithm.ECDH: 1,
-#     }
-
     def test_unlock_pubkey(self, rsa_pub, recwarn):
         with rsa_pub.unlock("QwertyUiop") as _unlocked:
             assert _unlocked is rsa_pub
@@ -404,9 +385,10 @@ class TestPGPMessage(object):
 
 
 class TestPGPSignature(object):
-    def test_or_typeerror(self):
+    @pytest.mark.parametrize('inp', [12, None])
+    def test_or_typeerror(self, inp):
         with pytest.raises(TypeError):
-            PGPSignature() | 12
+            PGPSignature() | inp
 
     def test_parse_wrong_magic(self):
         sigtext = _read('tests/testdata/blocks/signature.expired.asc').replace('SIGNATURE', 'SIGANTURE')
@@ -419,12 +401,6 @@ class TestPGPSignature(object):
         sig = PGPSignature()
         with pytest.raises(ValueError):
             sig.parse(notsigtext)
-
-    def test_or_typeerror(self):
-        sig = PGPSignature()
-
-        with pytest.raises(TypeError):
-            sig |= None
 
 
 class TestPGPUID(object):

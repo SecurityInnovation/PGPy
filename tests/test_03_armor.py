@@ -295,4 +295,3 @@ class TestBlocks(object):
             if attrval != val:
                 raise AssertionError('expected block.{attr:s} = {aval}; got block.{attr:s} = {rval}'
                                      ''.format(attr=attr, aval=val, rval=attrval))
-

@@ -37,20 +37,6 @@ from pgpy.packet import Packet
 from pgpy.packet.packets import PrivKeyV4
 from pgpy.packet.packets import PrivSubKeyV4
 
-#
-#
-# def _read(f, mode='r'):
-#     with open(f, mode) as ff:
-#         return ff.read()
-#
-#
-
-# comp_algs = [CompressionAlgorithm.Uncompressed, CompressionAlgorithm.ZIP, CompressionAlgorithm.ZLIB, CompressionAlgorithm.BZ2]
-# sensitive = [True, False]
-
-
-# @pytest.fixture(scope='module', params=itertools.product(CompressionAlgorithm, [False, True]))
-# def message(request):
 
 enc_msgs = [ PGPMessage.from_file(f) for f in sorted(glob.glob('tests/testdata/messages/message*.pass*.asc')) ]
 
