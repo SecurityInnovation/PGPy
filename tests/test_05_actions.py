@@ -8,6 +8,7 @@ import copy
 import glob
 import itertools
 import os
+import six
 import tempfile
 import time
 # from contextlib import contextmanager
@@ -122,9 +123,9 @@ class TestPGPMessage(object):
         assert msg.message == text
 
         with tempfile.NamedTemporaryFile('w+') as mf:
-            mf.write(str(msg))
+            mf.write(six.text_type(msg).encode('utf-8') if six.PY2 else six.text_type(msg))
             mf.flush()
-            assert gpg_print(mf.name).encode('latin-1').decode().strip() == text
+            assert gpg_print(mf.name).encode('latin-1').decode('utf-8').strip() == text
 
     def test_add_marker(self):
         msg = PGPMessage.new(u"This is a new message")

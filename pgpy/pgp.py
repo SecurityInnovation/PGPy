@@ -817,10 +817,10 @@ class PGPMessage(Armorable, PGPObject):
 
     def __str__(self):
         if self.type == 'cleartext':
-            tmpl = "-----BEGIN PGP SIGNED MESSAGE-----\n" \
-                   "{hhdr:s}\n" \
-                   "{cleartext:s}\n" \
-                   "{signature:s}"
+            tmpl = u"-----BEGIN PGP SIGNED MESSAGE-----\n" \
+                   u"{hhdr:s}\n" \
+                   u"{cleartext:s}\n" \
+                   u"{signature:s}"
 
             # only add a Hash: header if we actually have at least one signature
             hashes = set(s.hash_algorithm.name for s in self.signatures)
