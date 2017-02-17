@@ -1325,7 +1325,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
                 # copy signatures that weren't copied with uids
                 for sig in self._signatures:
-                    pub |= copy.copy(sig)
+                    if sig.parent is None:
+                        pub |= copy.copy(sig)
 
                 # keep connect the two halves using a weak reference
                 self._sibling = weakref.ref(pub)

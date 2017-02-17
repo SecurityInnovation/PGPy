@@ -867,7 +867,7 @@ class PrivKeyV4(PrivKey, PubKeyV4):
 
     def pubkey(self):
         # return a copy of ourselves, but just the public half
-        pk = PubKeyV4()
+        pk = PubKeyV4() if not isinstance(self, PrivSubKeyV4) else PubSubKeyV4()
         pk.created = self.created
         pk.pkalg = self.pkalg
 
