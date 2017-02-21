@@ -3,6 +3,7 @@ os:
   - osx
 language: python
 python:
+  - "3.6"
   - "3.5"
   - "3.4"
   - "3.3"
@@ -12,9 +13,11 @@ python:
 matrix:
   include:
     # add a pep8 test
-    - python: 3.5
+    - python: 3.6
       env: TOXENV=pep8
     # test setup.py using each tested version
+    - python: 3.6
+      env: TOXENV=setup36
     - python: 3.5
       env: TOXENV=setup35
     - python: 3.4
