@@ -1,0 +1,58 @@
+Source: python-pgpy
+Section: python
+Priority: optional
+Maintainer: Michael Greene <mgreene@securityinnovation.com>
+Uploaders: Daniel Kahn Gillmor <dkg@fifthhorseman.net>
+Build-Depends:
+ debhelper (>= 10~),
+ dh-python,
+ dpkg-dev (>= 1.17.14),
+ libffi-dev <!nocheck>,
+ gnupg <!nocheck>,
+ pgpdump <!nocheck>,
+ python3-all (>= 3.2),
+ python3-setuptools,
+ python3-cryptography (>= 1.1),
+ python3-flake8 <!nocheck>,
+ python3-pep8-naming <!nocheck>,
+ python3-progressbar <!nocheck>,
+ python3-pyasn1,
+ python3-pytest <!nocheck>,
+ python3-pytest-cov <!nocheck>,
+ python3-singledispatch,
+ python3-six (>= 1.9.0),
+Standards-Version: 3.9.8
+X-Python-Version: >= 2.7
+X-Python3-Version: >= 3.3
+Vcs-Git: https://github.com/SecurityInnovation/PGPy -b debian
+Vcs-Browser: https://github.com/SecurityInnovation/PGPy
+Homepage: https://github.com/SecurityInnovation/PGPy
+
+Package: python3-pgpy
+Architecture: all
+Depends:
+ python3-six,
+ ${misc:Depends},
+ ${python3:Depends},
+Recommends:
+ python-pgpy3-doc,
+Description: OpenPGP (Pretty Good Privacy) RFC 4880 implementation in Python 3
+ PGPy offers a pure-Python implementation of the OpenPGP standard, as
+ described in RFC 4880 and subsequent specifications.  It can be used
+ as a toolkit for building OpenPGP-compatible applications and
+ libraries in Python.
+
+Package: python3-pgpy-doc
+Section: doc
+Architecture: all
+Depends:
+ ${misc:Depends},
+Recommends:
+ python3-pgpy (= ${source:Version})
+Description: OpenPGP (Pretty Good Privacy) RFC 4880 implementation in Python (documentation)
+ PGPy offers a pure-Python implementation of the OpenPGP standard, as
+ described in RFC 4880 and subsequent specifications.  It can be used
+ as a toolkit for building OpenPGP-compatible applications and
+ libraries in Python.
+ .
+ This is the documentation for the module.
