@@ -2,12 +2,10 @@
 import pytest
 
 import contextlib
-# import functools
 import glob
 import os
 import re
 import select
-# import six
 import subprocess
 import sys
 import time
@@ -59,39 +57,6 @@ def _run(bin, *binargs, **pkw):
     return cmdo, cmde
 
 
-# # now import stuff from fixtures so it can be imported by test modules
-# # from fixtures import TestFiles, gpg_getfingerprint, pgpdump, gpg_verify, gpg_fingerprint
-#
-#
-# class CWD_As(object):
-#     def __init__(self, newwd):
-#         if not os.path.exists(newwd):
-#             raise FileNotFoundError(newwd + " not found within " + os.getcwd())
-#
-#         self.oldwd = os.getcwd()
-#         self.newwd = newwd
-#
-#     def __call__(self, func):
-#         @functools.wraps(func)
-#         def setcwd(*args, **kwargs):
-#             # set new working directory
-#             os.chdir(self.newwd)
-#
-#             # fallback value
-#             fo = None
-#
-#             try:
-#                 fo = func(*args, **kwargs)
-#
-#             finally:
-#                 # always return to self.oldwd even if there was a failure
-#                 os.chdir(self.oldwd)
-#
-#             return fo
-#
-#         return setcwd
-
-
 _gpg_bin = _which('gpg2')
 _gpg_args = ('--options', './pgpy.gpg.conf', '--expert', '--status-fd')
 _gpg_env = {}
@@ -115,7 +80,6 @@ def _gpg(*gpg_args, **popen_kwargs):
     if sys.version_info >= (3, 4):
         os.set_inheritable(_gpgfd, True)
 
-    # args = _gpg_args + (str(_gpgfd),) + gpg_args
     args = (_gpg_bin,) + _gpg_args + (str(_gpgfd),) + gpg_args
     kwargs = _gpg_kwargs.copy()
     kwargs.update(popen_kwargs)
@@ -159,7 +123,7 @@ def gpg_import():
                 os.mkdir('tests/testdata/private-keys-v1.d')
                 time.sleep(0.5)
 
-        gpgc, gpgo, gpge = _gpg('--import', *list(keypaths))
+        gpgc, gpgo, gpge = _gpg('--batch', '--import', *list(keypaths))
 
         try:
             yield gpgo
@@ -241,30 +205,6 @@ def gpg_decrypt():
         status = sfd_decrypt.match(gpgc)
         return gpgo
 
-
-#         gpg_args = [_gpg_bin] + _gpg_args[:]
-#         gpg_kwargs = _gpg_kwargs.copy()
-#         gpg_kwargs['stderr'] = subprocess.PIPE
-#         _comargs = ()
-#
-#         if passphrase is not None:
-#             gpg_args += ['--batch', '--passphrase-fd', '0']
-#             gpg_kwargs['stdin'] = subprocess.PIPE
-#             _comargs = (passphrase.encode(),)
-#
-#         if keyid is not None:
-#             gpg_args += ['--recipient', keyid]
-#
-#         gpg_args += ['--decrypt', encmsgpath]
-#
-#         gpgdec = subprocess.Popen(gpg_args, **gpg_kwargs)
-#         gpgo, gpge = gpgdec.communicate(*_comargs)
-#         gpgdec.wait()
-#
-#         return sfd_decrypt.search(gpgo.decode()).group('text')
-#
-#         # return gpgo.decode() if gpgo is not None else gpge
-#
     return _gpg_decrypt
 
 
@@ -289,10 +229,6 @@ def gpg_print():
 def gpg_keyid_file():
     def _gpg_keyid_file(infile):
         c, o, e = _gpg('--list-packets', infile)
-#         gpg_args = _gpg_args + ['--list-packets', infile]
-#         gpg_kwargs = _gpg_kwargs.copy()
-#
-#         gpgo, _ = _run(_gpg_bin, *gpg_args, **gpg_kwargs)
         return re.findall(r'^\s+keyid: ([0-9A-F]+)', o, flags=re.MULTILINE)
     return _gpg_keyid_file
 

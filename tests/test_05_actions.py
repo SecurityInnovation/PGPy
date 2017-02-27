@@ -11,28 +11,21 @@ import os
 import six
 import tempfile
 import time
-# from contextlib import contextmanager
 from datetime import datetime, timedelta
-# from warnings import catch_warnings
-#
+
 from pgpy import PGPKey
 from pgpy import PGPMessage
-from pgpy import PGPSignature
 from pgpy import PGPUID
 from pgpy.constants import CompressionAlgorithm
 from pgpy.constants import EllipticCurveOID
 from pgpy.constants import Features
 from pgpy.constants import HashAlgorithm
-from pgpy.constants import ImageEncoding
 from pgpy.constants import KeyFlags
 from pgpy.constants import KeyServerPreferences
 from pgpy.constants import PubKeyAlgorithm
 from pgpy.constants import RevocationReason
 from pgpy.constants import SignatureType
 from pgpy.constants import SymmetricKeyAlgorithm
-from pgpy.constants import TrustLevel
-from pgpy.errors import PGPDecryptionError
-from pgpy.errors import PGPError
 from pgpy.packet import Packet
 from pgpy.packet.packets import PrivKeyV4
 from pgpy.packet.packets import PrivSubKeyV4
@@ -234,6 +227,8 @@ class TestPGPKey_Management(object):
         else:
             key.add_uid(uid, hashes=[HashAlgorithm.SHA224])
 
+        assert uid in key
+
         # self-verify the key
         assert key.verify(key)
         self.keys[(alg, size)] = key
@@ -329,6 +324,19 @@ class TestPGPKey_Management(object):
 
     @pytest.mark.run(after='test_add_photo')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
+    def test_revoke_altuid(self, pkspec):
+        if pkspec not in self.keys:
+            pytest.skip('Keyspec {} not in keys; must not have generated'.format(pkspec))
+
+        # add revoke altuid
+        key = self.keys[pkspec]
+        altuid = key.get_uid('T. Keyerson')
+
+        revsig = key.revoke(altuid)
+        altuid |= revsig
+
+    @pytest.mark.run(after='test_remove_altuid')
+    @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
     def test_remove_altuid(self, pkspec):
         if pkspec not in self.keys:
             pytest.skip('Keyspec {} not in keys; must not have generated'.format(pkspec))
@@ -348,7 +356,10 @@ class TestPGPKey_Management(object):
         # add a revocation key
         rev = self.keys[next(pks for pks in pkeyspecs if pks != pkspec)]
         key = self.keys[pkspec]
-        key |= key.revoker(rev)
+        revsig = key.revoker(rev)
+        key |= revsig
+
+        assert revsig in key
 
         # try to verify with GPG
         self.gpg_verify_key(key)
@@ -586,11 +597,14 @@ class TestPGPKey_Actions(object):
                                 user=targette_sec.userids[0].name,
                                 expires=timedelta(seconds=30),
                                 revocable=False,
-                                notation={'Testing': 'This signature was generated during unit testing'},
+                                notation={'Testing': 'This signature was generated during unit testing',
+                                          'cooldude': bytearray(b'\xc0\x01\xd0\x0d')},
                                 policy_uri='about:blank')
 
         assert sig.type == SignatureType.BinaryDocument
-        assert sig.notation == {'Testing': 'This signature was generated during unit testing'}
+        assert sig.notation == {'Testing': 'This signature was generated during unit testing',
+                                'cooldude': bytearray(b'\xc0\x01\xd0\x0d')}
+
         assert sig.revocable is False
         assert sig.policy_uri == 'about:blank'
         # assert sig.sig.signer_uid == "{:s}".format(sec.userids[0])
@@ -739,7 +753,11 @@ class TestPGPKey_Actions(object):
     def test_certify_uid(self, sec, abe):
         # sign the uid
         userid = abe.userids[0]
-        sig = sec.certify(userid, SignatureType.Casual_Cert, trust=(1, 60))
+        # test with all possible subpackets
+        sig = sec.certify(userid, SignatureType.Casual_Cert,
+                          trust=(1, 60),
+                          regex='(.*)',
+                          exportable=True,)
         userid |= sig
 
         assert sig.type == SignatureType.Casual_Cert

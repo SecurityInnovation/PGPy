@@ -22,7 +22,11 @@ modules = ['pgpy.constants',
 
 def get_module_objs(module):
     # return a set of strings that represent the names of objects defined in that module
-    return { n for n, o in inspect.getmembers(module) if (inspect.getmodule(o) is module) }
+    return { n for n, o in inspect.getmembers(module, lambda m: inspect.getmodule(m) is module) } | ({'FlagEnum',} if module is importlib.import_module('pgpy.types') else set())  # dirty workaround until six fixes metaclass stuff to support EnumMeta in Python >= 3.6
+
+
+def get_module_all(module):
+    return set(getattr(module, '__all__', set()))
 
 
 def test_pgpy_all():
@@ -35,8 +39,4 @@ def test_pgpy_all():
 def test_exports(modname):
     module = importlib.import_module(modname)
 
-    modall = getattr(module, '__all__', None)
-    if modall is None:
-        pytest.skip('__all__ not defined')
-
-    assert set(modall) == get_module_objs(module)
+    assert get_module_all(module) == get_module_objs(module)

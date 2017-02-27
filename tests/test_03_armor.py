@@ -5,20 +5,28 @@ import pytest
 import glob
 import os
 from datetime import datetime
-#
-# from pgpy.constants import CompressionAlgorithm
+
 from pgpy.constants import HashAlgorithm
-# from pgpy.constants import KeyFlags
 from pgpy.constants import PubKeyAlgorithm
 from pgpy.constants import SignatureType
-# from pgpy.constants import SymmetricKeyAlgorithm
-
 from pgpy.pgp import PGPKey
 from pgpy.pgp import PGPMessage
 from pgpy.pgp import PGPSignature
 
+
 blocks = sorted(glob.glob('tests/testdata/blocks/*.asc'))
 block_attrs = {
+    'tests/testdata/blocks/message.ascii.asc':
+        [('encrypters',    set()),
+         ('filename',      'ascii'),
+         ('is_compressed', False),
+         ('is_encrypted',  False),
+         ('is_signed',     False),
+         ('issuers',       set()),
+         ('message',       "This is stored, textually!\r\n"),
+         ('signers',       set()),
+         ('type',          'literal'),],
+
     'tests/testdata/blocks/message.compressed.asc':
         [('encrypters',    set()),
          ('filename',      'lit'),
@@ -227,6 +235,28 @@ block_attrs = {
          ('parent',        None),
          ('signers',       set()),],
 
+    'tests/testdata/blocks/dsaseckey.asc':
+        [('created',       datetime(2017, 2, 21, 19, 21, 41)),
+         ('expires_at',    None),
+         ('fingerprint',   "2B5B BB14 3BA0 B290 DCEE 6668 B798 AE89 9087 7201"),
+         ('is_expired',    False),
+         ('is_primary',    True),
+         ('is_protected',  True),
+         ('is_public',     False),
+         ('is_unlocked',   False),
+         ('key_algorithm', PubKeyAlgorithm.DSA),],
+
+    'tests/testdata/blocks/dsapubkey.asc':
+        [('created',       datetime(2017, 2, 21, 19, 21, 41)),
+         ('expires_at',    None),
+         ('fingerprint',   "2B5B BB14 3BA0 B290 DCEE 6668 B798 AE89 9087 7201"),
+         ('is_expired',    False),
+         ('is_primary',    True),
+         ('is_protected',  False),
+         ('is_public',     True),
+         ('is_unlocked',   True),
+         ('key_algorithm', PubKeyAlgorithm.DSA),],
+
     'tests/testdata/blocks/openpgp.js.pubkey.asc':
         [('created',        datetime(2016, 6, 2, 21, 57, 13)),
          ('expires_at',     None),
@@ -258,6 +288,10 @@ block_attrs = {
     'tests/testdata/blocks/signature.expired.asc':
         [('created',       datetime(2014, 9, 28, 20, 54, 42)),
          ('is_expired',    True),],
+
+    'tests/testdata/blocks/signature.non-exportable.asc':
+        [('created',       datetime(2017, 2, 21, 20, 43, 34)),
+         ('exportable',    False),]
 }
 
 
