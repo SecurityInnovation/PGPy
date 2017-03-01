@@ -1289,8 +1289,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
     @property
     def key_size(self):
-        """*new in 0.5.0*
-        The size pertaining to this key. ``int`` for non-EC key algorithms; :py:pbj:`constants.EllipticCurveOID` for EC keys.
+        """*new in 0.4.1*
+        The size pertaining to this key. ``int`` for non-EC key algorithms; :py:obj:`constants.EllipticCurveOID` for EC keys.
         """
         if self.key_algorithm in {PubKeyAlgorithm.ECDSA, PubKeyAlgorithm.ECDH}:
             return self._key.keymaterial.oid
