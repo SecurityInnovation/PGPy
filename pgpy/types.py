@@ -650,7 +650,7 @@ class Fingerprint(str):
     """
     A subclass of ``str``. Can be compared using == and != to ``str``, ``unicode``, and other :py:obj:`Fingerprint` instances.
 
-    Primarily used as a key for internal dictionaries, so it ignores spaces when comparing and
+    Primarily used as a key for internal dictionaries, so it ignores spaces when comparing and hashing
     """
     @property
     def keyid(self):

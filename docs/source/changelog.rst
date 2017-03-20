@@ -4,10 +4,17 @@
 Changelog
 *********
 
-v0.5.0
+v0.4.1
 ======
 
 Released: |today|
+
+Bugs Fixed
+----------
+ * Fixed an issue with dearmoring ASCII-armored PGP blocks with windows-style newlines (#156)
+ * Improved the robustness of the code that tunes the hash count for deriving symmetric encryption keys (#157)
+ * Fixed an issue with how public keys are created from private keys that was causing exports to become malformed (#168)
+ * Added explicit support for Python 3.6 (#166)
 
 New Features
 ------------
