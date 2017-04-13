@@ -50,7 +50,9 @@ Generating a subkey is similar to the process above, except that it requires an 
     # assuming we already have a primary key, we can generate a new key and add it as a subkey thusly:
     subkey = pgpy.PGPKey.new(PubKeyAlgorithm.RSA, 4096)
 
-    # preferences that are specific to the subkey can be chosen here, otherwise the key will use the primary key's preferences.
+    # preferences that are specific to the subkey can be chosen here
+    # any preference(s) needed for actions by this subkey that not specified here
+    # will seamlessly "inherit" from those specified on the selected User ID
     key.add_subkey(subkey, usage={KeyFlags.Authentication})
 
 Loading Keys
@@ -121,6 +123,11 @@ Key unlocking is quite simple::
         # enc_key.is_unlocked is now True
         ...
 
+    # This form works equivalently, but may be more semantically clear in some cases:
+    with enc_key.unlock("C0rrectPassphr@se") as ukey:
+        # ukey is just a reference to enc_key in this case
+        ...
+
 Exporting Keys
 ^^^^^^^^^^^^^^
 
@@ -141,4 +148,3 @@ in Python 2::
 
     # ASCII armored
     keystr = str(key)
-

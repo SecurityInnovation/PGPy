@@ -57,4 +57,3 @@ in Python 2::
     # if message is cleartext, this will also properly canonicalize and dash-escape
     # the message text
     msgstr = str(message)
-
