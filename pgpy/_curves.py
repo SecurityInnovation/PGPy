@@ -1,0 +1,54 @@
+""" _curves.py
+specify some additional curves that OpenSSL provides but cryptography doesn't explicitly expose
+"""
+
+from cryptography import utils
+
+from cryptography.hazmat.primitives.asymmetric import ec
+
+from cryptography.hazmat.bindings.openssl.binding import Binding
+
+__all__ = tuple()
+
+# TODO: investigate defining additional curves using EC_GROUP_new_curve
+#       https://wiki.openssl.org/index.php/Elliptic_Curve_Cryptography#Defining_Curves
+
+
+def _openssl_get_supported_curves():
+    if hasattr(_openssl_get_supported_curves, '_curves'):
+        return _openssl_get_supported_curves._curves
+
+    # use cryptography's cffi bindings to get an array of curve names
+    b = Binding()
+    cn = b.lib.EC_get_builtin_curves(b.ffi.NULL, 0)
+    cs = b.ffi.new('EC_builtin_curve[]', cn)
+    b.lib.EC_get_builtin_curves(cs, cn)
+
+    # store the result so we don't have to do all of this every time
+    curves = { b.ffi.string(b.lib.OBJ_nid2sn(c.nid)).decode('utf-8') for c in cs }
+    _openssl_get_supported_curves._curves = curves
+    return curves
+
+
+@utils.register_interface(ec.EllipticCurve)
+class BrainpoolP256R1(object):
+    name = 'brainpoolP256r1'
+    key_size = 256
+
+
+@utils.register_interface(ec.EllipticCurve)
+class BrainpoolP384R1(object):
+    name = 'brainpoolP384r1'
+    key_size = 384
+
+
+@utils.register_interface(ec.EllipticCurve)
+class BrainpoolP512R1(object):
+    name = 'brainpoolP512r1'
+    key_size = 512
+
+
+# add these curves to the _CURVE_TYPES list
+for curve in [BrainpoolP256R1, BrainpoolP384R1, BrainpoolP512R1]:
+    if curve.name not in ec._CURVE_TYPES and curve.name in _openssl_get_supported_curves():
+        ec._CURVE_TYPES[curve.name] = curve

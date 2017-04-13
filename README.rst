@@ -38,12 +38,19 @@ Documentation
 
 `PGPy Documentation <https://pythonhosted.org/PGPy/>`_
 
+Discussion
+----------
+
+Please report any bugs found on the `issue tracker <https://github.com/SecurityInnovation/PGPy/issues>`_
+
+You can also join ``#pgpy`` on Freenode to ask questions or get involved
+
 Requirements
 ------------
 
 - Python 3 >= 3.3; Python 2 >= 2.7
 
-  Tested with: 3.5, 3.4, 3.3, 2.7
+  Tested with: 3.6, 3.5, 3.4, 3.3, 2.7
 
 - `Cryptography <https://pypi.python.org/pypi/cryptography>`_
 
@@ -59,3 +66,4 @@ License
 -------
 
 BSD 3-Clause licensed. See the bundled `LICENSE <https://github.com/SecurityInnovation/PGPy/blob/master/LICENSE>`_ file for more details.
+

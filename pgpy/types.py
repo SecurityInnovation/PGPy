@@ -64,10 +64,10 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
     @staticmethod
     def is_ascii(text):
         if isinstance(text, six.string_types):
-            return bool(re.match(r'^[ -~\n]+$', text, flags=re.ASCII))
+            return bool(re.match(r'^[ -~\r\n]+$', text, flags=re.ASCII))
 
         if isinstance(text, (bytes, bytearray)):
-            return bool(re.match(br'^[ -~\n]+$', text, flags=re.ASCII))
+            return bool(re.match(br'^[ -~\r\n]+$', text, flags=re.ASCII))
 
         raise TypeError("Expected: ASCII input of type str, bytes, or bytearray")  # pragma: no cover
 
@@ -92,25 +92,24 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
         # the re.VERBOSE flag allows for:
         #  - whitespace is ignored except when in a character class or escaped
         #  - anything after a '#' that is not escaped or in a character class is ignored, allowing for comments
-        m = re.match(r"""# This capture group is optional because it will only be present in signed cleartext messages
+        m = re.search(r"""# This capture group is optional because it will only be present in signed cleartext messages
                          (^-{5}BEGIN\ PGP\ SIGNED\ MESSAGE-{5}(?:\r?\n)
                           (Hash:\ (?P<hashes>[A-Za-z0-9\-,]+)(?:\r?\n){2})?
                           (?P<cleartext>(.*\n)+)(?:\r?\n)
                          )?
                          # armor header line; capture the variable part of the magic text
-                         ^-{5}BEGIN\ PGP\ (?P<magic>[A-Z0-9 ,]+)-{5}$(?:\r?\n)
+                         ^-{5}BEGIN\ PGP\ (?P<magic>[A-Z0-9 ,]+)-{5}(?:\r?\n)
                          # try to capture all the headers into one capture group
                          # if this doesn't match, m['headers'] will be None
-                         ((?P<headers>(^.+:\ .+$(?:\r?\n))+))?(?:\r?\n)?
+                         (?P<headers>(^.+:\ .+(?:\r?\n))+)?(?:\r?\n)?
                          # capture all lines of the body, up to 76 characters long,
                          # including the newline, and the pad character(s)
                          (?P<body>([A-Za-z0-9+/]{1,75}={,2}(?:\r?\n))+)
                          # capture the armored CRC24 value
-                         ^=(?P<crc>[A-Za-z0-9+/]{4})$(?:\r?\n)
+                         ^=(?P<crc>[A-Za-z0-9+/]{4})(?:\r?\n)
                          # finally, capture the armor tail line, which must match the armor header line
-                         ^-{5}END\ PGP\ (?P=magic)-{5}$(?:\r?\n)?
-                         """,
-                     text, flags=re.MULTILINE | re.VERBOSE)
+                         ^-{5}END\ PGP\ (?P=magic)-{5}(?:\r?\n)?
+                         """, text, flags=re.MULTILINE | re.VERBOSE)
 
         if m is None:  # pragma: no cover
             raise ValueError("Expected: ASCII-armored PGP data")
@@ -638,15 +637,20 @@ class FlagEnumMeta(EnumMeta):
         return self & other
 
 
-class FlagEnum(six.with_metaclass(FlagEnumMeta, IntEnum)):
-    pass
+if six.PY2:
+    class FlagEnum(IntEnum):
+        __metaclass__ = FlagEnumMeta
+
+else:
+    namespace = FlagEnumMeta.__prepare__('FlagEnum', (IntEnum,))
+    FlagEnum = FlagEnumMeta('FlagEnum', (IntEnum,), namespace)
 
 
 class Fingerprint(str):
     """
     A subclass of ``str``. Can be compared using == and != to ``str``, ``unicode``, and other :py:obj:`Fingerprint` instances.
 
-    Primarily used as a key for internal dictionaries, so it ignores spaces when comparing and
+    Primarily used as a key for internal dictionaries, so it ignores spaces when comparing and hashing
     """
     @property
     def keyid(self):

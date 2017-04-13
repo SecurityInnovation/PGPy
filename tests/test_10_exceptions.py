@@ -3,29 +3,24 @@
 import pytest
 
 import glob
-
 from pgpy import PGPKey
 from pgpy import PGPKeyring
 from pgpy import PGPMessage
 from pgpy import PGPSignature
 from pgpy import PGPUID
-
-from pgpy.packet import Packet
-
-from pgpy.types import Armorable
-from pgpy.types import PGPObject
-from pgpy.types import Fingerprint
-from pgpy.types import SignatureVerification
-
 from pgpy.constants import EllipticCurveOID
 from pgpy.constants import HashAlgorithm
 from pgpy.constants import KeyFlags
 from pgpy.constants import PubKeyAlgorithm
 from pgpy.constants import SymmetricKeyAlgorithm
-
+from pgpy.packet import Packet
+from pgpy.types import Armorable
+from pgpy.types import PGPObject
+from pgpy.types import Fingerprint
+from pgpy.types import SignatureVerification
+from pgpy.errors import PGPError
 from pgpy.errors import PGPDecryptionError
 from pgpy.errors import PGPEncryptionError
-from pgpy.errors import PGPError
 from pgpy.errors import PGPInsecureCipher
 
 
@@ -63,6 +58,7 @@ def targette_pub():
 def temp_subkey():
     return PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 512)
 
+
 @pytest.fixture(scope='module')
 def temp_key():
     u = PGPUID.new('User')
@@ -85,6 +81,7 @@ key_algs_badsizes = {
     PubKeyAlgorithm.ECDSA: [curve for curve in EllipticCurveOID if not curve.can_gen],
     PubKeyAlgorithm.ECDH: [curve for curve in EllipticCurveOID if not curve.can_gen],
 }
+badkeyspec = [ (alg, size) for alg in key_algs_badsizes.keys() for size in key_algs_badsizes[alg] ]
 
 
 class TestArmorable(object):
@@ -133,7 +130,6 @@ class TestMetaDispatchable(object):
             else:
                 Packet(d)
 
-
         # ensure the base packet works, first
         Packet(data[:])
 
@@ -150,25 +146,6 @@ class TestMetaDispatchable(object):
 
 
 class TestPGPKey(object):
-    params = {
-        # 'key_alg': key_algs,
-        'badkey': [ (alg, size) for alg in key_algs_badsizes.keys() for size in key_algs_badsizes[alg] ],
-        'key_alg_unim': key_algs_unim,
-        'key_alg_rsa_depr': key_algs_rsa_depr,
-    }
-    ids = {
-        # 'test_new_key_invalid_size':      [ str(ka).split('.')[-1] for ka in key_algs ],
-        'test_new_key_invalid_size': [ '{}-{}'.format(ka.name, ks.name if not isinstance(ks, int) else ks) for ka, kss in key_algs_badsizes.items() for ks in kss],
-        'test_new_key_unimplemented_alg': [ str(ka).split('.')[-1] for ka in key_algs_unim ],
-        'test_new_key_deprecated_rsa_alg':    [ str(ka).split('.')[-1] for ka in key_algs_rsa_depr ],
-    }
-    key_badsize = {
-        PubKeyAlgorithm.RSAEncryptOrSign: 256,
-        PubKeyAlgorithm.DSA: 512,
-        PubKeyAlgorithm.ECDSA: 1,
-        PubKeyAlgorithm.ECDH: 1,
-    }
-
     def test_unlock_pubkey(self, rsa_pub, recwarn):
         with rsa_pub.unlock("QwertyUiop") as _unlocked:
             assert _unlocked is rsa_pub
@@ -304,15 +281,18 @@ class TestPGPKey(object):
         with pytest.raises(PGPError):
             key.sign('asdf')
 
+    @pytest.mark.parametrize('badkey', badkeyspec, ids=['{}:{}'.format(alg.name, size if isinstance(size, int) else size.name) for alg, size in badkeyspec])
     def test_new_key_invalid_size(self, badkey):
         key_alg, key_size = badkey
         with pytest.raises(ValueError):
             PGPKey.new(key_alg, key_size)
 
+    @pytest.mark.parametrize('key_alg_unim', key_algs_unim, ids=[alg.name for alg in key_algs_unim])
     def test_new_key_unimplemented_alg(self, key_alg_unim):
         with pytest.raises(NotImplementedError):
             PGPKey.new(key_alg_unim, 512)
 
+    @pytest.mark.parametrize('key_alg_rsa_depr', key_algs_rsa_depr, ids=[alg.name for alg in key_algs_rsa_depr])
     def test_new_key_deprecated_rsa_alg(self, key_alg_rsa_depr, recwarn):
         k = PGPKey.new(key_alg_rsa_depr, 512)
 
@@ -405,9 +385,10 @@ class TestPGPMessage(object):
 
 
 class TestPGPSignature(object):
-    def test_or_typeerror(self):
+    @pytest.mark.parametrize('inp', [12, None])
+    def test_or_typeerror(self, inp):
         with pytest.raises(TypeError):
-            PGPSignature() | 12
+            PGPSignature() | inp
 
     def test_parse_wrong_magic(self):
         sigtext = _read('tests/testdata/blocks/signature.expired.asc').replace('SIGNATURE', 'SIGANTURE')
@@ -420,12 +401,6 @@ class TestPGPSignature(object):
         sig = PGPSignature()
         with pytest.raises(ValueError):
             sig.parse(notsigtext)
-
-    def test_or_typeerror(self):
-        sig = PGPSignature()
-
-        with pytest.raises(TypeError):
-            sig |= None
 
 
 class TestPGPUID(object):

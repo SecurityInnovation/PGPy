@@ -2,15 +2,8 @@
 PGPy API
 ********
 
-.. toctree::
-    :hidden:
+.. include:: exceptions.rst.inc
 
-    exceptions
-    constants
-    classes
+.. include:: constants.rst.inc
 
-.. include:: exceptions.rst
-
-.. include:: constants.rst
-
-.. include:: classes.rst
+.. include:: classes.rst.inc

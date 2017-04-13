@@ -27,6 +27,21 @@ It is possible to generate most types of keys with PGPy now. The process is most
                 ciphers=[SymmetricKeyAlgorithm.AES256, SymmetricKeyAlgorithm.AES192, SymmetricKeyAlgorithm.AES128],
                 compression=[CompressionAlgorithm.ZLIB, CompressionAlgorithm.BZ2, CompressionAlgorithm.ZIP, CompressionAlgorithm.Uncompressed])
 
+Specifying key expiration can be done using the ``key_expires`` keyword when adding the user id. Expiration can be specified
+using a :py:obj:`datetime.datetime` or a :py:obj:`datetime.timedelta` object::
+
+    from datetime import timedelta
+
+    # in this example, we'll use fewer preferences for the sake of brevity, and set the key to expire in 10 years
+    key = pgpy.PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 4096)
+    uid = pgpy.PGPUID.new('Nikola Tesla')  # comment and email are optional
+
+    # the key_expires keyword accepts a :py:obj:`datetime.datetime`
+    key.add_uid(uid, usage={KeyFlags.Sign}, hashes=[HashAlgorithm.SHA512, HashAlgorithm.SHA256],
+                ciphers=[SymmetricKeyAlgorithm.AES256, SymmetricKeyAlgorithm.Camellia256],
+                compression=[CompressionAlgorithm.BZ2, CompressionAlgorithm.Uncompressed],
+                key_expires=timedelta(days=365))
+
 Generating Sub Keys
 ^^^^^^^^^^^^^^^^^^^
 
@@ -35,7 +50,9 @@ Generating a subkey is similar to the process above, except that it requires an 
     # assuming we already have a primary key, we can generate a new key and add it as a subkey thusly:
     subkey = pgpy.PGPKey.new(PubKeyAlgorithm.RSA, 4096)
 
-    # preferences that are specific to the subkey can be chosen here, otherwise the key will use the primary key's preferences.
+    # preferences that are specific to the subkey can be chosen here
+    # any preference(s) needed for actions by this subkey that not specified here
+    # will seamlessly "inherit" from those specified on the selected User ID
     key.add_subkey(subkey, usage={KeyFlags.Authentication})
 
 Loading Keys
@@ -86,7 +103,7 @@ It is usually recommended to passphrase-protect private keys. Adding a passphras
 
     # key.is_public is False
     # key.is_protected is False
-    key.protect("C0rrectPassphr@se")
+    key.protect("C0rrectPassphr@se", SymmetricKeyAlgorithm.AES256, HashAlgorithm.SHA256)
     # key.is_protected is now True
 
 Unlocking Protected Secret Keys
@@ -104,6 +121,11 @@ Key unlocking is quite simple::
     # If the passphrase given is incorrect, this will raise PGPDecryptionError
     with enc_key.unlock("C0rrectPassphr@se"):
         # enc_key.is_unlocked is now True
+        ...
+
+    # This form works equivalently, but may be more semantically clear in some cases:
+    with enc_key.unlock("C0rrectPassphr@se") as ukey:
+        # ukey is just a reference to enc_key in this case
         ...
 
 Exporting Keys
@@ -126,4 +148,3 @@ in Python 2::
 
     # ASCII armored
     keystr = str(key)
-

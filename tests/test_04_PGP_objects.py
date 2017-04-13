@@ -1,13 +1,9 @@
 """ test the functionality of PGPKeyring
 """
 import pytest
-
 import glob
 import os
-
 import six
-
-from pgpy.packet import Packet
 
 from pgpy import PGPKey
 from pgpy import PGPKeyring
@@ -16,25 +12,8 @@ from pgpy import PGPSignature
 from pgpy import PGPUID
 from pgpy.types import Fingerprint
 
-@pytest.fixture
-def un():
-    return PGPUID.new(six.u('Temperair\xe9e Youx\'seur'))
+from conftest import gpg_ver
 
-@pytest.fixture
-def unc():
-    return PGPUID.new(six.u('Temperair\xe9e Youx\'seur'), comment=six.u('\u2603'))
-
-@pytest.fixture
-def une():
-    return PGPUID.new(six.u('Temperair\xe9e Youx\'seur'), email='snowman@not.an.email.addre.ss')
-
-@pytest.fixture
-def unce():
-    return PGPUID.new(six.u('Temperair\xe9e Youx\'seur'), comment=six.u('\u2603'), email='snowman@not.an.email.addre.ss')
-
-@pytest.fixture
-def abe():
-    return PGPUID.new('Abraham Lincoln', comment='Honest Abe', email='abraham.lincoln@whitehouse.gov')
 
 @pytest.fixture
 def abe_image():
@@ -45,14 +24,11 @@ def abe_image():
     return PGPUID.new(abebytes)
 
 
-class TestPGPMessage(object):
-    params = {
-        'msgfile': sorted(glob.glob('tests/testdata/messages/*.asc')),
-    }
-    ids = {
-        'test_load_from_file': [ os.path.basename(f) for f in params['msgfile'] ],
-    }
+_msgfiles = sorted(glob.glob('tests/testdata/messages/*.asc'))
 
+
+class TestPGPMessage(object):
+    @pytest.mark.parametrize('msgfile', _msgfiles, ids=[os.path.basename(f) for f in _msgfiles])
     def test_load_from_file(self, msgfile):
         # TODO: figure out a good way to verify that all went well here, because
         #       PGPy reorders signatures sometimes, and also unwraps compressed messages
@@ -63,6 +39,31 @@ class TestPGPMessage(object):
             mt = mf.read()
 
             assert len(str(msg)) == len(mt)
+
+
+@pytest.fixture
+def un():
+    return PGPUID.new(six.u('Temperair\xe9e Youx\'seur'))
+
+
+@pytest.fixture
+def unc():
+    return PGPUID.new(six.u('Temperair\xe9e Youx\'seur'), comment=six.u('\u2603'))
+
+
+@pytest.fixture
+def une():
+    return PGPUID.new(six.u('Temperair\xe9e Youx\'seur'), email='snowman@not.an.email.addre.ss')
+
+
+@pytest.fixture
+def unce():
+    return PGPUID.new(six.u('Temperair\xe9e Youx\'seur'), comment=six.u('\u2603'), email='snowman@not.an.email.addre.ss')
+
+
+@pytest.fixture
+def abe():
+    return PGPUID.new('Abraham Lincoln', comment='Honest Abe', email='abraham.lincoln@whitehouse.gov')
 
 
 class TestPGPUID(object):
@@ -88,36 +89,72 @@ class TestPGPUID(object):
         assert six.u("{:s}").format(unce) == six.u('Temperair\xe9e Youx\'seur (\u2603) <snowman@not.an.email.addre.ss>')
 
 
+_keyfiles = sorted(glob.glob('tests/testdata/blocks/*key*.asc'))
+
+
 class TestPGPKey(object):
-    kf = next(iter(sorted(glob.glob('tests/testdata/keys/*.pub.asc'))))
+    @pytest.mark.parametrize('kf', _keyfiles, ids=[os.path.basename(f) for f in _keyfiles])
+    def test_load_from_file(self, kf, gpg_keyid_file):
+        key, _ = PGPKey.from_file(kf)
 
-    def test_load_from_file(self, gpg_keyid_file):
-        key, _ = PGPKey.from_file(self.kf)
+        # TODO: maybe store the fingerprint instead of relying on a particular version of GnuPG...?
+        if 'ecc' in kf and gpg_ver < '2.1':
+            assert key.fingerprint
 
-        assert key.fingerprint.keyid in gpg_keyid_file(self.kf.replace('tests/testdata/', ''))
+        else:
+            assert key.fingerprint.keyid in gpg_keyid_file(kf.replace('tests/testdata/', ''))
 
-    def test_load_from_str(self, gpg_keyid_file):
-        with open(self.kf, 'r') as tkf:
+    @pytest.mark.parametrize('kf', _keyfiles, ids=[os.path.basename(f) for f in _keyfiles])
+    def test_load_from_str(self, kf, gpg_keyid_file):
+        with open(kf, 'r') as tkf:
             key, _ = PGPKey.from_blob(tkf.read())
 
-        assert key.fingerprint.keyid in gpg_keyid_file(self.kf.replace('tests/testdata/', ''))
+        # TODO: maybe store the fingerprint instead of relying on a particular version of GnuPG...?
+        if 'ecc' in kf and gpg_ver < '2.1':
+            assert key.fingerprint
+
+        else:
+            assert key.fingerprint.keyid in gpg_keyid_file(kf.replace('tests/testdata/', ''))
 
     @pytest.mark.regression(issue=140)
-    def test_load_from_bytes(self, gpg_keyid_file):
-        with open(self.kf, 'rb') as tkf:
+    @pytest.mark.parametrize('kf', _keyfiles, ids=[os.path.basename(f) for f in _keyfiles])
+    def test_load_from_bytes(self, kf, gpg_keyid_file):
+        with open(kf, 'rb') as tkf:
             key, _ = PGPKey.from_blob(tkf.read())
 
-        assert key.fingerprint.keyid in gpg_keyid_file(self.kf.replace('tests/testdata/', ''))
+        # TODO: maybe store the fingerprint instead of relying on a particular version of GnuPG...?
+        if 'ecc' in kf and gpg_ver < '2.1':
+            assert key.fingerprint
+
+        else:
+            assert key.fingerprint.keyid in gpg_keyid_file(kf.replace('tests/testdata/', ''))
 
     @pytest.mark.regression(issue=140)
-    def test_load_from_bytearray(self, gpg_keyid_file):
-        tkb = bytearray(os.stat(self.kf).st_size)
-        with open(self.kf, 'rb') as tkf:
+    @pytest.mark.parametrize('kf', _keyfiles, ids=[os.path.basename(f) for f in _keyfiles])
+    def test_load_from_bytearray(self, kf, gpg_keyid_file):
+        tkb = bytearray(os.stat(kf).st_size)
+        with open(kf, 'rb') as tkf:
             tkf.readinto(tkb)
 
         key, _ = PGPKey.from_blob(tkb)
 
-        assert key.fingerprint.keyid in gpg_keyid_file(self.kf.replace('tests/testdata/', ''))
+        # TODO: maybe store the fingerprint instead of relying on a particular version of GnuPG...?
+        if 'ecc' in kf and gpg_ver < '2.1':
+            assert key.fingerprint
+
+        else:
+            assert key.fingerprint.keyid in gpg_keyid_file(kf.replace('tests/testdata/', ''))
+
+    @pytest.mark.parametrize('kf', sorted(filter(lambda f: not f.endswith('enc.asc'), glob.glob('tests/testdata/keys/*.asc'))))
+    def test_save(self, kf):
+        # load the key and export it back to binary
+        key, _ = PGPKey.from_file(kf)
+        pgpyblob = key.__bytes__()
+
+        # try loading the exported key
+        reloaded, _ = PGPKey.from_file(kf)
+
+        assert pgpyblob == reloaded.__bytes__()
 
 
 @pytest.fixture(scope='module')

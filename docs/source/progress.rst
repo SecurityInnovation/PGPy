@@ -277,14 +277,14 @@ This section covers things that are considered extensions to PGP, but are not co
     :text: Some additional curves that can be used with ECDSA/ECDH that are not explicitly called out in :rfc:`6637`, but have standardized OIDs and are implemented in other software.
 
     :Curves:
-        - Curve, False, Brainpool P-256
-        - Curve, False, Brainpool P-384
-        - Curve, False, Brainpool P-512
+        - Curve, True,  Brainpool P-256
+        - Curve, True,  Brainpool P-384
+        - Curve, True,  Brainpool P-512
         - Curve, False, Curve25519
         - Curve, True,  SECP256K1
 
 .. note:: Use of Brainpool curves with ECDSA/ECDH
-    :text: Although these curves are not explicitly mentioned in an RFC for OpenPGP at this point, GnuPG 2.1.x+ does support using them, so I have included them here as well.
+    Although these curves are not explicitly mentioned in an RFC for OpenPGP at this point, GnuPG 2.1.x+ does support using them, so I have included them here as well.
 
     \* Cipher availability depends on the currently installed OpenSSL being compiled with support for it
 
