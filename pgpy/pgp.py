@@ -1289,8 +1289,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
     @property
     def key_size(self):
-        """*new in 0.5.0*
-        The size pertaining to this key. ``int`` for non-EC key algorithms; :py:pbj:`constants.EllipticCurveOID` for EC keys.
+        """*new in 0.4.1*
+        The size pertaining to this key. ``int`` for non-EC key algorithms; :py:obj:`constants.EllipticCurveOID` for EC keys.
         """
         if self.key_algorithm in {PubKeyAlgorithm.ECDSA, PubKeyAlgorithm.ECDH}:
             return self._key.keymaterial.oid
@@ -1500,7 +1500,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             if sib is None:
                 self._sibling = None
 
-            else:
+            else:  # pragma: no cover
                 sib.__or__(copy.copy(other), True)
 
         return self
@@ -2103,11 +2103,6 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
         # collect signature(s)
         if signature is None:
-            if isinstance(signature, PGPSignature):
-                if signature.signer != self.fingerprint.keyid and signature.signer not in self.subkeys:
-                    raise PGPError("Incorrect key. Expected: {:s}".format(signature.signer))
-                sspairs.append((signature, subject))
-
             if isinstance(subject, PGPMessage):
                 sspairs += [ (sig, subject.message) for sig in _filter_sigs(subject.signatures) ]
 
@@ -2131,7 +2126,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         # finally, start verifying signatures
         sigv = SignatureVerification()
         for sig, subj in sspairs:
-            if self.fingerprint.keyid != sig.signer:
+            if self.fingerprint.keyid != sig.signer and sig.signer in self.subkeys:
                 warnings.warn("Signature was signed with this key's subkey: {:s}. "
                               "Verifying with subkey...".format(sig.signer),
                               stacklevel=2)

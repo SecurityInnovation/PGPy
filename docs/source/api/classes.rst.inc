@@ -8,16 +8,13 @@ Classes
 
 .. autoclass:: PGPKey
     :members:
-    :noindex:
 
     .. py:attribute:: ascii_header
-        :noindex:
         :annotation: = OrderedDict([('Version', 'PGPy v|version|')])
 
         An :py:obj:`~collections.OrderedDict` of headers that appear, in order, in the ASCII-armored form of this object.
 
     .. py:classmethod:: from_file(filename)
-        :noindex:
 
         Create a new :py:obj:`PGPKey` object, with contents loaded from a file. May be binary or ASCII armored.
 
@@ -32,7 +29,6 @@ Classes
                     # others: { (Fingerprint, bool(key.is_public): PGPKey }
 
     .. py:classmethod:: from_blob(blob)
-        :noindex:
 
         Create a new :py:obj:`PGPKey` object, with contents loaded from a blob. May be binary or ASCII armored.
 
@@ -55,7 +51,6 @@ Classes
     :members:
 
     .. py:attribute:: ascii_header
-        :noindex:
 
         An :py:obj:`~collections.OrderedDict` of headers that appear, in order, in the ASCII-armored form of this object.
 
@@ -67,12 +62,10 @@ Classes
     :members:
 
     .. py:attribute:: ascii_header
-        :noindex:
 
         An :py:obj:`~collections.OrderedDict` of headers that appear, in order, in the ASCII-armored form of this object.
 
     .. py:classmethod:: from_file(filename)
-        :noindex:
 
         Create a new :py:obj:`PGPMessage` object, with contents loaded from a file. May be binary or ASCII armored.
 
@@ -83,7 +76,6 @@ Classes
         :returns: :py:obj:`PGPMessage`
 
     .. py:classmethod:: from_blob(blob)
-        :noindex:
 
         Create a new :py:obj:`PGPMessage` object, with contents loaded from a blob. May be binary or ASCII armored.
 
@@ -102,12 +94,10 @@ Classes
     :members:
 
     .. py:attribute:: ascii_header
-        :noindex:
 
         An :py:obj:`~collections.OrderedDict` of headers that appear, in order, in the ASCII-armored form of this object.
 
     .. py:classmethod:: from_file(filename)
-        :noindex:
 
         Create a new :py:obj:`PGPSignature` object, with contents loaded from a file. May be binary or ASCII armored.
 
@@ -118,7 +108,6 @@ Classes
         :returns: :py:obj:`PGPSignature`
 
     .. py:classmethod:: from_blob(blob)
-        :noindex:
 
         Create a new :py:obj:`PGPSignature` object, with contents loaded from a blob. May be binary or ASCII armored.
 

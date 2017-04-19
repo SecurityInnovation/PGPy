@@ -5,12 +5,12 @@ PGPy: Pretty Good Privacy for Python
     :target: http://badge.fury.io/py/PGPy
     :alt: Latest stable version
 
-.. image:: https://travis-ci.org/SecurityInnovation/PGPy.svg?branch=develop
-    :target: https://travis-ci.org/SecurityInnovation/PGPy?branch=develop
+.. image:: https://travis-ci.org/SecurityInnovation/PGPy.svg?branch=master
+    :target: https://travis-ci.org/SecurityInnovation/PGPy?branch=master
     :alt: Travis-CI
 
-.. image:: https://coveralls.io/repos/github/SecurityInnovation/PGPy/badge.png?branch=develop
-    :target: https://coveralls.io/github/SecurityInnovation/PGPy?branch=develop
+.. image:: https://coveralls.io/repos/github/SecurityInnovation/PGPy/badge.svg?branch=master
+    :target: https://coveralls.io/github/SecurityInnovation/PGPy?branch=master
     :alt: Coveralls
 
 Homepage: None yet.
@@ -38,12 +38,19 @@ Documentation
 
 `PGPy Documentation <https://pythonhosted.org/PGPy/>`_
 
+Discussion
+----------
+
+Please report any bugs found on the `issue tracker <https://github.com/SecurityInnovation/PGPy/issues>`_
+
+You can also join ``#pgpy`` on Freenode to ask questions or get involved
+
 Requirements
 ------------
 
 - Python 3 >= 3.3; Python 2 >= 2.7
 
-  Tested with: 3.5, 3.4, 3.3, 2.7
+  Tested with: 3.6, 3.5, 3.4, 3.3, 2.7
 
 - `Cryptography <https://pypi.python.org/pypi/cryptography>`_
 

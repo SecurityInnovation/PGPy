@@ -1,12 +1,10 @@
 """ test the functionality of PGPKeyring
 """
 import pytest
-#
 import glob
 import os
 import six
 
-import pgpy
 from pgpy import PGPKey
 from pgpy import PGPKeyring
 from pgpy import PGPMessage
