@@ -1,3 +1,9 @@
+python-pgpy (0.4.1-1) unstable; urgency=medium
+
+  * new upstream release.
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Wed, 19 Apr 2017 13:17:49 -0400
+
 python-pgpy (0.4.0+git20170216-1) unstable; urgency=medium
 
   * Initial release into the debian archive (Closes: #848518)
