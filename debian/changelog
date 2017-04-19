@@ -1,3 +1,9 @@
+python-pgpy (0.4.1-2) unstable; urgency=medium
+
+  * remove unnecessary and brittle attempts to tweak pydist.
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Wed, 19 Apr 2017 15:43:50 -0400
+
 python-pgpy (0.4.1-1) unstable; urgency=medium
 
   * new upstream release.
