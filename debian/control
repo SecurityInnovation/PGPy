@@ -35,7 +35,7 @@ Depends:
  ${misc:Depends},
  ${python3:Depends},
 Recommends:
- python-pgpy3-doc,
+ python3-pgpy-doc,
 Description: OpenPGP (Pretty Good Privacy) RFC 4880 implementation in Python 3
  PGPy offers a pure-Python implementation of the OpenPGP standard, as
  described in RFC 4880 and subsequent specifications.  It can be used
