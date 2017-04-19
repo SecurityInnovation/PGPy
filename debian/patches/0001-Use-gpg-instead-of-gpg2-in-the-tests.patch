@@ -9,11 +9,11 @@ bother supplying gpg2 as an alias in a separate package.
  1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/tests/conftest.py b/tests/conftest.py
-index e27b85d..7e3a514 100644
+index 17be293..009d06d 100644
 --- a/tests/conftest.py
 +++ b/tests/conftest.py
-@@ -92,7 +92,7 @@ def _run(bin, *binargs, **pkw):
- #         return setcwd
+@@ -57,7 +57,7 @@ def _run(bin, *binargs, **pkw):
+     return cmdo, cmde
  
  
 -_gpg_bin = _which('gpg2')
@@ -21,7 +21,7 @@ index e27b85d..7e3a514 100644
  _gpg_args = ('--options', './pgpy.gpg.conf', '--expert', '--status-fd')
  _gpg_env = {}
  _gpg_env['GNUPGHOME'] = os.path.abspath(os.path.abspath('tests/testdata'))
-@@ -313,13 +313,13 @@ def pytest_configure(config):
+@@ -249,13 +249,13 @@ def pytest_configure(config):
      print("== PGPy Test Suite ==")
  
      # ensure commands we need exist

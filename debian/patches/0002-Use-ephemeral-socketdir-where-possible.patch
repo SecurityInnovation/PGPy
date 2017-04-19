@@ -34,10 +34,10 @@ see https://bugs.gnupg.org/gnupg/issue2964
  1 file changed, 2 insertions(+)
 
 diff --git a/tests/conftest.py b/tests/conftest.py
-index 7e3a514..9236b1d 100644
+index 009d06d..3133a84 100644
 --- a/tests/conftest.py
 +++ b/tests/conftest.py
-@@ -325,6 +325,8 @@ def pytest_configure(config):
+@@ -261,6 +261,8 @@ def pytest_configure(config):
      v, _ = _run(_which('pgpdump'), '-v', stderr=subprocess.STDOUT)
      pgpdump_ver.parse(v.split(' ')[2].strip(','))
  
