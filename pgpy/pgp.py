@@ -1869,7 +1869,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
         :keyword trust: Specify the level and amount of trust to assert when certifying a public key. Should be a tuple
                         of two ``int`` s, specifying the trust level and trust amount. See
-                        `RFC 4880 Section 5.2.3.13. Trust Signature <http://tools.ietf.org/html/rfc4880#section-5.2.3.13>`_
+                        `RFC 4880 Section 5.2.3.13. Trust Signature <https://tools.ietf.org/html/rfc4880#section-5.2.3.13>`_
                         for more on what these values mean.
         :type trust: ``tuple`` of two ``int`` s
         :keyword regex: Specify a regular expression to constrain the specified trust signature in the resulting signature.
