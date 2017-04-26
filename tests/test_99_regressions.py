@@ -1,8 +1,10 @@
 """ I've got 99 problems but regression testing ain't one
 """
 import pytest
+import glob
 import tempfile
 import warnings
+from pgpy import PGPKey
 
 
 @pytest.mark.regression(issue=56)
@@ -11,7 +13,6 @@ def test_reg_bug_56(gpg_import, gpg_verify):
     import hashlib
     from datetime import datetime
 
-    from pgpy.pgp import PGPKey
     from pgpy.pgp import PGPSignature
 
     from pgpy.constants import HashAlgorithm
@@ -193,3 +194,23 @@ def test_reg_bug_157(monkeypatch):
 
     except AssertionError:
         warnings.warn("tuned_count: {}; elapsed time: {:.5f}".format(pgpy.constants.HashAlgorithm.SHA256.tuned_count, elapsed))
+
+
+_seckeys = {sk.key_algorithm.name: sk for sk in (PGPKey.from_file(f)[0] for f in sorted(glob.glob('tests/testdata/keys/*.sec.asc')))}
+seckm = [
+    _seckeys['DSA']._key,                                # DSA private key packet
+    _seckeys['DSA'].subkeys['1FD6D5D4DA0170C4']._key,    # ElGamal private key packet
+    _seckeys['RSAEncryptOrSign']._key,                   # RSA private key packet
+    _seckeys['ECDSA']._key,                              # ECDSA private key packet
+    _seckeys['ECDSA'].subkeys['A81B93FD16BD9806']._key,  # ECDH private key packet
+]
+
+@pytest.mark.regression(issue=172)
+@pytest.mark.parametrize('keypkt', seckm, ids=[sk.pkalg.name for sk in seckm])
+def test_check_checksum(keypkt):
+    # this test is dirty and simple
+    # take the key packet provided, and store the key material checksum
+    # recompute the checksum, and ensure they match
+    goodsum = keypkt.keymaterial.chksum[:]
+    keypkt.keymaterial._compute_chksum()
+    assert goodsum == keypkt.keymaterial.chksum

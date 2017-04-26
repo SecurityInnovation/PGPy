@@ -123,7 +123,7 @@ def gpg_import():
                 os.mkdir('tests/testdata/private-keys-v1.d')
                 time.sleep(0.5)
 
-        gpgc, gpgo, gpge = _gpg('--batch', '--import', *list(keypaths))
+        gpgc, gpgo, gpge = _gpg('--import', *list(keypaths))
 
         try:
             yield gpgo
