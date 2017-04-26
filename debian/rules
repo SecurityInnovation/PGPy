@@ -7,3 +7,7 @@ export PYBUILD_NAME = pgpy
 
 override_dh_installchangelogs:
 	dh_installchangelogs docs/source/changelog.rst
+
+# https://github.com/SecurityInnovation/PGPy/issues/173
+override_dh_auto_test:
+	LC_ALL=C.UTF-8 dh_auto_test -O--buildsystem=pybuild
