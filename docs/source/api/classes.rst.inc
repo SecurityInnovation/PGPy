@@ -26,7 +26,7 @@ Classes
                   The :py:obj:`~collections.OrderedDict` has the following format::
 
                     key, others = PGPKey.from_file('path/to/keyfile')
-                    # others: { (Fingerprint, bool(key.is_public): PGPKey }
+                    # others: { (Fingerprint, bool(key.is_public)): PGPKey }
 
     .. py:classmethod:: from_blob(blob)
 
@@ -41,7 +41,7 @@ Classes
                   The :py:obj:`~collections.OrderedDict` has the following format::
 
                     key, others = PGPKey.from_file('path/to/keyfile')
-                    # others: { (Fingerprint, bool(key.is_public): PGPKey }
+                    # others: { (Fingerprint, bool(key.is_public)): PGPKey }
 
 
 :py:class:`PGPKeyring`
