@@ -851,6 +851,23 @@ class TestPGPKey_Actions(object):
         emsg = pub.encrypt(msg, cipher=cipher)
         self.msgs[(pub.fingerprint, cipher)] = emsg
 
+    @pytest.mark.parametrize('pub,cipher',
+                             itertools.product(pubkeys, sorted(SymmetricKeyAlgorithm)),
+                             ids=['{}:{}-{}'.format(pk.key_algorithm.name, pk.key_size, c.name) for pk, c in itertools.product(pubkeys, sorted(SymmetricKeyAlgorithm))])
+    def test_encrypt_message_throw_keyid(self, pub, cipher):
+        if pub.key_algorithm in {PubKeyAlgorithm.DSA}:
+            pytest.skip('Asymmetric encryption only implemented for RSA/ECDH currently')
+
+        if cipher in {SymmetricKeyAlgorithm.Plaintext, SymmetricKeyAlgorithm.Twofish256, SymmetricKeyAlgorithm.IDEA}:
+            pytest.xfail('Symmetric cipher {} not supported for encryption'.format(cipher))
+
+        # test encrypting a message
+        mtxt = "This message will have been encrypted"
+        msg = PGPMessage.new(mtxt)
+        emsg = pub.encrypt(msg, cipher=cipher, throw_keyid=True)
+        assert len(emsg.encrypters) == 1
+        assert emsg.encrypters.pop() == '0000000000000000'
+
     @pytest.mark.run(after='test_encrypt_message')
     @pytest.mark.parametrize('sf,cipher',
                              itertools.product(sorted(glob.glob('tests/testdata/keys/*.sec.asc')), sorted(SymmetricKeyAlgorithm)))

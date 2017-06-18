@@ -1207,6 +1207,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
     especially if a transferable public key accompanies the transferable
     secret key.
     """
+    __zero_keyid = bytearray(8)
+
     @property
     def __key__(self):
         return self._key.keymaterial
@@ -2181,6 +2183,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         :keyword user: Specifies the User ID to use as the recipient for this encryption operation, for the purposes of
                        preference defaults and selection validation.
         :type user: ``str``, ``unicode``
+        :keyword throw_keyid: Whether to zero out the keyid. An all zero keyid MAY be used as a wild-card keyid.
+        :type throw_keyid: ``bool``
         """
         user = prefs.pop('user', None)
         uid = None
@@ -2201,9 +2205,14 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         if sessionkey is None:
             sessionkey = cipher_algo.gen_key()
 
+        throw_keyid = prefs.pop('throw_keyid', False)
+
         # set up a new PKESessionKeyV3
         pkesk = PKESessionKeyV3()
-        pkesk.encrypter = bytearray(binascii.unhexlify(self.fingerprint.keyid.encode('latin-1')))
+        if throw_keyid:
+            pkesk.encrypter = PGPKey.__zero_keyid
+        else:
+            pkesk.encrypter = bytearray(binascii.unhexlify(self.fingerprint.keyid.encode('latin-1')))
         pkesk.pkalg = self.key_algorithm
         # pkesk.encrypt_sk(self.__key__, cipher_algo, sessionkey)
         pkesk.encrypt_sk(self._key, cipher_algo, sessionkey)
