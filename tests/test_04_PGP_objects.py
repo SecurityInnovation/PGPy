@@ -208,6 +208,21 @@ class TestPGPKeyring(object):
         assert not rvt[0].is_public
         assert rvt[1].is_public
 
+    @pytest.mark.parametrize('kf', _keyfiles, ids=[os.path.basename(f) for f in _keyfiles])
+    def test_load_key_instance(self, keyring, kf):
+        key, _ = PGPKey.from_file(kf)
+
+        keys = keyring.load(key)
+
+        assert key.fingerprint in keyring
+        for uid in key.userids:
+            if uid.name != "":
+                assert uid.name in keyring
+            if uid.email != "":
+                assert uid.email in keyring
+        with keyring.key(key.fingerprint) as loaded_key:
+            assert loaded_key.fingerprint == key.fingerprint
+
     def test_select_fingerprint(self, keyring):
         for fp, name in [("F429 4BC8 094A 7E05 85C8 5E86 3747 3B37 58C4 4F36", "RSA von TestKey"),
                          (six.u("F429 4BC8 094A 7E05 85C8 5E86 3747 3B37 58C4 4F36"), six.u("RSA von TestKey")),
