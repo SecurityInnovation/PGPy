@@ -53,6 +53,28 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
                     '={crc}\n' \
                     '-----END PGP {block_type}-----\n'
 
+    # the re.VERBOSE flag allows for:
+    #  - whitespace is ignored except when in a character class or escaped
+    #  - anything after a '#' that is not escaped or in a character class is ignored, allowing for comments
+    __armor_regex = re.compile(r"""# This capture group is optional because it will only be present in signed cleartext messages
+                         (^-{5}BEGIN\ PGP\ SIGNED\ MESSAGE-{5}(?:\r?\n)
+                          (Hash:\ (?P<hashes>[A-Za-z0-9\-,]+)(?:\r?\n){2})?
+                          (?P<cleartext>(.*\n)+)(?:\r?\n)
+                         )?
+                         # armor header line; capture the variable part of the magic text
+                         ^-{5}BEGIN\ PGP\ (?P<magic>[A-Z0-9 ,]+)-{5}(?:\r?\n)
+                         # try to capture all the headers into one capture group
+                         # if this doesn't match, m['headers'] will be None
+                         (?P<headers>(^.+:\ .+(?:\r?\n))+)?(?:\r?\n)?
+                         # capture all lines of the body, up to 76 characters long,
+                         # including the newline, and the pad character(s)
+                         (?P<body>([A-Za-z0-9+/]{1,75}={,2}(?:\r?\n))+)
+                         # capture the armored CRC24 value
+                         ^=(?P<crc>[A-Za-z0-9+/]{4})(?:\r?\n)
+                         # finally, capture the armor tail line, which must match the armor header line
+                         ^-{5}END\ PGP\ (?P=magic)-{5}(?:\r?\n)?
+                         """, flags=re.MULTILINE | re.VERBOSE)
+
     @property
     def charset(self):
         return self.ascii_headers.get('Charset', 'utf-8')
@@ -72,6 +94,19 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
         raise TypeError("Expected: ASCII input of type str, bytes, or bytearray")  # pragma: no cover
 
     @staticmethod
+    def is_armor(text):
+        """
+        Whether the ``text`` provided is an ASCII-armored PGP block.
+        :param text: A possible ASCII-armored PGP block.
+        :raises: :py:exc:`TypeError` if ``text`` is not a ``str``, ``bytes``, or ``bytearray``
+        :returns: Whether the text is ASCII-armored.
+        """
+        if isinstance(text, (bytes, bytearray)):  # pragma: no cover
+            text = text.decode('latin-1')
+
+        return Armorable.__armor_regex.search(text) is not None
+
+    @staticmethod
     def ascii_unarmor(text):
         """
         Takes an ASCII-armored PGP block and returns the decoded byte value.
@@ -80,6 +115,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
         :raises: :py:exc:`ValueError` if ``text`` did not contain an ASCII-armored PGP block.
         :raises: :py:exc:`TypeError` if ``text`` is not a ``str``, ``bytes``, or ``bytearray``
         :returns: A ``dict`` containing information from ``text``, including the de-armored data.
+        It can contain the following keys: ``magic``, ``headers``, ``hashes``, ``cleartext``, ``body``, ``crc``.
         """
         m = {'magic': None, 'headers': None, 'body': bytearray(), 'crc': None}
         if not Armorable.is_ascii(text):
@@ -89,27 +125,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
         if isinstance(text, (bytes, bytearray)):  # pragma: no cover
             text = text.decode('latin-1')
 
-        # the re.VERBOSE flag allows for:
-        #  - whitespace is ignored except when in a character class or escaped
-        #  - anything after a '#' that is not escaped or in a character class is ignored, allowing for comments
-        m = re.search(r"""# This capture group is optional because it will only be present in signed cleartext messages
-                         (^-{5}BEGIN\ PGP\ SIGNED\ MESSAGE-{5}(?:\r?\n)
-                          (Hash:\ (?P<hashes>[A-Za-z0-9\-,]+)(?:\r?\n){2})?
-                          (?P<cleartext>(.*\n)+)(?:\r?\n)
-                         )?
-                         # armor header line; capture the variable part of the magic text
-                         ^-{5}BEGIN\ PGP\ (?P<magic>[A-Z0-9 ,]+)-{5}(?:\r?\n)
-                         # try to capture all the headers into one capture group
-                         # if this doesn't match, m['headers'] will be None
-                         (?P<headers>(^.+:\ .+(?:\r?\n))+)?(?:\r?\n)?
-                         # capture all lines of the body, up to 76 characters long,
-                         # including the newline, and the pad character(s)
-                         (?P<body>([A-Za-z0-9+/]{1,75}={,2}(?:\r?\n))+)
-                         # capture the armored CRC24 value
-                         ^=(?P<crc>[A-Za-z0-9+/]{4})(?:\r?\n)
-                         # finally, capture the armor tail line, which must match the armor header line
-                         ^-{5}END\ PGP\ (?P=magic)-{5}(?:\r?\n)?
-                         """, text, flags=re.MULTILINE | re.VERBOSE)
+        m = Armorable.__armor_regex.search(text)
 
         if m is None:  # pragma: no cover
             raise ValueError("Expected: ASCII-armored PGP data")
