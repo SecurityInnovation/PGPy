@@ -2219,9 +2219,9 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             warnings.warn("This message is not encrypted", stacklevel=2)
             return message
 
-        if self.fingerprint.keyid not in message.issuers:
+        if self.fingerprint.keyid not in message.encrypters:
             sks = set(self.subkeys)
-            mis = set(message.issuers)
+            mis = set(message.encrypters)
             if sks & mis:
                 skid = list(sks & mis)[0]
                 warnings.warn("Message was encrypted with this key's subkey: {:s}. "
