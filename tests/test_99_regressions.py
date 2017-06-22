@@ -205,6 +205,7 @@ seckm = [
     _seckeys['ECDSA'].subkeys['A81B93FD16BD9806']._key,  # ECDH private key packet
 ]
 
+
 @pytest.mark.regression(issue=172)
 @pytest.mark.parametrize('keypkt', seckm, ids=[sk.pkalg.name for sk in seckm])
 def test_check_checksum(keypkt):
@@ -214,3 +215,64 @@ def test_check_checksum(keypkt):
     goodsum = keypkt.keymaterial.chksum[:]
     keypkt.keymaterial._compute_chksum()
     assert goodsum == keypkt.keymaterial.chksum
+
+
+@pytest.mark.regression(issue=183)
+def test_decrypt_unsigned_message():
+    from pgpy import PGPKey, PGPMessage
+    from pgpy.errors import PGPError
+
+    # these keys are small because the regression test doesn't really need the security
+    # if you're reading this, *DO NOT GENERATE RSA KEYS THIS SMALL*
+    # also, it's probably better to sign-then-encrypt rather than encrypt-then-sign
+    decrypt_key = "-----BEGIN PGP PRIVATE KEY BLOCK-----\n" \
+                  "Version: PGPy v0.4.2\n" \
+                  "\n" \
+                  "xcA4BFlKzk4BAgDL9E6Lpzq9yNhRP49HXeOSYTz4DPI1A2wxwI97qjZFsJ2lJ2aV\n" \
+                  "SYFpbuS6DEPaya+98HQ6xM7o2PhbUnHqcXHzABEBAAEAAf9U/XOVwpQ57e4mvWPJ\n" \
+                  "i5h/sUGk5FAyQ0Dc4q9oCyAenaIIe5npbsR+oKmUHwJ5wWgfrTaxvAkBl15kMtSN\n" \
+                  "VItBAQDv/8BdIdW2Bc9+qvCtC2xiUJ/3Rd+eyXMZhn4VMdA8sQEA2Y1aRBpWjHo9\n" \
+                  "g9KydxAewt8LUwchRHeonMmILuZ58eMBALP8euss11ELnjDOLrgRP2swnOTTTk3b\n" \
+                  "P6aV8/rbcEXOUgPNG1JlZ3Jlc3NvIEVuY3J5cHRlciAoUFIjMTgzKcJrBBMBAgAV\n" \
+                  "BQJZSs6CAhsOAgsHAhUCAhYAAh4BAAoJEA2I8KkOVzh/+IMCAI308quFk/lJXPF/\n" \
+                  "bpvwwgFa9bRdIzl07Qu+3oQcEm+1cu6ivznewIEmQclSUpSLjXrS/LysQSAQye+J\n" \
+                  "PgSEalQ=\n" \
+                  "=Sg/Y\n" \
+                  "-----END PGP PRIVATE KEY BLOCK-----\n"
+    sign_key = "-----BEGIN PGP PRIVATE KEY BLOCK-----\n" \
+               "Version: PGPy v0.4.2\n" \
+               "\n" \
+               "xcA4BFlKzkMBAgDQZA3bao1qo3XkuUDOaFm1x5TkAAMUUUxtmj+dSR0wl7uRzxWm\n" \
+               "8naFpsJ1Mah/I8RlS1oZizaDI7BzbOvGUGjLABEBAAEAAf95RBAQQ/QhPxfmzqrY\n" \
+               "sj6qGocZGqywERMxoJYuOBLFaCjdT8xk0syI0LOCetwDmUWerUPWO52w9T5Gj295\n" \
+               "YUDpAQD7DSmifDMssvG5F9JYWdKobEwWxVsjyaYR/vbH/1Iy3QEA1H+e66Jz1ERl\n" \
+               "yPLyl4E5chwO2l+VMxiFod3Dvo8C68cA/0GWJIdK0NzSNZwS6wFabZg2R1pZWxJJ\n" \
+               "B0tsI0EqbUgNTiXNGFJlZ3Jlc3NvIFNpZ25lciAoUFIjMTgzKcJoBBMBAgASBQJZ\n" \
+               "Ss53AhsCAhUCAhYAAh4BAAoJED6S3OqHJjksTzQCAM73UuXFtM2qXp4zfOGYEMsj\n" \
+               "gcKFuFFLyNOhPZo6REeJC7o2+9d7Mwys8wVNTuS3D3o1h49QpYYNjYlgNSZ85pU=\n" \
+               "=DBkI\n" \
+               "-----END PGP PRIVATE KEY BLOCK-----\n"
+
+    msg = "-----BEGIN PGP MESSAGE-----\n" \
+          "Version: PGPy v0.4.2\n" \
+          "\n" \
+          "xA0DAAIBPpLc6ocmOSwAwUwDDYjwqQ5XOH8BAfwOTH6C/lk5bQevArYnrf0q3Dde\n" \
+          "JDjM/otBckiTS8kvFz1XFfQhIDkZl+fDcRwDFNe9+JKLqOM4jU6FIUwToYgz0ksB\n" \
+          "f6iZ80U0dzHGtvmEzYSnsYWAglik0ch/E9tyNq/lryrLnrxWu7V26wPfI1TISuKd\n" \
+          "U+w1HPGoH8ugo6GkeqBdeED6gJfKEm1qgrHCXAQAAQIABgUCWUrVMQAKCRA+ktzq\n" \
+          "hyY5LLcHAgDHYjKVbpd5/FV4+CZ0H5yTnrD/vZ+QebDC7CmOM7f1Q5L1AdG/K1rr\n" \
+          "+Ud/YHq3NVk5UGU0LDfjdBwVaJmOjEUx\n" \
+          "=ITfp\n" \
+          "-----END PGP MESSAGE-----\n"
+
+    dkey, _ = PGPKey.from_blob(decrypt_key)
+    skey, _ = PGPKey.from_blob(sign_key)
+    encmsg = PGPMessage.from_blob(msg)
+
+    # this should work
+    decmsg = dkey.decrypt(encmsg)
+    assert decmsg.message == "Regression Test for PR#183"
+
+    # this should raise PGPError, not PGPDecryptionError
+    with pytest.raises(PGPError):
+        skey.decrypt(encmsg)
