@@ -4,6 +4,17 @@
 Changelog
 *********
 
+v0.4.2
+======
+
+Released: |today|
+
+Bugs Fixed
+----------
+ * Private key checksums are now calculated correctly (#172)
+ * PGPKey.decrypt was mistakenly using message.issuers instead of message.encrypters when determining whether or not the key was eligible
+   to attempt decrypting the message (#183)
+
 v0.4.1
 ======
 
