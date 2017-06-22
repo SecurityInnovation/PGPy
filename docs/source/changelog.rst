@@ -14,6 +14,7 @@ Bugs Fixed
  * Private key checksums are now calculated correctly (#172)
  * PGPKey.decrypt was mistakenly using message.issuers instead of message.encrypters when determining whether or not the key was eligible
    to attempt decrypting the message (#183)
+ * Fixed an issue with parsing some cleartext messages (#184) 
 
 v0.4.1
 ======
