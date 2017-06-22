@@ -44,10 +44,10 @@ if six.PY2:
 
 
 class Armorable(six.with_metaclass(abc.ABCMeta)):
-    __crc24_init__ = 0x0B704CE
-    __crc24_poly__ = 0x1864CFB
+    __crc24_init = 0x0B704CE
+    __crc24_poly = 0x1864CFB
 
-    __armor_fmt__ = '-----BEGIN PGP {block_type}-----\n' \
+    __armor_fmt = '-----BEGIN PGP {block_type}-----\n' \
                     '{headers}\n' \
                     '{packet}\n' \
                     '={crc}\n' \
@@ -162,7 +162,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
         # by using the generator 0x864CFB and an initialization of 0xB704CE.
         # The accumulation is done on the data before it is converted to
         # radix-64, rather than on the converted data.
-        crc = Armorable.__crc24_init__
+        crc = Armorable.__crc24_init
 
         if not isinstance(data, bytearray):
             data = six.iterbytes(data)
@@ -173,7 +173,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
             for i in range(8):
                 crc <<= 1
                 if crc & 0x1000000:
-                    crc ^= Armorable.__crc24_poly__
+                    crc ^= Armorable.__crc24_poly
 
         return crc & 0xFFFFFF
 
@@ -218,7 +218,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
         payload = base64.b64encode(self.__bytes__()).decode('latin-1')
         payload = '\n'.join(payload[i:(i + 64)] for i in range(0, len(payload), 64))
 
-        return self.__armor_fmt__.format(
+        return self.__armor_fmt.format(
             block_type=self.magic,
             headers=''.join('{key}: {val}\n'.format(key=key, val=val) for key, val in self.ascii_headers.items()),
             packet=payload,
