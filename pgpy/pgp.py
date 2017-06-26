@@ -326,6 +326,9 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
 
         raise TypeError
 
+    def __iter__(self):
+        yield self._signature
+
     def __copy__(self):
         # because the default shallow copy isn't actually all that useful,
         # and deepcopy does too much work
@@ -657,6 +660,12 @@ class PGPUID(ParentRef):
         if self.is_ua and other.is_uid:
             return False
 
+    def __iter__(self):
+        yield self._uid
+        for signature in self._signatures:
+            for sigpacket in signature:
+                yield sigpacket
+
     def __or__(self, other):
         if isinstance(other, PGPSignature):
             self._signatures.insort(other)
@@ -838,11 +847,13 @@ class PGPMessage(Armorable, PGPObject):
     def __iter__(self):
         if self.type == 'cleartext':
             for sig in self._signatures:
-                yield sig
+                for pkt in sig:
+                    yield pkt
 
         elif self.is_encrypted:
             for sig in self._signatures:
-                yield sig
+                for pkt in sig:
+                    yield pkt
             for pkt in self._sessionkeys:
                 yield pkt
             yield self.message
@@ -860,7 +871,8 @@ class PGPMessage(Armorable, PGPObject):
                 yield self._mdc
 
             for sig in self._signatures:
-                yield sig
+                for pkt in sig:
+                    yield pkt
 
     def __or__(self, other):
         if isinstance(other, Marker):
@@ -1473,6 +1485,22 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             return item in self._signatures
 
         raise TypeError
+
+    def __iter__(self):
+        yield self._key
+
+        for uid in self._uids:
+            for uidpacket in uid:
+                yield uidpacket
+
+        for subkey in self._children.values():
+            for subkeypacket in subkey:
+                yield subkeypacket
+
+        for sig in self._signatures:
+            if not sig.embedded:
+                for sigpacket in sig:
+                    yield sigpacket
 
     def __or__(self, other, from_sib=False):
         if isinstance(other, Key) and self._key is None:
