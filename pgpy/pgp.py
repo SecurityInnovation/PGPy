@@ -841,6 +841,8 @@ class PGPMessage(Armorable, PGPObject):
                 yield sig
 
         elif self.is_encrypted:
+            for sig in self._signatures:
+                yield sig
             for pkt in self._sessionkeys:
                 yield pkt
             yield self.message
