@@ -1208,6 +1208,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
     secret key.
     """
     __zero_keyid = bytearray(8)
+    __zero_keyid_str = '0000000000000000'
 
     @property
     def __key__(self):
@@ -2230,6 +2231,15 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
         return _m
 
+    def _decrypt(self, pkesk, message):
+        alg, key = pkesk.decrypt_sk(self._key)
+
+        # now that we have the symmetric cipher used and the key, we can decrypt the actual message
+        decmsg = PGPMessage()
+        decmsg.parse(message.message.decrypt(key, alg))
+
+        return decmsg
+
     @KeyAction(is_unlocked=True, is_public=False)
     def decrypt(self, message):
         """
@@ -2244,7 +2254,20 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             warnings.warn("This message is not encrypted", stacklevel=3)
             return message
 
-        if self.fingerprint.keyid not in message.encrypters:
+        if self.fingerprint.keyid in message.encrypters:
+            # we have some pkesks encrypted to this key, try decrypting them.
+            pkesks = [pk for pk in message._sessionkeys
+                      if pk.pkalg == self.key_algorithm and pk.encrypter == self.fingerprint.keyid]
+            # decrypt appropriate pkesk
+            for pkesk in pkesks:
+                try:
+                    return self._decrypt(pkesk, message)
+                except (PGPDecryptionError, ValueError): # pragma: no cover
+                    pass
+            # fallthrough if we haven't succeeded
+        else:
+            # we don't have any pkesks encrypted to this key, see if we have some for subkeys
+            # if not check if we have some zero keyid pkesks and try decrypting them with this key and finally subkeys
             sks = set(self.subkeys)
             mis = set(message.encrypters)
             if sks & mis:
@@ -2253,17 +2276,26 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                               "Decrypting with that...".format(skid),
                               stacklevel=2)
                 return self.subkeys[skid].decrypt(message)
+            elif PGPKey.__zero_keyid_str in mis:
+                # decrypt zero keyid pkesks, first try with this key, then pass on to subkeys
+                # here we assume that if self._decrypt doesnt raise a PGPError that it decrypted successfully
+                # however, that assumption may not be correct so we might return some garbage back to the caller
+                # but that's really the most we can do with decrypting thrown keyid pkesks.
+                zero_keyid_pkesks = [pk for pk in message._sessionkeys
+                                     if pk.pkalg == self.key_algorithm and pk.encrypter == PGPKey.__zero_keyid_str]
+                for pkesk in zero_keyid_pkesks:
+                    try:
+                        return self._decrypt(pkesk, message)
+                    except (PGPDecryptionError, ValueError):
+                        pass
+                for subkey in self.subkeys.values():
+                    try:
+                        return subkey.decrypt(message)
+                    except PGPError:
+                        pass
+                # fallthrough if we haven't succeeded
 
-            raise PGPError("Cannot decrypt the provided message with this key")
-
-        pkesk = next(pk for pk in message._sessionkeys if pk.pkalg == self.key_algorithm and pk.encrypter == self.fingerprint.keyid)
-        alg, key = pkesk.decrypt_sk(self._key)
-
-        # now that we have the symmetric cipher used and the key, we can decrypt the actual message
-        decmsg = PGPMessage()
-        decmsg.parse(message.message.decrypt(key, alg))
-
-        return decmsg
+        raise PGPError("Cannot decrypt the provided message with this key")
 
     def parse(self, data):
         unarmored = self.ascii_unarmor(data)
