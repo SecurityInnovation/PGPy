@@ -1389,6 +1389,30 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         """A ``list`` of :py:obj:`PGPUID` objects containing one or more images associated with this key"""
         return [u for u in self._uids if u.is_ua]
 
+    def usage_flags(self, user=None):
+        """
+        Get the set of usage flags this key has.
+
+        :param user: If specified, it is used to select the uid from which flags are loaded.
+               A text string to match name, comment, or email address against.
+        :type user: ``str``, ``unicode``
+        :return: a ``set`` of :py:obj:`KeyFlags` of this key.
+        """
+        if self.is_primary:
+            if user is not None:
+                user = self.get_uid(user)
+
+            elif len(self._uids) == 0:
+                return {KeyFlags.Certify}
+
+            else:
+                user = next(iter(self.userids))
+
+            # RFC 4880 says that primary keys *must* be capable of certification
+            return {KeyFlags.Certify} | user.selfsig.key_flags
+
+        return next(self.self_signatures).key_flags
+
     @classmethod
     def new(cls, key_algorithm, key_size):
         """
@@ -1695,22 +1719,6 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         ##TODO: skip this step if the key already has a subkey binding signature
         bsig = self.bind(key, **prefs)
         key |= bsig
-
-    def _get_key_flags(self, user=None):
-        if self.is_primary:
-            if user is not None:
-                user = self.get_uid(user)
-
-            elif len(self._uids) == 0:
-                return {KeyFlags.Certify}
-
-            else:
-                user = next(iter(self.userids))
-
-            # RFC 4880 says that primary keys *must* be capable of certification
-            return {KeyFlags.Certify} | user.selfsig.key_flags
-
-        return next(self.self_signatures).key_flags
 
     def _sign(self, subject, sig, **prefs):
         """
