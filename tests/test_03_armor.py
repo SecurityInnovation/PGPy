@@ -336,7 +336,6 @@ txt = glob.glob('tests/testdata/files/*.txt')
 binary = glob.glob('tests/testdata/files/*.bin')
 raw = txt + binary
 
-
 # armor matching test
 class TestMatching(object):
     @pytest.mark.parametrize('armored', armored, ids=[os.path.basename(f) for f in armored])
