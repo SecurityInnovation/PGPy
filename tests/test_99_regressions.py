@@ -276,3 +276,38 @@ def test_decrypt_unsigned_message():
     # this should raise PGPError, not PGPDecryptionError
     with pytest.raises(PGPError):
         skey.decrypt(encmsg)
+
+
+@pytest.mark.regression(194)
+def test_pubkey_subkey_parent():
+    from pgpy import PGPKey
+
+    # import this small key that has a subkey
+    keyblob = ('-----BEGIN PGP PRIVATE KEY BLOCK-----\n'
+               'Version: PGPy v0.4.2\n'
+               '\n'
+               'xcA4BFlULU4BAgDeq2bKPPOBzdgd1WF3RBQ0E0kkZbTfpgZjamDzdb6gfQ5TcBhs\n'
+               'drI4XpxWOV3DorbsZ8Usj4zHx/XmLNCmxwqvABEBAAEAAgCSO76l0qGY/baQ4THB\n'
+               'QdSC3qeKX8EJn99SKurA+PLYMg6IxLGBpWYIK8tT68xpqQ5ZwE9GodZ2QjfOVz2R\n'
+               'o4IBAQD/UjtthEtyiMA1CDCPEksfIyd0QDjt82C19MSeqau8WQEA30LydxkjlvgH\n'
+               'u5/uWVGqoFWhhfw5hDrYy72L6EbCfkcA/2csk7uGw/yg2MDUTlDwdokn1DLGkt/+\n'
+               'Q/fPAMYvX6gvVoXNFVJlZ3Jlc3NvIChJc3N1ZSAjMTk0KcJrBBMBAgAVBQJZVC3O\n'
+               'AhsDAgsHAhUCAhYAAh4BAAoJEC4sMTkKIj+F8ywB/AqaNHwi8xM1Rg99mOSib1zi\n'
+               'jlXALY8pOrNU7Nqtc/6oks+49WeVW5zpE1vl1JPm2WYzvCEnE1KffdyjNR0bQ1XH\n'
+               'wDgEWVQtUQECAKsWCdSRh6YDP9yuSonfHpBfUzRD/EQvpNnUDiTclV9w6RPMZYk9\n'
+               'o5oUQTumPKnznsovLpNmIm48DCALMzdTzH0AEQEAAQACAJDfsKNYOM3Toph03pmx\n'
+               'XmhS0FpJ16zFy4rJjtCYGcUerUqRQ1ehXIY9Ig9J5LitJXThrP4dvUlRCWUcxxl6\n'
+               '9eEBANOiM8ktXW0bPZfBKunWn7ajA0PMBKG8p2d9iBCawBbbAQDO88L8V0cxCRvH\n'
+               '8L1J4gsttPWDOnhw5z8Dq4Zv5U3thwD/WwE0miqfEpYAmkhc0g7lHf6l7qo+SrUZ\n'
+               'ZKl0GLPLKKFRscK9BBgBAgAJBQJZVC3mAhsMAGgJEC4sMTkKIj+FXSAEGQECAAYF\n'
+               'AllULeYACgkQCK0qxtsEtqzY7QIAoayZGB78eaImQVOpTLX2jnaDR2UY7NtUy6YI\n'
+               'XMSumCeZj+n+BexmUm6x2kqg0FJLRwAE4i+rnvFA0HHX40/9d221AgCzUxHuHjKP\n'
+               'b5wNW20vanc6b6ZMi52MyhluXAIdnvgPkPEzVIS+gGOX2DeT4TXAdosKfD1o5qS7\n'
+               'ANRbocmpDuO3\n'
+               '=UjzO\n'
+               '-----END PGP PRIVATE KEY BLOCK-----\n')
+
+    privkey, _ = PGPKey.from_blob(keyblob)
+    pubkey = privkey.pubkey
+
+    assert pubkey.subkeys['08AD2AC6DB04B6AC'].parent is pubkey
