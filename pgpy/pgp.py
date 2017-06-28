@@ -1317,7 +1317,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
                 # get the public half of each subkey
                 for skid, subkey in self.subkeys.items():
-                    pub.subkeys[skid] = subkey.pubkey
+                    pub |= subkey.pubkey
 
                 # copy user ids and user attributes
                 for uid in self._uids:
