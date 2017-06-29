@@ -249,7 +249,8 @@ class PubKeyAlgorithm(IntEnum):
     #: Signifies that a key is an ECDSA key.
     ECDSA = 0x13
     FormerlyElGamalEncryptOrSign = 0x14  # deprecated - do not generate
-    # DiffieHellman = 0x15  # X9.42
+    DiffieHellman = 0x15  # X9.42
+    EdDSA = 0x16  # https://tools.ietf.org/html/draft-koch-eddsa-for-openpgp-04
 
     @property
     def can_gen(self):
