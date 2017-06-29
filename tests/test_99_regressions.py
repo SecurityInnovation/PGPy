@@ -1,10 +1,12 @@
 """ I've got 99 problems but regression testing ain't one
 """
+import os
 import pytest
 import glob
 import tempfile
 import warnings
 from pgpy import PGPKey
+from pgpy.types import Armorable
 
 
 @pytest.mark.regression(issue=56)
@@ -311,3 +313,22 @@ def test_pubkey_subkey_parent():
     pubkey = privkey.pubkey
 
     assert pubkey.subkeys['08AD2AC6DB04B6AC'].parent is pubkey
+
+
+cleartext_sigs = ['tests/testdata/messages/cleartext.oneline.signed.asc',
+                  'tests/testdata/messages/cleartext.empty.signed.asc']
+cleartexts = ['This is stored, literally\!',
+              '']
+
+
+@pytest.mark.regression(issue=192)
+@pytest.mark.parametrize('sf,cleartext', zip(cleartext_sigs, cleartexts), ids=[os.path.basename(f) for f in cleartext_sigs])
+def test_oneline_cleartext(sf, cleartext):
+    with open(sf) as of:
+        oc = of.read()
+
+    dearmor = Armorable.ascii_unarmor(oc)
+    # It is a signature
+    assert dearmor['magic'] == 'SIGNATURE'
+    # No newline at the end
+    assert dearmor['cleartext'] == cleartext
