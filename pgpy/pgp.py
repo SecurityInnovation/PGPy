@@ -1989,23 +1989,32 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         :keyword comment: Defaults to an empty string.
         :type comment: ``str``
         """
+        def _can_revoke(revoker, target_primary):
+            for self_sig in target_primary.self_signatures:
+                for rk in self_sig.revocation_key:
+                    if rk.algorithm == revoker.key_algorithm and rk.fingerprint == revoker.fingerprint:
+                        return True
+            return False
+
         hash_algo = prefs.pop('hash', None)
+        sig_type = None
         if isinstance(target, PGPUID):
             sig_type = SignatureType.CertRevocation
 
         elif isinstance(target, PGPKey):
-            ##TODO: check to make sure that the key that is being revoked:
-            #        - is this key
-            #        - is one of this key's subkeys
-            #        - specifies this key as its revocation key
+            # Check that we are revoking a key we can revoke.
             if target.is_primary:
-                sig_type = SignatureType.KeyRevocation
-
+                if target.fingerprint == self.fingerprint or _can_revoke(self, target):
+                    sig_type = SignatureType.KeyRevocation
             else:
-                sig_type = SignatureType.SubkeyRevocation
+                if target in self or _can_revoke(self, target.parent):
+                    sig_type = SignatureType.SubkeyRevocation
 
         else:  # pragma: no cover
             raise TypeError
+
+        if sig_type is None:
+            raise PGPError("Can't revoke the given key with this key.")
 
         sig = PGPSignature.new(sig_type, self.key_algorithm, hash_algo, self.fingerprint.keyid)
 
