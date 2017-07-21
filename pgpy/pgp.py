@@ -85,6 +85,8 @@ __all__ = ['PGPSignature',
 
 
 class PGPSignature(Armorable, ParentRef, PGPObject):
+    _revocation_key = collections.namedtuple('revocation_key', ['keyclass','algorithm', 'fingerprint'])
+
     @property
     def __sig__(self):
         return self._signature.signature.__sig__()
@@ -250,9 +252,18 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
 
     @property
     def revocation_key(self):
-        if 'RevocationKey' in self._signature.subpackets:
-            raise NotImplementedError()
-        return None
+        """
+        A ``list`` of revocation key subpackets in this signature, if any. Otherwise, an empty ``list``.
+
+        Each is a namedtuple with the following attributes:
+        ``revocation_key.keyclass`` - a ``list`` of :py:obj:`~pgpy.constants.RevocationKeyClass` flags.
+
+        ``revocation_key.algorithm`` - the :py:obj:`~pgpy.constants.PubkeyAlgorithm` of the revocation key.
+
+        ``revocation_key.fingerprint`` - the :py:obj:`~pgpy.types.Fingerprint` of the revocation key.
+        """
+        return list(self._revocation_key(rk.keyclass, rk.algorithm, rk.fingerprint)
+                    for rk in self._signature.subpackets['RevocationKey'])
 
     @property
     def signer(self):
