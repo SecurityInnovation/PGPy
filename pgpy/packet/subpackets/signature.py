@@ -54,7 +54,8 @@ __all__ = ['URI',
            'SignersUserID',
            'ReasonForRevocation',
            'Features',
-           'EmbeddedSignature']
+           'EmbeddedSignature',
+           'IssuerFingerprint']
 
 
 class URI(Signature):
@@ -885,3 +886,59 @@ class EmbeddedSignature(Signature):
     def parse(self, packet):
         super(EmbeddedSignature, self).parse(packet)
         self._sig.parse(packet)
+
+
+class IssuerFingerprint(Signature):
+    __typeid__ = 0x21
+
+    @sdproperty
+    def version(self):
+        return self._version
+
+    @version.register(int)
+    def version_int(self, val):
+        self._version = val
+
+    @version.register(bytearray)
+    def version_bytearray(self, val):
+        self.version = self.bytes_to_int(val)
+
+    @sdproperty
+    def issuer_fingerprint(self):
+        return self._issuer_fpr
+
+    @issuer_fingerprint.register(str)
+    @issuer_fingerprint.register(six.text_type)
+    @issuer_fingerprint.register(Fingerprint)
+    def issuer_fingerprint_str(self, val):
+        self._issuer_fpr = Fingerprint(val)
+
+    @issuer_fingerprint.register(bytearray)
+    def issuer_fingerprint_bytearray(self, val):
+        self.issuer_fingerprint = ''.join('{:02x}'.format(c) for c in val).upper()
+
+    def __init__(self):
+        super(IssuerFingerprint, self).__init__()
+        self.version = 4
+        self._issuer_fpr = ""
+
+    def __bytearray__(self):
+        _bytes = super(IssuerFingerprint, self).__bytearray__()
+        _bytes += self.int_to_bytes(self.version)
+        _bytes += self.issuer_fingerprint.__bytes__()
+        return _bytes
+
+    def parse(self, packet):
+        super(IssuerFingerprint, self).parse(packet)
+        self.version = packet[:1]
+        del packet[:1]
+
+        if self.version == 4:
+            fpr_len = 20
+        elif self.version == 5:  # pragma: no cover
+            fpr_len = 25
+        else:  # pragma: no cover
+            fpr_len = self.header.length - 1
+
+        self.issuer_fingerprint = packet[:fpr_len]
+        del packet[:fpr_len]

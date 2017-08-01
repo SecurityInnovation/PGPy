@@ -106,6 +106,7 @@ _sspclasses = {
     0x1e: 'Features',
     # 0x1f: 'Target',  ##TODO: obtain one of these ##TODO: parse this, then uncomment
     0x20: 'EmbeddedSignature',
+    0x21: 'IssuerFingerprint',
     # 0x64-0x6e: Private or Experimental
     0x64: 'Opaque',
     0x65: 'Opaque',
@@ -184,6 +185,8 @@ _ssps = [
     b"\xbf\xe9\xbc\x9c\xac\x99W6\x81\xad\xe0\x81\xb4\x89n\xd0_\x1c\x92\xbe\xf6\x1cmn\xe92_\x86\xcf"
     b"\xb0v\x1f\x9dk%\xbd<\x0c\x1e\x91\x0c\xec\\\xdc\x8cCu\xd8N\xf2\x82E\x00\xc8rnSY\x1b\xa0%\x13"
     b"\xc0$Q+\xd3\xd0\xd8 \x0c\xe9\xafI5&\xe5\xc1!\xaf",
+    # 0x21
+    b'\x16!\x04\xeb\xc8\x8a\x94\xac\xb1\x10\xf1\xbe?\xe3\xc1+GK\xb0 \x84\xc7\x12',
     # 0x65
     b'\x07eGPG\x00\x01\x01',
     ]
