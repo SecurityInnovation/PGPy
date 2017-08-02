@@ -488,6 +488,7 @@ class TestPGPKey_Management(object):
 
         # verify with PGPy
         assert key.verify(subkey, rsig)
+        assert rsig in subkey.revocation_signatures
 
         # try to verify with GPG
         self.gpg_verify_key(key)
@@ -510,6 +511,7 @@ class TestPGPKey_Management(object):
 
         # verify with PGPy
         assert key.verify(key, rsig)
+        assert rsig in key.revocation_signatures
 
         # try to verify with GPG
         self.gpg_verify_key(key)

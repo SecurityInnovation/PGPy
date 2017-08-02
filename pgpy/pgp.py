@@ -1374,6 +1374,15 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return {sig.signer for sig in self.__sig__}
 
     @property
+    def revocation_signatures(self):
+        keyid, keytype = (self.fingerprint.keyid, SignatureType.KeyRevocation) if self.is_primary \
+            else (self.parent.fingerprint.keyid, SignatureType.SubkeyRevocation)
+
+        for sig in iter(sig for sig in self._signatures
+                        if all([sig.type == keytype, sig.signer == keyid, not sig.is_expired])):
+            yield sig
+
+    @property
     def subkeys(self):
         """An :py:obj:`~collections.OrderedDict` of subkeys bound to this primary key, if applicable,
         selected by 16-character keyid."""
