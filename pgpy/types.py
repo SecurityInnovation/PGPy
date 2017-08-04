@@ -367,30 +367,39 @@ class Header(Field):
     @length.register(bytearray)
     def length_bin(self, val):
         def _new_len(b):
-            fo = b[0]
+            def _parse_len(a, offset=0):
+                # returns (the parsed length, size of length field, whether the length was of partial type)
+                fo = a[offset]
 
-            if 192 > fo:
-                self._len = self.bytes_to_int(b[:1])
-                del b[:1]
+                if 192 > fo:
+                    return (self.bytes_to_int(a[offset:offset + 1]), 1, False)
 
-            elif 224 > fo:  # >= 192 is implied
-                dlen = self.bytes_to_int(b[:2])
-                self._len = ((dlen - (192 << 8)) & 0xFF00) + ((dlen & 0xFF) + 192)
-                del b[:2]
+                elif 224 > fo:  # >= 192 is implied
+                    dlen = self.bytes_to_int(b[offset:offset + 2])
+                    return (((dlen - (192 << 8)) & 0xFF00) + ((dlen & 0xFF) + 192), 2, False)
 
-            elif 255 > fo:  # pragma: no cover
-                # not testable until partial body lengths actually work
-                # >= 224 is implied
-                # this is a partial-length header
-                self._partial = True
-                self._len = 1 << (fo & 0x1f)
+                elif 255 > fo: # >= 224 is implied
+                    # this is a partial-length header
+                    return (1 << (fo & 0x1f), 1, True)
 
-            elif 255 == fo:
-                self._len = self.bytes_to_int(b[1:5])
-                del b[:5]
+                elif 255 == fo:
+                    return (self.bytes_to_int(b[offset + 1:offset + 5]), 5, False)
 
-            else:  # pragma: no cover
-                raise ValueError("Malformed length: 0x{:02x}".format(fo))
+                else:  # pragma: no cover
+                    raise ValueError("Malformed length: 0x{:02x}".format(fo))
+
+            part_len, size, partial = _parse_len(b)
+            del b[:size]
+
+            if partial:
+                total = part_len
+                while partial:
+                    part_len, size, partial = _parse_len(b, total)
+                    del b[total:total+size]
+                    total += part_len
+                self._len = total
+            else:
+                self._len = part_len
 
         def _old_len(b):
             if self.llen > 0:
