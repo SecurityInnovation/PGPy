@@ -15,6 +15,7 @@ from datetime import datetime, timedelta
 
 from pgpy import PGPKey
 from pgpy import PGPMessage
+from pgpy import PGPSignature
 from pgpy import PGPUID
 from pgpy.constants import CompressionAlgorithm
 from pgpy.constants import EllipticCurveOID
@@ -862,3 +863,19 @@ class TestPGPKey_Actions(object):
 
             with gpg_import(os.path.realpath(sf)) as kf:
                 assert gpg_print(emsgf.name) == dmsg.message
+
+    @pytest.mark.run(after='test_encrypt_message')
+    @pytest.mark.parametrize('sf,cipher',
+                             itertools.product(sorted(glob.glob('tests/testdata/keys/*.sec.asc')), sorted(SymmetricKeyAlgorithm)))
+    def test_sign_encrypted_message(self, sf, cipher):
+        # test decrypting a message
+        sec, _ = PGPKey.from_file(sf)
+        if (sec.fingerprint, cipher) not in self.msgs:
+            pytest.skip('Message not present; see test_encrypt_message skip or xfail reason')
+
+        emsg = self.msgs[(sec.fingerprint, cipher)]
+        emsg |= sec.sign(emsg)
+
+        assert emsg.is_signed
+        assert emsg.is_encrypted
+        assert isinstance(next(iter(emsg)), PGPSignature)

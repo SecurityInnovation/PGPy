@@ -351,7 +351,10 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
             For binary document signatures (type 0x00), the document data is
             hashed directly.
             """
-            _data += bytearray(subject)
+            if isinstance(subject, (SKEData, IntegrityProtectedSKEData)):
+                _data += subject.__bytearray__()
+            else:
+                _data += bytearray(subject)
 
         if self.type == SignatureType.CanonicalDocument:
             """
@@ -838,6 +841,8 @@ class PGPMessage(Armorable, PGPObject):
                 yield sig
 
         elif self.is_encrypted:
+            for sig in self._signatures:
+                yield sig
             for pkt in self._sessionkeys:
                 yield pkt
             yield self.message
