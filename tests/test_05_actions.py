@@ -35,6 +35,14 @@ from pgpy.packet.packets import PrivSubKeyV4
 enc_msgs = [ PGPMessage.from_file(f) for f in sorted(glob.glob('tests/testdata/messages/message*.pass*.asc')) ]
 
 
+def EncodedNamedTemporaryFile(mode, **kw):
+    # adapter function to handle the fact that Py2x tempfile.NamedTemporaryFile does not have the encoding kwarg
+    if six.PY2 and 'encoding' in kw:
+        del kw['encoding']
+
+    return tempfile.NamedTemporaryFile(mode, **kw)
+
+
 class TestPGPMessage(object):
     @pytest.mark.parametrize('comp_alg,sensitive',
                              itertools.product(CompressionAlgorithm, [False, True]))
@@ -102,7 +110,7 @@ class TestPGPMessage(object):
         assert msg.type == 'cleartext'
         assert msg.message == text
 
-        with tempfile.NamedTemporaryFile('w+') as mf:
+        with EncodedNamedTemporaryFile('w+', encoding='utf-8') as mf:
             mf.write(six.text_type(msg).encode('utf-8') if six.PY2 else six.text_type(msg))
             mf.flush()
             assert gpg_print(mf.name).encode('latin-1').decode('utf-8').strip() == text
