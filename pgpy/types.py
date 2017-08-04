@@ -86,10 +86,10 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
     @staticmethod
     def is_ascii(text):
         if isinstance(text, six.string_types):
-            return bool(re.match(r'^[ -~\r\n]+$', text, flags=re.ASCII))
+            return bool(re.match(r'^[ -~\r\n]*$', text, flags=re.ASCII))
 
         if isinstance(text, (bytes, bytearray)):
-            return bool(re.match(br'^[ -~\r\n]+$', text, flags=re.ASCII))
+            return bool(re.match(br'^[ -~\r\n]*$', text, flags=re.ASCII))
 
         raise TypeError("Expected: ASCII input of type str, bytes, or bytearray")  # pragma: no cover
 
