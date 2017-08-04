@@ -11,12 +11,13 @@ import os
 import six
 import tempfile
 import time
-from datetime import datetime, timedelta
 
+from datetime import datetime, timedelta
 from pgpy import PGPKey
 from pgpy import PGPMessage
 from pgpy import PGPSignature
 from pgpy import PGPUID
+from pgpy._curves import _openssl_get_supported_curves
 from pgpy.constants import CompressionAlgorithm
 from pgpy.constants import EllipticCurveOID
 from pgpy.constants import Features
@@ -188,6 +189,7 @@ def userphoto():
     return PGPUID.new(pbytes)
 
 
+# TODO: add more keyspecs
 pkeyspecs = ((PubKeyAlgorithm.RSAEncryptOrSign, 1024),
              (PubKeyAlgorithm.DSA, 1024),
              (PubKeyAlgorithm.ECDSA, EllipticCurveOID.NIST_P256),)
@@ -254,7 +256,7 @@ class TestPGPKey_Management(object):
         if not alg.can_gen:
             pytest.xfail('Key algorithm {} not yet supported'.format(alg.name))
 
-        if isinstance(size, EllipticCurveOID) and not size.can_gen:
+        if isinstance(size, EllipticCurveOID) and ((not size.can_gen) or size.name not in _openssl_get_supported_curves()):
             pytest.xfail('Curve {} not yet supported'.format(size.name))
 
         key = self.keys[pkspec]
@@ -465,7 +467,7 @@ class TestPGPKey_Management(object):
         if not alg.can_gen:
             pytest.xfail('Key algorithm {} not yet supported'.format(alg.name))
 
-        if isinstance(size, EllipticCurveOID) and not size.can_gen:
+        if isinstance(size, EllipticCurveOID) and ((not size.can_gen) or size.name not in _openssl_get_supported_curves()):
             pytest.xfail('Curve {} not yet supported'.format(size.name))
 
         # revoke the subkey
