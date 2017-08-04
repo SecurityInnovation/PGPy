@@ -2213,6 +2213,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
         return _m
 
+    @KeyAction(is_unlocked=True, is_public=False)
     def decrypt(self, message):
         """
         Decrypt a PGPMessage using this key.

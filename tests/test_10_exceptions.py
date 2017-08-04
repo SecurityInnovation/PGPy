@@ -205,6 +205,11 @@ class TestPGPKey(object):
         with pytest.raises(PGPError):
             targette_sec.decrypt(msg)
 
+    def test_decrypt_protected_key(self, rsa_enc, rsa_pub):
+        emsg = rsa_pub.encrypt(PGPMessage.new("asdf"))
+        with pytest.raises(PGPError):
+            rsa_enc.decrypt(emsg)
+
     def test_or_typeerror(self, rsa_sec):
         with pytest.raises(TypeError):
             rsa_sec |= 12
