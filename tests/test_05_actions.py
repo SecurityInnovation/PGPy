@@ -252,6 +252,9 @@ class TestPGPKey_Management(object):
                              itertools.product(pkeyspecs, skeyspecs),
                              ids=['{}-{}-{}'.format(pk[0].name, sk[0].name, sk[1]) for pk, sk in itertools.product(pkeyspecs, skeyspecs)])
     def test_add_subkey(self, pkspec, skspec):
+        if pkspec not in self.keys:
+            pytest.skip('Keyspec {} not in keys; must not have generated'.format(pkspec))
+
         alg, size = skspec
         if not alg.can_gen:
             pytest.xfail('Key algorithm {} not yet supported'.format(alg.name))

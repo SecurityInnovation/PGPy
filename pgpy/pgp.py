@@ -2224,7 +2224,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         :returns: A new :py:obj:`PGPMessage` with the decrypted contents of ``message``.
         """
         if not message.is_encrypted:
-            warnings.warn("This message is not encrypted", stacklevel=2)
+            warnings.warn("This message is not encrypted", stacklevel=3)
             return message
 
         if self.fingerprint.keyid not in message.encrypters:
