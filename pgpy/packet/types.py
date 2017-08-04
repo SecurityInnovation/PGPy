@@ -146,7 +146,7 @@ class Packet(Dispatchable):
     __typeid__ = -1
     __headercls__ = Header
 
-    def __init__(self):
+    def __init__(self, _=None):
         super(Packet, self).__init__()
         self.header = self.__headercls__()
         if isinstance(self.__typeid__, six.integer_types):
