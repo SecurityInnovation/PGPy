@@ -48,10 +48,10 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
     __crc24_poly = 0x1864CFB
 
     __armor_fmt = '-----BEGIN PGP {block_type}-----\n' \
-                    '{headers}\n' \
-                    '{packet}\n' \
-                    '={crc}\n' \
-                    '-----END PGP {block_type}-----\n'
+                  '{headers}\n' \
+                  '{packet}\n' \
+                  '={crc}\n' \
+                  '-----END PGP {block_type}-----\n'
 
     # the re.VERBOSE flag allows for:
     #  - whitespace is ignored except when in a character class or escaped
@@ -378,7 +378,7 @@ class Header(Field):
                     dlen = self.bytes_to_int(b[offset:offset + 2])
                     return (((dlen - (192 << 8)) & 0xFF00) + ((dlen & 0xFF) + 192), 2, False)
 
-                elif 255 > fo: # >= 224 is implied
+                elif 255 > fo:  # >= 224 is implied
                     # this is a partial-length header
                     return (1 << (fo & 0x1f), 1, True)
 
@@ -395,7 +395,7 @@ class Header(Field):
                 total = part_len
                 while partial:
                     part_len, size, partial = _parse_len(b, total)
-                    del b[total:total+size]
+                    del b[total:total + size]
                     total += part_len
                 self._len = total
             else:

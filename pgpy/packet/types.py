@@ -181,7 +181,7 @@ class VersionedPacket(Packet):
 
     def __repr__(self):
         return "<{cls:s} [tag {tag:02d}][v{ver:d}] at 0x{id:x}>".format(cls=self.__class__.__name__, tag=self.header.tag,
-                                                                          ver=self.header.version, id=id(self))
+                                                                        ver=self.header.version, id=id(self))
 
 
 class Opaque(Packet):
