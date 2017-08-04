@@ -15,6 +15,7 @@ from pyasn1.codec.der import decoder
 from pyasn1.codec.der import encoder
 from pyasn1.type.univ import Integer
 from pyasn1.type.univ import Sequence
+from pyasn1.type.namedtype import NamedTypes, NamedType
 
 from cryptography.exceptions import InvalidSignature
 
@@ -266,9 +267,9 @@ class DSASignature(Signature):
 
     def __sig__(self):
         # return the signature data into an ASN.1 sequence of integers in DER format
-        seq = Sequence()
-        for i in self:
-            seq.setComponentByPosition(len(seq), Integer(i))
+        seq = Sequence(componentType=NamedTypes(*[NamedType(n, Integer()) for n in self.__mpis__]))
+        for n in self.__mpis__:
+            seq.setComponentByName(n, getattr(self, n))
 
         return encoder.encode(seq)
 
