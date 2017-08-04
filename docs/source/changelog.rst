@@ -7,14 +7,22 @@ Changelog
 v0.4.2
 ======
 
-Released: |today|
+Released: August 4, 2017
+
+New Features
+------------
+
+ * Packets with partial body lengths can now be parsed. For now, these packets are converted to have definite lengths instead. (#95) (#208)
 
 Bugs Fixed
 ----------
  * Private key checksums are now calculated correctly (#172)
  * PGPKey.decrypt was mistakenly using message.issuers instead of message.encrypters when determining whether or not the key was eligible
    to attempt decrypting the message (#183)
- * Fixed an issue with parsing some cleartext messages (#184) 
+ * Fixed an issue with parsing some cleartext messages (#184)
+ * Fixed signing already-encrypted messages (encrypt-then-sign) (#186) (#191)
+ * PGP*.from_blob now correctly raises an exception if given zero-length input (#199) (#200)
+ * Fixed an issue where PGPKey.decrypt would fail with an arcane traceback if the key is passphrase-protected and not unlocked. (#204)
 
 v0.4.1
 ======
