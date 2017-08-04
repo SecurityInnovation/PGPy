@@ -2219,7 +2219,9 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         Decrypt a PGPMessage using this key.
 
         :param message: An encrypted :py:obj:`PGPMessage`
-        :returns: A new :py:obj:`PGPMessage` with the decrypted contents of ``message``
+        :raises: :py:exc:`~errors.PGPError` if the key is not private, or protected but not unlocked.
+        :raises: :py:exc:`~errors.PGPDecryptionError` if decryption fails for any other reason.
+        :returns: A new :py:obj:`PGPMessage` with the decrypted contents of ``message``.
         """
         if not message.is_encrypted:
             warnings.warn("This message is not encrypted", stacklevel=2)
