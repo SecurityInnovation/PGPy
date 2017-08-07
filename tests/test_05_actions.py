@@ -28,6 +28,7 @@ from pgpy.constants import PubKeyAlgorithm
 from pgpy.constants import RevocationReason
 from pgpy.constants import SignatureType
 from pgpy.constants import SymmetricKeyAlgorithm
+from pgpy.errors import PGPError
 from pgpy.packet import Packet
 from pgpy.packet.packets import PrivKeyV4
 from pgpy.packet.packets import PrivSubKeyV4
@@ -535,6 +536,21 @@ class TestPGPKey_Management(object):
 
         # try to verify with GPG
         self.gpg_verify_key(key)
+
+    @pytest.mark.run(after='test_revoke_key_with_revoker')
+    @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
+    def test_revoke_key_not_authorized(self, pkspec):
+        if pkspec not in self.keys:
+            pytest.skip('Keyspec {} not in keys; must not have generated'.format(pkspec))
+
+        # try to revoke a key which gives us no way to do so
+        rev = self.keys[next(pks for pks in reversed(pkeyspecs) if pks != pkspec)]
+        key = self.keys[pkspec]
+
+        with pytest.raises(PGPError):
+            with rev.unlock('This Password Has Been Changed') as ukey:
+                ukey.revoke(key, reason=RevocationReason.Retired, comment="But you're so oooold")
+
 
 @pytest.fixture(scope='module')
 def string():
