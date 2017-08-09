@@ -6,6 +6,7 @@ import abc
 import copy
 
 import six
+from cryptography.hazmat.primitives.constant_time import bytes_eq
 
 from ..constants import PacketTag
 
@@ -280,13 +281,17 @@ class MPIs(Field):
 
     def __eq__(self, other):
         if isinstance(other, MPIs):
+            result = True
             if len(self) != len(other):
-                # bail early
-                return False
+                result = False
+
             for i, j in zip(self, other):
-                if i != j:
-                    return False
-            return True
+                a = i.to_mpibytes()
+                b = j.to_mpibytes()
+                if not bytes_eq(a, b):
+                    result = False
+
+            return result
 
         return False
 
