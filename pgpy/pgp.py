@@ -20,6 +20,7 @@ import six
 from datetime import datetime
 
 from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.constant_time import bytes_eq
 
 from .constants import CompressionAlgorithm
 from .constants import Features
@@ -325,6 +326,17 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
             return self
 
         raise TypeError
+
+    def __hash__(self):
+        return hash(self.__sig__)
+
+    def __eq__(self, other):
+        if isinstance(other, PGPSignature):
+            return bytes_eq(self.__sig__, other.__sig__)
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def __copy__(self):
         # because the default shallow copy isn't actually all that useful,
