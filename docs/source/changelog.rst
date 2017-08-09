@@ -4,6 +4,11 @@
 Changelog
 *********
 
+v0.5.0
+======
+
+Released: not yet
+
 v0.4.2
 ======
 
