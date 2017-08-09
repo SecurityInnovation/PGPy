@@ -585,6 +585,7 @@ class PGPUID(ParentRef):
 
     @property
     def signatures(self):
+        """A ``list`` containing all signatures present in this User ID or Attribute."""
         return list(self._signatures)
 
     @property
@@ -763,7 +764,7 @@ class PGPMessage(Armorable, PGPObject):
 
     @property
     def signatures(self):
-        """A ``set`` containing all key ids (if any) which have signed this message."""
+        """A ``list`` containing all signatures present in this message."""
         return list(self._signatures)
 
     @property
@@ -1371,6 +1372,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
     @property
     def signatures(self):
+        """A ``list`` containing all signatures present in this key.."""
         return list(self._signatures)
 
     @property
