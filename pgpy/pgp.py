@@ -677,6 +677,24 @@ class PGPUID(ParentRef):
         raise TypeError("unsupported operand type(s) for |: '{:s}' and '{:s}'"
                         "".format(self.__class__.__name__, other.__class__.__name__))
 
+    def __hash__(self):
+        if self.is_uid:
+            return hash((self.name, self.comment, self.email, self.is_primary))
+        if self.is_ua:
+            return hash(self.image)
+        return 0  # should only be reached for clean PGPUID()
+
+    def __eq__(self, other):
+        if isinstance(other, PGPUID):
+            if self.is_uid and other.is_uid:
+                return self.name == other.name and self.comment == other.comment and self.email == other.email and self.is_primary == other.is_primary
+            if self.is_ua and other.is_ua:
+                return self.image == other.image
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __copy__(self):
         # because the default shallow copy isn't actually all that useful,
         # and deepcopy does too much work
