@@ -519,10 +519,6 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
 
 class PGPUID(ParentRef):
     @property
-    def __sig__(self):
-        return list(self._signatures)
-
-    @property
     def name(self):
         """If this is a User ID, the stored name. If this is not a User ID, this will be an empty string."""
         return self._uid.name if isinstance(self._uid, UserID) else ""
@@ -585,7 +581,11 @@ class PGPUID(ParentRef):
         """
         This will be a set of all of the key ids which have signed this User ID or Attribute.
         """
-        return set(s.signer for s in self.__sig__)
+        return set(s.signer for s in self._signatures)
+
+    @property
+    def signatures(self):
+        return list(self._signatures)
 
     @property
     def hashdata(self):
@@ -1208,14 +1208,6 @@ class PGPKey(Armorable, ParentRef, PGPObject):
     secret key.
     """
     @property
-    def __key__(self):
-        return self._key.keymaterial
-
-    @property
-    def __sig__(self):
-        return list(self._signatures)
-
-    @property
     def created(self):
         """A :py:obj:`~datetime.datetime` object of the creation date and time of the key, in UTC."""
         return self._key.created
@@ -1286,6 +1278,10 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             return True
 
         return self._key.unlocked
+
+    @property
+    def key_material(self):
+        return self._key.keymaterial
 
     @property
     def key_algorithm(self):
@@ -1371,7 +1367,11 @@ class PGPKey(Armorable, ParentRef, PGPObject):
     @property
     def signers(self):
         """A ``set`` of key ids of keys that were used to sign this key"""
-        return {sig.signer for sig in self.__sig__}
+        return {sig.signer for sig in self._signatures}
+
+    @property
+    def signatures(self):
+        return list(self._signatures)
 
     @property
     def subkeys(self):
@@ -2112,15 +2112,15 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                 sspairs += [ (sig, subject.message) for sig in _filter_sigs(subject.signatures) ]
 
             if isinstance(subject, (PGPUID, PGPKey)):
-                sspairs += [ (sig, subject) for sig in _filter_sigs(subject.__sig__) ]
+                sspairs += [ (sig, subject) for sig in _filter_sigs(subject.signatures) ]
 
             if isinstance(subject, PGPKey):
                 # user ids
-                sspairs += [ (sig, uid) for uid in subject.userids for sig in _filter_sigs(uid.__sig__) ]
+                sspairs += [ (sig, uid) for uid in subject.userids for sig in _filter_sigs(uid.signatures) ]
                 # user attributes
-                sspairs += [ (sig, ua) for ua in subject.userattributes for sig in _filter_sigs(ua.__sig__) ]
+                sspairs += [ (sig, ua) for ua in subject.userattributes for sig in _filter_sigs(ua.signatures) ]
                 # subkey binding signatures
-                sspairs += [ (sig, subkey) for subkey in subject.subkeys.values() for sig in _filter_sigs(subkey.__sig__) ]
+                sspairs += [ (sig, subkey) for subkey in subject.subkeys.values() for sig in _filter_sigs(subkey.signatures) ]
 
         elif signature.signer in {self.fingerprint.keyid} | set(self.subkeys):
             sspairs += [(signature, subject)]
