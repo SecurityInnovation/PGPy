@@ -7,7 +7,7 @@ Changelog
 v0.4.2
 ======
 
-Released: August 4, 2017
+Released: August 9, 2017
 
 New Features
 ------------
