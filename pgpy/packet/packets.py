@@ -1318,6 +1318,15 @@ class UserID(Packet):
         uid.email = self.email
         return uid
 
+    @property
+    def utf8(self):
+        _ret = self.name
+        if self.comment:
+            _ret += ' (' + self.comment + ')'
+        if self.email:
+            _ret += ' <' + self.email + '>'
+        return _ret
+
     def parse(self, packet):
         super(UserID, self).parse(packet)
 
