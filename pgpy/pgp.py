@@ -351,7 +351,10 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
             For binary document signatures (type 0x00), the document data is
             hashed directly.
             """
-            _data += bytearray(subject)
+            if isinstance(subject, (SKEData, IntegrityProtectedSKEData)):
+                _data += subject.__bytearray__()
+            else:
+                _data += bytearray(subject)
 
         if self.type == SignatureType.CanonicalDocument:
             """
@@ -838,6 +841,8 @@ class PGPMessage(Armorable, PGPObject):
                 yield sig
 
         elif self.is_encrypted:
+            for sig in self._signatures:
+                yield sig
             for pkt in self._sessionkeys:
                 yield pkt
             yield self.message
@@ -1317,7 +1322,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
                 # get the public half of each subkey
                 for skid, subkey in self.subkeys.items():
-                    pub.subkeys[skid] = subkey.pubkey
+                    pub |= subkey.pubkey
 
                 # copy user ids and user attributes
                 for uid in self._uids:
@@ -1869,7 +1874,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
         :keyword trust: Specify the level and amount of trust to assert when certifying a public key. Should be a tuple
                         of two ``int`` s, specifying the trust level and trust amount. See
-                        `RFC 4880 Section 5.2.3.13. Trust Signature <http://tools.ietf.org/html/rfc4880#section-5.2.3.13>`_
+                        `RFC 4880 Section 5.2.3.13. Trust Signature <https://tools.ietf.org/html/rfc4880#section-5.2.3.13>`_
                         for more on what these values mean.
         :type trust: ``tuple`` of two ``int`` s
         :keyword regex: Specify a regular expression to constrain the specified trust signature in the resulting signature.
@@ -2208,20 +2213,23 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
         return _m
 
+    @KeyAction(is_unlocked=True, is_public=False)
     def decrypt(self, message):
         """
         Decrypt a PGPMessage using this key.
 
         :param message: An encrypted :py:obj:`PGPMessage`
-        :returns: A new :py:obj:`PGPMessage` with the decrypted contents of ``message``
+        :raises: :py:exc:`~errors.PGPError` if the key is not private, or protected but not unlocked.
+        :raises: :py:exc:`~errors.PGPDecryptionError` if decryption fails for any other reason.
+        :returns: A new :py:obj:`PGPMessage` with the decrypted contents of ``message``.
         """
         if not message.is_encrypted:
-            warnings.warn("This message is not encrypted", stacklevel=2)
+            warnings.warn("This message is not encrypted", stacklevel=3)
             return message
 
-        if self.fingerprint.keyid not in message.issuers:
+        if self.fingerprint.keyid not in message.encrypters:
             sks = set(self.subkeys)
-            mis = set(message.issuers)
+            mis = set(message.encrypters)
             if sks & mis:
                 skid = list(sks & mis)[0]
                 warnings.warn("Message was encrypted with this key's subkey: {:s}. "

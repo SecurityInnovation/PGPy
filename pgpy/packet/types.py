@@ -146,7 +146,7 @@ class Packet(Dispatchable):
     __typeid__ = -1
     __headercls__ = Header
 
-    def __init__(self):
+    def __init__(self, _=None):
         super(Packet, self).__init__()
         self.header = self.__headercls__()
         if isinstance(self.__typeid__, six.integer_types):
@@ -160,7 +160,7 @@ class Packet(Dispatchable):
         return len(self.header) + self.header.length
 
     def __repr__(self):
-        return "<{cls:s} [tag 0x{tag:02d}] at 0x{id:x}>".format(cls=self.__class__.__name__, tag=self.header.tag, id=id(self))
+        return "<{cls:s} [tag {tag:02d}] at 0x{id:x}>".format(cls=self.__class__.__name__, tag=self.header.tag, id=id(self))
 
     def update_hlen(self):
         self.header.length = len(self.__bytearray__()) - len(self.header)
@@ -180,8 +180,8 @@ class VersionedPacket(Packet):
             self.header.version = self.__ver__
 
     def __repr__(self):
-        return "<{cls:s} [tag 0x{tag:02d}][v{ver:d}] at 0x{id:x}>".format(cls=self.__class__.__name__, tag=self.header.tag,
-                                                                          ver=self.header.version, id=id(self))
+        return "<{cls:s} [tag {tag:02d}][v{ver:d}] at 0x{id:x}>".format(cls=self.__class__.__name__, tag=self.header.tag,
+                                                                        ver=self.header.version, id=id(self))
 
 
 class Opaque(Packet):

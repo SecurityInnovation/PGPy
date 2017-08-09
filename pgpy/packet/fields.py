@@ -15,6 +15,7 @@ from pyasn1.codec.der import decoder
 from pyasn1.codec.der import encoder
 from pyasn1.type.univ import Integer
 from pyasn1.type.univ import Sequence
+from pyasn1.type.namedtype import NamedTypes, NamedType
 
 from cryptography.exceptions import InvalidSignature
 
@@ -266,9 +267,9 @@ class DSASignature(Signature):
 
     def __sig__(self):
         # return the signature data into an ASN.1 sequence of integers in DER format
-        seq = Sequence()
-        for i in self:
-            seq.setComponentByPosition(len(seq), Integer(i))
+        seq = Sequence(componentType=NamedTypes(*[NamedType(n, Integer()) for n in self.__mpis__]))
+        for n in self.__mpis__:
+            seq.setComponentByName(n, getattr(self, n))
 
         return encoder.encode(seq)
 
@@ -1012,8 +1013,7 @@ class PrivKey(PubKey):
         """Generate a new PrivKey"""
 
     def _compute_chksum(self):
-        chs = sum(sum(bytearray(c.to_mpibytes())) for c in self) % 65536
-        self.chksum = bytearray(self.int_to_bytes(chs, 2))
+        "Calculate the key checksum"
 
     def publen(self):
         return super(PrivKey, self).__len__()
@@ -1113,6 +1113,10 @@ class RSAPriv(PrivKey, RSAPub):
                                      rsa.rsa_crt_iqmp(self.p, self.q),
                                      rsa.RSAPublicNumbers(self.e, self.n)).private_key(default_backend())
 
+    def _compute_chksum(self):
+        chs = sum(sum(bytearray(c.to_mpibytes())) for c in (self.d, self.p, self.q, self.u)) % 65536
+        self.chksum = bytearray(self.int_to_bytes(chs, 2))
+
     def _generate(self, key_size):
         if any(c != 0 for c in self):  # pragma: no cover
             raise PGPError("key is already populated")
@@ -1183,6 +1187,10 @@ class DSAPriv(PrivKey, DSAPub):
         pn = dsa.DSAPublicNumbers(self.y, params)
         return dsa.DSAPrivateNumbers(self.x, pn).private_key(default_backend())
 
+    def _compute_chksum(self):
+        chs = sum(bytearray(self.x.to_mpibytes())) % 65536
+        self.chksum = bytearray(self.int_to_bytes(chs, 2))
+
     def _generate(self, key_size):
         if any(c != 0 for c in self):  # pragma: no cover
             raise PGPError("key is already populated")
@@ -1238,6 +1246,10 @@ class ElGPriv(PrivKey, ElGPub):
     def __privkey__(self):
         raise NotImplementedError()
 
+    def _compute_chksum(self):
+        chs = sum(bytearray(self.x.to_mpibytes())) % 65536
+        self.chksum = bytearray(self.int_to_bytes(chs, 2))
+
     def _generate(self, key_size):
         raise NotImplementedError(PubKeyAlgorithm.ElGamal)
 
@@ -1272,6 +1284,10 @@ class ECDSAPriv(PrivKey, ECDSAPub):
     def __privkey__(self):
         ecp = ec.EllipticCurvePublicNumbers(self.x, self.y, self.oid.curve())
         return ec.EllipticCurvePrivateNumbers(self.s, ecp).private_key(default_backend())
+
+    def _compute_chksum(self):
+        chs = sum(bytearray(self.s.to_mpibytes())) % 65536
+        self.chksum = bytearray(self.int_to_bytes(chs, 2))
 
     def _generate(self, oid):
         if any(c != 0 for c in self):  # pragma: no cover

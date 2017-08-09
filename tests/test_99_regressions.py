@@ -1,8 +1,12 @@
 """ I've got 99 problems but regression testing ain't one
 """
+import os
 import pytest
+import glob
 import tempfile
 import warnings
+from pgpy import PGPKey
+from pgpy.types import Armorable
 
 
 @pytest.mark.regression(issue=56)
@@ -11,7 +15,6 @@ def test_reg_bug_56(gpg_import, gpg_verify):
     import hashlib
     from datetime import datetime
 
-    from pgpy.pgp import PGPKey
     from pgpy.pgp import PGPSignature
 
     from pgpy.constants import HashAlgorithm
@@ -193,3 +196,145 @@ def test_reg_bug_157(monkeypatch):
 
     except AssertionError:
         warnings.warn("tuned_count: {}; elapsed time: {:.5f}".format(pgpy.constants.HashAlgorithm.SHA256.tuned_count, elapsed))
+
+
+_seckeys = {sk.key_algorithm.name: sk for sk in (PGPKey.from_file(f)[0] for f in sorted(glob.glob('tests/testdata/keys/*.sec.asc')))}
+seckm = [
+    _seckeys['DSA']._key,                                # DSA private key packet
+    _seckeys['DSA'].subkeys['1FD6D5D4DA0170C4']._key,    # ElGamal private key packet
+    _seckeys['RSAEncryptOrSign']._key,                   # RSA private key packet
+    _seckeys['ECDSA']._key,                              # ECDSA private key packet
+    _seckeys['ECDSA'].subkeys['A81B93FD16BD9806']._key,  # ECDH private key packet
+]
+
+
+@pytest.mark.regression(issue=172)
+@pytest.mark.parametrize('keypkt', seckm, ids=[sk.pkalg.name for sk in seckm])
+def test_check_checksum(keypkt):
+    # this test is dirty and simple
+    # take the key packet provided, and store the key material checksum
+    # recompute the checksum, and ensure they match
+    goodsum = keypkt.keymaterial.chksum[:]
+    keypkt.keymaterial._compute_chksum()
+    assert goodsum == keypkt.keymaterial.chksum
+
+
+@pytest.mark.regression(issue=183)
+def test_decrypt_unsigned_message():
+    from pgpy import PGPKey, PGPMessage
+    from pgpy.errors import PGPError
+
+    # these keys are small because the regression test doesn't really need the security
+    # if you're reading this, *DO NOT GENERATE RSA KEYS THIS SMALL*
+    # also, it's probably better to sign-then-encrypt rather than encrypt-then-sign
+    decrypt_key = "-----BEGIN PGP PRIVATE KEY BLOCK-----\n" \
+                  "Version: PGPy v0.4.2\n" \
+                  "\n" \
+                  "xcA4BFlKzk4BAgDL9E6Lpzq9yNhRP49HXeOSYTz4DPI1A2wxwI97qjZFsJ2lJ2aV\n" \
+                  "SYFpbuS6DEPaya+98HQ6xM7o2PhbUnHqcXHzABEBAAEAAf9U/XOVwpQ57e4mvWPJ\n" \
+                  "i5h/sUGk5FAyQ0Dc4q9oCyAenaIIe5npbsR+oKmUHwJ5wWgfrTaxvAkBl15kMtSN\n" \
+                  "VItBAQDv/8BdIdW2Bc9+qvCtC2xiUJ/3Rd+eyXMZhn4VMdA8sQEA2Y1aRBpWjHo9\n" \
+                  "g9KydxAewt8LUwchRHeonMmILuZ58eMBALP8euss11ELnjDOLrgRP2swnOTTTk3b\n" \
+                  "P6aV8/rbcEXOUgPNG1JlZ3Jlc3NvIEVuY3J5cHRlciAoUFIjMTgzKcJrBBMBAgAV\n" \
+                  "BQJZSs6CAhsOAgsHAhUCAhYAAh4BAAoJEA2I8KkOVzh/+IMCAI308quFk/lJXPF/\n" \
+                  "bpvwwgFa9bRdIzl07Qu+3oQcEm+1cu6ivznewIEmQclSUpSLjXrS/LysQSAQye+J\n" \
+                  "PgSEalQ=\n" \
+                  "=Sg/Y\n" \
+                  "-----END PGP PRIVATE KEY BLOCK-----\n"
+    sign_key = "-----BEGIN PGP PRIVATE KEY BLOCK-----\n" \
+               "Version: PGPy v0.4.2\n" \
+               "\n" \
+               "xcA4BFlKzkMBAgDQZA3bao1qo3XkuUDOaFm1x5TkAAMUUUxtmj+dSR0wl7uRzxWm\n" \
+               "8naFpsJ1Mah/I8RlS1oZizaDI7BzbOvGUGjLABEBAAEAAf95RBAQQ/QhPxfmzqrY\n" \
+               "sj6qGocZGqywERMxoJYuOBLFaCjdT8xk0syI0LOCetwDmUWerUPWO52w9T5Gj295\n" \
+               "YUDpAQD7DSmifDMssvG5F9JYWdKobEwWxVsjyaYR/vbH/1Iy3QEA1H+e66Jz1ERl\n" \
+               "yPLyl4E5chwO2l+VMxiFod3Dvo8C68cA/0GWJIdK0NzSNZwS6wFabZg2R1pZWxJJ\n" \
+               "B0tsI0EqbUgNTiXNGFJlZ3Jlc3NvIFNpZ25lciAoUFIjMTgzKcJoBBMBAgASBQJZ\n" \
+               "Ss53AhsCAhUCAhYAAh4BAAoJED6S3OqHJjksTzQCAM73UuXFtM2qXp4zfOGYEMsj\n" \
+               "gcKFuFFLyNOhPZo6REeJC7o2+9d7Mwys8wVNTuS3D3o1h49QpYYNjYlgNSZ85pU=\n" \
+               "=DBkI\n" \
+               "-----END PGP PRIVATE KEY BLOCK-----\n"
+
+    msg = "-----BEGIN PGP MESSAGE-----\n" \
+          "Version: PGPy v0.4.2\n" \
+          "\n" \
+          "xA0DAAIBPpLc6ocmOSwAwUwDDYjwqQ5XOH8BAfwOTH6C/lk5bQevArYnrf0q3Dde\n" \
+          "JDjM/otBckiTS8kvFz1XFfQhIDkZl+fDcRwDFNe9+JKLqOM4jU6FIUwToYgz0ksB\n" \
+          "f6iZ80U0dzHGtvmEzYSnsYWAglik0ch/E9tyNq/lryrLnrxWu7V26wPfI1TISuKd\n" \
+          "U+w1HPGoH8ugo6GkeqBdeED6gJfKEm1qgrHCXAQAAQIABgUCWUrVMQAKCRA+ktzq\n" \
+          "hyY5LLcHAgDHYjKVbpd5/FV4+CZ0H5yTnrD/vZ+QebDC7CmOM7f1Q5L1AdG/K1rr\n" \
+          "+Ud/YHq3NVk5UGU0LDfjdBwVaJmOjEUx\n" \
+          "=ITfp\n" \
+          "-----END PGP MESSAGE-----\n"
+
+    dkey, _ = PGPKey.from_blob(decrypt_key)
+    skey, _ = PGPKey.from_blob(sign_key)
+    encmsg = PGPMessage.from_blob(msg)
+
+    # this should work
+    decmsg = dkey.decrypt(encmsg)
+    assert decmsg.message == "Regression Test for PR#183"
+
+    # this should raise PGPError, not PGPDecryptionError
+    with pytest.raises(PGPError):
+        skey.decrypt(encmsg)
+
+
+@pytest.mark.regression(194)
+def test_pubkey_subkey_parent():
+    from pgpy import PGPKey
+
+    # import this small key that has a subkey
+    keyblob = ('-----BEGIN PGP PRIVATE KEY BLOCK-----\n'
+               'Version: PGPy v0.4.2\n'
+               '\n'
+               'xcA4BFlULU4BAgDeq2bKPPOBzdgd1WF3RBQ0E0kkZbTfpgZjamDzdb6gfQ5TcBhs\n'
+               'drI4XpxWOV3DorbsZ8Usj4zHx/XmLNCmxwqvABEBAAEAAgCSO76l0qGY/baQ4THB\n'
+               'QdSC3qeKX8EJn99SKurA+PLYMg6IxLGBpWYIK8tT68xpqQ5ZwE9GodZ2QjfOVz2R\n'
+               'o4IBAQD/UjtthEtyiMA1CDCPEksfIyd0QDjt82C19MSeqau8WQEA30LydxkjlvgH\n'
+               'u5/uWVGqoFWhhfw5hDrYy72L6EbCfkcA/2csk7uGw/yg2MDUTlDwdokn1DLGkt/+\n'
+               'Q/fPAMYvX6gvVoXNFVJlZ3Jlc3NvIChJc3N1ZSAjMTk0KcJrBBMBAgAVBQJZVC3O\n'
+               'AhsDAgsHAhUCAhYAAh4BAAoJEC4sMTkKIj+F8ywB/AqaNHwi8xM1Rg99mOSib1zi\n'
+               'jlXALY8pOrNU7Nqtc/6oks+49WeVW5zpE1vl1JPm2WYzvCEnE1KffdyjNR0bQ1XH\n'
+               'wDgEWVQtUQECAKsWCdSRh6YDP9yuSonfHpBfUzRD/EQvpNnUDiTclV9w6RPMZYk9\n'
+               'o5oUQTumPKnznsovLpNmIm48DCALMzdTzH0AEQEAAQACAJDfsKNYOM3Toph03pmx\n'
+               'XmhS0FpJ16zFy4rJjtCYGcUerUqRQ1ehXIY9Ig9J5LitJXThrP4dvUlRCWUcxxl6\n'
+               '9eEBANOiM8ktXW0bPZfBKunWn7ajA0PMBKG8p2d9iBCawBbbAQDO88L8V0cxCRvH\n'
+               '8L1J4gsttPWDOnhw5z8Dq4Zv5U3thwD/WwE0miqfEpYAmkhc0g7lHf6l7qo+SrUZ\n'
+               'ZKl0GLPLKKFRscK9BBgBAgAJBQJZVC3mAhsMAGgJEC4sMTkKIj+FXSAEGQECAAYF\n'
+               'AllULeYACgkQCK0qxtsEtqzY7QIAoayZGB78eaImQVOpTLX2jnaDR2UY7NtUy6YI\n'
+               'XMSumCeZj+n+BexmUm6x2kqg0FJLRwAE4i+rnvFA0HHX40/9d221AgCzUxHuHjKP\n'
+               'b5wNW20vanc6b6ZMi52MyhluXAIdnvgPkPEzVIS+gGOX2DeT4TXAdosKfD1o5qS7\n'
+               'ANRbocmpDuO3\n'
+               '=UjzO\n'
+               '-----END PGP PRIVATE KEY BLOCK-----\n')
+
+    privkey, _ = PGPKey.from_blob(keyblob)
+    pubkey = privkey.pubkey
+
+    assert pubkey.subkeys['08AD2AC6DB04B6AC'].parent is pubkey
+
+
+cleartext_sigs = ['tests/testdata/messages/cleartext.oneline.signed.asc',
+                  'tests/testdata/messages/cleartext.empty.signed.asc']
+cleartexts = ['This is stored, literally\!',
+              '']
+
+
+@pytest.mark.regression(issue=192)
+@pytest.mark.parametrize('sf,cleartext', zip(cleartext_sigs, cleartexts), ids=[os.path.basename(f) for f in cleartext_sigs])
+def test_oneline_cleartext(sf, cleartext):
+    with open(sf) as of:
+        oc = of.read()
+
+    dearmor = Armorable.ascii_unarmor(oc)
+    # It is a signature
+    assert dearmor['magic'] == 'SIGNATURE'
+    # No newline at the end
+    assert dearmor['cleartext'] == cleartext
+
+
+@pytest.mark.regression(issue=199)
+def test_armorable_empty_str():
+    with pytest.raises(ValueError, message='Expected: ASCII-armored PGP data'):
+        Armorable.ascii_unarmor('')

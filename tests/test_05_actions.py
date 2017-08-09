@@ -11,11 +11,13 @@ import os
 import six
 import tempfile
 import time
-from datetime import datetime, timedelta
 
+from datetime import datetime, timedelta
 from pgpy import PGPKey
 from pgpy import PGPMessage
+from pgpy import PGPSignature
 from pgpy import PGPUID
+from pgpy._curves import _openssl_get_supported_curves
 from pgpy.constants import CompressionAlgorithm
 from pgpy.constants import EllipticCurveOID
 from pgpy.constants import Features
@@ -32,6 +34,14 @@ from pgpy.packet.packets import PrivSubKeyV4
 
 
 enc_msgs = [ PGPMessage.from_file(f) for f in sorted(glob.glob('tests/testdata/messages/message*.pass*.asc')) ]
+
+
+def EncodedNamedTemporaryFile(mode, **kw):
+    # adapter function to handle the fact that Py2x tempfile.NamedTemporaryFile does not have the encoding kwarg
+    if six.PY2 and 'encoding' in kw:
+        del kw['encoding']
+
+    return tempfile.NamedTemporaryFile(mode, **kw)
 
 
 class TestPGPMessage(object):
@@ -101,7 +111,7 @@ class TestPGPMessage(object):
         assert msg.type == 'cleartext'
         assert msg.message == text
 
-        with tempfile.NamedTemporaryFile('w+') as mf:
+        with EncodedNamedTemporaryFile('w+', encoding='utf-8') as mf:
             mf.write(six.text_type(msg).encode('utf-8') if six.PY2 else six.text_type(msg))
             mf.flush()
             assert gpg_print(mf.name).encode('latin-1').decode('utf-8').strip() == text
@@ -179,6 +189,7 @@ def userphoto():
     return PGPUID.new(pbytes)
 
 
+# TODO: add more keyspecs
 pkeyspecs = ((PubKeyAlgorithm.RSAEncryptOrSign, 1024),
              (PubKeyAlgorithm.DSA, 1024),
              (PubKeyAlgorithm.ECDSA, EllipticCurveOID.NIST_P256),)
@@ -241,11 +252,14 @@ class TestPGPKey_Management(object):
                              itertools.product(pkeyspecs, skeyspecs),
                              ids=['{}-{}-{}'.format(pk[0].name, sk[0].name, sk[1]) for pk, sk in itertools.product(pkeyspecs, skeyspecs)])
     def test_add_subkey(self, pkspec, skspec):
+        if pkspec not in self.keys:
+            pytest.skip('Keyspec {} not in keys; must not have generated'.format(pkspec))
+
         alg, size = skspec
         if not alg.can_gen:
             pytest.xfail('Key algorithm {} not yet supported'.format(alg.name))
 
-        if isinstance(size, EllipticCurveOID) and not size.can_gen:
+        if isinstance(size, EllipticCurveOID) and ((not size.can_gen) or size.name not in _openssl_get_supported_curves()):
             pytest.xfail('Curve {} not yet supported'.format(size.name))
 
         key = self.keys[pkspec]
@@ -456,7 +470,7 @@ class TestPGPKey_Management(object):
         if not alg.can_gen:
             pytest.xfail('Key algorithm {} not yet supported'.format(alg.name))
 
-        if isinstance(size, EllipticCurveOID) and not size.can_gen:
+        if isinstance(size, EllipticCurveOID) and ((not size.can_gen) or size.name not in _openssl_get_supported_curves()):
             pytest.xfail('Curve {} not yet supported'.format(size.name))
 
         # revoke the subkey
@@ -862,3 +876,19 @@ class TestPGPKey_Actions(object):
 
             with gpg_import(os.path.realpath(sf)) as kf:
                 assert gpg_print(emsgf.name) == dmsg.message
+
+    @pytest.mark.run(after='test_encrypt_message')
+    @pytest.mark.parametrize('sf,cipher',
+                             itertools.product(sorted(glob.glob('tests/testdata/keys/*.sec.asc')), sorted(SymmetricKeyAlgorithm)))
+    def test_sign_encrypted_message(self, sf, cipher):
+        # test decrypting a message
+        sec, _ = PGPKey.from_file(sf)
+        if (sec.fingerprint, cipher) not in self.msgs:
+            pytest.skip('Message not present; see test_encrypt_message skip or xfail reason')
+
+        emsg = self.msgs[(sec.fingerprint, cipher)]
+        emsg |= sec.sign(emsg)
+
+        assert emsg.is_signed
+        assert emsg.is_encrypted
+        assert isinstance(next(iter(emsg)), PGPSignature)

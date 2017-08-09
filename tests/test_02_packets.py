@@ -40,16 +40,12 @@ def binload(f):
         return buf
 
 
-skip_files = {'tests/testdata/packets/{:s}'.format(pkt) for pkt in ['11.partial.literal']}
 pktfiles = sorted(glob.glob('tests/testdata/packets/[0-9]*'))
 
 
 class TestPacket(object):
     @pytest.mark.parametrize('packet', pktfiles, ids=[os.path.basename(f) for f in pktfiles])
     def test_load(self, packet):
-        if packet in skip_files:
-            pytest.skip("not implemented yet")
-
         b = binload(packet) + _trailer
         _b = b[:]
         p = Packet(_b)
@@ -59,11 +55,12 @@ class TestPacket(object):
 
         # length is computed correctly
         assert p.header.length + len(p.header) == len(p)
-        assert len(p) == len(b) - len(_trailer)
-        assert len(p.__bytes__()) == len(b) - len(_trailer)
+        if packet not in ('tests/testdata/packets/11.partial.literal',):
+            assert len(p) == len(b) - len(_trailer)
+            assert len(p.__bytes__()) == len(b) - len(_trailer)
 
-        # __bytes__ output is correct
-        assert p.__bytes__() == b[:-len(_trailer)]
+            # __bytes__ output is correct
+            assert p.__bytes__() == b[:-len(_trailer)]
 
         # instantiated class is what we expected
         if hasattr(p.header, 'version') and (p.header.tag, p.header.version) in _pclasses:

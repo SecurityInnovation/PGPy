@@ -44,58 +44,22 @@ if six.PY2:
 
 
 class Armorable(six.with_metaclass(abc.ABCMeta)):
-    __crc24_init__ = 0x0B704CE
-    __crc24_poly__ = 0x1864CFB
+    __crc24_init = 0x0B704CE
+    __crc24_poly = 0x1864CFB
 
-    __armor_fmt__ = '-----BEGIN PGP {block_type}-----\n' \
-                    '{headers}\n' \
-                    '{packet}\n' \
-                    '={crc}\n' \
-                    '-----END PGP {block_type}-----\n'
+    __armor_fmt = '-----BEGIN PGP {block_type}-----\n' \
+                  '{headers}\n' \
+                  '{packet}\n' \
+                  '={crc}\n' \
+                  '-----END PGP {block_type}-----\n'
 
-    @property
-    def charset(self):
-        return self.ascii_headers.get('Charset', 'utf-8')
-
-    @charset.setter
-    def charset(self, encoding):
-        self.ascii_headers['Charset'] = codecs.lookup(encoding).name
-
-    @staticmethod
-    def is_ascii(text):
-        if isinstance(text, six.string_types):
-            return bool(re.match(r'^[ -~\r\n]+$', text, flags=re.ASCII))
-
-        if isinstance(text, (bytes, bytearray)):
-            return bool(re.match(br'^[ -~\r\n]+$', text, flags=re.ASCII))
-
-        raise TypeError("Expected: ASCII input of type str, bytes, or bytearray")  # pragma: no cover
-
-    @staticmethod
-    def ascii_unarmor(text):
-        """
-        Takes an ASCII-armored PGP block and returns the decoded byte value.
-
-        :param text: An ASCII-armored PGP block, to un-armor.
-        :raises: :py:exc:`ValueError` if ``text`` did not contain an ASCII-armored PGP block.
-        :raises: :py:exc:`TypeError` if ``text`` is not a ``str``, ``bytes``, or ``bytearray``
-        :returns: A ``dict`` containing information from ``text``, including the de-armored data.
-        """
-        m = {'magic': None, 'headers': None, 'body': bytearray(), 'crc': None}
-        if not Armorable.is_ascii(text):
-            m['body'] = bytearray(text)
-            return m
-
-        if isinstance(text, (bytes, bytearray)):  # pragma: no cover
-            text = text.decode('latin-1')
-
-        # the re.VERBOSE flag allows for:
-        #  - whitespace is ignored except when in a character class or escaped
-        #  - anything after a '#' that is not escaped or in a character class is ignored, allowing for comments
-        m = re.search(r"""# This capture group is optional because it will only be present in signed cleartext messages
+    # the re.VERBOSE flag allows for:
+    #  - whitespace is ignored except when in a character class or escaped
+    #  - anything after a '#' that is not escaped or in a character class is ignored, allowing for comments
+    __armor_regex = re.compile(r"""# This capture group is optional because it will only be present in signed cleartext messages
                          (^-{5}BEGIN\ PGP\ SIGNED\ MESSAGE-{5}(?:\r?\n)
                           (Hash:\ (?P<hashes>[A-Za-z0-9\-,]+)(?:\r?\n){2})?
-                          (?P<cleartext>(.*\n)+)(?:\r?\n)
+                          (?P<cleartext>(.*\r?\n)*(.*(?=\r?\n-{5})))(?:\r?\n)
                          )?
                          # armor header line; capture the variable part of the magic text
                          ^-{5}BEGIN\ PGP\ (?P<magic>[A-Z0-9 ,]+)-{5}(?:\r?\n)
@@ -109,7 +73,59 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
                          ^=(?P<crc>[A-Za-z0-9+/]{4})(?:\r?\n)
                          # finally, capture the armor tail line, which must match the armor header line
                          ^-{5}END\ PGP\ (?P=magic)-{5}(?:\r?\n)?
-                         """, text, flags=re.MULTILINE | re.VERBOSE)
+                         """, flags=re.MULTILINE | re.VERBOSE)
+
+    @property
+    def charset(self):
+        return self.ascii_headers.get('Charset', 'utf-8')
+
+    @charset.setter
+    def charset(self, encoding):
+        self.ascii_headers['Charset'] = codecs.lookup(encoding).name
+
+    @staticmethod
+    def is_ascii(text):
+        if isinstance(text, six.string_types):
+            return bool(re.match(r'^[ -~\r\n]*$', text, flags=re.ASCII))
+
+        if isinstance(text, (bytes, bytearray)):
+            return bool(re.match(br'^[ -~\r\n]*$', text, flags=re.ASCII))
+
+        raise TypeError("Expected: ASCII input of type str, bytes, or bytearray")  # pragma: no cover
+
+    @staticmethod
+    def is_armor(text):
+        """
+        Whether the ``text`` provided is an ASCII-armored PGP block.
+        :param text: A possible ASCII-armored PGP block.
+        :raises: :py:exc:`TypeError` if ``text`` is not a ``str``, ``bytes``, or ``bytearray``
+        :returns: Whether the text is ASCII-armored.
+        """
+        if isinstance(text, (bytes, bytearray)):  # pragma: no cover
+            text = text.decode('latin-1')
+
+        return Armorable.__armor_regex.search(text) is not None
+
+    @staticmethod
+    def ascii_unarmor(text):
+        """
+        Takes an ASCII-armored PGP block and returns the decoded byte value.
+
+        :param text: An ASCII-armored PGP block, to un-armor.
+        :raises: :py:exc:`ValueError` if ``text`` did not contain an ASCII-armored PGP block.
+        :raises: :py:exc:`TypeError` if ``text`` is not a ``str``, ``bytes``, or ``bytearray``
+        :returns: A ``dict`` containing information from ``text``, including the de-armored data.
+        It can contain the following keys: ``magic``, ``headers``, ``hashes``, ``cleartext``, ``body``, ``crc``.
+        """
+        m = {'magic': None, 'headers': None, 'body': bytearray(), 'crc': None}
+        if not Armorable.is_ascii(text):
+            m['body'] = bytearray(text)
+            return m
+
+        if isinstance(text, (bytes, bytearray)):  # pragma: no cover
+            text = text.decode('latin-1')
+
+        m = Armorable.__armor_regex.search(text)
 
         if m is None:  # pragma: no cover
             raise ValueError("Expected: ASCII-armored PGP data")
@@ -146,7 +162,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
         # by using the generator 0x864CFB and an initialization of 0xB704CE.
         # The accumulation is done on the data before it is converted to
         # radix-64, rather than on the converted data.
-        crc = Armorable.__crc24_init__
+        crc = Armorable.__crc24_init
 
         if not isinstance(data, bytearray):
             data = six.iterbytes(data)
@@ -157,7 +173,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
             for i in range(8):
                 crc <<= 1
                 if crc & 0x1000000:
-                    crc ^= Armorable.__crc24_poly__
+                    crc ^= Armorable.__crc24_poly
 
         return crc & 0xFFFFFF
 
@@ -202,7 +218,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
         payload = base64.b64encode(self.__bytes__()).decode('latin-1')
         payload = '\n'.join(payload[i:(i + 64)] for i in range(0, len(payload), 64))
 
-        return self.__armor_fmt__.format(
+        return self.__armor_fmt.format(
             block_type=self.magic,
             headers=''.join('{key}: {val}\n'.format(key=key, val=val) for key, val in self.ascii_headers.items()),
             packet=payload,
@@ -351,30 +367,39 @@ class Header(Field):
     @length.register(bytearray)
     def length_bin(self, val):
         def _new_len(b):
-            fo = b[0]
+            def _parse_len(a, offset=0):
+                # returns (the parsed length, size of length field, whether the length was of partial type)
+                fo = a[offset]
 
-            if 192 > fo:
-                self._len = self.bytes_to_int(b[:1])
-                del b[:1]
+                if 192 > fo:
+                    return (self.bytes_to_int(a[offset:offset + 1]), 1, False)
 
-            elif 224 > fo:  # >= 192 is implied
-                dlen = self.bytes_to_int(b[:2])
-                self._len = ((dlen - (192 << 8)) & 0xFF00) + ((dlen & 0xFF) + 192)
-                del b[:2]
+                elif 224 > fo:  # >= 192 is implied
+                    dlen = self.bytes_to_int(b[offset:offset + 2])
+                    return (((dlen - (192 << 8)) & 0xFF00) + ((dlen & 0xFF) + 192), 2, False)
 
-            elif 255 > fo:  # pragma: no cover
-                # not testable until partial body lengths actually work
-                # >= 224 is implied
-                # this is a partial-length header
-                self._partial = True
-                self._len = 1 << (fo & 0x1f)
+                elif 255 > fo:  # >= 224 is implied
+                    # this is a partial-length header
+                    return (1 << (fo & 0x1f), 1, True)
 
-            elif 255 == fo:
-                self._len = self.bytes_to_int(b[1:5])
-                del b[:5]
+                elif 255 == fo:
+                    return (self.bytes_to_int(b[offset + 1:offset + 5]), 5, False)
 
-            else:  # pragma: no cover
-                raise ValueError("Malformed length: 0x{:02x}".format(fo))
+                else:  # pragma: no cover
+                    raise ValueError("Malformed length: 0x{:02x}".format(fo))
+
+            part_len, size, partial = _parse_len(b)
+            del b[:size]
+
+            if partial:
+                total = part_len
+                while partial:
+                    part_len, size, partial = _parse_len(b, total)
+                    del b[total:total + size]
+                    total += part_len
+                self._len = total
+            else:
+                self._len = part_len
 
         def _old_len(b):
             if self.llen > 0:

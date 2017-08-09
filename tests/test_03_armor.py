@@ -12,7 +12,7 @@ from pgpy.constants import SignatureType
 from pgpy.pgp import PGPKey
 from pgpy.pgp import PGPMessage
 from pgpy.pgp import PGPSignature
-
+from pgpy.types import Armorable
 
 blocks = sorted(glob.glob('tests/testdata/blocks/*.asc'))
 block_attrs = {
@@ -329,3 +329,26 @@ class TestBlocks(object):
             if attrval != val:
                 raise AssertionError('expected block.{attr:s} = {aval}; got block.{attr:s} = {rval}'
                                      ''.format(attr=attr, aval=val, rval=attrval))
+
+
+armored = glob.glob('tests/testdata/*/*.asc')
+txt = glob.glob('tests/testdata/files/*.txt')
+binary = glob.glob('tests/testdata/files/*.bin')
+raw = txt + binary
+
+# armor matching test
+class TestMatching(object):
+    @pytest.mark.parametrize('armored', armored, ids=[os.path.basename(f) for f in armored])
+    def test_is_armor(self, armored):
+        with open(armored) as af:
+            ac = af.read()
+
+        assert Armorable.is_armor(ac)
+
+    @pytest.mark.parametrize('text', raw, ids=[os.path.basename(f) for f in raw])
+    def test_not_armor(self, text):
+        mode = 'r' if text in txt else 'rb'
+        with open(text, mode) as tf:
+            tc = tf.read()
+
+        assert not Armorable.is_armor(tc)

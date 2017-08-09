@@ -1,3 +1,4 @@
+sudo: required
 os:
   - linux
   - osx
@@ -31,6 +32,13 @@ matrix:
 
     - python: 2.7
       env: TOXENV=setup27
+
+    # do some tests with LC_ALL=C to check for locale variance
+    - python: 3.6
+      env: LC_ALL=C
+
+    - python: 2.7
+      env: LC_ALL=C
 
   allow_failures:
     # pep8 failures shouldn't be considered fatal
