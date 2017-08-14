@@ -3,7 +3,7 @@ Upstream-Name: PGPy
 Source: https://github.com/SecurityInnovation/PGPy
 
 Files: *
-Copyright: 2014-2016 Michael Greene, 2014-2016 Security Innovation, Inc
+Copyright: 2014-2017 Michael Greene, 2014-2017 Security Innovation, Inc
 License: BSD-3-Clause
  All rights reserved.
  .
