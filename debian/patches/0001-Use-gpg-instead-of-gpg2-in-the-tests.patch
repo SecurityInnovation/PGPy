@@ -9,7 +9,7 @@ bother supplying gpg2 as an alias in a separate package.
  1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/tests/conftest.py b/tests/conftest.py
-index 17be293..009d06d 100644
+index e108b23..991833d 100644
 --- a/tests/conftest.py
 +++ b/tests/conftest.py
 @@ -57,7 +57,7 @@ def _run(bin, *binargs, **pkw):

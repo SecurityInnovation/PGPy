@@ -34,7 +34,7 @@ see https://bugs.gnupg.org/gnupg/issue2964
  1 file changed, 2 insertions(+)
 
 diff --git a/tests/conftest.py b/tests/conftest.py
-index 009d06d..3133a84 100644
+index 991833d..14870e3 100644
 --- a/tests/conftest.py
 +++ b/tests/conftest.py
 @@ -261,6 +261,8 @@ def pytest_configure(config):
