@@ -1,3 +1,9 @@
+python-pgpy (0.4.2-2) unstable; urgency=medium
+
+  * updated year in debian/copyright
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Mon, 14 Aug 2017 13:00:03 -0400
+
 python-pgpy (0.4.2-1) unstable; urgency=medium
 
   * New upstream release (Closes: #848518)
