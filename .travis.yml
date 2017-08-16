@@ -19,6 +19,7 @@ addons:
     packages:
       - libffi-dev
       - gnupg
+      - libgpgme11
       - libgpgme11-dev
 matrix:
   include:
