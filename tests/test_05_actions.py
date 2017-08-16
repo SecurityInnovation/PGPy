@@ -2,10 +2,11 @@
 """ test doing things with keys/signatures/etc
 """
 import pytest
-from conftest import gpg_ver
+from conftest import gpg_ver, gnupghome
 
 import copy
 import glob
+import gpg
 import itertools
 import os
 import six
@@ -45,9 +46,25 @@ def EncodedNamedTemporaryFile(mode, **kw):
 
 
 class TestPGPMessage(object):
+    @staticmethod
+    def gpg_message(msg):
+        with gpg.Context(offline=True) as c:
+            c.set_engine_info(gpg.constants.PROTOCOL_OpenPGP, home_dir=gnupghome)
+            msg, _ = c.verify(gpg.Data(string=str(msg)))
+        return msg
+
+    @staticmethod
+    def gpg_decrypt(msg, passphrase):
+        with gpg.Context(offline=True) as c:
+            c.set_engine_info(gpg.constants.PROTOCOL_OpenPGP, home_dir=gnupghome)
+            msg, decres, _ = c.decrypt(gpg.Data(string=str(msg)), passphrase=passphrase)
+
+        assert decres
+        return msg
+
     @pytest.mark.parametrize('comp_alg,sensitive',
                              itertools.product(CompressionAlgorithm, [False, True]))
-    def test_new(self, comp_alg, sensitive, gpg_print):
+    def test_new(self, comp_alg, sensitive):
         mtxt = u"This is a new message!"
         msg = PGPMessage.new(mtxt, compression=comp_alg, sensitive=sensitive)
 
@@ -58,14 +75,12 @@ class TestPGPMessage(object):
         assert msg.message == mtxt
         assert msg._compression == comp_alg
 
-        with tempfile.NamedTemporaryFile('w+') as mf:
-            mf.write(str(msg))
-            mf.flush()
-            assert gpg_print(mf.name) == mtxt
+        # see if GPG can parse our message
+        assert self.gpg_message(msg).decode('utf-8') == mtxt
 
     @pytest.mark.parametrize('comp_alg,sensitive,path',
                              itertools.product(CompressionAlgorithm, [False, True], sorted(glob.glob('tests/testdata/files/literal*'))))
-    def test_new_from_file(self, comp_alg, sensitive, path, gpg_print):
+    def test_new_from_file(self, comp_alg, sensitive, path):
         msg = PGPMessage.new(path, file=True, compression=comp_alg, sensitive=sensitive)
 
         assert isinstance(msg, PGPMessage)
@@ -74,16 +89,14 @@ class TestPGPMessage(object):
         assert msg.is_sensitive is sensitive
 
         with open(path, 'rb') as tf:
-            mtxt = tf.read().decode('latin-1')
+            mtxt = tf.read()
 
-        with tempfile.NamedTemporaryFile('w+') as mf:
-            mf.write(str(msg))
-            mf.flush()
-            assert gpg_print(mf.name) == mtxt
+            # see if GPG can parse our message
+            assert self.gpg_message(msg) == mtxt
 
     @pytest.mark.regression(issue=154)
     # @pytest.mark.parametrize('cleartext', [False, True])
-    def test_new_non_unicode(self, gpg_print):
+    def test_new_non_unicode(self):
         # this message text comes from http://www.columbia.edu/~fdc/utf8/
         text = u'色は匂へど 散りぬるを\n' \
                u'我が世誰ぞ 常ならむ\n' \
@@ -94,13 +107,11 @@ class TestPGPMessage(object):
         assert msg.type == 'literal'
         assert msg.message == text.encode('jisx0213')
 
-        with tempfile.NamedTemporaryFile('w+') as mf:
-            mf.write(str(msg))
-            mf.flush()
-            assert gpg_print(mf.name).encode('latin-1').decode('jisx0213').strip() == text
+        # see if GPG can parse our message
+        assert self.gpg_message(msg).decode('jisx0213') == text
 
     @pytest.mark.regression(issue=154)
-    def test_new_non_unicode_cleartext(self, gpg_print):
+    def test_new_non_unicode_cleartext(self):
         # this message text comes from http://www.columbia.edu/~fdc/utf8/
         text = u'色は匂へど 散りぬるを\n' \
                u'我が世誰ぞ 常ならむ\n' \
@@ -110,11 +121,6 @@ class TestPGPMessage(object):
 
         assert msg.type == 'cleartext'
         assert msg.message == text
-
-        with EncodedNamedTemporaryFile('w+', encoding='utf-8') as mf:
-            mf.write(six.text_type(msg).encode('utf-8') if six.PY2 else six.text_type(msg))
-            mf.flush()
-            assert gpg_print(mf.name).encode('latin-1').decode('utf-8').strip() == text
 
     def test_add_marker(self):
         msg = PGPMessage.new(u"This is a new message")
@@ -133,7 +139,7 @@ class TestPGPMessage(object):
         assert decmsg.message == b"This is stored, literally\\!\n\n"
 
     @pytest.mark.parametrize('comp_alg', CompressionAlgorithm)
-    def test_encrypt_passphrase(self, comp_alg, gpg_decrypt):
+    def test_encrypt_passphrase(self, comp_alg):
         mtxt = "This message is to be encrypted"
         msg = PGPMessage.new(mtxt, compression=comp_alg)
         assert not msg.is_encrypted
@@ -153,11 +159,8 @@ class TestPGPMessage(object):
         assert decmsg.message == mtxt
         assert decmsg._compression == msg._compression
 
-        # decrypt with GPG
-        with tempfile.NamedTemporaryFile('w+') as mf:
-            mf.write(str(encmsg))
-            mf.flush()
-            assert gpg_decrypt(mf.name, "QwertyUiop") == mtxt
+        # decrypt with GPG via python-gnupg
+        assert self.gpg_decrypt(encmsg, 'QwertyUiop').decode('utf-8') == decmsg.message
 
     def test_encrypt_passphrase_2(self):
         mtxt = "This message is to be encrypted"
@@ -211,18 +214,11 @@ class TestPGPKey_Management(object):
     keys = {}
 
     def gpg_verify_key(self, key):
-        from conftest import gpg_import as gpgi
-        gpg_import = gpgi()
+        with gpg.Context(offline=True) as c:
+            c.set_engine_info(gpg.constants.PROTOCOL_OpenPGP, home_dir=gnupghome)
+            data, vres = c.verify(gpg.Data(string=str(key)))
 
-        if gpg_ver < '2.1' and key.key_algorithm in {PubKeyAlgorithm.ECDSA, PubKeyAlgorithm.ECDH}:
-            # GPG prior to 2.1.x does not support EC* keys
-            return
-
-        with tempfile.NamedTemporaryFile('w+') as kf:
-            kf.write(str(key))
-            kf.flush()
-            with gpg_import(kf.name) as kio:
-                assert 'invalid self-signature' not in kio
+        assert vres
 
     @pytest.mark.run('first')
     @pytest.mark.parametrize('alg,size', pkeyspecs)
@@ -581,25 +577,44 @@ class TestPGPKey_Actions(object):
     sigs = {}
     msgs = {}
 
-    def gpg_verify(self, subject, sig, pubkey):
+    def gpg_verify(self, subject, sig=None, pubkey=None):
         # verify with GnuPG
-        from conftest import gpg_import as gpgi
-        from conftest import gpg_verify as gpgv
-        gpg_import = gpgi()
-        gpg_verify = gpgv()
+        with gpg.Context(armor=True, offline=True) as c:
+            c.set_engine_info(gpg.constants.PROTOCOL_OpenPGP, home_dir=gnupghome)
 
-        with tempfile.NamedTemporaryFile('w+') as sigf, \
-                tempfile.NamedTemporaryFile('w+') as subjf, \
-                tempfile.NamedTemporaryFile('w+') as keyf:
-            sigf.write(str(sig))
-            subjf.write(str(subject))
-            keyf.write(str(pubkey))
-            sigf.flush()
-            subjf.flush()
-            keyf.flush()
+            # do we need to import the key?
+            if pubkey:
+                try:
+                    c.get_key(pubkey.fingerprint)
 
-            with gpg_import(keyf.name):
-                assert gpg_verify(subjf.name, sigf.name, keyid=sig.signer)
+                except gpg.errors.KeyNotFound:
+                    key_data = gpg.Data(string=str(pubkey))
+                    gpg.core.gpgme.gpgme_op_import(c.wrapped, key_data)
+
+            vargs = [gpg.Data(string=str(subject))]
+            if sig is not None:
+                vargs += [gpg.Data(string=str(sig))]
+
+            _, vres = c.verify(*vargs)
+
+        assert vres
+
+    def gpg_decrypt(self, message, privkey):
+        # decrypt with GnuPG
+        with gpg.Context(armor=True, offline=True) as c:
+            c.set_engine_info(gpg.constants.PROTOCOL_OpenPGP, home_dir=gnupghome)
+
+            # do we need to import the key?
+            try:
+                c.get_key(privkey.fingerprint, True)
+
+            except gpg.errors.KeyNotFound:
+                key_data = gpg.Data(string=str(privkey))
+                gpg.core.gpgme.gpgme_op_import(c.wrapped, key_data)
+
+            pt, _, _ = c.decrypt(gpg.Data(string=str(message)), verify=False)
+
+        return pt
 
     # test non-management PGPKey actions using existing keys, i.e.:
     # - signing/verifying
@@ -641,7 +656,7 @@ class TestPGPKey_Actions(object):
         assert sv
         assert sig in sv
 
-    def test_sign_message(self, targette_sec, targette_pub, message, gpg_import, gpg_verify):
+    def test_sign_message(self, targette_sec, targette_pub, message):
         # test signing a message
         sig = targette_sec.sign(message)
 
@@ -652,13 +667,7 @@ class TestPGPKey_Actions(object):
         message |= sig
 
         # verify with GnuPG
-        with tempfile.NamedTemporaryFile('w+') as mf, tempfile.NamedTemporaryFile('w+') as pubf:
-            mf.write(str(message))
-            pubf.write(str(targette_pub))
-            mf.flush()
-            pubf.flush()
-            with gpg_import(pubf.name):
-                assert gpg_verify(mf.name, keyid=sig.signer)
+        self.gpg_verify(message, pubkey=targette_pub)
 
     @pytest.mark.run(after='test_sign_message')
     def test_verify_message(self, targette_pub, message):
@@ -667,7 +676,7 @@ class TestPGPKey_Actions(object):
         assert sv
         assert len(sv) > 0
 
-    def test_sign_ctmessage(self, targette_sec, targette_pub, ctmessage, gpg_import, gpg_verify):
+    def test_sign_ctmessage(self, targette_sec, targette_pub, ctmessage):
         # test signing a cleartext message
         expire_at = datetime.utcnow() + timedelta(days=1)
 
@@ -680,13 +689,7 @@ class TestPGPKey_Actions(object):
         ctmessage |= sig
 
         # verify with GnuPG
-        with tempfile.NamedTemporaryFile('w+') as ctmf, tempfile.NamedTemporaryFile('w+') as pubf:
-            ctmf.write(str(ctmessage))
-            pubf.write(str(targette_pub))
-            ctmf.flush()
-            pubf.flush()
-            with gpg_import(pubf.name):
-                assert gpg_verify(ctmf.name, keyid=sig.signer)
+        self.gpg_verify(ctmessage, pubkey=targette_pub)
 
     @pytest.mark.run(after='test_sign_ctmessage')
     def test_verify_ctmessage(self, targette_pub, ctmessage):
@@ -822,18 +825,9 @@ class TestPGPKey_Actions(object):
         assert sv
         assert len(list(sv.good_signatures)) > 0
 
-    def test_gpg_import_abe(self, abe, gpg_import, gpg_check_sigs):
+    def test_gpg_import_abe(self, abe):
         # verify all of the things we did to Abe's key with GnuPG in one fell swoop
-        with tempfile.NamedTemporaryFile('w+') as abef:
-            abef.write(str(abe))
-            abef.flush()
-
-            # import all of the public keys first
-            with gpg_import(*(os.path.realpath(f) for f in sorted(glob.glob('tests/testdata/keys/*.pub.asc')))):
-                # import Abe's key
-                with gpg_import(abef.name) as kio:
-                    assert 'invalid self-signature' not in kio
-                    assert gpg_check_sigs(abe.fingerprint.keyid)
+        self.gpg_verify(abe)
 
     @pytest.mark.parametrize('pub,cipher',
                              itertools.product(pubkeys, sorted(SymmetricKeyAlgorithm)),
@@ -854,7 +848,7 @@ class TestPGPKey_Actions(object):
     @pytest.mark.run(after='test_encrypt_message')
     @pytest.mark.parametrize('sf,cipher',
                              itertools.product(sorted(glob.glob('tests/testdata/keys/*.sec.asc')), sorted(SymmetricKeyAlgorithm)))
-    def test_decrypt_message(self, sf, cipher, gpg_import, gpg_print):
+    def test_decrypt_message(self, sf, cipher):
         # test decrypting a message
         sec, _ = PGPKey.from_file(sf)
         if (sec.fingerprint, cipher) not in self.msgs:
@@ -870,12 +864,7 @@ class TestPGPKey_Actions(object):
             # GnuPG prior to 2.1.x does not support EC* keys, so skip this step
             return
 
-        with tempfile.NamedTemporaryFile('w+') as emsgf:
-            emsgf.write(str(emsg))
-            emsgf.flush()
-
-            with gpg_import(os.path.realpath(sf)) as kf:
-                assert gpg_print(emsgf.name) == dmsg.message
+        assert self.gpg_decrypt(emsg, sec).decode('utf-8') == dmsg.message
 
     @pytest.mark.run(after='test_encrypt_message')
     @pytest.mark.parametrize('sf,cipher',

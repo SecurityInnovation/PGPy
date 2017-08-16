@@ -7,4 +7,4 @@ if [[ $(uname) == "Darwin" ]] && command -v brew &>/dev/null && brew list openss
     export CFLAGS="-I/usr/local/opt/openssl/include"
 fi
 
-tox $*
+exec tox $*

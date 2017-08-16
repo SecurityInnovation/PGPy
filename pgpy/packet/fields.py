@@ -1303,6 +1303,7 @@ class ECDSAPriv(PrivKey, ECDSAPub):
         self.x = MPI(pubn.x)
         self.y = MPI(pubn.y)
         self.s = MPI(pk.private_numbers().private_value)
+        self._compute_chksum()
 
     def parse(self, packet):
         super(ECDSAPriv, self).parse(packet)

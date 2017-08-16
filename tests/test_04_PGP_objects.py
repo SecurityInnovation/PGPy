@@ -90,60 +90,48 @@ class TestPGPUID(object):
 
 
 _keyfiles = sorted(glob.glob('tests/testdata/blocks/*key*.asc'))
+_fingerprints = {'dsapubkey.asc': '2B5BBB143BA0B290DCEE6668B798AE8990877201',
+                 'dsaseckey.asc': '2B5BBB143BA0B290DCEE6668B798AE8990877201',
+                 'eccpubkey.asc': '502D1A5365D1C0CAA69945390BA52DF0BAA59D9C',
+                 'eccseckey.asc': '502D1A5365D1C0CAA69945390BA52DF0BAA59D9C',
+                 'openpgp.js.pubkey.asc': 'C7C38ECEE94A4AD32DDB064E14AB44C74D1BDAB8',
+                 'openpgp.js.seckey.asc': 'C7C38ECEE94A4AD32DDB064E14AB44C74D1BDAB8',
+                 'rsapubkey.asc': 'F4294BC8094A7E0585C85E8637473B3758C44F36',
+                 'rsaseckey.asc': 'F4294BC8094A7E0585C85E8637473B3758C44F36',}
 
 
 class TestPGPKey(object):
     @pytest.mark.parametrize('kf', _keyfiles, ids=[os.path.basename(f) for f in _keyfiles])
-    def test_load_from_file(self, kf, gpg_keyid_file):
+    def test_load_from_file(self, kf):
         key, _ = PGPKey.from_file(kf)
 
-        # TODO: maybe store the fingerprint instead of relying on a particular version of GnuPG...?
-        if 'ecc' in kf and gpg_ver < '2.1':
-            assert key.fingerprint
-
-        else:
-            assert key.fingerprint.keyid in gpg_keyid_file(kf.replace('tests/testdata/', ''))
+        assert key.fingerprint == _fingerprints[os.path.basename(kf)]
 
     @pytest.mark.parametrize('kf', _keyfiles, ids=[os.path.basename(f) for f in _keyfiles])
-    def test_load_from_str(self, kf, gpg_keyid_file):
+    def test_load_from_str(self, kf):
         with open(kf, 'r') as tkf:
             key, _ = PGPKey.from_blob(tkf.read())
 
-        # TODO: maybe store the fingerprint instead of relying on a particular version of GnuPG...?
-        if 'ecc' in kf and gpg_ver < '2.1':
-            assert key.fingerprint
-
-        else:
-            assert key.fingerprint.keyid in gpg_keyid_file(kf.replace('tests/testdata/', ''))
+        assert key.fingerprint == _fingerprints[os.path.basename(kf)]
 
     @pytest.mark.regression(issue=140)
     @pytest.mark.parametrize('kf', _keyfiles, ids=[os.path.basename(f) for f in _keyfiles])
-    def test_load_from_bytes(self, kf, gpg_keyid_file):
+    def test_load_from_bytes(self, kf):
         with open(kf, 'rb') as tkf:
             key, _ = PGPKey.from_blob(tkf.read())
 
-        # TODO: maybe store the fingerprint instead of relying on a particular version of GnuPG...?
-        if 'ecc' in kf and gpg_ver < '2.1':
-            assert key.fingerprint
-
-        else:
-            assert key.fingerprint.keyid in gpg_keyid_file(kf.replace('tests/testdata/', ''))
+        assert key.fingerprint == _fingerprints[os.path.basename(kf)]
 
     @pytest.mark.regression(issue=140)
     @pytest.mark.parametrize('kf', _keyfiles, ids=[os.path.basename(f) for f in _keyfiles])
-    def test_load_from_bytearray(self, kf, gpg_keyid_file):
+    def test_load_from_bytearray(self, kf):
         tkb = bytearray(os.stat(kf).st_size)
         with open(kf, 'rb') as tkf:
             tkf.readinto(tkb)
 
         key, _ = PGPKey.from_blob(tkb)
 
-        # TODO: maybe store the fingerprint instead of relying on a particular version of GnuPG...?
-        if 'ecc' in kf and gpg_ver < '2.1':
-            assert key.fingerprint
-
-        else:
-            assert key.fingerprint.keyid in gpg_keyid_file(kf.replace('tests/testdata/', ''))
+        assert key.fingerprint == _fingerprints[os.path.basename(kf)]
 
     @pytest.mark.parametrize('kf', sorted(filter(lambda f: not f.endswith('enc.asc'), glob.glob('tests/testdata/keys/*.asc'))))
     def test_save(self, kf):
