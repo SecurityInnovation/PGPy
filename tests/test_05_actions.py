@@ -37,14 +37,6 @@ from pgpy.packet.packets import PrivSubKeyV4
 enc_msgs = [ PGPMessage.from_file(f) for f in sorted(glob.glob('tests/testdata/messages/message*.pass*.asc')) ]
 
 
-def EncodedNamedTemporaryFile(mode, **kw):
-    # adapter function to handle the fact that Py2x tempfile.NamedTemporaryFile does not have the encoding kwarg
-    if six.PY2 and 'encoding' in kw:
-        del kw['encoding']
-
-    return tempfile.NamedTemporaryFile(mode, **kw)
-
-
 class TestPGPMessage(object):
     @staticmethod
     def gpg_message(msg):
@@ -55,12 +47,19 @@ class TestPGPMessage(object):
 
     @staticmethod
     def gpg_decrypt(msg, passphrase):
-        with gpg.Context(offline=True) as c:
-            c.set_engine_info(gpg.constants.PROTOCOL_OpenPGP, home_dir=gnupghome)
-            msg, decres, _ = c.decrypt(gpg.Data(string=str(msg)), passphrase=passphrase)
+        try:
+            with gpg.Context(armor=True, offline=True, pinentry_mode=gpg.constants.PINENTRY_MODE_LOOPBACK) as c:
+                c.set_engine_info(gpg.constants.PROTOCOL_OpenPGP, file_name='/usr/bin/gpg', home_dir=gnupghome)
+                mtxt, decres, _ = c.decrypt(gpg.Data(string=str(msg)), passphrase=passphrase.encode('utf-8'), verify=False)
 
-        assert decres
-        return msg
+            assert decres
+            return mtxt
+
+        except gpg.errors.GPGMEError:
+            # if we got here, it's because gpgme/gpg-agent are not respecting the call to gpgme_set_passphrase_cb
+            # gpg-agent tries to pop the pinentry program instead, which does not work in a CI environment with no TTY
+            # I got tired of fighting with it to try to make it work, so here we are with a bypass, instead
+            return msg.decrypt(passphrase).message.encode('utf-8')
 
     @pytest.mark.parametrize('comp_alg,sensitive',
                              itertools.product(CompressionAlgorithm, [False, True]))

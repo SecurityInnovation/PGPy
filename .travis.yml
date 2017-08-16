@@ -8,7 +8,6 @@ python:
   - "3.6"
   - "3.5"
   - "3.4"
-  - "3.3"
   - "2.7"
   - "pypy"
   - "pypy3"
@@ -52,6 +51,7 @@ matrix:
 
 # install requirements
 install:
+  - sed -i -e 's/^/#/' tests/gnupghome/gpg-agent.conf
   - ./install_dependencies.${TRAVIS_OS_NAME}.sh
   # ensure tox and coveralls are installed
   - pip install tox python-coveralls

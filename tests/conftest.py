@@ -12,7 +12,8 @@ from cryptography.hazmat.backends import openssl
 
 openssl_ver = LooseVersion(openssl.backend.openssl_version_text().split(' ')[1])
 gpg_ver = LooseVersion('0')
-python_gpg_ver = LooseVersion(gpg.version.versionstr)
+# python_gpg_ver = LooseVersion(gpg.version.versionstr)
+gpgme_ver = gpg.core.check_version()
 gnupghome = os.path.join(os.path.dirname(__file__), 'gnupghome')
 
 
@@ -47,11 +48,12 @@ def pytest_configure(config):
         os.unlink(fpath)
 
     # get the GnuPG version
-    gpg_ver.parse(gpg.core.check_version())
+    gpg_ver.parse(gpg.core.get_engine_info()[0].version)
 
     # check that there are no keys loaded, now
     with gpg.Context(offline=True) as c:
         c.set_engine_info(gpg.constants.PROTOCOL_OpenPGP, home_dir=gnupghome)
+
         assert len(list(c.keylist())) == 0
         assert len(list(c.keylist(secret=True))) == 0
 

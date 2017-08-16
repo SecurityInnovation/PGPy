@@ -7,7 +7,7 @@ Changelog
 v0.4.3
 ======
 
-Released: August 15, 2017
+Released: August 16, 2017
 
 Bugs Fixed
 ----------
