@@ -1,7 +1,8 @@
+dist: trusty
 os:
   - linux
   - osx
-sudo: false
+sudo: required
 language: python
 python:
   - "3.6"
@@ -11,16 +12,6 @@ python:
   - "2.7"
   - "pypy"
   - "pypy3"
-addons:
-  apt:
-    sources:
-      - debian-sid
-
-    packages:
-      - libffi-dev
-      - gnupg
-      - libgpgme11
-      - libgpgme11-dev
 matrix:
   include:
     # add a pep8 test
