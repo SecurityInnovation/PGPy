@@ -1,16 +1,18 @@
 """ I've got 99 problems but regression testing ain't one
 """
+from conftest import gpg_ver, gnupghome
+
+import gpg
 import os
 import pytest
 import glob
-import tempfile
 import warnings
 from pgpy import PGPKey
 from pgpy.types import Armorable
 
 
 @pytest.mark.regression(issue=56)
-def test_reg_bug_56(gpg_import, gpg_verify):
+def test_reg_bug_56():
     # some imports only used by this regression test
     import hashlib
     from datetime import datetime
@@ -147,19 +149,15 @@ def test_reg_bug_56(gpg_import, gpg_verify):
     assert pk.verify(sigsubject, sig)
 
     # with GnuPG
-    with tempfile.NamedTemporaryFile('w+') as subjf, \
-            tempfile.NamedTemporaryFile('w+') as sigf, \
-            tempfile.NamedTemporaryFile('w+') as pubf:
-        subjf.write(sigsubject.decode('latin-1'))
-        sigf.write(str(sig))
-        pubf.write(str(pk))
+    with gpg.Context(armor=True, offline=True) as c:
+        c.set_engine_info(gpg.constants.PROTOCOL_OpenPGP, home_dir=gnupghome)
 
-        subjf.flush()
-        sigf.flush()
-        pubf.flush()
+        # import the key
+        key_data = gpg.Data(string=pub)
+        gpg.core.gpgme.gpgme_op_import(c.wrapped, key_data)
 
-        with gpg_import(pubf.name):
-            assert gpg_verify(subjf.name, sigf.name)
+        _, vres = c.verify(gpg.Data(string=sigsubject.decode('latin-1')), gpg.Data(string=str(sig)))
+    assert vres
 
 
 @pytest.mark.regression(issue=157)

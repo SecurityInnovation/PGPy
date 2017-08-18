@@ -54,3 +54,5 @@ docs/_build/
 
 .idea
 random_seed
+/tests/gnupghome/private-keys-v1.d/*
+/tests/gnupghome/pubring.kbx*

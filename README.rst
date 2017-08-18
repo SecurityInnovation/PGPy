@@ -36,7 +36,7 @@ To install PGPy, simply:
 Documentation
 -------------
 
-`PGPy Documentation <https://pythonhosted.org/PGPy/>`_
+`PGPy Documentation <https://pgpy.readthedocs.io/en/latest/>`_
 
 Discussion
 ----------
@@ -66,4 +66,3 @@ License
 -------
 
 BSD 3-Clause licensed. See the bundled `LICENSE <https://github.com/SecurityInnovation/PGPy/blob/master/LICENSE>`_ file for more details.
-

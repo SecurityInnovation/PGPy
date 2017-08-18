@@ -4,6 +4,17 @@
 Changelog
 *********
 
+v0.4.3
+======
+
+Released: August 16, 2017
+
+Bugs Fixed
+----------
+
+ * Private key checksum calculations were not getting stored for ECDSA keys; this has been fixed.
+ * The test suite gpg wrappers have been replaced with use of the `gpg <https://pypi.python.org/pypi/gpg/1.8.0>`_ package. (#171)
+
 v0.4.2
 ======
 
