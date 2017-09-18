@@ -144,6 +144,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
 
             except (binascii.Error, TypeError) as ex:
                 six.raise_from(PGPError, ex)
+                six.raise_from(PGPError(str(ex)), ex)
 
         if m['crc'] is not None:
             m['crc'] = Header.bytes_to_int(base64.b64decode(m['crc'].encode()))
@@ -258,7 +259,6 @@ class ParentRef(object):
 
 
 class PGPObject(six.with_metaclass(abc.ABCMeta, object)):
-    __metaclass__ = abc.ABCMeta
 
     @staticmethod
     def int_byte_len(i):
@@ -540,7 +540,7 @@ class MetaDispatchable(abc.ABCMeta):
                             nh.parse(packet)
 
                         except Exception as ex:
-                            six.raise_from(PGPError, ex)
+                            six.raise_from(PGPError(str(ex)), ex)
 
                         header = nh
 
@@ -560,7 +560,7 @@ class MetaDispatchable(abc.ABCMeta):
                 obj.parse(packet)
 
             except Exception as ex:
-                six.raise_from(PGPError, ex)
+                six.raise_from(PGPError(str(ex)), ex)
 
         else:
             obj = _makeobj(cls)
@@ -569,7 +569,6 @@ class MetaDispatchable(abc.ABCMeta):
 
 
 class Dispatchable(six.with_metaclass(MetaDispatchable, PGPObject)):
-    __metaclass__ = MetaDispatchable
 
     @abc.abstractproperty
     def __headercls__(self):  # pragma: no cover
