@@ -1,3 +1,12 @@
+python-pgpy (0.4.3-2) unstable; urgency=medium
+
+  * Yet another upload to try to work around build-daemon
+    testsuite failures (Closes: #848518)
+  * cherry-pick upstream workarounds/bugfixes
+  * bump Standards-Version to 4.1.1 (no changes needed)
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Tue, 10 Oct 2017 18:52:59 -0400
+
 python-pgpy (0.4.3-1) unstable; urgency=medium
 
   * New upstream release
