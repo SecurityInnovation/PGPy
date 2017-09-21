@@ -22,7 +22,7 @@ Build-Depends:
  python3-setuptools,
  python3-singledispatch,
  python3-six (>= 1.9.0),
-Standards-Version: 4.0.1
+Standards-Version: 4.1.1
 X-Python3-Version: >= 3.3
 Vcs-Git: https://github.com/SecurityInnovation/PGPy -b debian
 Vcs-Browser: https://github.com/SecurityInnovation/PGPy
