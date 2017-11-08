@@ -48,7 +48,19 @@ class BrainpoolP512R1(object):
     key_size = 512
 
 
+@utils.register_interface(ec.EllipticCurve)
+class X25519(object):
+    name = 'X25519'
+    key_size = 256
+
+
+@utils.register_interface(ec.EllipticCurve)
+class Ed25519(object):
+    name = 'ed25519'
+    key_size = 256
+
+
 # add these curves to the _CURVE_TYPES list
-for curve in [BrainpoolP256R1, BrainpoolP384R1, BrainpoolP512R1]:
+for curve in [BrainpoolP256R1, BrainpoolP384R1, BrainpoolP512R1, X25519, Ed25519]:
     if curve.name not in ec._CURVE_TYPES and curve.name in _openssl_get_supported_curves():
         ec._CURVE_TYPES[curve.name] = curve

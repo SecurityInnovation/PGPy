@@ -20,7 +20,7 @@ from cryptography.hazmat.primitives.ciphers import algorithms
 
 from .decorators import classproperty
 from .types import FlagEnum
-from ._curves import BrainpoolP256R1, BrainpoolP384R1, BrainpoolP512R1
+from ._curves import BrainpoolP256R1, BrainpoolP384R1, BrainpoolP512R1, X25519, Ed25519
 
 __all__ = ['Backend',
            'EllipticCurveOID',
@@ -58,12 +58,12 @@ class EllipticCurveOID(Enum):
     #:
     #: .. warning::
     #:     This curve is not currently usable by PGPy
-    Curve25519 = ('1.3.6.1.4.1.3029.1.5.1', )
+    Curve25519 = ('1.3.6.1.4.1.3029.1.5.1', X25519)
     #: Twisted Edwards variant of Curve25519
     #:
     #: .. warning::
     #:     This curve is not currently usable by PGPy
-    Ed25519 = ('1.3.6.1.4.1.11591.15.1', )
+    Ed25519 = ('1.3.6.1.4.1.11591.15.1', Ed25519)
     #: NIST P-256, also known as SECG curve secp256r1
     NIST_P256 = ('1.2.840.10045.3.1.7', ec.SECP256R1)
     #: NIST P-384, also known as SECG curve secp384r1
