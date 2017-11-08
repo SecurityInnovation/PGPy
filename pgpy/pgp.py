@@ -2281,7 +2281,6 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             return PktGrouper()
 
         while True:
-            # print(type(p) for p in getpkt)
             for group in iter(group for _, group in itertools.groupby(getpkt, key=pktgrouper()) if not _.endswith('Opaque')):
                 pkt = next(group)
 
