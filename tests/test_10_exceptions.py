@@ -235,7 +235,7 @@ class TestPGPKey(object):
         assert w.filename == __file__
 
     def test_sign_bad_prefs(self, rsa_sec, recwarn):
-        rsa_sec.subkeys['2A834D8E5918E886'].sign(PGPMessage.new('asdf'), hash=HashAlgorithm.RIPEMD160)
+        rsa_sec.subkeys['2A834D8E5918E886'].sign(PGPMessage.new('asdf'), hash=HashAlgorithm.MD5)
 
         w = recwarn.pop(UserWarning)
         assert str(w.message) == "Selected hash algorithm not in key preferences"
