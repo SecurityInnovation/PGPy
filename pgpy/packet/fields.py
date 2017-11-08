@@ -62,6 +62,7 @@ from ..types import Field
 __all__ = ['SubPackets',
            'UserAttributeSubPackets',
            'Signature',
+           'OpaqueSignature',
            'RSASignature',
            'DSASignature',
            'ECDSASignature',
@@ -247,6 +248,24 @@ class Signature(MPIs):
     @abc.abstractmethod
     def from_signer(self, sig):
         """create and parse a concrete Signature class instance"""
+
+
+class OpaqueSignature(Signature):
+    def __init__(self):
+        super(OpaqueSignature, self).__init__()
+        self.data = bytearray()
+
+    def __bytearray__(self):
+        return self.data
+
+    def __sig__(self):
+        return self.data
+
+    def parse(self, packet):
+        self.data = packet
+
+    def from_signer(self, sig):
+        self.data = bytearray(sig)
 
 
 class RSASignature(Signature):

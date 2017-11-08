@@ -21,6 +21,7 @@ from .fields import ECDHPub, ECDHPriv, ECDHCipherText
 from .fields import ElGCipherText, ElGPriv, ElGPub
 from .fields import OpaquePubKey
 from .fields import OpaquePrivKey
+from .fields import OpaqueSignature
 from .fields import RSACipherText, RSAPriv, RSAPub, RSASignature
 from .fields import String2Key
 from .fields import SubPackets
@@ -362,10 +363,10 @@ class SignatureV4(Signature):
                 PubKeyAlgorithm.RSAEncrypt: RSASignature,
                 PubKeyAlgorithm.RSASign: RSASignature,
                 PubKeyAlgorithm.DSA: DSASignature,
-                PubKeyAlgorithm.ECDSA: ECDSASignature, }
+                PubKeyAlgorithm.ECDSA: ECDSASignature,
+                PubKeyAlgorithm.EdDSA: ECDSASignature,}
 
-        if self.pubalg in sigs:
-            self.signature = sigs[self.pubalg]()
+        self.signature = sigs.get(self.pubalg, OpaqueSignature)()
 
     @sdproperty
     def halg(self):
