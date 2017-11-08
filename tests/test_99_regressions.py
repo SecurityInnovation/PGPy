@@ -156,7 +156,7 @@ def test_reg_bug_56():
         key_data = gpg.Data(string=pub)
         gpg.core.gpgme.gpgme_op_import(c.wrapped, key_data)
 
-        _, vres = c.verify(gpg.Data(string=sigsubject.decode('latin-1')), gpg.Data(string=str(sig)))
+        _, vres = c.verify(gpg.Data(string=sigsubject.decode('utf-8')), gpg.Data(string=str(sig)))
     assert vres
 
 
