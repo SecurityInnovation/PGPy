@@ -339,7 +339,7 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         _data = bytearray()
 
         if isinstance(subject, six.string_types):
-            subject = subject.encode('latin-1')
+            subject = subject.encode('utf-8')
 
         """
         All signatures are formed by producing a hash over the signature
@@ -2195,7 +2195,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
         # set up a new PKESessionKeyV3
         pkesk = PKESessionKeyV3()
-        pkesk.encrypter = bytearray(binascii.unhexlify(self.fingerprint.keyid.encode('latin-1')))
+        pkesk.encrypter = bytearray(binascii.unhexlify(self.fingerprint.keyid.encode('utf-8')))
         pkesk.pkalg = self.key_algorithm
         # pkesk.encrypt_sk(self.__key__, cipher_algo, sessionkey)
         pkesk.encrypt_sk(self._key, cipher_algo, sessionkey)

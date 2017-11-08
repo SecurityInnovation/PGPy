@@ -69,7 +69,7 @@ class URI(Signature):
 
     @uri.register(bytearray)
     def uri_bytearray(self, val):
-        self.uri = val.decode('latin-1')
+        self.uri = val.decode('utf-8')
 
     def __init__(self):
         super(URI, self).__init__()
@@ -418,7 +418,7 @@ class RegularExpression(Signature):
 
     @regex.register(bytearray)
     def regex_bytearray(self, val):
-        self.regex = val.decode('latin-1')
+        self.regex = val.decode('utf-8')
 
     def __init__(self):
         super(RegularExpression, self).__init__()
@@ -583,7 +583,7 @@ class Issuer(Signature):
 
     @issuer.register(bytearray)
     def issuer_bytearray(self, val):
-        self._issuer = binascii.hexlify(val).upper().decode('latin-1')
+        self._issuer = binascii.hexlify(val).upper().decode('utf-8')
 
     def __init__(self):
         super(Issuer, self).__init__()
@@ -631,7 +631,7 @@ class NotationData(Signature):
 
     @name.register(bytearray)
     def name_bytearray(self, val):
-        self.name = val.decode('latin-1')
+        self.name = val.decode('utf-8')
 
     @sdproperty
     def value(self):
@@ -645,7 +645,7 @@ class NotationData(Signature):
     @value.register(bytearray)
     def value_bytearray(self, val):
         if NotationDataFlags.HumanReadable in self.flags:
-            self.value = val.decode('latin-1')
+            self.value = val.decode('utf-8')
 
         else:  # pragma: no cover
             self._value = val
@@ -757,7 +757,7 @@ class SignersUserID(Signature):
 
     @userid.register(bytearray)
     def userid_bytearray(self, val):
-        self.userid = val.decode('latin-1')
+        self.userid = val.decode('utf-8')
 
     def __init__(self):
         super(SignersUserID, self).__init__()
@@ -801,7 +801,7 @@ class ReasonForRevocation(Signature):
 
     @string.register(bytearray)
     def string_bytearray(self, val):
-        self.string = val.decode('latin-1')
+        self.string = val.decode('utf-8')
 
     def __init__(self):
         super(ReasonForRevocation, self).__init__()

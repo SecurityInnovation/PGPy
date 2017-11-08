@@ -102,7 +102,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
         :returns: Whether the text is ASCII-armored.
         """
         if isinstance(text, (bytes, bytearray)):  # pragma: no cover
-            text = text.decode('latin-1')
+            text = text.decode('utf-8')
 
         return Armorable.__armor_regex.search(text) is not None
 
@@ -123,7 +123,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
             return m
 
         if isinstance(text, (bytes, bytearray)):  # pragma: no cover
-            text = text.decode('latin-1')
+            text = text.decode('utf-8')
 
         m = Armorable.__armor_regex.search(text)
 
@@ -200,7 +200,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
     def from_blob(cls, blob):
         obj = cls()
         if (not isinstance(blob, six.binary_type)) and (not isinstance(blob, bytearray)):
-            po = obj.parse(bytearray(blob, 'latin-1'))
+            po = obj.parse(bytearray(blob, 'utf-8'))
 
         else:
             po = obj.parse(bytearray(blob))
@@ -216,14 +216,14 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
         self.ascii_headers['Version'] = 'PGPy v' + __version__  # Default value
 
     def __str__(self):
-        payload = base64.b64encode(self.__bytes__()).decode('latin-1')
+        payload = base64.b64encode(self.__bytes__()).decode('utf-8')
         payload = '\n'.join(payload[i:(i + 64)] for i in range(0, len(payload), 64))
 
         return self.__armor_fmt.format(
             block_type=self.magic,
             headers=''.join('{key}: {val}\n'.format(key=key, val=val) for key, val in self.ascii_headers.items()),
             packet=payload,
-            crc=base64.b64encode(PGPObject.int_to_bytes(self.crc24(self.__bytes__()), 3)).decode('latin-1')
+            crc=base64.b64encode(PGPObject.int_to_bytes(self.crc24(self.__bytes__()), 3)).decode('utf-8')
         )
 
     def __copy__(self):
@@ -707,7 +707,7 @@ class Fingerprint(str):
 
         if isinstance(other, (six.text_type, bytes, bytearray)):
             if isinstance(other, (bytes, bytearray)):  # pragma: no cover
-                other = other.decode('latin-1')
+                other = other.decode('utf-8')
 
             other = str(other).replace(' ', '')
             return any([self.replace(' ', '') == other,

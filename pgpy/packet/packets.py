@@ -162,7 +162,7 @@ class PKESessionKeyV3(PKESessionKey):
 
     @encrypter.register(bytearray)
     def encrypter_bin(self, val):
-        self._encrypter = binascii.hexlify(val).upper().decode('latin-1')
+        self._encrypter = binascii.hexlify(val).upper().decode('utf-8')
 
     @sdproperty
     def pkalg(self):
@@ -670,7 +670,7 @@ class OnePassSignatureV3(OnePassSignature):
 
     @signer.register(bytearray)
     def signer_bin(self, val):
-        self._signer = binascii.hexlify(val).upper().decode('latin-1')
+        self._signer = binascii.hexlify(val).upper().decode('utf-8')
 
     def __init__(self):
         super(OnePassSignatureV3, self).__init__()
@@ -1155,7 +1155,7 @@ class LiteralData(Packet):
     @property
     def contents(self):
         if self.format == 't':
-            return self._contents.decode('latin-1')
+            return self._contents.decode('utf-8')
 
         if self.format == 'u':
             return self._contents.decode('utf-8')
@@ -1172,9 +1172,9 @@ class LiteralData(Packet):
     def __bytearray__(self):
         _bytes = bytearray()
         _bytes += super(LiteralData, self).__bytearray__()
-        _bytes += self.format.encode('latin-1')
+        _bytes += self.format.encode('utf-8')
         _bytes += bytearray([len(self.filename)])
-        _bytes += self.filename.encode('latin-1')
+        _bytes += self.filename.encode('utf-8')
         _bytes += self.int_to_bytes(calendar.timegm(self.mtime.timetuple()), 4)
         _bytes += self._contents
         return _bytes
@@ -1307,7 +1307,7 @@ class UserID(Packet):
     def parse(self, packet):
         super(UserID, self).parse(packet)
 
-        uid_text = packet[:self.header.length].decode('latin-1')
+        uid_text = packet[:self.header.length].decode('utf-8')
         del packet[:self.header.length]
 
         # came across a UID packet with no payload. If that happens, don't bother trying to parse anything!
