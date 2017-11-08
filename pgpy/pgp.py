@@ -1259,6 +1259,15 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return False
 
     @property
+    def is_revoked(self):
+        """``True`` if this key has a KeyRevocation signtuare"""
+        for sign in self._signatures:
+            if sign.type == SignatureType.KeyRevocation:
+                return True
+        else:
+            return False
+
+    @property
     def is_primary(self):
         """``True`` if this is a primary key; ``False`` if this is a subkey"""
         return isinstance(self._key, Primary) and not isinstance(self._key, Sub)
