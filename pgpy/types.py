@@ -19,8 +19,6 @@ from enum import IntEnum
 
 import six
 
-from ._author import __version__
-
 from .decorators import sdproperty
 
 from .errors import PGPError
@@ -213,7 +211,6 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
     def __init__(self):
         super(Armorable, self).__init__()
         self.ascii_headers = collections.OrderedDict()
-        self.ascii_headers['Version'] = 'PGPy v' + __version__  # Default value
 
     def __str__(self):
         payload = base64.b64encode(self.__bytes__()).decode('latin-1')
