@@ -1284,16 +1284,18 @@ class UserID(Packet):
         self.name = ""
         self.comment = ""
         self.email = ""
+        self._encoding_fallback = False
 
     def __bytearray__(self):
         _bytes = bytearray()
         _bytes += super(UserID, self).__bytearray__()
-        _bytes += self.text_to_bytes(self.name)
+        textenc = 'utf-8' if not self._encoding_fallback else 'charmap'
+        _bytes += self.name.encode(textenc)
         if self.comment:
-            _bytes += b' (' + self.text_to_bytes(self.comment) + b')'
+            _bytes += b' (' + self.comment.encode(textenc) + b')'
 
         if self.email:
-            _bytes += b' <' + self.text_to_bytes(self.email) + b'>'
+            _bytes += b' <' + self.email.encode(textenc) + b'>'
 
         return _bytes
 
@@ -1308,8 +1310,14 @@ class UserID(Packet):
     def parse(self, packet):
         super(UserID, self).parse(packet)
 
-        uid_text = packet[:self.header.length].decode('latin-1')
+        uid_bytes = packet[:self.header.length]
+        # uid_text = packet[:self.header.length].decode('utf-8')
         del packet[:self.header.length]
+        try:
+            uid_text = uid_bytes.decode('utf-8')
+        except UnicodeDecodeError:
+            uid_text = uid_bytes.decode('charmap')
+            self._encoding_fallback = True
 
         # came across a UID packet with no payload. If that happens, don't bother trying to parse anything!
         if self.header.length > 0:
