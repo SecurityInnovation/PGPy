@@ -263,8 +263,10 @@ This section covers things that are considered extensions to PGP, but are not co
     :text: The protocol is specified in `Marc Horowitz's thesis paper`_, and an expired RFC draft by David Shaw, `draft-shaw-openpgp-hkp-00`_.
 
     :HKP:
-        - HKP, False, Look up and retrieve keys from key server
-        - HKP, False, Send keys to key server
+        - Discovery, False, Round robin DNS and SRV lookups
+        - Search, False, Look up keys on key server, with multiple possible matches
+        - Get, True, Retrieve keys from key server, single fingerprint fetch
+        - Put, False, Send keys to key server
 
 .. progress:: EdDSA for OpenPGP
     :text: Use of Ed25519 with ECDSA and ECDH in OpenPGP is currently specified in an in-progress RFC draft by Werner Koch, `draft-koch-eddsa-for-openpgp`_.
