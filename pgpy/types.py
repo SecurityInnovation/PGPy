@@ -245,7 +245,7 @@ class HKPClient(object):
         # should use actual structures like PGPKey and PGPUID or at
         # least named tuples in the output and factor out the
         # colons-format parsing
-        response = requests.get('%s/pks/lookup?op=index&options=mr&search=%s' %
+        response = requests.get('%s/pks/lookup?op=index&options=mr&fingerprint=on&exact=on&search=%s' %
                                 (self.keyserver, pattern))
         fingerprint = None
         uids = []
@@ -265,7 +265,7 @@ class HKPClient(object):
             yield (fingerprint, uids)
 
     def get(self, fingerprint):
-        response = requests.get('%s/pks/lookup?op=get&options=mr&search=0x%s' %
+        response = requests.get('%s/pks/lookup?op=get&options=mr&fingerprint=on&exact=on&search=0x%s' %
                                 (self.keyserver, fingerprint))
         # XXX: error handling - or handled by caller?
         response.raise_for_status()
