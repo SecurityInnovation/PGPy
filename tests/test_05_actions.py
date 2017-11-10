@@ -32,6 +32,7 @@ from pgpy.constants import SymmetricKeyAlgorithm
 from pgpy.packet import Packet
 from pgpy.packet.packets import PrivKeyV4
 from pgpy.packet.packets import PrivSubKeyV4
+from pgpy.types import HKPClient
 
 
 enc_msgs = [ PGPMessage.from_file(f) for f in sorted(glob.glob('tests/testdata/messages/message*.pass*.asc')) ]
@@ -886,3 +887,30 @@ class TestPGPKey_Actions(object):
         assert emsg.is_signed
         assert emsg.is_encrypted
         assert isinstance(next(iter(emsg)), PGPSignature)
+
+
+class TestKeyserver(object):
+
+    @pytest.mark.parametrize('pattern', ['anarcat@debian.org'])
+    def test_search(self, pattern):
+        client = HKPClient()
+        assert [('8DC901CE64146C048AD50FBB792152527B75921E',
+                 [('Antoine Beaupré', 'anarcat@anarc.at', '1492626398', '', ''),
+                  ('Antoine Beaupré', 'anarcat@debian.org', '1492626232', '', ''),
+                  ('Antoine Beaupré', 'anarcat@koumbit.org', '1492626232', '', ''),
+                  ('Antoine Beaupré', 'anarcat@orangeseeds.org', '1492626229', '', ''),
+                  ('Antoine Beaupré (work)', 'anarcat@koumbit.org', '1370140989', '', ''),
+                  ('Antoine Beaupré (Debian)', 'anarcat@debian.org', '1370140988', '', ''),
+                  ('Antoine Beaupré (home address)', 'anarcat@anarcat.ath.cx', '1370140988', '', '')
+                 ])] == list(client.search(pattern))
+
+    @pytest.mark.parametrize('pattern,keyfile', [('8DC901CE64146C048AD50FBB792152527B75921E', 'tests/testdata/keys/anarcat-fetched.asc')])
+    def test_get(self, pattern, keyfile):
+        with open(keyfile, 'rb') as f:
+            keydata = f.read()
+        client = HKPClient()
+        assert keydata == client.get(pattern)
+
+    @pytest.mark.xfail(reason='need to check fingerprint and lisp knows what else')
+    def test_from(self):
+        assert False
