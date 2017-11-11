@@ -88,7 +88,7 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
         - Protect,   True,  Protect private keys encryped with Blowfish
         - Protect,   True,  Protect private keys encryped with AES
         - Protect,   False, Protect private keys encryped with Twofish
-        - Unprotect, True,  Unprotect private keys encrypted with IDEA*
+        - Unprotect, True,  Unprotect private keys encrypted with IDEA[1]_
         - Unprotect, True,  Unprotect private keys encrypted with Triple-DES
         - Unprotect, True,  Unprotect private keys encrypted with CAST5
         - Unprotect, True,  Unprotect private keys encrypted with Blowfish
@@ -190,8 +190,8 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
     :text: :rfc:`5581` extends RFC 4880 to officially add support for the Camellia cipher
 
     :Actions:
-        - Encryption, True, Camellia*
-        - Decryption, True, Camellia*
+        - Encryption, True, Camellia[1]_
+        - Decryption, True, Camellia[1]_
 
 
 .. progress:: RFC 6637
@@ -280,13 +280,13 @@ This section covers things that are considered extensions to PGP, but are not co
         - Curve, True,  Brainpool P-256
         - Curve, True,  Brainpool P-384
         - Curve, True,  Brainpool P-512
-        - Curve, False, Curve25519
+        - Curve, True,  Curve25519[1]_
         - Curve, True,  SECP256K1
 
 .. note:: Use of Brainpool curves with ECDSA/ECDH
     Although these curves are not explicitly mentioned in an RFC for OpenPGP at this point, GnuPG 2.1.x+ does support using them, so I have included them here as well.
 
-    \* Cipher availability depends on the currently installed OpenSSL being compiled with support for it
+.. [1] Cipher availability depends on the currently installed OpenSSL being compiled with support for it
 
 
 .. _`Marc Horowitz's thesis paper`: http://www.mit.edu/afs/net.mit.edu/project/pks/thesis/paper/thesis.html
