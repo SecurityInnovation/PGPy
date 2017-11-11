@@ -268,6 +268,13 @@ This section covers things that are considered extensions to PGP, but are not co
         - Get,       False, Retrieve keys from key server, single fingerprint fetch (section 3.1.2.1. The "get" operation)          
         - Post,      False, Send keys to key server (section 4. Submitting Keys To A Keyserver)
 
+.. progress:: OpenPGP Web Key Service (WKS)
+    :text: LocatesOpenPGP keys by mail address using a Web service and the HTTPS protocol. Protocol specified in an in-progress RFC draft by Werner Koch, `draft-koch-openpgp-webkey-service`_
+
+    :WKS:
+        - Discovery, False, Fetches keys matching a UID from the server, using DNS and SRV lookups (section 3.1.  Key Discovery)
+        - Update,    False, Update keys on the WKS (section 4.  Web Key Directory Update Protocol)
+
 .. progress:: EdDSA for OpenPGP
     :text: Use of Ed25519 with ECDSA and ECDH in OpenPGP is currently specified in an in-progress RFC draft by Werner Koch, `draft-koch-eddsa-for-openpgp`_.
 
@@ -293,4 +300,5 @@ This section covers things that are considered extensions to PGP, but are not co
 
 .. _`Marc Horowitz's thesis paper`: http://www.mit.edu/afs/net.mit.edu/project/pks/thesis/paper/thesis.html
 .. _`draft-shaw-openpgp-hkp-00`: https://tools.ietf.org/html/draft-shaw-openpgp-hkp-00
+.. _`draft-koch-openpgp-webkey-service`: https://tools.ietf.org/html/draft-koch-openpgp-webkey-service-04
 .. _`draft-koch-eddsa-for-openpgp`: https://tools.ietf.org/html/draft-koch-eddsa-for-openpgp-04
