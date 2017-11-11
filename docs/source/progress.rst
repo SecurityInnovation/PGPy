@@ -289,7 +289,7 @@ This section covers things that are considered extensions to PGP, but are not co
         - Curve, True,  Brainpool P-256
         - Curve, True,  Brainpool P-384
         - Curve, True,  Brainpool P-512
-        - Curve, False, Curve25519
+        - Curve, True,  Curve25519[1]_
         - Curve, True,  SECP256K1
 
 .. note:: Use of Brainpool curves with ECDSA/ECDH
