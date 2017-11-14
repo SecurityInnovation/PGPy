@@ -336,3 +336,37 @@ def test_oneline_cleartext(sf, cleartext):
 def test_armorable_empty_str():
     with pytest.raises(ValueError, message='Expected: ASCII-armored PGP data'):
         Armorable.ascii_unarmor('')
+
+
+@pytest.mark.regression(issue=226)
+def test_verify_subkey_revocation_signature():
+    keyblob = ('-----BEGIN PGP PUBLIC KEY BLOCK-----\n'
+               '\n'
+               'mI0EWgtKbAEEAOEjq2UsapzI996tHhvGB7mJTo1sneUso20vz5VluECI0Xv0nr0j\n'
+               'BfknMFNeuPRR5sopgnrYT2ezJxp60D1NFaKgDh0z0qv9spk9FTP4YtaE5pfZRk3l\n'
+               'iGgyY7WiJBhKLb7ne3PeG8mtju4T+9ejbN4hVx1Vz9WHKkLGeBGkOcYZABEBAAG0\n'
+               'HVRlc3QgUmV2b2NhdGlvbiA8YWJjQGRlZi5naGk+iM4EEwEIADgWIQRIuXHQYB9/\n'
+               'm0hHY/8zq5Y87Iwq4QUCWgtKbAIbAwULCQgHAgYVCAkKCwIEFgIDAQIeAQIXgAAK\n'
+               'CRAzq5Y87Iwq4RKuA/46Zg3OSmRPJJNQegoDGLGwj81sgrLFPVDV2dSAxYPiGH3j\n'
+               'JNM760NS51FLHQvxwa9XV9/4xzL9jqsV8vD+lX5aphZS6h2olPAy9CP2FK8KFrv1\n'
+               'Rap2y9D68LStDv2jFyEYEGCCvon3Ff6O2PxwG98xkaskBPH6knGjK6rrMvYI/7iN\n'
+               'BFoLSmwBBACbGvXVtDH4aTJ3UbN/3UnLKb05ogmZDpkx8A2qGnUu1QvIxqi56emU\n'
+               'TfbxKv8jne0qas0IJ1OWrcTAuPvwgH4TJERAkngxzdYXR6ZHEO3/L8s0XSLobW5E\n'
+               'nsGnFw/PG5Lrxv1YA7nBlCKennrlaU9iiUguOUK7SW7To1SOojTOcQARAQABiLYE\n'
+               'KAEIACAWIQRIuXHQYB9/m0hHY/8zq5Y87Iwq4QUCWgtKuAIdAwAKCRAzq5Y87Iwq\n'
+               '4eFnA/4oOnM7kjgIYqs2TgAxuddMabx1US9yYZDG097Nxfw1DFJoFOg4ozrrWNRz\n'
+               'F3AHo7Ocue288VYIJtjH4KB2vGAYdWq8j6bywW7t4Be2WsU4MCJqETxS+3Gv65B6\n'
+               'NBq4Y8lJvKO/cwsqYI6XWsJsmnVns0XOdv/k6ZouVdpUu5Fpr4i2BBgBCAAgFiEE\n'
+               'SLlx0GAff5tIR2P/M6uWPOyMKuEFAloLSmwCGwwACgkQM6uWPOyMKuFrOAP/ZemA\n'
+               'yfU6zSfiReQ5fsiQhiy2jZx+JVweZ0ESgDuIvT4tlB4WK87OcITd40rTalGezRuE\n'
+               'fhi3IcnDc7L+kBGNhP3IY8IFVNYGqfowIYLl/RX+3BUjuaDpunO9kIBrhm0WrC6Y\n'
+               '+padVqwTFNFteQR0N9BW1qNf7HB20BCaElxGCuI=\n'
+               '=EoFv\n'
+               '-----END PGP PUBLIC KEY BLOCK-----\n')
+
+    pubkey, _ = PGPKey.from_blob(keyblob)
+    subkey = pubkey.subkeys['8ABD4FB3046BBCF8']
+
+    revsig = subkey._signatures[1]
+
+    assert pubkey.verify(subkey, revsig)
