@@ -11,12 +11,14 @@ import collections
 import operator
 import os
 import re
+import urllib.parse as urlparse
 import warnings
 import weakref
 
 from enum import EnumMeta
 from enum import IntEnum
 
+import requests
 import six
 
 from .decorators import sdproperty
@@ -228,6 +230,49 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
         obj.ascii_headers = self.ascii_headers.copy()
 
         return obj
+
+
+class HKPClient(object):
+    # XXX: need to support hkp(s)://
+    keyserver = 'http://pool.sks-keyservers.net:11371'
+
+    def __init__(self, keyserver=None):
+        if keyserver is not None:
+            self.keyserver = keyserver
+
+    def search(self, pattern):
+        # XXX: this is garbage - a first prototype to discard. we
+        # should use actual structures like PGPKey and PGPUID or at
+        # least named tuples in the output and factor out the
+        # colons-format parsing
+        response = requests.get('%s/pks/lookup?op=index&options=mr&fingerprint=on&exact=on&search=%s' %
+                                (self.keyserver, pattern))
+        fingerprint = None
+        uids = []
+        for line in urlparse.unquote(response.text).split("\n"):
+            parts = line.split(':')
+            if line.startswith('pub:'):
+                if fingerprint is not None:
+                    yield (fingerprint, uids)
+                    fingerprint = None
+                    uids = []
+                _, fingerprint, *_ = parts
+            elif line.startswith('uid:'):
+                _, uid, *rest = parts
+                name, email = uid.rsplit(' ', 1)
+                uids.append((name, email[1:-1], *rest))
+        if fingerprint is not None:
+            yield (fingerprint, uids)
+
+    def get(self, fingerprint):
+        response = requests.get('%s/pks/lookup?op=get&options=mr&fingerprint=on&exact=on&search=0x%s' %
+                                (self.keyserver, fingerprint))
+        # XXX: error handling - or handled by caller?
+        response.raise_for_status()
+        return response.content
+
+    def from_keyserver(self, fingerprint):
+        return PGPKey.from_blob(self.get(fingerprint))
 
 
 class ParentRef(object):
