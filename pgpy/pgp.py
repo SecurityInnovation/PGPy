@@ -416,7 +416,7 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
             by the top-level signature key that is bound to this subkey, or
             by an authorized revocation key, should be considered valid
             revocation signatures.
-            
+
             - clarification from draft-ietf-openpgp-rfc4880bis-02:
             Primary key revocation signatures (type 0x20) hash
             only the key being revoked.  Subkey revocation signature (type 0x28)
@@ -1343,6 +1343,9 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                 # keep connect the two halves using a weak reference
                 self._sibling = weakref.ref(pub)
                 pub._sibling = weakref.ref(self)
+
+                # copy parent
+                pub._parent = self.parent
 
             return self._sibling()
         return None
