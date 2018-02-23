@@ -8,6 +8,12 @@ export PYBUILD_NAME = pgpy
 override_dh_installchangelogs:
 	dh_installchangelogs docs/source/changelog.rst
 
+# LC_ALL=C.UTF-8 below is because of
 # https://github.com/SecurityInnovation/PGPy/issues/173
+
+# The test suite uses python-gpg, which is built only for one version
+# of python3 (see https://bugs.debian.org/866555), so we have to tune
+# this test rule to run the version that gpgme is built against (at
+# the moment, that's 3.6).  yuck.  See https://bugs.debian.org/878633.
 override_dh_auto_test:
-	LC_ALL=C.UTF-8 dh_auto_test -O--buildsystem=pybuild
+	LC_ALL=C.UTF-8 PYBUILD_VERSIONS=3.6 dh_auto_test -O--buildsystem=pybuild
