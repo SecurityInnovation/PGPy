@@ -1,0 +1,23 @@
+From: Michael Greene <a.minor.threat@gmail.com>
+Date: Wed, 8 Nov 2017 11:48:47 -0800
+Subject: RIPEMD160 is no longer accessible through cryptography;
+ changed this line to MD5 so it raises the exception being tested
+
+(cherry picked from commit c5c64d0b3add5cbede5ecc84e0dc7f4cefe17f7b)
+---
+ tests/test_10_exceptions.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tests/test_10_exceptions.py b/tests/test_10_exceptions.py
+index 6586b88..d6e31f5 100644
+--- a/tests/test_10_exceptions.py
++++ b/tests/test_10_exceptions.py
+@@ -235,7 +235,7 @@ class TestPGPKey(object):
+         assert w.filename == __file__
+ 
+     def test_sign_bad_prefs(self, rsa_sec, recwarn):
+-        rsa_sec.subkeys['2A834D8E5918E886'].sign(PGPMessage.new('asdf'), hash=HashAlgorithm.RIPEMD160)
++        rsa_sec.subkeys['2A834D8E5918E886'].sign(PGPMessage.new('asdf'), hash=HashAlgorithm.MD5)
+ 
+         w = recwarn.pop(UserWarning)
+         assert str(w.message) == "Selected hash algorithm not in key preferences"

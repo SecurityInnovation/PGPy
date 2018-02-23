@@ -1,0 +1,21 @@
+From: J08nY <johny@neuromancer.sk>
+Date: Mon, 7 Aug 2017 15:45:18 +0200
+Subject: Fix bogus print in PGPKey.__copy__.
+
+(cherry picked from commit 671661ae0f89a220982ba9de620f1c091ffa6ea6)
+---
+ pgpy/pgp.py | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/pgpy/pgp.py b/pgpy/pgp.py
+index 1e8e7b4..a3ae4ee 100644
+--- a/pgpy/pgp.py
++++ b/pgpy/pgp.py
+@@ -1525,7 +1525,6 @@ class PGPKey(Armorable, ParentRef, PGPObject):
+                 # embedded signatures don't need to be explicitly copied
+                 continue
+ 
+-            print(len(key._signatures))
+             key |= copy.copy(sig)
+ 
+         return key

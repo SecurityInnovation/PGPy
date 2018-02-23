@@ -1,0 +1,31 @@
+From: Michael Greene <a.minor.threat@gmail.com>
+Date: Thu, 9 Nov 2017 08:48:21 -0800
+Subject: #228 - remove default armor header to avoid leaking unnecessary
+ metadata
+
+(cherry picked from commit 9254da91d170726748447d01891df56f528c97af)
+---
+ pgpy/types.py | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/pgpy/types.py b/pgpy/types.py
+index 1a14676..1ff22b7 100644
+--- a/pgpy/types.py
++++ b/pgpy/types.py
+@@ -19,8 +19,6 @@ from enum import IntEnum
+ 
+ import six
+ 
+-from ._author import __version__
+-
+ from .decorators import sdproperty
+ 
+ from .errors import PGPError
+@@ -213,7 +211,6 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
+     def __init__(self):
+         super(Armorable, self).__init__()
+         self.ascii_headers = collections.OrderedDict()
+-        self.ascii_headers['Version'] = 'PGPy v' + __version__  # Default value
+ 
+     def __str__(self):
+         payload = base64.b64encode(self.__bytes__()).decode('latin-1')

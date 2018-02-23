@@ -1,0 +1,58 @@
+From: Michael Greene <a.minor.threat@gmail.com>
+Date: Tue, 14 Nov 2017 14:06:04 -0800
+Subject: #226 - fixed incomplete subkey revocation signature calculation
+
+(cherry picked from commit 51fe8f8864ae46a3f7fed6060c0cc5a546f62458)
+---
+ pgpy/pgp.py | 17 ++++++++++++-----
+ 1 file changed, 12 insertions(+), 5 deletions(-)
+
+diff --git a/pgpy/pgp.py b/pgpy/pgp.py
+index a3ae4ee..82ef492 100644
+--- a/pgpy/pgp.py
++++ b/pgpy/pgp.py
+@@ -339,7 +339,7 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
+         _data = bytearray()
+ 
+         if isinstance(subject, six.string_types):
+-            subject = subject.encode('latin-1')
++            subject = subject.encode('charmap')
+ 
+         """
+         All signatures are formed by producing a hash over the signature
+@@ -416,6 +416,11 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
+             by the top-level signature key that is bound to this subkey, or
+             by an authorized revocation key, should be considered valid
+             revocation signatures.
++            
++            - clarification from draft-ietf-openpgp-rfc4880bis-02:
++            Primary key revocation signatures (type 0x20) hash
++            only the key being revoked.  Subkey revocation signature (type 0x28)
++            hash first the primary key and then the subkey being revoked
+ 
+             Signature directly on a key
+             This signature is calculated directly on a key.  It binds the
+@@ -426,6 +431,11 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
+             about the key itself, rather than the binding between a key and a
+             name.
+             """
++            if self.type == SignatureType.SubkeyRevocation:
++                # hash the primary key first if this is a Subkey Revocation signature
++                _s = subject.parent.hashdata
++                _data += b'\x99' + self.int_to_bytes(len(_s), 2) + _s
++
+             _s = subject.hashdata
+             _data += b'\x99' + self.int_to_bytes(len(_s), 2) + _s
+ 
+@@ -1243,10 +1253,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
+     def hashdata(self):
+         # when signing a key, only the public portion of the keys is hashed
+         # if this is a private key, the private components of the key material need to be left out
+-        if self.is_public:
+-            return self._key.__bytearray__()[len(self._key.header):]
+-
+-        pub = self._key.pubkey()
++        pub = self._key if self.is_public else self._key.pubkey()
+         return pub.__bytearray__()[len(pub.header):]
+ 
+     @property
