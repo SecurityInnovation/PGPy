@@ -1,0 +1,2 @@
+Test-Command: python3 -c 'import pgpy'
+Depends: @
