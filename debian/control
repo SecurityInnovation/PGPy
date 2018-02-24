@@ -46,6 +46,7 @@ Description: OpenPGP (Pretty Good Privacy) RFC 4880 implementation in Python 3
 Package: python3-pgpy-doc
 Section: doc
 Architecture: all
+Multi-Arch: foreign
 Depends:
  ${misc:Depends},
 Recommends:
