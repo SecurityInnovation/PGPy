@@ -4,3 +4,4 @@ tests/testdata/random_seed
 tests/testdata/pubring.kbx*
 tests/testdata/trustdb.gpg
 tests/testdata/tofu.db
+docs/build/

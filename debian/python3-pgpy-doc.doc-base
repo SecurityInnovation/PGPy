@@ -1,0 +1,9 @@
+Document: python3-pgpy
+Title: Documentation for the pgpy Python module
+Author: Michael Greene <a.minor.threat@gmail.com> 
+Abstract: PGPy is a Python implementation of the OpenPGP specification, as described in RFC 4880
+Section: Network/Communication
+
+Format: HTML
+Index: /usr/share/doc/python3-pgpy/html/index.html
+Files: /usr/share/doc/python3-pgpy/html/

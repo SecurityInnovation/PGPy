@@ -1,0 +1,33 @@
+From: Daniel Kahn Gillmor <dkg@fifthhorseman.net>
+Date: Fri, 23 Feb 2018 16:13:58 -0800
+Subject: Avoid using the "better" sphinx theme
+
+Until https://bugs.debian.org/891271 is resolved, we'll just make the
+documentation with the default sphinx theme of alabaster.
+---
+ docs/source/conf.py | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/docs/source/conf.py b/docs/source/conf.py
+index ebe620e..2b1793a 100644
+--- a/docs/source/conf.py
++++ b/docs/source/conf.py
+@@ -15,8 +15,6 @@
+ 
+ import sys
+ import os
+-# this needs sphinx-better-theme
+-from better import better_theme_path
+ 
+ # If extensions (or modules to document with autodoc) are in another directory,
+ # add these directories to sys.path here. If the directory is relative to the
+@@ -124,8 +122,7 @@ numpydoc_show_class_members = False
+ # The theme to use for HTML and HTML Help pages.  See the documentation for
+ # a list of builtin themes.
+ # html_theme = 'default'
+-html_theme = 'better'
+-html_theme_path = [better_theme_path]
++html_theme = 'alabaster'
+ 
+ # Theme options are theme-specific and customize the look and feel of a theme
+ # further.  For a list of options available for each theme, see the

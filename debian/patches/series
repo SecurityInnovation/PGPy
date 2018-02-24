@@ -5,3 +5,4 @@
 0005-228-remove-default-armor-header-to-avoid-leaking-unn.patch
 0006-fixed-parsing-of-User-IDs-that-include-multibyte-utf.patch
 0007-226-fixed-incomplete-subkey-revocation-signature-cal.patch
+0008-Avoid-using-the-better-sphinx-theme.patch

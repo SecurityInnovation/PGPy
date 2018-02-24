@@ -1,5 +1,1 @@
-./docs/source/api
-./docs/source/examples.rst
-./docs/source/index.rst
-./docs/source/installation.rst
-./docs/source/progress.rst
+./docs/build/html

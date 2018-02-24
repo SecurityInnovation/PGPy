@@ -5,6 +5,12 @@ export PYBUILD_NAME = pgpy
 %:
 	dh $@ --with python3 --buildsystem pybuild
 
+override_dh_auto_build-indep:
+	dh_auto_build -O=--buildsystem=pybuild
+ifeq ($(filter nodoc,$(DEB_BUILD_PROFILES)),)
+	make -C docs html
+endif
+
 override_dh_installchangelogs:
 	dh_installchangelogs docs/source/changelog.rst
 
