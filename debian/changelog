@@ -1,3 +1,17 @@
+python-pgpy (0.4.3-3) unstable; urgency=medium
+
+  * move to DEP-14 branch naming conventions
+  * Standards-Version: bump to 4.1.3 (no changes needed)
+  * move to debhelper 11
+  * import bugfixes from upstream
+  * d/tests: add lowest-common-denominator smoketest
+  * only test against a single version of python3 (Closes: #878633)
+  * ship examples using dh_installexamples
+  * build html docs instead of just shipping rst source
+  * accept multi-arch hinter about python-pgpy-doc
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Fri, 23 Feb 2018 16:56:02 -0800
+
 python-pgpy (0.4.3-2) unstable; urgency=medium
 
   * Yet another upload to try to work around build-daemon
