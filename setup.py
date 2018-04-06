@@ -24,8 +24,7 @@ with open('README.rst') as readme:
 _requires = [
     'cryptography>=1.1',
     'pyasn1',
-    'six>=1.9.0',
-    'singledispatch',
+    'six>=1.9.0'
 ]
 
 _doc_requires = [
@@ -34,7 +33,8 @@ _doc_requires = [
 ]
 
 if sys.version_info[:2] <= (3, 4):
-    # only depend on enum34 if Python is older than 3.4
+    # only depend on enum34 and singledispatch if Python is older than 3.4
+    _requires += ['singledispatch']
     _requires += ['enum34']
 
 setup(
