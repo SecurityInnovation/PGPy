@@ -32,7 +32,7 @@ _doc_requires = [
     'sphinx-better-theme'
 ]
 
-if sys.version_info[:2] <= (3, 4):
+if sys.version_info[:2] < (3, 4):
     # only depend on enum34 and singledispatch if Python is older than 3.4
     _requires += ['singledispatch']
     _requires += ['enum34']
