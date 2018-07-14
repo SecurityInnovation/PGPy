@@ -1736,7 +1736,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                 uid = next(iter(self.parent.userids), None)
 
         if sig.hash_algorithm is None:
-            sig._signature.halg = uid.selfsig.hashprefs[0]
+            sig._signature.halg = next(h for h in uid.selfsig.hashprefs if h.is_supported)
 
         if uid is not None and sig.hash_algorithm not in uid.selfsig.hashprefs:
             warnings.warn("Selected hash algorithm not in key preferences", stacklevel=4)
@@ -2188,7 +2188,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             uid = next(iter(self.userids), None)
             if uid is None and self.parent is not None:
                 uid = next(iter(self.parent.userids), None)
-        cipher_algo = prefs.pop('cipher', uid.selfsig.cipherprefs[0])
+        pref_cipher = next(c for c in uid.selfsig.cipherprefs if c.is_supported)
+        cipher_algo = prefs.pop('cipher', pref_cipher)
 
         if cipher_algo not in uid.selfsig.cipherprefs:
             warnings.warn("Selected symmetric algorithm not in key preferences", stacklevel=3)
