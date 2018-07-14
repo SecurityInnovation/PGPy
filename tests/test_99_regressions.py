@@ -370,3 +370,40 @@ def test_verify_subkey_revocation_signature():
     revsig = subkey._signatures[1]
 
     assert pubkey.verify(subkey, revsig)
+
+@pytest.mark.regression(issue=243)
+def test_preference_unsupported_ciphers():
+    from pgpy import PGPMessage
+    keyblob = ('-----BEGIN PGP PUBLIC KEY BLOCK-----\n'
+               '\n'
+               'mQENBFtKbSQBCADDMwreTvJkDQkgB+n0GsNbMFKEjPYGKP365y5w+FlJ2zg69F3W\n'
+               'ituYFQcTwuge2XSh58k/XHln+MwjNc5cDQaWLtMuyJbRvLK+8MdpdYlzrlyrsgDI\n'
+               'L/1PAlGMVWB83Iu2kxqc0ppTxwsltAcvRJBE+9oSiWRACQviDmX5LeBmPoGqM93w\n'
+               'LeN3QT/tu26rxha374HPgSqqNR13r3xl7gQre+pA3jmNQqwzPnEmUKN3hO852NAw\n'
+               'QOPbf4yTCcbeZ6iZ/h0mW4DvbLiPbzUsXRvgTo3X/kzJD+ZnznvJvjcKrkXzaOAp\n'
+               'qt6Nd1LmWyv5h7gBYgBNaQONFeMl9MVBFUflABEBAAG0GnRlc3RrZXkgPHRlc3RA\n'
+               'ZXhhbXBsZS5jb20+iQFPBBMBCAA5AhsDAh4BAheAFiEEL7Bmz7+mS4Q3LDSMbIbe\n'
+               'TttFc4wFAltKbXsFCwoJCAcGFQoJCAsCBRYCAwEAAAoJEGyG3k7bRXOMI34IAINL\n'
+               'bYmZ95RgVX98+tjBAliV9xZaaxu4xpY8vz4pCwwFj9QBMxkzmITC1yb/Vav6pLFK\n'
+               'UISLGeOUqskVg9uQn8YGSnRaKoxetL894o0jGLyQF6ujF4OFhbfRlaLbNACDQqg0\n'
+               'bzV1E+s6RsnbwR7aFlOcgz5m/j7+c9t/BnZ4qOYBW85iLyzQA4BgTBSocdyom3EA\n'
+               'osCNY4tFuySFlOF34OLu1k8y9RP0KsJJptEdIwEqSxRKuQ5KTbopx9kvxVfOOwgy\n'
+               'RVYuP/OQrc/MQPGSC0Rmh/iCNEsTOIxcwnotmyRd8qDpw/EBj1a0iWxzPYOzXoEQ\n'
+               'Ff2ipWRkzS3AyWVJJxi5AQ0EW0ptJAEIAJXwfVD+3oSLPedMBvpfnveu/LjFvxJk\n'
+               'ohawApu63JzJNXoRpjeBhox073iEjeSbvq/pJ/+y0t6KkFZXoXgpqACGDNjPpojk\n'
+               '6YTo6Da7GpyXefhKyH4IQ9Lbd9UIEhOKfktXTJfR/EoCZb+rmTm0WnjwkwOAVdQv\n'
+               'vuMRm8Hc39xn+Mt0CV+0KcYHhNfK+A2XU6bZkHuwaTzxTaotmeLeCgC+BA2Phwxp\n'
+               'BIhkSNE8ayYLN0VBPraw28xONzNV5e6f8RWNoGTDQxhZflmvIGz/XO5wo1DV1G0k\n'
+               'VIR49brAmrapqpCW7XWhuuupVbrpbjRUa+c4G03tySXQXUTdA3etH0EAEQEAAYkB\n'
+               'NgQYAQgAIBYhBC+wZs+/pkuENyw0jGyG3k7bRXOMBQJbSm0kAhsMAAoJEGyG3k7b\n'
+               'RXOMKbMIAKymk6Fe1qpjXtK56jpMurz1wBL0/twQbvtKQlgMBNdro0MX30xKGXh1\n'
+               'rCEIV3ls7CJnUm2NEeqFPzFZhsZS2FkgDXXT20K3S6nscv8xlF2z+jktK2RY6oCJ\n'
+               'Lgw447Rgjw5ARgW2XNrGRzapAf4KBgcyO1KtTCbjh8leg4Fs1O7B8EbiBvoeUJR0\n'
+               'wj2xNG4cOHoWN7Zjv8lLsJn60+ZbTeU25ghybmt7WjCs4ht7TZmamerLPzrFvP2c\n'
+               'ftLsb17HhrBPdfs42SsD8A816JDM7PcJWujlDV9FPJgoVjndK+4Jfpg9b4jOBA7J\n'
+               '7zeGuobtKdS9Y97BVFNtTPZK66YUIEQ=\n'
+               '=lGIy\n'
+               '-----END PGP PUBLIC KEY BLOCK-----\n')
+    pubkey, _ = PGPKey.from_blob(keyblob)
+    msg = PGPMessage.new('asdf')
+    pubkey.encrypt(msg)
