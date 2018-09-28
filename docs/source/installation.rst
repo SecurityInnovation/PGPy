@@ -19,7 +19,7 @@ Linux
 Debian
 ^^^^^^
 
-PGPy is now in `Debian Sid <https://packages.debian.org/sid/python3-pgpy>`_, and can be installed simply::
+PGPy is now in `Debian Testing <https://packages.debian.org/buster/python3-pgpy>`_, and can be installed simply::
 
     $ sudo apt install python3-pgpy
 
