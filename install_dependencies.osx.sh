@@ -3,10 +3,10 @@
 # this will need to be manually kept up to date until travis support for python on osx improves
 declare -A pyver
 pyver["2.7"]="2.7.13"
-pyver["3.3"]="3.3.6"
 pyver["3.4"]="3.4.6"
 pyver["3.5"]="3.5.3"
 pyver["3.6"]="3.6.0"
+pyver["3.7"]="3.7.0"
 pyver["pypy"]="pypy2-5.6.0"
 pyver["pypy3"]="pypy3.3-5.5-alpha"
 

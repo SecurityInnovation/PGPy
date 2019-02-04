@@ -50,7 +50,7 @@ Requirements
 
 - Python 3 >= 3.3; Python 2 >= 2.7
 
-  Tested with: 3.6, 3.5, 3.4, 3.3, 2.7
+  Tested with: 3.7, 3.6, 3.5, 3.4, 2.7
 
 - `Cryptography <https://pypi.python.org/pypi/cryptography>`_
 
