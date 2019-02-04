@@ -4,7 +4,7 @@ import pytest
 
 import glob
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from pgpy.constants import HashAlgorithm
 from pgpy.constants import PubKeyAlgorithm
@@ -130,9 +130,9 @@ block_attrs = {
          ('type',          'encrypted')],
 
     'tests/testdata/blocks/revochiio.asc':
-        [('created',       datetime(2014, 9, 11, 22, 55, 53)),
+        [('created',       datetime.utcnow() - timedelta(days=1),
          ('fingerprint',   "AE15 9FF3 4C1A 2426 B7F8 0F1A 560C F308 EF60 CFA3"),
-         ('expires_at',    datetime(2018, 9, 12, 1, 0, 59)),
+         ('expires_at',    datetime.utcnow() + timedelta(days=1),
          ('is_expired',    False),
          ('is_primary',    True),
          ('is_protected',  False),
