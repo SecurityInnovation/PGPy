@@ -47,6 +47,7 @@ from ..constants import EllipticCurveOID
 from ..constants import HashAlgorithm
 from ..constants import PubKeyAlgorithm
 from ..constants import String2KeyType
+from ..constants import S2KGNUExtension
 from ..constants import SymmetricKeyAlgorithm
 
 from ..decorators import sdproperty
@@ -748,6 +749,15 @@ class String2Key(Field):
         self._specifier = String2KeyType(val)
 
     @sdproperty
+    def gnuext(self):
+        return self._gnuext
+
+    @gnuext.register(int)
+    @gnuext.register(S2KGNUExtension)
+    def gnuext_int(self, val):
+        self._gnuext = S2KGNUExtension(val)
+
+    @sdproperty
     def halg(self):
         return self._halg
 
@@ -783,12 +793,17 @@ class String2Key(Field):
         # iterated
         self.count = 0
 
+        # GNU extension smartcard
+        self.scserial = None
+
     def __bytearray__(self):
         _bytes = bytearray()
         _bytes.append(self.usage)
         if bool(self):
             _bytes.append(self.encalg)
             _bytes.append(self.specifier)
+            if self.specifier > String2KeyType.Iterated:
+                return self._experimental_bytearray(_bytes)
             if self.specifier >= String2KeyType.Simple:
                 _bytes.append(self.halg)
             if self.specifier >= String2KeyType.Salted:
@@ -797,6 +812,15 @@ class String2Key(Field):
                 _bytes.append(self._count)
             if self.iv is not None:
                 _bytes += self.iv
+        return _bytes
+
+    def _experimental_bytearray(self, _bytes):
+        if self.specifier == String2KeyType.GNUExtension:
+            _bytes += b'\x00GNU'
+            _bytes.append(self.gnuext)
+            if self.scserial:
+                _bytes.append(len(self.scserial))
+                _bytes += self.scserial
         return _bytes
 
     def __len__(self):
@@ -813,10 +837,12 @@ class String2Key(Field):
         s2k.usage = self.usage
         s2k.encalg = self.encalg
         s2k.specifier = self.specifier
+        s2k.gnuext = self.gnuext
         s2k.iv = self.iv
         s2k.halg = self.halg
         s2k.salt = copy.copy(self.salt)
         s2k.count = self._count
+        s2k.scserial = self.scserial
         return s2k
 
     def parse(self, packet, iv=True):
@@ -829,6 +855,9 @@ class String2Key(Field):
 
             self.specifier = packet[0]
             del packet[0]
+
+            if self.specifier > String2KeyType.Iterated:
+                return self._experimental_parse(packet, iv)
 
             if self.specifier >= String2KeyType.Simple:
                 # this will always be true
@@ -846,6 +875,42 @@ class String2Key(Field):
             if iv:
                 self.iv = packet[:(self.encalg.block_size // 8)]
                 del packet[:(self.encalg.block_size // 8)]
+
+    def _experimental_parse(self, packet, iv=True):
+        """
+        https://git.gnupg.org/cgi-bin/gitweb.cgi?p=gnupg.git;a=blob;f=doc/DETAILS;h=3046523da62c576cf6a765a8b0829876cfdc6b3b;hb=b0f0791e4ade845b2a0e2a94dbda4f3bf1ceb039#l1346
+
+        GNU extensions to the S2K algorithm
+
+        1 octet  - S2K Usage: either 254 or 255.
+        1 octet  - S2K Cipher Algo: 0
+        1 octet  - S2K Specifier: 101
+        4 octets - "\x00GNU"
+        1 octet  - GNU S2K Extension Number.
+
+        If such a GNU extension is used neither an IV nor any kind of
+        checksum is used.  The defined GNU S2K Extension Numbers are:
+
+        - 1 :: Do not store the secret part at all.  No specific data
+               follows.
+
+        - 2 :: A stub to access smartcards.  This data follows:
+               - One octet with the length of the following serial number.
+               - The serial number. Regardless of what the length octet
+                 indicates no more than 16 octets are stored.
+        """
+        if self.specifier == String2KeyType.GNUExtension:
+            if packet[:4] != b'\x00GNU':
+                raise PGPError("Invalid S2K GNU extension magic value")
+            del packet[:4]
+            self.gnuext = packet[0]
+            del packet[0]
+
+            if self.gnuext == S2KGNUExtension.Smartcard:
+                slen = min(packet[0], 16)
+                del packet[0]
+                self.scserial = packet[:slen]
+                del packet[:slen]
 
     def derive_key(self, passphrase):
         ##TODO: raise an exception if self.usage is not 254 or 255

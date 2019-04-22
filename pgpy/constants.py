@@ -431,6 +431,12 @@ class String2KeyType(IntEnum):
     Salted = 1
     Reserved = 2
     Iterated = 3
+    GNUExtension = 101
+
+
+class S2KGNUExtension(IntEnum):
+    NoSecrete = 1
+    Smartcard = 2
 
 
 class TrustLevel(IntEnum):
