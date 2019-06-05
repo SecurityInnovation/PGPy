@@ -291,13 +291,15 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         return self._signature.sigtype
 
     @classmethod
-    def new(cls, sigtype, pkalg, halg, signer):
+    def new(cls, sigtype, pkalg, halg, signer, created=None):
         sig = PGPSignature()
 
+        if created is None:
+            created=datetime.utcnow()
         sigpkt = SignatureV4()
         sigpkt.header.tag = 2
         sigpkt.header.version = 4
-        sigpkt.subpackets.addnew('CreationTime', hashed=True, created=datetime.utcnow())
+        sigpkt.subpackets.addnew('CreationTime', hashed=True, created=created)
         sigpkt.subpackets.addnew('Issuer', _issuer=signer)
 
         sigpkt.sigtype = sigtype
@@ -1848,6 +1850,9 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         :keyword user: Specify which User ID to use when creating this signature. Also adds a "Signer's User ID"
                        to the signature.
         :type user: ``str``
+        :keyword created: Specify the time that the signature should be made.  If unset or None,
+                          it will use the present time.
+        :type created: :py:obj:`~datetime.datetime`
         """
         sig_type = SignatureType.BinaryDocument
         hash_algo = prefs.pop('hash', None)
@@ -1861,7 +1866,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
             subject = subject.message
 
-        sig = PGPSignature.new(sig_type, self.key_algorithm, hash_algo, self.fingerprint.keyid)
+        created = prefs.pop('created', None)
+        sig = PGPSignature.new(sig_type, self.key_algorithm, hash_algo, self.fingerprint.keyid, created=created)
 
         return self._sign(subject, sig, **prefs)
 
