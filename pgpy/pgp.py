@@ -1430,7 +1430,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return [u for u in self._uids if u.is_ua]
 
     @classmethod
-    def new(cls, key_algorithm, key_size):
+    def new(cls, key_algorithm, key_size, created=None):
         """
         Generate a new PGP key
 
@@ -1439,6 +1439,9 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         :param key_size: Key size in bits, unless `key_algorithm` is :py:obj:`~constants.PubKeyAlgorithm.ECDSA` or
                :py:obj:`~constants.PubKeyAlgorithm.ECDH`, in which case it should be the Curve OID to use.
         :type key_size: ``int`` or :py:obj:`~constants.EllipticCurveOID`
+
+        :param created: When was the key created? (None or unset means now)
+        :type created: :py:obj:`~datetime.datetime` or None
         :return: A newly generated :py:obj:`PGPKey`
         """
         # new private key shell first
@@ -1449,7 +1452,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             key_algorithm = PubKeyAlgorithm.RSAEncryptOrSign
 
         # generate some key data to match key_algorithm and key_size
-        key._key = PrivKeyV4.new(key_algorithm, key_size)
+        key._key = PrivKeyV4.new(key_algorithm, key_size, created=created)
 
         return key
 
