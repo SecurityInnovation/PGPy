@@ -25,7 +25,6 @@ _requires = [
     'cryptography>=1.1',
     'pyasn1',
     'six>=1.9.0',
-    'singledispatch',
 ]
 
 _doc_requires = [
@@ -33,8 +32,9 @@ _doc_requires = [
     'sphinx-better-theme'
 ]
 
-if sys.version_info[:2] <= (3, 4):
-    # only depend on enum34 if Python is older than 3.4
+if sys.version_info[:2] < (3, 4):
+    # only depend on enum34 and singledispatch if Python is older than 3.4
+    _requires += ['singledispatch']
     _requires += ['enum34']
 
 setup(
@@ -52,10 +52,10 @@ setup(
                         'Operating System :: Microsoft :: Windows',
                         'Intended Audience :: Developers',
                         'Programming Language :: Python',
+                        'Programming Language :: Python :: 3.7',
                         'Programming Language :: Python :: 3.6',
                         'Programming Language :: Python :: 3.5',
                         'Programming Language :: Python :: 3.4',
-                        'Programming Language :: Python :: 3.3',
                         'Programming Language :: Python :: 2.7',
                         'Programming Language :: Python :: Implementation :: CPython',
                         'Topic :: Security',
