@@ -1055,16 +1055,22 @@ class SKEData(Packet):
         del packet[:self.header.length]
 
     def decrypt(self, key, alg):  # pragma: no cover
-        pt = _decrypt(bytes(self.ct), bytes(key), alg)
+        block_size_bytes = alg.block_size // 8
+        pt_prefix = _decrypt(bytes(self.ct[:block_size_bytes + 2]), bytes(key), alg)
 
-        iv = bytes(pt[:alg.block_size // 8])
-        del pt[:alg.block_size // 8]
+        # old Symmetrically Encrypted Data Packet required
+        # to change iv after decrypting prefix
+        iv_resync = bytes(self.ct[2:block_size_bytes + 2])
 
-        ivl2 = bytes(pt[:2])
-        del pt[:2]
+        iv = bytes(pt_prefix[:block_size_bytes])
+        del pt_prefix[:block_size_bytes]
+
+        ivl2 = bytes(pt_prefix[:2])
 
         if not constant_time.bytes_eq(iv[-2:], ivl2):
             raise PGPDecryptionError("Decryption failed")
+
+        pt = _decrypt(bytes(self.ct[block_size_bytes + 2:]), bytes(key), alg, iv=iv_resync)
 
         return pt
 
