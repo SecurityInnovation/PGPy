@@ -2158,7 +2158,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                 if verified is NotImplemented:
                     raise NotImplementedError(sig.key_algorithm)
 
-                sigv.add_sigsubj(sig, self.fingerprint.keyid, subj, verified)
+                sigv.add_sigsubj(sig, self, subj, verified)
 
         return sigv
 
