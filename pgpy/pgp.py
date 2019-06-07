@@ -5,6 +5,7 @@ this is where the armorable PGP block objects live
 import binascii
 import calendar
 import collections
+import collections.abc
 import contextlib
 import copy
 import functools
@@ -416,7 +417,7 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
             by the top-level signature key that is bound to this subkey, or
             by an authorized revocation key, should be considered valid
             revocation signatures.
-            
+
             - clarification from draft-ietf-openpgp-rfc4880bis-02:
             Primary key revocation signatures (type 0x20) hash
             only the key being revoked.  Subkey revocation signature (type 0x28)
@@ -2334,7 +2335,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return keys
 
 
-class PGPKeyring(collections.Container, collections.Iterable, collections.Sized):
+class PGPKeyring(collections.abc.Container, collections.abc.Iterable, collections.abc.Sized):
     def __init__(self, *args):
         """
         PGPKeyring objects represent in-memory keyrings that can contain any combination of supported private and public
