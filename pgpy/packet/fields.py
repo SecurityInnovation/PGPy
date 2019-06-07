@@ -474,8 +474,12 @@ class ECDSAPub(PubKey):
         super(ECDSAPub, self).__init__()
         self.oid = None
 
+    # Length in bytes of a MPI for this curve (zero-padded)
+    def component_bytelen(self):
+        return (self.oid.key_size + 7) >> 3 # round up
+
     def __len__(self):
-        return sum([len(getattr(self, i)) - 2 for i in self.__pubfields__] +
+        return sum([self.component_bytelen() for i in self.__pubfields__] +
                    [3, len(encoder.encode(self.oid.value)) - 1])
 
     def __pubkey__(self):
@@ -486,7 +490,7 @@ class ECDSAPub(PubKey):
         _b += encoder.encode(self.oid.value)[1:]
         # 0x04 || x || y
         # where x and y are the same length
-        _xy = b'\x04' + self.x.to_mpibytes()[2:] + self.y.to_mpibytes()[2:]
+        _xy = b'\x04' + MPIs.int_to_bytes(self.x, self.component_bytelen()) + MPIs.int_to_bytes(self.y, self.component_bytelen())
         _b += MPI(self.bytes_to_int(_xy, 'big')).to_mpibytes()
 
         return _b
@@ -542,8 +546,12 @@ class ECDHPub(PubKey):
         self.oid = None
         self.kdf = ECKDF()
 
+    # Length in bytes of a MPI for this curve (zero-padded)
+    def component_bytelen(self):
+        return (self.oid.key_size + 7) >> 3 # round up
+
     def __len__(self):
-        return sum([len(getattr(self, i)) - 2 for i in self.__pubfields__] +
+        return sum([self.component_bytelen() for i in self.__pubfields__] +
                    [3,
                     len(self.kdf),
                     len(encoder.encode(self.oid.value)) - 1])
@@ -556,7 +564,7 @@ class ECDHPub(PubKey):
         _b += encoder.encode(self.oid.value)[1:]
         # 0x04 || x || y
         # where x and y are the same length
-        _xy = b'\x04' + self.x.to_mpibytes()[2:] + self.y.to_mpibytes()[2:]
+        _xy = b'\x04' + MPIs.int_to_bytes(self.x, self.component_bytelen()) + MPIs.int_to_bytes(self.y, self.component_bytelen())
         _b += MPI(self.bytes_to_int(_xy, 'big')).to_mpibytes()
         _b += self.kdf.__bytearray__()
 
