@@ -263,6 +263,15 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         return self._signature.signer
 
     @property
+    def signer_fingerprint(self):
+        """
+        The fingerprint of the key that generated this signature, if it contained. Otherwise, an empty ``str``.
+        """
+        if 'IssuerFingerprint' in self._signature.subpackets:
+            return next(iter(self._signature.subpackets['IssuerFingerprint'])).issuer_fingerprint
+        return ''
+
+    @property
     def target_signature(self):
         return NotImplemented
 
