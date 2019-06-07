@@ -203,7 +203,7 @@ block_attrs = {
          ('notation',       {}),
          ('policy_uri',     ''),
          ('revocable',      True),
-         ('revocation_key', None),
+         ('revocation_key', []),
          ('signer',         'FCAE54F74BA27CF7'),
          ('type',           SignatureType.BinaryDocument)],
 
