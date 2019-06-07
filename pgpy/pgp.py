@@ -2449,7 +2449,7 @@ class PGPKeyring(collections.abc.Container, collections.abc.Iterable, collection
         Load all keys provided into this keyring object.
 
         :param \*args: Each arg in ``args`` can be any of the formats supported by :py:meth:`PGPKey.from_path` and
-                      :py:meth:`PGPKey.from_blob`, or a ``list`` or ``tuple`` of these.
+                      :py:meth:`PGPKey.from_blob` or a :py:class:`PGPKey` instance, or a ``list`` or ``tuple`` of these.
         :type \*args: ``list``, ``tuple``, ``str``, ``unicode``, ``bytes``, ``bytearray``
         :returns: a ``set`` containing the unique fingerprints of all of the keys that were loaded during this operation.
         """
@@ -2461,9 +2461,11 @@ class PGPKeyring(collections.abc.Container, collections.abc.Iterable, collection
         loaded = set()
         for key in iter(item for ilist in iter(ilist if isinstance(ilist, (tuple, list)) else [ilist] for ilist in args)
                         for item in ilist):
-            if os.path.isfile(key):
+            keys = {}
+            if isinstance(key, PGPKey):
+                _key = key
+            elif os.path.isfile(key):
                 _key, keys = PGPKey.from_file(key)
-
             else:
                 _key, keys = PGPKey.from_blob(key)
 
