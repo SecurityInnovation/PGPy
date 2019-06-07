@@ -1362,6 +1362,10 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                 self._sibling = weakref.ref(pub)
                 pub._sibling = weakref.ref(self)
 
+                # copy parent
+                if self.parent:
+                    pub._parent = weakref.ref(self.parent)
+
             return self._sibling()
         return None
 
