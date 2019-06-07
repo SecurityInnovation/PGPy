@@ -200,6 +200,10 @@ class SymmetricKeyAlgorithm(IntEnum):
         raise NotImplementedError(repr(self))
 
     @property
+    def is_supported(self):
+        return callable(self.cipher)
+
+    @property
     def is_insecure(self):
         insecure_ciphers = {SymmetricKeyAlgorithm.IDEA}
         return self in insecure_ciphers
@@ -350,6 +354,10 @@ class HashAlgorithm(IntEnum):
             self.tune_count()
 
         return self._tuned_count
+
+    @property
+    def is_supported(self):
+        return True
 
     def tune_count(self):
         start = end = 0

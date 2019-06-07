@@ -24,7 +24,7 @@ def _encrypt(pt, key, alg, iv=None):
     if alg.is_insecure:
         raise PGPInsecureCipher("{:s} is not secure. Do not use it for encryption!".format(alg.name))
 
-    if not callable(alg.cipher):
+    if not alg.is_supported:
         raise PGPEncryptionError("Cipher {:s} not supported".format(alg.name))
 
     try:
