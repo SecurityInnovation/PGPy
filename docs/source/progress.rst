@@ -88,7 +88,7 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
         - Protect,   True,  Protect private keys encryped with Blowfish
         - Protect,   True,  Protect private keys encryped with AES
         - Protect,   False, Protect private keys encryped with Twofish
-        - Unprotect, True,  Unprotect private keys encrypted with IDEA*
+        - Unprotect, True,  Unprotect private keys encrypted with IDEA[1]_
         - Unprotect, True,  Unprotect private keys encrypted with Triple-DES
         - Unprotect, True,  Unprotect private keys encrypted with CAST5
         - Unprotect, True,  Unprotect private keys encrypted with Blowfish
@@ -190,8 +190,8 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
     :text: :rfc:`5581` extends RFC 4880 to officially add support for the Camellia cipher
 
     :Actions:
-        - Encryption, True, Camellia*
-        - Decryption, True, Camellia*
+        - Encryption, True, Camellia[1]_
+        - Decryption, True, Camellia[1]_
 
 
 .. progress:: RFC 6637
@@ -263,8 +263,17 @@ This section covers things that are considered extensions to PGP, but are not co
     :text: The protocol is specified in `Marc Horowitz's thesis paper`_, and an expired RFC draft by David Shaw, `draft-shaw-openpgp-hkp-00`_.
 
     :HKP:
-        - HKP, False, Look up and retrieve keys from key server
-        - HKP, False, Send keys to key server
+        - Discovery, False, Round robin DNS and SRV lookups (section 7. Locating a HKP Keyserver)
+        - Index,     False, Look up keys on key server, with multiple possible matches (section 3.1.2.2. The "index" Operation)
+        - Get,       False, Retrieve keys from key server, single fingerprint fetch (section 3.1.2.1. The "get" operation)          
+        - Post,      False, Send keys to key server (section 4. Submitting Keys To A Keyserver)
+
+.. progress:: OpenPGP Web Key Service (WKS)
+    :text: LocatesOpenPGP keys by mail address using a Web service and the HTTPS protocol. Protocol specified in an in-progress RFC draft by Werner Koch, `draft-koch-openpgp-webkey-service`_
+
+    :WKS:
+        - Discovery, False, Fetches keys matching a UID from the server, using DNS and SRV lookups (section 3.1.  Key Discovery)
+        - Update,    False, Update keys on the WKS (section 4.  Web Key Directory Update Protocol)
 
 .. progress:: EdDSA for OpenPGP
     :text: Use of Ed25519 with ECDSA and ECDH in OpenPGP is currently specified in an in-progress RFC draft by Werner Koch, `draft-koch-eddsa-for-openpgp`_.
@@ -280,15 +289,16 @@ This section covers things that are considered extensions to PGP, but are not co
         - Curve, True,  Brainpool P-256
         - Curve, True,  Brainpool P-384
         - Curve, True,  Brainpool P-512
-        - Curve, False, Curve25519
+        - Curve, True,  Curve25519[1]_
         - Curve, True,  SECP256K1
 
 .. note:: Use of Brainpool curves with ECDSA/ECDH
     Although these curves are not explicitly mentioned in an RFC for OpenPGP at this point, GnuPG 2.1.x+ does support using them, so I have included them here as well.
 
-    \* Cipher availability depends on the currently installed OpenSSL being compiled with support for it
+.. [1] Cipher availability depends on the currently installed OpenSSL being compiled with support for it
 
 
 .. _`Marc Horowitz's thesis paper`: http://www.mit.edu/afs/net.mit.edu/project/pks/thesis/paper/thesis.html
 .. _`draft-shaw-openpgp-hkp-00`: https://tools.ietf.org/html/draft-shaw-openpgp-hkp-00
+.. _`draft-koch-openpgp-webkey-service`: https://tools.ietf.org/html/draft-koch-openpgp-webkey-service-04
 .. _`draft-koch-eddsa-for-openpgp`: https://tools.ietf.org/html/draft-koch-eddsa-for-openpgp-04
