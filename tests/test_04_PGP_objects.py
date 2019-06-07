@@ -10,18 +10,10 @@ from pgpy import PGPKeyring
 from pgpy import PGPMessage
 from pgpy import PGPSignature
 from pgpy import PGPUID
-from pgpy.types import Fingerprint
+from pgpy.packet import Packet, CompressedData
+from pgpy.types import Fingerprint, Armorable
 
 from conftest import gpg_ver
-
-
-@pytest.fixture
-def abe_image():
-    with open('tests/testdata/abe.jpg', 'rb') as abef:
-        abebytes = bytearray(os.path.getsize('tests/testdata/abe.jpg'))
-        abef.readinto(abebytes)
-
-    return PGPUID.new(abebytes)
 
 
 _msgfiles = sorted(glob.glob('tests/testdata/messages/*.asc'))
@@ -39,6 +31,27 @@ class TestPGPMessage(object):
             mt = mf.read()
 
             assert len(str(msg)) == len(mt)
+
+    @pytest.mark.parametrize('msgfile', _msgfiles, ids=[os.path.basename(f) for f in _msgfiles])
+    def test_iter_packets(self, msgfile):
+        msg = PGPMessage.from_file(msgfile)
+        msg_packets = list(msg)
+
+        with open(msgfile, 'r') as mf:
+            mt = mf.read()
+        unarm = Armorable.ascii_unarmor(mt)
+        data = unarm['body']
+
+        packets = []
+        while len(data) > 0:
+            pkt = Packet(data)
+            if isinstance(pkt, CompressedData):
+                packets.extend(pkt.packets)
+            else:
+                packets.append(pkt)
+
+        assert len(msg_packets) == len(packets)
+        assert all(isinstance(pkt, Packet) for pkt in msg_packets)
 
 
 @pytest.fixture
@@ -64,6 +77,14 @@ def unce():
 @pytest.fixture
 def abe():
     return PGPUID.new('Abraham Lincoln', comment='Honest Abe', email='abraham.lincoln@whitehouse.gov')
+
+@pytest.fixture
+def abe_image():
+    with open('tests/testdata/abe.jpg', 'rb') as abef:
+        abebytes = bytearray(os.path.getsize('tests/testdata/abe.jpg'))
+        abef.readinto(abebytes)
+
+    return PGPUID.new(abebytes)
 
 
 class TestPGPUID(object):
@@ -143,6 +164,23 @@ class TestPGPKey(object):
         reloaded, _ = PGPKey.from_file(kf)
 
         assert pgpyblob == reloaded.__bytes__()
+
+    @pytest.mark.parametrize('kf', _keyfiles, ids=[os.path.basename(f) for f in _keyfiles])
+    def test_iter_packets(self, kf):
+        key, _ = PGPKey.from_file(kf)
+        key_packets = list(key)
+
+        with open(kf, 'r') as f:
+            kt = f.read()
+        unarm = Armorable.ascii_unarmor(kt)
+        data = unarm['body']
+
+        packets = []
+        while len(data) > 0:
+            packets.append(Packet(data))
+
+        assert len(key_packets) == len(packets)
+        assert all(isinstance(pkt, Packet) for pkt in key_packets)
 
 
 @pytest.fixture(scope='module')

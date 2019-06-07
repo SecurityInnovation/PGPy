@@ -16,7 +16,6 @@ import time
 from datetime import datetime, timedelta
 from pgpy import PGPKey
 from pgpy import PGPMessage
-from pgpy import PGPSignature
 from pgpy import PGPUID
 from pgpy._curves import _openssl_get_supported_curves
 from pgpy.constants import CompressionAlgorithm
@@ -30,6 +29,7 @@ from pgpy.constants import RevocationReason
 from pgpy.constants import SignatureType
 from pgpy.constants import SymmetricKeyAlgorithm
 from pgpy.packet import Packet
+from pgpy.packet import Signature
 from pgpy.packet.packets import PrivKeyV4
 from pgpy.packet.packets import PrivSubKeyV4
 
@@ -887,4 +887,4 @@ class TestPGPKey_Actions(object):
 
         assert emsg.is_signed
         assert emsg.is_encrypted
-        assert isinstance(next(iter(emsg)), PGPSignature)
+        assert isinstance(next(iter(emsg)), Signature)
