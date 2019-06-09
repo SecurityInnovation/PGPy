@@ -793,6 +793,9 @@ class String2Key(Field):
         # iterated
         self.count = 0
 
+        # GNU extension default type: ignored if specifier != GNUExtension
+        self.gnuext = 1
+
         # GNU extension smartcard
         self.scserial = None
 
@@ -802,7 +805,7 @@ class String2Key(Field):
         if bool(self):
             _bytes.append(self.encalg)
             _bytes.append(self.specifier)
-            if self.specifier > String2KeyType.Iterated:
+            if self.specifier == String2KeyType.GNUExtension:
                 return self._experimental_bytearray(_bytes)
             if self.specifier >= String2KeyType.Simple:
                 _bytes.append(self.halg)
@@ -856,7 +859,7 @@ class String2Key(Field):
             self.specifier = packet[0]
             del packet[0]
 
-            if self.specifier > String2KeyType.Iterated:
+            if self.specifier == String2KeyType.GNUExtension:
                 return self._experimental_parse(packet, iv)
 
             if self.specifier >= String2KeyType.Simple:
