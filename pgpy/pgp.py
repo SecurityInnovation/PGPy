@@ -21,6 +21,7 @@ import six
 from datetime import datetime
 
 from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.constant_time import bytes_eq
 
 from .constants import CompressionAlgorithm
 from .constants import Features
@@ -344,6 +345,17 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
 
         raise TypeError
 
+    def __hash__(self):
+        return hash(self.__sig__)
+
+    def __eq__(self, other):
+        if isinstance(other, PGPSignature):
+            return bytes_eq(self.__sig__, other.__sig__)
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __copy__(self):
         # because the default shallow copy isn't actually all that useful,
         # and deepcopy does too much work
@@ -547,10 +559,6 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
 
 class PGPUID(ParentRef):
     @property
-    def __sig__(self):
-        return list(self._signatures)
-
-    @property
     def name(self):
         """If this is a User ID, the stored name. If this is not a User ID, this will be an empty string."""
         return self._uid.name if isinstance(self._uid, UserID) else ""
@@ -613,7 +621,12 @@ class PGPUID(ParentRef):
         """
         This will be a set of all of the key ids which have signed this User ID or Attribute.
         """
-        return set(s.signer for s in self.__sig__)
+        return set(s.signer for s in self._signatures)
+
+    @property
+    def signatures(self):
+        """A ``list`` containing all signatures present in this User ID or Attribute."""
+        return list(self._signatures)
 
     @property
     def hashdata(self):
@@ -704,6 +717,24 @@ class PGPUID(ParentRef):
         raise TypeError("unsupported operand type(s) for |: '{:s}' and '{:s}'"
                         "".format(self.__class__.__name__, other.__class__.__name__))
 
+    def __hash__(self):
+        if self.is_uid:
+            return hash((self.name, self.comment, self.email, self.is_primary))
+        if self.is_ua:
+            return hash(self.image)
+        return 0  # should only be reached for clean PGPUID()
+
+    def __eq__(self, other):
+        if isinstance(other, PGPUID):
+            if self.is_uid and other.is_uid:
+                return self.name == other.name and self.comment == other.comment and self.email == other.email and self.is_primary == other.is_primary
+            if self.is_ua and other.is_ua:
+                return self.image == other.image
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __copy__(self):
         # because the default shallow copy isn't actually all that useful,
         # and deepcopy does too much work
@@ -791,7 +822,7 @@ class PGPMessage(Armorable, PGPObject):
 
     @property
     def signatures(self):
-        """A ``set`` containing all key ids (if any) which have signed this message."""
+        """A ``list`` containing all signatures present in this message."""
         return list(self._signatures)
 
     @property
@@ -1236,14 +1267,6 @@ class PGPKey(Armorable, ParentRef, PGPObject):
     secret key.
     """
     @property
-    def __key__(self):
-        return self._key.keymaterial
-
-    @property
-    def __sig__(self):
-        return list(self._signatures)
-
-    @property
     def created(self):
         """A :py:obj:`~datetime.datetime` object of the creation date and time of the key, in UTC."""
         return self._key.created
@@ -1311,6 +1334,10 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             return True
 
         return self._key.unlocked
+
+    @property
+    def key_material(self):
+        return self._key.keymaterial
 
     @property
     def key_algorithm(self):
@@ -1400,7 +1427,12 @@ class PGPKey(Armorable, ParentRef, PGPObject):
     @property
     def signers(self):
         """A ``set`` of key ids of keys that were used to sign this key"""
-        return {sig.signer for sig in self.__sig__}
+        return {sig.signer for sig in self._signatures}
+
+    @property
+    def signatures(self):
+        """A ``list`` containing all signatures present in this key.."""
+        return list(self._signatures)
 
     @property
     def revocation_signatures(self):
@@ -2149,15 +2181,15 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                 sspairs += [ (sig, subject.message) for sig in _filter_sigs(subject.signatures) ]
 
             if isinstance(subject, (PGPUID, PGPKey)):
-                sspairs += [ (sig, subject) for sig in _filter_sigs(subject.__sig__) ]
+                sspairs += [ (sig, subject) for sig in _filter_sigs(subject.signatures) ]
 
             if isinstance(subject, PGPKey):
                 # user ids
-                sspairs += [ (sig, uid) for uid in subject.userids for sig in _filter_sigs(uid.__sig__) ]
+                sspairs += [ (sig, uid) for uid in subject.userids for sig in _filter_sigs(uid.signatures) ]
                 # user attributes
-                sspairs += [ (sig, ua) for ua in subject.userattributes for sig in _filter_sigs(ua.__sig__) ]
+                sspairs += [ (sig, ua) for ua in subject.userattributes for sig in _filter_sigs(ua.signatures) ]
                 # subkey binding signatures
-                sspairs += [ (sig, subkey) for subkey in subject.subkeys.values() for sig in _filter_sigs(subkey.__sig__) ]
+                sspairs += [ (sig, subkey) for subkey in subject.subkeys.values() for sig in _filter_sigs(subkey.signatures) ]
 
         elif signature.signer in {self.fingerprint.keyid} | set(self.subkeys):
             sspairs += [(signature, subject)]

@@ -137,7 +137,7 @@ def test_reg_bug_56():
     sig._signature.hash2 = hashlib.new('sha512', hdata).digest()[:2]
 
     # create the signature
-    signer = sk.__key__.__privkey__().signer(padding.PKCS1v15(), hashes.SHA512())
+    signer = sk.key_material.__privkey__().signer(padding.PKCS1v15(), hashes.SHA512())
     signer.update(hdata)
     sig._signature.signature.from_signer(signer.finalize())
     sig._signature.update_hlen()

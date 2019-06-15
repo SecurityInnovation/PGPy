@@ -6,6 +6,7 @@ import abc
 import copy
 
 import six
+from cryptography.hazmat.primitives.constant_time import bytes_eq
 
 from ..constants import PacketTag
 
@@ -274,6 +275,28 @@ class MPIs(Field):
 
     def __len__(self):
         return sum(len(i) for i in self)
+
+    def __hash__(self):
+        return hash(tuple(self))
+
+    def __eq__(self, other):
+        if isinstance(other, MPIs):
+            result = True
+            if len(self) != len(other):
+                result = False
+
+            for i, j in zip(self, other):
+                a = i.to_mpibytes()
+                b = j.to_mpibytes()
+                if not bytes_eq(a, b):
+                    result = False
+
+            return result
+
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def __iter__(self):
         """yield all components of an MPI so it can be iterated over"""
