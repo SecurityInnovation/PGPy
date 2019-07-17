@@ -1334,40 +1334,40 @@ class PGPKey(Armorable, ParentRef, PGPObject):
     @property
     def pubkey(self):
         """If the :py:obj:`PGPKey` object is a private key, this method returns a corresponding public key object with
-        all the trimmings. Otherwise, returns ``None``
+        all the trimmings. If it is already a public key, just return it.
         """
-        if not self.is_public:
-            if self._sibling is None or isinstance(self._sibling, weakref.ref):
-                # create a new key shell
-                pub = PGPKey()
-                pub.ascii_headers = self.ascii_headers.copy()
+        if self.is_public:
+            return self
+        if self._sibling is None or isinstance(self._sibling, weakref.ref):
+            # create a new key shell
+            pub = PGPKey()
+            pub.ascii_headers = self.ascii_headers.copy()
 
-                # get the public half of the primary key
-                pub._key = self._key.pubkey()
+            # get the public half of the primary key
+            pub._key = self._key.pubkey()
 
-                # get the public half of each subkey
-                for skid, subkey in self.subkeys.items():
-                    pub |= subkey.pubkey
+            # get the public half of each subkey
+            for skid, subkey in self.subkeys.items():
+                pub |= subkey.pubkey
 
-                # copy user ids and user attributes
-                for uid in self._uids:
-                    pub |= copy.copy(uid)
+            # copy user ids and user attributes
+            for uid in self._uids:
+                pub |= copy.copy(uid)
 
-                # copy signatures that weren't copied with uids
-                for sig in self._signatures:
-                    if sig.parent is None:
-                        pub |= copy.copy(sig)
+            # copy signatures that weren't copied with uids
+            for sig in self._signatures:
+                if sig.parent is None:
+                    pub |= copy.copy(sig)
 
-                # keep connect the two halves using a weak reference
-                self._sibling = weakref.ref(pub)
-                pub._sibling = weakref.ref(self)
+            # keep connect the two halves using a weak reference
+            self._sibling = weakref.ref(pub)
+            pub._sibling = weakref.ref(self)
 
-                # copy parent
-                if self.parent:
-                    pub._parent = weakref.ref(self.parent)
+            # copy parent
+            if self.parent:
+                pub._parent = weakref.ref(self.parent)
 
-            return self._sibling()
-        return None
+        return self._sibling()
 
     @pubkey.setter
     def pubkey(self, pubkey):
