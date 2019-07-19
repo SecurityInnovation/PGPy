@@ -26,10 +26,10 @@ def _openssl_get_supported_curves():
 
     # store the result so we don't have to do all of this every time
     curves = { b.ffi.string(b.lib.OBJ_nid2sn(c.nid)).decode('utf-8') for c in cs }
-    # X25519 is always present in cryptography>=2.5
-    # The python cryptography lib provides a different interface for this curve,
-    # so it is handled differently in the ECDHPriv/ECDHPub classes
-    curves |= {'X25519'}
+    # Ed25519 and X25519 are always present in cryptography>=2.6
+    # The python cryptography lib provides a different interface for these curves,
+    # so they are handled differently in the ECDHPriv/Pub and EdDSAPriv/Pub classes
+    curves |= {'X25519', 'ed25519'}
     _openssl_get_supported_curves._curves = curves
     return curves
 

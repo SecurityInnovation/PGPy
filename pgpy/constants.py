@@ -58,9 +58,6 @@ class EllipticCurveOID(Enum):
     #: DJB's fast elliptic curve
     Curve25519 = ('1.3.6.1.4.1.3029.1.5.1', X25519)
     #: Twisted Edwards variant of Curve25519
-    #:
-    #: .. warning::
-    #:     This curve is not currently usable by PGPy
     Ed25519 = ('1.3.6.1.4.1.11591.15.1', Ed25519)
     #: NIST P-256, also known as SECG curve secp256r1
     NIST_P256 = ('1.2.840.10045.3.1.7', ec.SECP256R1)
@@ -267,7 +264,8 @@ class PubKeyAlgorithm(IntEnum):
         return self in {PubKeyAlgorithm.RSAEncryptOrSign,
                         PubKeyAlgorithm.DSA,
                         PubKeyAlgorithm.ECDSA,
-                        PubKeyAlgorithm.ECDH}
+                        PubKeyAlgorithm.ECDH,
+                        PubKeyAlgorithm.EdDSA}
 
     @property
     def can_encrypt(self):  # pragma: no cover
@@ -275,7 +273,7 @@ class PubKeyAlgorithm(IntEnum):
 
     @property
     def can_sign(self):
-        return self in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.DSA, PubKeyAlgorithm.ECDSA}
+        return self in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.DSA, PubKeyAlgorithm.ECDSA, PubKeyAlgorithm.EdDSA}
 
     @property
     def deprecated(self):

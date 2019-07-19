@@ -18,6 +18,7 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from .fields import DSAPriv, DSAPub, DSASignature
 from .fields import ECDSAPub, ECDSAPriv, ECDSASignature
 from .fields import ECDHPub, ECDHPriv, ECDHCipherText
+from .fields import EdDSAPub, EdDSAPriv, EdDSASignature
 from .fields import ElGCipherText, ElGPriv, ElGPub
 from .fields import OpaquePubKey
 from .fields import OpaquePrivKey
@@ -364,7 +365,7 @@ class SignatureV4(Signature):
                 PubKeyAlgorithm.RSASign: RSASignature,
                 PubKeyAlgorithm.DSA: DSASignature,
                 PubKeyAlgorithm.ECDSA: ECDSASignature,
-                PubKeyAlgorithm.EdDSA: ECDSASignature,}
+                PubKeyAlgorithm.EdDSA: EdDSASignature,}
 
         self.signature = sigs.get(self.pubalg, OpaqueSignature)()
 
@@ -762,6 +763,7 @@ class PubKeyV4(PubKey):
             (True, PubKeyAlgorithm.FormerlyElGamalEncryptOrSign): ElGPub,
             (True, PubKeyAlgorithm.ECDSA): ECDSAPub,
             (True, PubKeyAlgorithm.ECDH): ECDHPub,
+            (True, PubKeyAlgorithm.EdDSA): EdDSAPub,
             # False means private
             (False, PubKeyAlgorithm.RSAEncryptOrSign): RSAPriv,
             (False, PubKeyAlgorithm.RSAEncrypt): RSAPriv,
@@ -771,6 +773,7 @@ class PubKeyV4(PubKey):
             (False, PubKeyAlgorithm.FormerlyElGamalEncryptOrSign): ElGPriv,
             (False, PubKeyAlgorithm.ECDSA): ECDSAPriv,
             (False, PubKeyAlgorithm.ECDH): ECDHPriv,
+            (False, PubKeyAlgorithm.EdDSA): EdDSAPriv,
         }
 
         k = (self.public, self.pkalg)
@@ -876,7 +879,7 @@ class PrivKeyV4(PrivKey, PubKeyV4):
         for pm in self.keymaterial.__pubfields__:
             setattr(pk.keymaterial, pm, copy.copy(getattr(self.keymaterial, pm)))
 
-        if self.pkalg == PubKeyAlgorithm.ECDSA:
+        if self.pkalg in [PubKeyAlgorithm.ECDSA, PubKeyAlgorithm.EdDSA]:
             pk.keymaterial.oid = self.keymaterial.oid
 
         if self.pkalg == PubKeyAlgorithm.ECDH:

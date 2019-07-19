@@ -204,6 +204,8 @@ seckm = [
     _seckeys['RSAEncryptOrSign']._key,                   # RSA private key packet
     _seckeys['ECDSA']._key,                              # ECDSA private key packet
     _seckeys['ECDSA'].subkeys['A81B93FD16BD9806']._key,  # ECDH private key packet
+    _seckeys['EdDSA']._key,                              # EdDSA private key packet
+    _seckeys['EdDSA'].subkeys['AFC377493D8E897D']._key,  # Curve25519 private key packet
     _mixed1._key,                                        # RSA private key packet
     _mixed1.subkeys['B345506C90A428C5']._key,            # ECDH Curve25519 private key packet
 ]
