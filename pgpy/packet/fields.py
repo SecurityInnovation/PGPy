@@ -11,6 +11,12 @@ import itertools
 import math
 import os
 
+# TODO: replace if six fixes this: https://github.com/benjaminp/six/issues/155
+try:
+    collections_abc = collections.abc
+except AttributeError:  # python < 3.3
+    collections_abc = collections
+
 from pyasn1.codec.der import decoder
 from pyasn1.codec.der import encoder
 from pyasn1.type.univ import Integer
@@ -88,7 +94,7 @@ __all__ = ['SubPackets',
            'ECDHCipherText', ]
 
 
-class SubPackets(collections.MutableMapping, Field):
+class SubPackets(collections_abc.MutableMapping, Field):
     _spmodule = signature
 
     def __init__(self):

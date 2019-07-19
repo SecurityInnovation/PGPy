@@ -5,7 +5,6 @@ this is where the armorable PGP block objects live
 import binascii
 import calendar
 import collections
-import collections.abc
 import contextlib
 import copy
 import functools
@@ -17,6 +16,12 @@ import warnings
 import weakref
 
 import six
+
+# TODO: replace if six fixes this: https://github.com/benjaminp/six/issues/155
+try:
+    collections_abc = collections.abc
+except AttributeError:  # python < 3.3
+    collections_abc = collections
 
 from datetime import datetime
 
@@ -2366,7 +2371,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return keys
 
 
-class PGPKeyring(collections.abc.Container, collections.abc.Iterable, collections.abc.Sized):
+class PGPKeyring(collections_abc.Container, collections_abc.Iterable, collections_abc.Sized):
     def __init__(self, *args):
         """
         PGPKeyring objects represent in-memory keyrings that can contain any combination of supported private and public
