@@ -57,9 +57,6 @@ class EllipticCurveOID(Enum):
     # id = (oid, curve)
     Invalid = ('', )
     #: DJB's fast elliptic curve
-    #:
-    #: .. warning::
-    #:     This curve is not currently usable by PGPy
     Curve25519 = ('1.3.6.1.4.1.3029.1.5.1', X25519)
     #: Twisted Edwards variant of Curve25519
     #:

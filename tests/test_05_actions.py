@@ -201,7 +201,8 @@ skeyspecs = ((PubKeyAlgorithm.RSAEncryptOrSign, 1024),
              (PubKeyAlgorithm.DSA, 1024),
              (PubKeyAlgorithm.ElGamal, 1024),
              (PubKeyAlgorithm.ECDSA, EllipticCurveOID.SECP256K1),
-             (PubKeyAlgorithm.ECDH, EllipticCurveOID.Brainpool_P256),)
+             (PubKeyAlgorithm.ECDH, EllipticCurveOID.Brainpool_P256),
+             (PubKeyAlgorithm.ECDH, EllipticCurveOID.Curve25519),)
 
 
 class TestPGPKey_Management(object):
@@ -712,14 +713,14 @@ class TestPGPKey_Actions(object):
         sig = sec.sign(None)
         assert sig.type == SignatureType.Timestamp
 
-        self.sigs[(sec.key_algorithm, 'timestamp')] = sig
+        self.sigs[(sec._key.fingerprint.keyid, 'timestamp')] = sig
 
     @pytest.mark.run(after='test_sign_timestamp')
     @pytest.mark.parametrize('pub', pubkeys,
                              ids=[os.path.basename(f) for f in sorted(glob.glob('tests/testdata/keys/*.pub.asc'))])
     def test_verify_timestamp(self, pub):
         # test verifying a timestamp signature
-        sig = self.sigs[(pub.key_algorithm, 'timestamp')]
+        sig = self.sigs[(pub._key.fingerprint.keyid, 'timestamp')]
         sv = pub.verify(None, sig)
 
         assert sv
@@ -733,14 +734,14 @@ class TestPGPKey_Actions(object):
 
         assert sig.type == SignatureType.Standalone
         assert sig.notation == {"cheese status": "standing alone"}
-        self.sigs[(sec.key_algorithm, 'standalone')] = sig
+        self.sigs[(sec._key.fingerprint.keyid, 'standalone')] = sig
 
     @pytest.mark.run(after='test_sign_standalone')
     @pytest.mark.parametrize('pub', pubkeys,
                              ids=[os.path.basename(f) for f in sorted(glob.glob('tests/testdata/keys/*.pub.asc'))])
     def test_verify_standalone(self, pub):
         # test verifying a standalone signature
-        sig = self.sigs[(pub.key_algorithm, 'standalone')]
+        sig = self.sigs[(pub._key.fingerprint.keyid, 'standalone')]
         sv = pub.verify(None, sig)
 
         assert sv
