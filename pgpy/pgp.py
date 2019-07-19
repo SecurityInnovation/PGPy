@@ -2485,7 +2485,7 @@ class PGPKeyring(collections_abc.Container, collections_abc.Iterable, collection
                 self._add_key(subkey)
 
     def load(self, *args):
-        """
+        r"""
         Load all keys provided into this keyring object.
 
         :param \*args: Each arg in ``args`` can be any of the formats supported by :py:meth:`PGPKey.from_path` and

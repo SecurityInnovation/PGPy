@@ -320,7 +320,7 @@ def test_pubkey_subkey_parent():
 
 cleartext_sigs = ['tests/testdata/messages/cleartext.oneline.signed.asc',
                   'tests/testdata/messages/cleartext.empty.signed.asc']
-cleartexts = ['This is stored, literally\!',
+cleartexts = [r'This is stored, literally\!',
               '']
 
 
