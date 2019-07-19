@@ -1329,7 +1329,11 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         """
         if self.key_algorithm in {PubKeyAlgorithm.ECDSA, PubKeyAlgorithm.ECDH}:
             return self._key.keymaterial.oid
-        return next(iter(self._key.keymaterial)).bit_length()
+        # check if keymaterial is not an Opaque class containing a bytearray
+        param = next(iter(self._key.keymaterial))
+        if isinstance(param, bytearray):
+            return 0
+        return param.bit_length()
 
     @property
     def magic(self):

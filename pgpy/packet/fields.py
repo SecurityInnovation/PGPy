@@ -28,11 +28,13 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
 
 from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import serialization
 
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric import dsa
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric import x25519
 
 from cryptography.hazmat.primitives.kdf.concatkdf import ConcatKDFHash
 
@@ -588,7 +590,10 @@ class ECDHPub(PubKey):
         return len(self.p) + len(self.kdf) + len(encoder.encode(self.oid.value)) - 1
 
     def __pubkey__(self):
-        return ec.EllipticCurvePublicNumbers(self.p.x, self.p.y, self.oid.curve()).public_key(default_backend())
+        if self.oid == EllipticCurveOID.Curve25519:
+            return x25519.X25519PublicKey.from_public_bytes(self.p.x)
+        else:
+            return ec.EllipticCurvePublicNumbers(self.p.x, self.p.y, self.oid.curve()).public_key(default_backend())
 
     def __bytearray__(self):
         _b = bytearray()
@@ -642,8 +647,11 @@ class ECDHPub(PubKey):
         del packet[:oidlen]
 
         self.p = ECPoint(packet)
-        if self.p.format != ECPointFormat.Standard:
-            raise PGPIncompatibleECPointFormat("Only curves using Standard format are currently supported for ECDH")
+        if self.oid == EllipticCurveOID.Curve25519:
+            if self.p.format != ECPointFormat.Native:
+                raise PGPIncompatibleECPointFormat("Only Native format is valid for Curve25519")
+        elif self.p.format != ECPointFormat.Standard:
+            raise PGPIncompatibleECPointFormat("Only Standard format is valid for this curve")
         self.kdf.parse(packet)
 
 
@@ -1390,8 +1398,32 @@ class ECDHPriv(ECDSAPriv, ECDHPub):
             l += sum(len(getattr(self, i)) for i in self.__privfields__)
         return l
 
+    def __privkey__(self):
+        if self.oid == EllipticCurveOID.Curve25519:
+            # NOTE: openssl and GPG don't use the same endianness for Curve25519 secret value
+            s = self.int_to_bytes(self.s, (self.oid.key_size + 7) // 8, 'little')
+            return x25519.X25519PrivateKey.from_private_bytes(s)
+        else:
+            return ECDSAPriv.__privkey__(self)
+
     def _generate(self, oid):
-        ECDSAPriv._generate(self, oid)
+        _oid = EllipticCurveOID(oid)
+        if _oid == EllipticCurveOID.Curve25519:
+            if any(c != 0 for c in self):  # pragma: no cover
+                raise PGPError("Key is already populated!")
+            self.oid = _oid
+            pk = x25519.X25519PrivateKey.generate()
+            x = pk.public_key().public_bytes(encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw)
+            self.p = ECPoint.from_values(self.oid.key_size, ECPointFormat.Native, x)
+            # NOTE: openssl and GPG don't use the same endianness for Curve25519 secret value
+            self.s = MPI(self.bytes_to_int(pk.private_bytes(
+                encoding=serialization.Encoding.Raw,
+                format=serialization.PrivateFormat.Raw,
+                encryption_algorithm=serialization.NoEncryption()
+            ), 'little'))
+            self._compute_chksum()
+        else:
+            ECDSAPriv._generate(self, oid)
         self.kdf.halg = self.oid.kdf_halg
         self.kdf.encalg = self.oid.kek_alg
 
@@ -1412,6 +1444,9 @@ class ECDHPriv(ECDSAPriv, ECDHPub):
         else:
             ##TODO: this needs to be bounded to the length of the encrypted key material
             self.encbytes = packet
+
+    def sign(self, sigdata, hash_alg):
+        raise PGPError("Cannot sign with an ECDH key")
 
 
 class CipherText(MPIs):
@@ -1507,14 +1542,19 @@ class ECDHCipherText(CipherText):
 
         ct = cls()
 
-        # generate ephemeral key pair, then store it in ct
-        v = ec.generate_private_key(km.oid.curve(), default_backend())
-
+        # generate ephemeral key pair and keep public key in ct
         # use private key to computer the shared point "s"
-        x = MPI(v.public_key().public_numbers().x)
-        y = MPI(v.public_key().public_numbers().y)
-        ct.p = ECPoint.from_values(km.oid.key_size, ECPointFormat.Standard, x, y)
-        s = v.exchange(ec.ECDH(), km.__pubkey__())
+        if km.oid == EllipticCurveOID.Curve25519:
+            v = x25519.X25519PrivateKey.generate()
+            x = v.public_key().public_bytes(encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw)
+            ct.p = ECPoint.from_values(km.oid.key_size, ECPointFormat.Native, x)
+            s = v.exchange(km.__pubkey__())
+        else:
+            v = ec.generate_private_key(km.oid.curve(), default_backend())
+            x = MPI(v.public_key().public_numbers().x)
+            y = MPI(v.public_key().public_numbers().y)
+            ct.p = ECPoint.from_values(km.oid.key_size, ECPointFormat.Standard, x, y)
+            s = v.exchange(ec.ECDH(), km.__pubkey__())
 
         # derive the wrapping key
         z = km.kdf.derive_key(s, km.oid, PubKeyAlgorithm.ECDH, pk.fingerprint)
@@ -1526,11 +1566,14 @@ class ECDHCipherText(CipherText):
 
     def decrypt(self, pk, *args):
         km = pk.keymaterial
-        # assemble the public component of ephemeral key v
-        v = ec.EllipticCurvePublicNumbers(self.p.x, self.p.y, km.oid.curve()).public_key(default_backend())
-
-        # compute s using the inverse of how it was derived during encryption
-        s = km.__privkey__().exchange(ec.ECDH(), v)
+        if km.oid == EllipticCurveOID.Curve25519:
+            v = x25519.X25519PublicKey.from_public_bytes(self.p.x)
+            s = km.__privkey__().exchange(v)
+        else:
+            # assemble the public component of ephemeral key v
+            v = ec.EllipticCurvePublicNumbers(self.p.x, self.p.y, km.oid.curve()).public_key(default_backend())
+            # compute s using the inverse of how it was derived during encryption
+            s = km.__privkey__().exchange(ec.ECDH(), v)
 
         # derive the wrapping key
         z = km.kdf.derive_key(s, km.oid, PubKeyAlgorithm.ECDH, pk.fingerprint)

@@ -195,13 +195,17 @@ def test_reg_bug_157(monkeypatch):
         warnings.warn("tuned_count: {}; elapsed time: {:.5f}".format(pgpy.constants.HashAlgorithm.SHA256.tuned_count, elapsed))
 
 
-_seckeys = {sk.key_algorithm.name: sk for sk in (PGPKey.from_file(f)[0] for f in sorted(glob.glob('tests/testdata/keys/*.sec.asc')))}
+# load mixed keys separately so they do not overwrite "single algo" keys in the _seckeys mapping
+_seckeys = {sk.key_algorithm.name: sk for sk in (PGPKey.from_file(f)[0] for f in sorted(glob.glob('tests/testdata/keys/*.sec.asc')) if 'keys/mixed' not in f)}
+_mixed1 = PGPKey.from_file('tests/testdata/keys/mixed.1.sec.asc')[0]
 seckm = [
     _seckeys['DSA']._key,                                # DSA private key packet
     _seckeys['DSA'].subkeys['1FD6D5D4DA0170C4']._key,    # ElGamal private key packet
     _seckeys['RSAEncryptOrSign']._key,                   # RSA private key packet
     _seckeys['ECDSA']._key,                              # ECDSA private key packet
     _seckeys['ECDSA'].subkeys['A81B93FD16BD9806']._key,  # ECDH private key packet
+    _mixed1._key,                                        # RSA private key packet
+    _mixed1.subkeys['B345506C90A428C5']._key,            # ECDH Curve25519 private key packet
 ]
 
 
