@@ -24,6 +24,7 @@ from ._curves import BrainpoolP256R1, BrainpoolP384R1, BrainpoolP512R1, X25519, 
 
 __all__ = ['Backend',
            'EllipticCurveOID',
+           'ECPointFormat',
            'PacketTag',
            'SymmetricKeyAlgorithm',
            'PubKeyAlgorithm',
@@ -130,6 +131,14 @@ class EllipticCurveOID(Enum):
                 521: SymmetricKeyAlgorithm.AES256}
 
         return algs.get(self.key_size, None)
+
+
+class ECPointFormat(IntEnum):
+    # https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-06#appendix-B
+    Standard = 0x04
+    Native = 0x40
+    OnlyX = 0x41
+    OnlyY = 0x42
 
 
 class PacketTag(IntEnum):

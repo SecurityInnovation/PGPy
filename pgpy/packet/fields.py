@@ -50,6 +50,7 @@ from .types import MPI
 from .types import MPIs
 
 from ..constants import EllipticCurveOID
+from ..constants import ECPointFormat
 from ..constants import HashAlgorithm
 from ..constants import PubKeyAlgorithm
 from ..constants import String2KeyType
@@ -59,6 +60,7 @@ from ..decorators import sdproperty
 
 from ..errors import PGPDecryptionError
 from ..errors import PGPError
+from ..errors import PGPIncompatibleECPointFormat
 
 from ..symenc import _decrypt
 from ..symenc import _encrypt
@@ -79,6 +81,7 @@ __all__ = ['SubPackets',
            'ElGPub',
            'ECDSAPub',
            'ECDHPub',
+           'ECPoint',
            'String2Key',
            'ECKDF',
            'PrivKey',
@@ -473,32 +476,87 @@ class ElGPub(PubKey):
         self.y = MPI(packet)
 
 
+class ECPoint:
+    def __init__(self, packet=None):
+        if packet is None:
+            return
+        xy = bytearray(MPI(packet).to_mpibytes()[2:])
+        self.format = ECPointFormat(xy[0])
+        del xy[0]
+        if self.format == ECPointFormat.Standard:
+            xylen = len(xy)
+            if xylen % 2 != 0:
+                raise PGPError("malformed EC point")
+            self.bytelen = xylen // 2
+            self.x = MPI(MPIs.bytes_to_int(xy[:self.bytelen]))
+            self.y = MPI(MPIs.bytes_to_int(xy[self.bytelen:]))
+        elif self.format == ECPointFormat.Native:
+            self.bytelen = 0 # dummy value for copy
+            self.x = bytes(xy)
+            self.y = None
+        else:
+            raise NotImplementedError("No curve is supposed to use only X or Y coordinates")
+
+    @classmethod
+    def from_values(cls, bitlen, pform, x, y=None):
+        ct = cls()
+        ct.bytelen = (bitlen + 7) // 8
+        ct.format = pform
+        ct.x = x
+        ct.y = y
+        return ct
+
+    def __len__(self):
+        """ Returns length of MPI encoded point """
+        if self.format == ECPointFormat.Standard:
+            return 2 * self.bytelen + 3
+        elif self.format == ECPointFormat.Native:
+            return len(self.x) + 3
+        else:
+            raise NotImplementedError("No curve is supposed to use only X or Y coordinates")
+
+    def to_mpibytes(self):
+        """ Returns MPI encoded point as it should be written in packet """
+        b = bytearray()
+        b.append(self.format)
+        if self.format == ECPointFormat.Standard:
+            b += MPIs.int_to_bytes(self.x, self.bytelen)
+            b += MPIs.int_to_bytes(self.y, self.bytelen)
+        elif self.format == ECPointFormat.Native:
+            b += self.x
+        else:
+            raise NotImplementedError("No curve is supposed to use only X or Y coordinates")
+        return MPI(MPIs.bytes_to_int(b)).to_mpibytes()
+
+    def __bytearray__(self):
+        return self.to_mpibytes()
+
+    def __copy__(self):
+        pk = self.__class__()
+        pk.bytelen = self.bytelen
+        pk.format = self.format
+        pk.x = copy.copy(self.x)
+        pk.y = copy.copy(self.y)
+        return pk
+
+
 class ECDSAPub(PubKey):
-    __pubfields__ = ('x', 'y')
+    __pubfields__ = ('p',)
 
     def __init__(self):
         super(ECDSAPub, self).__init__()
         self.oid = None
 
-    # Length in bytes of a MPI for this curve (zero-padded)
-    def component_bytelen(self):
-        return (self.oid.key_size + 7) >> 3 # round up
-
     def __len__(self):
-        return sum([self.component_bytelen() for i in self.__pubfields__] +
-                   [3, len(encoder.encode(self.oid.value)) - 1])
+        return len(self.p) + len(encoder.encode(self.oid.value)) - 1
 
     def __pubkey__(self):
-        return ec.EllipticCurvePublicNumbers(self.x, self.y, self.oid.curve()).public_key(default_backend())
+        return ec.EllipticCurvePublicNumbers(self.p.x, self.p.y, self.oid.curve()).public_key(default_backend())
 
     def __bytearray__(self):
         _b = bytearray()
         _b += encoder.encode(self.oid.value)[1:]
-        # 0x04 || x || y
-        # where x and y are the same length
-        _xy = b'\x04' + MPIs.int_to_bytes(self.x, self.component_bytelen()) + MPIs.int_to_bytes(self.y, self.component_bytelen())
-        _b += MPI(self.bytes_to_int(_xy, 'big')).to_mpibytes()
-
+        _b += self.p.to_mpibytes()
         return _b
 
     def __copy__(self):
@@ -524,56 +582,34 @@ class ECDSAPub(PubKey):
         _oid = bytearray(b'\x06')
         _oid.append(oidlen)
         _oid += bytearray(packet[:oidlen])
-        # try:
         oid, _  = decoder.decode(bytes(_oid))
-
-        # except:
-        #     raise PGPError("Bad OID octet stream: b'{:s}'".format(''.join(['\\x{:02X}'.format(c) for c in _oid])))
         self.oid = EllipticCurveOID(oid)
         del packet[:oidlen]
 
-        # flen = (self.oid.bit_length // 8)
-        xy = bytearray(MPI(packet).to_mpibytes()[2:])
-        # xy = bytearray(MPI(packet).to_bytes(flen, 'big'))
-        # the first byte is just \x04
-        del xy[:1]
-        # now xy needs to be separated into x, y
-        xylen = len(xy)
-        x, y = xy[:xylen // 2], xy[xylen // 2:]
-        self.x = MPI(self.bytes_to_int(x))
-        self.y = MPI(self.bytes_to_int(y))
+        self.p = ECPoint(packet)
+        if self.p.format != ECPointFormat.Standard:
+            raise PGPIncompatibleECPointFormat("Only Standard format is valid for ECDSA")
 
 
 class ECDHPub(PubKey):
-    __pubfields__ = ('x', 'y')
+    __pubfields__ = ('p',)
 
     def __init__(self):
         super(ECDHPub, self).__init__()
         self.oid = None
         self.kdf = ECKDF()
 
-    # Length in bytes of a MPI for this curve (zero-padded)
-    def component_bytelen(self):
-        return (self.oid.key_size + 7) >> 3 # round up
-
     def __len__(self):
-        return sum([self.component_bytelen() for i in self.__pubfields__] +
-                   [3,
-                    len(self.kdf),
-                    len(encoder.encode(self.oid.value)) - 1])
+        return len(self.p) + len(self.kdf) + len(encoder.encode(self.oid.value)) - 1
 
     def __pubkey__(self):
-        return ec.EllipticCurvePublicNumbers(self.x, self.y, self.oid.curve()).public_key(default_backend())
+        return ec.EllipticCurvePublicNumbers(self.p.x, self.p.y, self.oid.curve()).public_key(default_backend())
 
     def __bytearray__(self):
         _b = bytearray()
         _b += encoder.encode(self.oid.value)[1:]
-        # 0x04 || x || y
-        # where x and y are the same length
-        _xy = b'\x04' + MPIs.int_to_bytes(self.x, self.component_bytelen()) + MPIs.int_to_bytes(self.y, self.component_bytelen())
-        _b += MPI(self.bytes_to_int(_xy, 'big')).to_mpibytes()
+        _b += self.p.to_mpibytes()
         _b += self.kdf.__bytearray__()
-
         return _b
 
     def __copy__(self):
@@ -616,25 +652,13 @@ class ECDHPub(PubKey):
         _oid = bytearray(b'\x06')
         _oid.append(oidlen)
         _oid += bytearray(packet[:oidlen])
-        # try:
         oid, _  = decoder.decode(bytes(_oid))
-
-        # except:
-        #     raise PGPError("Bad OID octet stream: b'{:s}'".format(''.join(['\\x{:02X}'.format(c) for c in _oid])))
         self.oid = EllipticCurveOID(oid)
         del packet[:oidlen]
 
-        # flen = (self.oid.bit_length // 8)
-        xy = bytearray(MPI(packet).to_mpibytes()[2:])
-        # xy = bytearray(MPI(packet).to_bytes(flen, 'big'))
-        # the first byte is just \x04
-        del xy[:1]
-        # now xy needs to be separated into x, y
-        xylen = len(xy)
-        x, y = xy[:xylen // 2], xy[xylen // 2:]
-        self.x = MPI(self.bytes_to_int(x))
-        self.y = MPI(self.bytes_to_int(y))
-
+        self.p = ECPoint(packet)
+        if self.p.format != ECPointFormat.Standard:
+            raise PGPIncompatibleECPointFormat("Only curves using Standard format are currently supported for ECDH")
         self.kdf.parse(packet)
 
 
@@ -1315,7 +1339,7 @@ class ECDSAPriv(PrivKey, ECDSAPub):
     __privfields__ = ('s', )
 
     def __privkey__(self):
-        ecp = ec.EllipticCurvePublicNumbers(self.x, self.y, self.oid.curve())
+        ecp = ec.EllipticCurvePublicNumbers(self.p.x, self.p.y, self.oid.curve())
         return ec.EllipticCurvePrivateNumbers(self.s, ecp).private_key(default_backend())
 
     def _compute_chksum(self):
@@ -1333,8 +1357,7 @@ class ECDSAPriv(PrivKey, ECDSAPub):
 
         pk = ec.generate_private_key(self.oid.curve(), default_backend())
         pubn = pk.public_key().public_numbers()
-        self.x = MPI(pubn.x)
-        self.y = MPI(pubn.y)
+        self.p = ECPoint.from_values(self.oid.key_size, ECPointFormat.Standard, MPI(pubn.x), MPI(pubn.y))
         self.s = MPI(pk.private_numbers().private_value)
         self._compute_chksum()
 
@@ -1381,9 +1404,12 @@ class ECDHPriv(ECDSAPriv, ECDHPub):
         return _b
 
     def __len__(self):
-        # because of the inheritance used for this, ECDSAPub.__len__ is called instead of ECDHPub.__len__
-        # the only real difference is self.kdf, so we can just add that
-        return super(ECDHPriv, self).__len__() + len(self.kdf)
+        l = ECDHPub.__len__(self) + len(self.s2k) + len(self.chksum)
+        if self.s2k:
+            l += len(self.encbytes)
+        else:
+            l += sum(len(getattr(self, i)) for i in self.__privfields__)
+        return l
 
     def _generate(self, oid):
         ECDSAPriv._generate(self, oid)
@@ -1463,7 +1489,7 @@ class ElGCipherText(CipherText):
 
 
 class ECDHCipherText(CipherText):
-    __mpis__ = ('vX', 'vY')
+    __mpis__ = ('p',)
 
     @classmethod
     def encrypt(cls, pk, *args):
@@ -1504,10 +1530,11 @@ class ECDHCipherText(CipherText):
 
         # generate ephemeral key pair, then store it in ct
         v = ec.generate_private_key(km.oid.curve(), default_backend())
-        ct.vX = MPI(v.public_key().public_numbers().x)
-        ct.vY = MPI(v.public_key().public_numbers().y)
 
-        # compute the shared point S
+        # use private key to computer the shared point "s"
+        x = MPI(v.public_key().public_numbers().x)
+        y = MPI(v.public_key().public_numbers().y)
+        ct.p = ECPoint.from_values(km.oid.key_size, ECPointFormat.Standard, x, y)
         s = v.exchange(ec.ECDH(), km.__pubkey__())
 
         # derive the wrapping key
@@ -1521,7 +1548,7 @@ class ECDHCipherText(CipherText):
     def decrypt(self, pk, *args):
         km = pk.keymaterial
         # assemble the public component of ephemeral key v
-        v = ec.EllipticCurvePublicNumbers(self.vX, self.vY, km.oid.curve()).public_key(default_backend())
+        v = ec.EllipticCurvePublicNumbers(self.p.x, self.p.y, km.oid.curve()).public_key(default_backend())
 
         # compute s using the inverse of how it was derived during encryption
         s = km.__privkey__().exchange(ec.ECDH(), v)
@@ -1541,24 +1568,16 @@ class ECDHCipherText(CipherText):
 
     def __bytearray__(self):
         _bytes = bytearray()
-        _xy = b'\x04' + self.vX.to_mpibytes()[2:] + self.vY.to_mpibytes()[2:]
-        _bytes += MPI(self.bytes_to_int(_xy, 'big')).to_mpibytes()
+        _bytes += self.p.to_mpibytes()
         _bytes.append(len(self.c))
         _bytes += self.c
-
         return _bytes
 
     def parse(self, packet):
-        # self.v = MPI(packet)
-        xy = bytearray(MPI(packet).to_mpibytes()[2:])
-        del xy[:1]
-        xylen = len(xy)
-        x, y = xy[:xylen // 2], xy[xylen // 2:]
-        self.vX = MPI(self.bytes_to_int(x))
-        self.vY = MPI(self.bytes_to_int(y))
-
+        # read ephemeral public key
+        self.p = ECPoint(packet)
+        # read signature value
         clen = packet[0]
         del packet[0]
-
         self.c += packet[:clen]
         del packet[:clen]
