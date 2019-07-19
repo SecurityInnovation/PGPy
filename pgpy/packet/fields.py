@@ -388,10 +388,8 @@ class PubKey(MPIs):
         for field in self.__pubfields__:
             if isinstance(field, tuple):  # pragma: no cover
                 field, val = field
-
             else:
                 val = MPI(0)
-
             setattr(self, field, val)
 
     @abc.abstractmethod
@@ -713,6 +711,7 @@ class ECDHPub(PubKey):
         _oid.append(oidlen)
         _oid += bytearray(packet[:oidlen])
         oid, _  = decoder.decode(bytes(_oid))
+
         self.oid = EllipticCurveOID(oid)
         del packet[:oidlen]
 
@@ -1426,11 +1425,9 @@ class ECDSAPriv(PrivKey, ECDSAPub):
 
         if not self.s2k:
             self.s = MPI(packet)
-
             if self.s2k.usage == 0:
                 self.chksum = packet[:2]
                 del packet[:2]
-
         else:
             ##TODO: this needs to be bounded to the length of the encrypted key material
             self.encbytes = packet
@@ -1438,7 +1435,6 @@ class ECDSAPriv(PrivKey, ECDSAPub):
     def decrypt_keyblob(self, passphrase):
         kb = super(ECDSAPriv, self).decrypt_keyblob(passphrase)
         del passphrase
-
         self.s = MPI(kb)
 
     def sign(self, sigdata, hash_alg):
@@ -1508,13 +1504,10 @@ class ECDHPriv(ECDSAPriv, ECDHPub):
         _b += self.s2k.__bytearray__()
         if not self.s2k:
             _b += self.s.to_mpibytes()
-
             if self.s2k.usage == 0:
                 _b += self.chksum
-
         else:
             _b += self.encbytes
-
         return _b
 
     def __len__(self):
@@ -1563,11 +1556,9 @@ class ECDHPriv(ECDSAPriv, ECDHPub):
 
         if not self.s2k:
             self.s = MPI(packet)
-
             if self.s2k.usage == 0:
                 self.chksum = packet[:2]
                 del packet[:2]
-
         else:
             ##TODO: this needs to be bounded to the length of the encrypted key material
             self.encbytes = packet
@@ -1666,7 +1657,6 @@ class ECDHCipherText(CipherText):
         m = padder.update(_m) + padder.finalize()
 
         km = pk.keymaterial
-
         ct = cls()
 
         # generate ephemeral key pair and keep public key in ct

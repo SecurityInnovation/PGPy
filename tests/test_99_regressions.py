@@ -376,6 +376,7 @@ def test_verify_subkey_revocation_signature():
 
     assert pubkey.verify(subkey, revsig)
 
+
 @pytest.mark.regression(issue=243)
 def test_preference_unsupported_ciphers():
     from pgpy import PGPMessage
