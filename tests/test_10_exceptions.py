@@ -380,7 +380,7 @@ class TestPGPMessage(object):
     def test_encrypt_sessionkey_wrongtype(self):
         msg = PGPMessage.new('asdf')
         with pytest.raises(TypeError):
-            msg.encrypt('asdf', sessionkey=bytearray(b'asdf1234asdf1234'), cipher=SymmetricKeyAlgorithm.AES128)
+            msg.encrypt('asdf', sessionkey=1234567890, cipher=SymmetricKeyAlgorithm.AES128)
 
     def test_parse_wrong_magic(self):
         msgtext = _read('tests/testdata/messages/message.signed.asc').replace('MESSAGE', 'EMSSAGE')
