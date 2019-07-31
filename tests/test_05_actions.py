@@ -852,6 +852,25 @@ class TestPGPKey_Actions(object):
         emsg = pub.encrypt(msg, cipher=cipher)
         self.msgs[(pub.fingerprint, cipher)] = emsg
 
+    @pytest.mark.parametrize('pub,cipher',
+                             itertools.product(pubkeys, sorted(SymmetricKeyAlgorithm)),
+                             ids=['{}:{}-{}'.format(pk.key_algorithm.name, pk.key_size, c.name) for pk, c in itertools.product(pubkeys, sorted(SymmetricKeyAlgorithm))])
+    def test_encrypt_message_throw_keyid(self, pub, cipher):
+        if pub.key_algorithm in {PubKeyAlgorithm.DSA}:
+            pytest.skip('Asymmetric encryption only implemented for RSA/ECDH currently')
+
+        if cipher in {SymmetricKeyAlgorithm.Plaintext, SymmetricKeyAlgorithm.Twofish256, SymmetricKeyAlgorithm.IDEA}:
+            pytest.xfail('Symmetric cipher {} not supported for encryption'.format(cipher))
+
+        # test encrypting a message
+        mtxt = "This message will have been encrypted"
+        msg = PGPMessage.new(mtxt)
+        emsg = pub.encrypt(msg, cipher=cipher, throw_keyid=True)
+        self.msgs[(pub.fingerprint, cipher, True)] = emsg
+
+        assert len(emsg.encrypters) == 1
+        assert emsg.encrypters.pop() == '0000000000000000'
+
     @pytest.mark.run(after='test_encrypt_message')
     @pytest.mark.parametrize('sf,cipher',
                              itertools.product(sorted(glob.glob('tests/testdata/keys/*.sec.asc')), sorted(SymmetricKeyAlgorithm)))
@@ -872,6 +891,31 @@ class TestPGPKey_Actions(object):
             return
 
         assert self.gpg_decrypt(emsg, sec).decode('utf-8') == dmsg.message
+
+    @pytest.mark.run(after='test_encrypt_message_throw_keyid')
+    @pytest.mark.parametrize('sf,cipher',
+                             itertools.product(sorted(glob.glob('tests/testdata/keys/*.sec.asc')), sorted(SymmetricKeyAlgorithm)))
+    def test_decrypt_message_thrown_keyid(self, sf, cipher, gpg_import, gpg_print):
+        sec, _ = PGPKey.from_file(sf)
+        if (sec.fingerprint, cipher, True) not in self.msgs:
+            pytest.skip('Message not present; see test_encrypt_message_throw_keyid skip or xfail reason')
+
+        emsg = self.msgs[(sec.fingerprint, cipher, True)]
+        dmsg = sec.decrypt(emsg)
+
+        assert dmsg.message == "This message will have been encrypted"
+
+        # now check with GnuPG, if possible
+        if gpg_ver < '2.1' and sec.key_algorithm in {PubKeyAlgorithm.ECDSA, PubKeyAlgorithm.ECDH}:
+            # GnuPG prior to 2.1.x does not support EC* keys, so skip this step
+            return
+
+        with tempfile.NamedTemporaryFile('w+') as emsgf:
+            emsgf.write(str(emsg))
+            emsgf.flush()
+
+            with gpg_import(os.path.realpath(sf)) as kf:
+                assert gpg_print(emsgf.name) == dmsg.message
 
     @pytest.mark.run(after='test_encrypt_message')
     @pytest.mark.parametrize('sf,cipher',

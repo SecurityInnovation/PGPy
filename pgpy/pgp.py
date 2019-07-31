@@ -1235,6 +1235,9 @@ class PGPKey(Armorable, ParentRef, PGPObject):
     especially if a transferable public key accompanies the transferable
     secret key.
     """
+    __zero_keyid = bytearray(8)
+    __zero_keyid_str = '0000000000000000'
+
     @property
     def __key__(self):
         return self._key.keymaterial
@@ -1426,6 +1429,30 @@ class PGPKey(Armorable, ParentRef, PGPObject):
     def userattributes(self):
         """A ``list`` of :py:obj:`PGPUID` objects containing one or more images associated with this key"""
         return [u for u in self._uids if u.is_ua]
+
+    def usage_flags(self, user=None):
+        """
+        Get the set of usage flags this key has.
+
+        :param user: If specified, it is used to select the uid from which flags are loaded.
+               A text string to match name, comment, or email address against.
+        :type user: ``str``, ``unicode``
+        :return: a ``set`` of :py:obj:`KeyFlags` of this key.
+        """
+        if self.is_primary:
+            if user is not None:
+                user = self.get_uid(user)
+
+            elif len(self._uids) == 0:
+                return {KeyFlags.Certify}
+
+            else:
+                user = next(iter(self.userids))
+
+            # RFC 4880 says that primary keys *must* be capable of certification
+            return {KeyFlags.Certify} | user.selfsig.key_flags
+
+        return next(self.self_signatures).key_flags
 
     @classmethod
     def new(cls, key_algorithm, key_size):
@@ -1732,22 +1759,6 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         ##TODO: skip this step if the key already has a subkey binding signature
         bsig = self.bind(key, **prefs)
         key |= bsig
-
-    def _get_key_flags(self, user=None):
-        if self.is_primary:
-            if user is not None:
-                user = self.get_uid(user)
-
-            elif len(self._uids) == 0:
-                return {KeyFlags.Certify}
-
-            else:
-                user = next(iter(self.userids))
-
-            # RFC 4880 says that primary keys *must* be capable of certification
-            return {KeyFlags.Certify} | user.selfsig.key_flags
-
-        return next(self.self_signatures).key_flags
 
     def _sign(self, subject, sig, **prefs):
         """
@@ -2210,6 +2221,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         :keyword user: Specifies the User ID to use as the recipient for this encryption operation, for the purposes of
                        preference defaults and selection validation.
         :type user: ``str``, ``unicode``
+        :keyword throw_keyid: Whether to zero out the keyid. An all zero keyid MAY be used as a wild-card keyid.
+        :type throw_keyid: ``bool``
         """
         user = prefs.pop('user', None)
         uid = None
@@ -2231,9 +2244,14 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         if sessionkey is None:
             sessionkey = cipher_algo.gen_key()
 
+        throw_keyid = prefs.pop('throw_keyid', False)
+
         # set up a new PKESessionKeyV3
         pkesk = PKESessionKeyV3()
-        pkesk.encrypter = bytearray(binascii.unhexlify(self.fingerprint.keyid.encode('latin-1')))
+        if throw_keyid:
+            pkesk.encrypter = PGPKey.__zero_keyid
+        else:
+            pkesk.encrypter = bytearray(binascii.unhexlify(self.fingerprint.keyid.encode('latin-1')))
         pkesk.pkalg = self.key_algorithm
         # pkesk.encrypt_sk(self.__key__, cipher_algo, sessionkey)
         pkesk.encrypt_sk(self._key, cipher_algo, sessionkey)
@@ -2251,6 +2269,15 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
         return _m
 
+    def _decrypt(self, pkesk, message):
+        alg, key = pkesk.decrypt_sk(self._key)
+
+        # now that we have the symmetric cipher used and the key, we can decrypt the actual message
+        decmsg = PGPMessage()
+        decmsg.parse(message.message.decrypt(key, alg))
+
+        return decmsg
+
     @KeyAction(is_unlocked=True, is_public=False)
     def decrypt(self, message):
         """
@@ -2265,7 +2292,20 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             warnings.warn("This message is not encrypted", stacklevel=3)
             return message
 
-        if self.fingerprint.keyid not in message.encrypters:
+        if self.fingerprint.keyid in message.encrypters:
+            # we have some pkesks encrypted to this key, try decrypting them.
+            pkesks = [pk for pk in message._sessionkeys
+                      if pk.pkalg == self.key_algorithm and pk.encrypter == self.fingerprint.keyid]
+            # decrypt appropriate pkesk
+            for pkesk in pkesks:
+                try:
+                    return self._decrypt(pkesk, message)
+                except (PGPDecryptionError, ValueError): # pragma: no cover
+                    pass
+            # fallthrough if we haven't succeeded
+        else:
+            # we don't have any pkesks encrypted to this key, see if we have some for subkeys
+            # if not check if we have some zero keyid pkesks and try decrypting them with this key and finally subkeys
             sks = set(self.subkeys)
             mis = set(message.encrypters)
             if sks & mis:
@@ -2274,17 +2314,26 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                               "Decrypting with that...".format(skid),
                               stacklevel=2)
                 return self.subkeys[skid].decrypt(message)
+            elif PGPKey.__zero_keyid_str in mis:
+                # decrypt zero keyid pkesks, first try with this key, then pass on to subkeys
+                # here we assume that if self._decrypt doesnt raise a PGPError that it decrypted successfully
+                # however, that assumption may not be correct so we might return some garbage back to the caller
+                # but that's really the most we can do with decrypting thrown keyid pkesks.
+                zero_keyid_pkesks = [pk for pk in message._sessionkeys
+                                     if pk.pkalg == self.key_algorithm and pk.encrypter == PGPKey.__zero_keyid_str]
+                for pkesk in zero_keyid_pkesks:
+                    try:
+                        return self._decrypt(pkesk, message)
+                    except (PGPDecryptionError, ValueError):
+                        pass
+                for subkey in self.subkeys.values():
+                    try:
+                        return subkey.decrypt(message)
+                    except PGPError:
+                        pass
+                # fallthrough if we haven't succeeded
 
-            raise PGPError("Cannot decrypt the provided message with this key")
-
-        pkesk = next(pk for pk in message._sessionkeys if pk.pkalg == self.key_algorithm and pk.encrypter == self.fingerprint.keyid)
-        alg, key = pkesk.decrypt_sk(self._key)
-
-        # now that we have the symmetric cipher used and the key, we can decrypt the actual message
-        decmsg = PGPMessage()
-        decmsg.parse(message.message.decrypt(key, alg))
-
-        return decmsg
+        raise PGPError("Cannot decrypt the provided message with this key")
 
     def parse(self, data):
         unarmored = self.ascii_unarmor(data)

@@ -89,7 +89,7 @@ class KeyAction(object):
 
         if len(self.flags):
             for _key in _preiter(key, key.subkeys.values()):
-                if self.flags & set(_key._get_key_flags(user)):
+                if self.flags & set(_key.usage_flags(user)):
                     break
 
             else:  # pragma: no cover
