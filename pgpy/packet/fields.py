@@ -413,15 +413,10 @@ class RSAPub(PubKey):
     def verify(self, subj, sigbytes, hash_alg):
         # zero-pad sigbytes if necessary
         sigbytes = (b'\x00' * (self.n.byte_length() - len(sigbytes))) + sigbytes
-        verifier = self.__pubkey__().verifier(sigbytes, padding.PKCS1v15(), hash_alg)
-        verifier.update(subj)
-
         try:
-            verifier.verify()
-
+            self.__pubkey__().verify(sigbytes, subj, padding.PKCS1v15(), hash_alg)
         except InvalidSignature:
             return False
-
         return True
 
     def parse(self, packet):
@@ -437,15 +432,10 @@ class DSAPub(PubKey):
         return dsa.DSAPublicNumbers(self.y, params).public_key(default_backend())
 
     def verify(self, subj, sigbytes, hash_alg):
-        verifier = self.__pubkey__().verifier(sigbytes, hash_alg)
-        verifier.update(subj)
-
         try:
-            verifier.verify()
-
+            self.__pubkey__().verify(sigbytes, subj, hash_alg)
         except InvalidSignature:
             return False
-
         return True
 
     def parse(self, packet):
@@ -501,15 +491,10 @@ class ECDSAPub(PubKey):
         return pkt
 
     def verify(self, subj, sigbytes, hash_alg):
-        verifier = self.__pubkey__().verifier(sigbytes, ec.ECDSA(hash_alg))
-        verifier.update(subj)
-
         try:
-            verifier.verify()
-
+            self.__pubkey__().verify(sigbytes, subj, ec.ECDSA(hash_alg))
         except InvalidSignature:
             return False
-
         return True
 
     def parse(self, packet):
@@ -1201,9 +1186,7 @@ class RSAPriv(PrivKey, RSAPub):
             del kb
 
     def sign(self, sigdata, hash_alg):
-        signer = self.__privkey__().signer(padding.PKCS1v15(), hash_alg)
-        signer.update(sigdata)
-        return signer.finalize()
+        return self.__privkey__().sign(sigdata, padding.PKCS1v15(), hash_alg)
 
 
 class DSAPriv(PrivKey, DSAPub):
@@ -1262,9 +1245,7 @@ class DSAPriv(PrivKey, DSAPub):
             del kb
 
     def sign(self, sigdata, hash_alg):
-        signer = self.__privkey__().signer(hash_alg)
-        signer.update(sigdata)
-        return signer.finalize()
+        return self.__privkey__().sign(sigdata, hash_alg)
 
 
 class ElGPriv(PrivKey, ElGPub):
@@ -1354,9 +1335,7 @@ class ECDSAPriv(PrivKey, ECDSAPub):
         self.s = MPI(kb)
 
     def sign(self, sigdata, hash_alg):
-        signer = self.__privkey__().signer(ec.ECDSA(hash_alg))
-        signer.update(sigdata)
-        return signer.finalize()
+        return self.__privkey__().sign(sigdata, ec.ECDSA(hash_alg))
 
 
 class ECDHPriv(ECDSAPriv, ECDHPub):
