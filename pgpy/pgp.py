@@ -291,13 +291,15 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         return self._signature.sigtype
 
     @classmethod
-    def new(cls, sigtype, pkalg, halg, signer):
+    def new(cls, sigtype, pkalg, halg, signer, created=None):
         sig = PGPSignature()
 
+        if created is None:
+            created=datetime.utcnow()
         sigpkt = SignatureV4()
         sigpkt.header.tag = 2
         sigpkt.header.version = 4
-        sigpkt.subpackets.addnew('CreationTime', hashed=True, created=datetime.utcnow())
+        sigpkt.subpackets.addnew('CreationTime', hashed=True, created=created)
         sigpkt.subpackets.addnew('Issuer', _issuer=signer)
 
         sigpkt.sigtype = sigtype
@@ -1428,7 +1430,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return [u for u in self._uids if u.is_ua]
 
     @classmethod
-    def new(cls, key_algorithm, key_size):
+    def new(cls, key_algorithm, key_size, created=None):
         """
         Generate a new PGP key
 
@@ -1437,6 +1439,9 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         :param key_size: Key size in bits, unless `key_algorithm` is :py:obj:`~constants.PubKeyAlgorithm.ECDSA` or
                :py:obj:`~constants.PubKeyAlgorithm.ECDH`, in which case it should be the Curve OID to use.
         :type key_size: ``int`` or :py:obj:`~constants.EllipticCurveOID`
+
+        :param created: When was the key created? (None or unset means now)
+        :type created: :py:obj:`~datetime.datetime` or None
         :return: A newly generated :py:obj:`PGPKey`
         """
         # new private key shell first
@@ -1447,7 +1452,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             key_algorithm = PubKeyAlgorithm.RSAEncryptOrSign
 
         # generate some key data to match key_algorithm and key_size
-        key._key = PrivKeyV4.new(key_algorithm, key_size)
+        key._key = PrivKeyV4.new(key_algorithm, key_size, created=created)
 
         return key
 
@@ -1848,6 +1853,9 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         :keyword user: Specify which User ID to use when creating this signature. Also adds a "Signer's User ID"
                        to the signature.
         :type user: ``str``
+        :keyword created: Specify the time that the signature should be made.  If unset or None,
+                          it will use the present time.
+        :type created: :py:obj:`~datetime.datetime`
         """
         sig_type = SignatureType.BinaryDocument
         hash_algo = prefs.pop('hash', None)
@@ -1861,7 +1869,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
             subject = subject.message
 
-        sig = PGPSignature.new(sig_type, self.key_algorithm, hash_algo, self.fingerprint.keyid)
+        created = prefs.pop('created', None)
+        sig = PGPSignature.new(sig_type, self.key_algorithm, hash_algo, self.fingerprint.keyid, created=created)
 
         return self._sign(subject, sig, **prefs)
 

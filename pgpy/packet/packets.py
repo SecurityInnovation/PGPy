@@ -856,13 +856,15 @@ class PrivKeyV4(PrivKey, PubKeyV4):
     __ver__ = 4
 
     @classmethod
-    def new(cls, key_algorithm, key_size):
+    def new(cls, key_algorithm, key_size, created=None):
         # build a key packet
         pk = PrivKeyV4()
         pk.pkalg = key_algorithm
         if pk.keymaterial is None:
             raise NotImplementedError(key_algorithm)
         pk.keymaterial._generate(key_size)
+        if created is not None:
+            pk.created = created
         pk.update_hlen()
         return pk
 
