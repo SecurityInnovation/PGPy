@@ -34,6 +34,7 @@ __all__ = ['Backend',
            'ImageEncoding',
            'SignatureType',
            'KeyServerPreferences',
+           'S2KGNUExtension',
            'String2KeyType',
            'TrustLevel',
            'KeyFlags',
@@ -448,6 +449,12 @@ class String2KeyType(IntEnum):
     Salted = 1
     Reserved = 2
     Iterated = 3
+    GNUExtension = 101
+
+
+class S2KGNUExtension(IntEnum):
+    NoSecret = 1
+    Smartcard = 2
 
 
 class TrustLevel(IntEnum):

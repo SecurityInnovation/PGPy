@@ -7,6 +7,7 @@ import itertools
 from pgpy.constants import HashAlgorithm
 from pgpy.constants import String2KeyType
 from pgpy.constants import SymmetricKeyAlgorithm
+from pgpy.constants import S2KGNUExtension
 from pgpy.packet.fields import String2Key
 from pgpy.packet.types import Header
 from pgpy.packet.subpackets import Signature
@@ -297,6 +298,12 @@ _s2k_parts = [
 _iv = b'\xDE\xAD\xBE\xEF\xDE\xAD\xBE\xEF'
 _salt = b'\xC0\xDE\xC0\xDE\xC0\xDE\xC0\xDE'
 _count = b'\x10'  # expands from 0x10 to 2048
+_gnu_scserials = [
+    # standard 16 bytes serial
+    bytearray(range(16)),
+    # shorter serial
+    b'\x42\x43\x44\x45'
+    ]
 
 # simple S2Ks
 sis2ks = [bytearray(i) + _iv for i in itertools.product(*(_s2k_parts[:2] + [b'\x00'] + _s2k_parts[2:]))]
@@ -304,6 +311,8 @@ sis2ks = [bytearray(i) + _iv for i in itertools.product(*(_s2k_parts[:2] + [b'\x
 sas2ks = [bytearray(i) + _salt + _iv for i in itertools.product(*(_s2k_parts[:2] + [b'\x01'] + _s2k_parts[2:]))]
 # iterated S2Ks
 is2ks = [bytearray(i) + _salt + _count + _iv for i in itertools.product(*(_s2k_parts[:2] + [b'\x03'] + _s2k_parts[2:]))]
+# GNU extension S2Ks
+gnus2ks = [bytearray(b'\xff\x00\x65\x00GNU' + i) for i in ([b'\x01'] + [b'\x02' + bytearray([len(s)]) + s for s in _gnu_scserials])]
 
 
 class TestString2Key(object):
@@ -357,3 +366,20 @@ class TestString2Key(object):
         assert s.salt == _salt
         assert s.count == 2048
         assert s.iv == _iv
+
+    @pytest.mark.parametrize('gnus2k', gnus2ks)
+    def test_gnu_extension_string2key(self, gnus2k):
+        b = gnus2k[:]
+        s = String2Key()
+        s.parse(gnus2k)
+
+        assert len(gnus2k) == 0
+        assert len(s) == len(b)
+        assert s.__bytes__() == b
+
+        assert bool(s)
+        assert s.encalg == SymmetricKeyAlgorithm.Plaintext
+        assert s.specifier == String2KeyType.GNUExtension
+        assert s.gnuext in S2KGNUExtension
+        if s.gnuext == S2KGNUExtension.Smartcard:
+            assert s.scserial is not None and len(s.scserial) <= 16
