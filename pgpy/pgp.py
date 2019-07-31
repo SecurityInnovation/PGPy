@@ -1429,6 +1429,15 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         """A ``list`` of :py:obj:`PGPUID` objects containing one or more images associated with this key"""
         return [u for u in self._uids if u.is_ua]
 
+    @property
+    def revocation_keys(self):
+        """A ``generator`` with the list of keys that can revoke this key.
+
+        See also :py:func:`PGPSignature.revocation_key`"""
+        for sig in self._signatures:
+            if sig.revocation_key:
+                yield sig.revocation_key
+
     @classmethod
     def new(cls, key_algorithm, key_size, created=None):
         """
