@@ -143,7 +143,7 @@ pbar3.finish()
 print("\n\n")
 print('Parsed Packet Stats\n')
 
-pcnts = collections.Counter(['{cls:s} v{v:d}'.format(cls=c.__class__.__name__, v=c.version) if hasattr(c, 'version') else c.__class__.__name__ 
+pcnts = collections.Counter(['{cls:s} v{v:d}'.format(cls=c.__class__.__name__, v=c.version) if hasattr(c, 'version') else c.__class__.__name__
                              for c in packets if not isinstance(c, pgpy.packet.Opaque)] +
                             ['Opaque [{:02d}]{:s}'.format(c.header.tag, '[v{:d}]'.format(c.header.version) if hasattr(c.header, 'version') else '') for c in packets if isinstance(c, pgpy.packet.Opaque)])
 

@@ -265,7 +265,7 @@ This section covers things that are considered extensions to PGP, but are not co
     :HKP:
         - Discovery, False, Round robin DNS and SRV lookups (section 7. Locating a HKP Keyserver)
         - Index,     False, Look up keys on key server, with multiple possible matches (section 3.1.2.2. The "index" Operation)
-        - Get,       False, Retrieve keys from key server, single fingerprint fetch (section 3.1.2.1. The "get" operation)          
+        - Get,       False, Retrieve keys from key server, single fingerprint fetch (section 3.1.2.1. The "get" operation)
         - Post,      False, Send keys to key server (section 4. Submitting Keys To A Keyserver)
 
 .. progress:: OpenPGP Web Key Service (WKS)
