@@ -254,8 +254,8 @@ class TestPGPKey_Management(object):
         if not alg.can_gen:
             pytest.xfail('Key algorithm {} not yet supported'.format(alg.name))
 
-        if isinstance(size, EllipticCurveOID) and ((not size.can_gen) or size.name not in _openssl_get_supported_curves()):
-            pytest.xfail('Curve {} not yet supported'.format(size.name))
+        if isinstance(size, EllipticCurveOID) and ((not size.can_gen) or size.curve.name not in _openssl_get_supported_curves()):
+            pytest.xfail('Curve {} not yet supported'.format(size.curve.name))
 
         key = self.keys[pkspec]
         subkey = PGPKey.new(*skspec)
@@ -465,8 +465,8 @@ class TestPGPKey_Management(object):
         if not alg.can_gen:
             pytest.xfail('Key algorithm {} not yet supported'.format(alg.name))
 
-        if isinstance(size, EllipticCurveOID) and ((not size.can_gen) or size.name not in _openssl_get_supported_curves()):
-            pytest.xfail('Curve {} not yet supported'.format(size.name))
+        if isinstance(size, EllipticCurveOID) and ((not size.can_gen) or size.curve.name not in _openssl_get_supported_curves()):
+            pytest.xfail('Curve {} not yet supported'.format(size.curve.name))
 
         # revoke the subkey
         key = self.keys[pkspec]
