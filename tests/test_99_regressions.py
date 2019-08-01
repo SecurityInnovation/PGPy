@@ -2,7 +2,10 @@
 """
 from conftest import gpg_ver, gnupghome
 
-import gpg
+try:
+    import gpg
+except (ModuleNotFoundError, NameError):
+    gpg = None
 import os
 import pytest
 import glob
@@ -147,16 +150,17 @@ def test_reg_bug_56():
     # with PGPy
     assert pk.verify(sigsubject, sig)
 
-    # with GnuPG
-    with gpg.Context(armor=True, offline=True) as c:
-        c.set_engine_info(gpg.constants.PROTOCOL_OpenPGP, home_dir=gnupghome)
+    if gpg:
+        # with GnuPG
+        with gpg.Context(armor=True, offline=True) as c:
+            c.set_engine_info(gpg.constants.PROTOCOL_OpenPGP, home_dir=gnupghome)
 
-        # import the key
-        key_data = gpg.Data(string=pub)
-        gpg.core.gpgme.gpgme_op_import(c.wrapped, key_data)
+            # import the key
+            key_data = gpg.Data(string=pub)
+            gpg.core.gpgme.gpgme_op_import(c.wrapped, key_data)
 
-        _, vres = c.verify(gpg.Data(string=sigsubject.decode('latin-1')), gpg.Data(string=str(sig)))
-    assert vres
+            _, vres = c.verify(gpg.Data(string=sigsubject.decode('latin-1')), gpg.Data(string=str(sig)))
+        assert vres
 
 
 @pytest.mark.regression(issue=157)
@@ -411,4 +415,6 @@ def test_preference_unsupported_ciphers():
                '-----END PGP PUBLIC KEY BLOCK-----\n')
     pubkey, _ = PGPKey.from_blob(keyblob)
     msg = PGPMessage.new('asdf')
-    pubkey.encrypt(msg)
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        pubkey.encrypt(msg)

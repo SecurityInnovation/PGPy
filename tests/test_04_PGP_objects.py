@@ -12,8 +12,6 @@ from pgpy import PGPSignature
 from pgpy import PGPUID
 from pgpy.types import Fingerprint
 
-from conftest import gpg_ver
-
 
 @pytest.fixture
 def abe_image():

@@ -6,14 +6,16 @@ from conftest import gpg_ver, gnupghome
 
 import copy
 import glob
-import gpg
+try:
+    import gpg
+except (ModuleNotFoundError, NameError):
+    gpg = None
 import itertools
 import os
-import six
-import tempfile
 import time
-
+import warnings
 from datetime import datetime, timedelta
+
 from pgpy import PGPKey
 from pgpy import PGPMessage
 from pgpy import PGPSignature
@@ -74,8 +76,9 @@ class TestPGPMessage(object):
         assert msg.message == mtxt
         assert msg._compression == comp_alg
 
-        # see if GPG can parse our message
-        assert self.gpg_message(msg).decode('utf-8') == mtxt
+        if gpg:
+            # see if GPG can parse our message
+            assert self.gpg_message(msg).decode('utf-8') == mtxt
 
     @pytest.mark.parametrize('comp_alg,sensitive,path',
                              itertools.product(CompressionAlgorithm, [False, True], sorted(glob.glob('tests/testdata/files/literal*'))))
@@ -87,11 +90,12 @@ class TestPGPMessage(object):
         assert msg.type == 'literal'
         assert msg.is_sensitive is sensitive
 
-        with open(path, 'rb') as tf:
-            mtxt = tf.read()
+        if gpg:
+            with open(path, 'rb') as tf:
+                mtxt = tf.read()
 
-            # see if GPG can parse our message
-            assert self.gpg_message(msg) == mtxt
+                # see if GPG can parse our message
+                assert self.gpg_message(msg) == mtxt
 
     @pytest.mark.regression(issue=154)
     # @pytest.mark.parametrize('cleartext', [False, True])
@@ -106,8 +110,9 @@ class TestPGPMessage(object):
         assert msg.type == 'literal'
         assert msg.message == text.encode('jisx0213')
 
-        # see if GPG can parse our message
-        assert self.gpg_message(msg).decode('jisx0213') == text
+        if gpg:
+            # see if GPG can parse our message
+            assert self.gpg_message(msg).decode('jisx0213') == text
 
     @pytest.mark.regression(issue=154)
     def test_new_non_unicode_cleartext(self):
@@ -128,14 +133,33 @@ class TestPGPMessage(object):
 
     @pytest.mark.parametrize('enc_msg', enc_msgs, ids=[os.path.basename(f) for f in sorted(glob.glob('tests/testdata/messages/message*.pass*.asc'))])
     def test_decrypt_passphrase_message(self, enc_msg):
-        if enc_msg.ascii_headers['Version'].startswith('BCPG C#'):
-            pytest.xfail("BCPG encryption not yet handled correctly")
-
         decmsg = enc_msg.decrypt("QwertyUiop")
 
         assert isinstance(decmsg, PGPMessage)
         assert decmsg is not enc_msg
-        assert decmsg.message == b"This is stored, literally\\!\n\n"
+        try:
+            assert decmsg.message == b"This is stored, literally\\!\n\n"
+        except AssertionError:
+            # TODO: handle the BCPG-encrypted messages more gracefully
+            assert decmsg.message == ('Lorem ipsum dolor sit amet, consectetur adipiscing elit. Mauris pretium '
+                                      'libero id orci interdum pretium. Cras at arcu in leo facilisis tincidunt ac '
+                                      'sed lorem. Quisque quis varius quam. Integer gravida quam non cursus '
+                                      'suscipit. Vivamus placerat convallis leo, nec lobortis ipsum. Sed fermentum '
+                                      'ipsum sed tellus consequat elementum. Fusce id congue orci, at molestie ex.'
+                                      '\n\n'
+                                      'Phasellus vel sagittis mauris. Ut in vehicula ipsum. Nullam facilisis '
+                                      'molestie diam, in fermentum justo interdum id. Donec vestibulum tristique '
+                                      'sapien nec rhoncus. Suspendisse venenatis consectetur mollis. Phasellus '
+                                      'fringilla tortor non ligula malesuada, in vehicula mauris efficitur. Duis '
+                                      'pulvinar eleifend est nec fringilla. Nunc elit nulla, sodales quis '
+                                      'ullamcorper sit amet, elementum vitae justo. In pretium leo sit amet risus '
+                                      'pharetra, ac tincidunt sem varius.'
+                                      '\n\n'
+                                      'Nunc fermentum id risus sed lobortis. Sed id vulputate arcu. In ac quam sed '
+                                      'nulla semper ullamcorper. Donec eleifend quam at dolor dictum, ut efficitur '
+                                      'tortor dapibus. Nunc maximus quam non erat aliquet, quis blandit nibh '
+                                      'sollicitudin. Fusce aliquam est enim, nec mattis orci scelerisque nec. '
+                                      'Nullam venenatis eget elit consectetur sagittis. \n')
 
     @pytest.mark.parametrize('comp_alg', CompressionAlgorithm)
     def test_encrypt_passphrase(self, comp_alg):
@@ -158,8 +182,9 @@ class TestPGPMessage(object):
         assert decmsg.message == mtxt
         assert decmsg._compression == msg._compression
 
-        # decrypt with GPG via python-gnupg
-        assert self.gpg_decrypt(encmsg, 'QwertyUiop').decode('utf-8') == decmsg.message
+        if gpg:
+            # decrypt with GPG via python-gnupg
+            assert self.gpg_decrypt(encmsg, 'QwertyUiop').decode('utf-8') == decmsg.message
 
     def test_encrypt_passphrase_2(self):
         mtxt = "This message is to be encrypted"
@@ -242,8 +267,9 @@ class TestPGPKey_Management(object):
         assert key.verify(key)
         self.keys[(alg, size)] = key
 
-        # try to verify with GPG
-        self.gpg_verify_key(key)
+        if gpg:
+            # try to verify with GPG
+            self.gpg_verify_key(key)
 
     @pytest.mark.run(after='test_gen_key')
     @pytest.mark.parametrize('pkspec,skspec',
@@ -273,14 +299,17 @@ class TestPGPKey_Management(object):
         assert isinstance(subkey._key, PrivSubKeyV4)
 
         # self-verify
-        assert key.verify(subkey)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            assert key.verify(subkey)
 
-        sv = key.verify(key)
+            sv = key.verify(key)
         assert sv
         assert subkey in sv
 
-        # try to verify with GPG
-        self.gpg_verify_key(key)
+        if gpg:
+            # try to verify with GPG
+            self.gpg_verify_key(key)
 
     @pytest.mark.run(after='test_add_subkey')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
@@ -294,15 +323,17 @@ class TestPGPKey_Management(object):
         expiration = datetime.utcnow() + timedelta(days=2)
 
         # add all of the sbpackets that only work on self-certifications
-        key.add_uid(uid,
-                    usage=[KeyFlags.Certify, KeyFlags.Sign],
-                    ciphers=[SymmetricKeyAlgorithm.AES256, SymmetricKeyAlgorithm.Camellia256],
-                    hashes=[HashAlgorithm.SHA384],
-                    compression=[CompressionAlgorithm.ZLIB],
-                    key_expiration=expiration,
-                    keyserver_flags=0x80,
-                    keyserver='about:none',
-                    primary=False)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            key.add_uid(uid,
+                        usage=[KeyFlags.Certify, KeyFlags.Sign],
+                        ciphers=[SymmetricKeyAlgorithm.AES256, SymmetricKeyAlgorithm.Camellia256],
+                        hashes=[HashAlgorithm.SHA384],
+                        compression=[CompressionAlgorithm.ZLIB],
+                        key_expiration=expiration,
+                        keyserver_flags=0x80,
+                        keyserver='about:none',
+                        primary=False)
 
         sig = uid.selfsig
 
@@ -317,8 +348,9 @@ class TestPGPKey_Management(object):
 
         assert uid.is_primary is False
 
-        # try to verify with GPG
-        self.gpg_verify_key(key)
+        if gpg:
+            # try to verify with GPG
+            self.gpg_verify_key(key)
 
     @pytest.mark.run(after='test_add_altuid')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
@@ -329,10 +361,13 @@ class TestPGPKey_Management(object):
         # add a photo
         key = self.keys[pkspec]
         photo = copy.copy(userphoto)
-        key.add_uid(photo)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            key.add_uid(photo)
 
-        # try to verify with GPG
-        self.gpg_verify_key(key)
+        if gpg:
+            # try to verify with GPG
+            self.gpg_verify_key(key)
 
     @pytest.mark.run(after='test_add_photo')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
@@ -373,8 +408,9 @@ class TestPGPKey_Management(object):
 
         assert revsig in key
 
-        # try to verify with GPG
-        self.gpg_verify_key(key)
+        if gpg:
+            # try to verify with GPG
+            self.gpg_verify_key(key)
 
     @pytest.mark.run(after='test_add_revocation_key')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
@@ -392,8 +428,9 @@ class TestPGPKey_Management(object):
         assert key.is_protected
         assert key.is_unlocked is False
 
-        # try to verify with GPG
-        self.gpg_verify_key(key)
+        if gpg:
+            # try to verify with GPG
+            self.gpg_verify_key(key)
 
     @pytest.mark.run(after='test_protect')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
@@ -452,8 +489,9 @@ class TestPGPKey_Management(object):
             assert pub.subkeys[skid].is_public
             assert len(subkey._key) == len(subkey._key.__bytes__())
 
-        # try to verify with GPG
-        self.gpg_verify_key(pub)
+        if gpg:
+            # try to verify with GPG
+            self.gpg_verify_key(pub)
 
     @pytest.mark.run(after='test_pub_from_spec')
     @pytest.mark.parametrize('pkspec,skspec',
@@ -488,8 +526,9 @@ class TestPGPKey_Management(object):
         assert key.verify(subkey, rsig)
         assert rsig in subkey.revocation_signatures
 
-        # try to verify with GPG
-        self.gpg_verify_key(key)
+        if gpg:
+            # try to verify with GPG
+            self.gpg_verify_key(key)
 
     @pytest.mark.run(after='test_revoke_subkey')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
@@ -511,8 +550,9 @@ class TestPGPKey_Management(object):
         assert key.verify(key, rsig)
         assert rsig in key.revocation_signatures
 
-        # try to verify with GPG
-        self.gpg_verify_key(key)
+        if gpg:
+            # try to verify with GPG
+            self.gpg_verify_key(key)
 
     @pytest.mark.run(after='test_revoke_key')
     def test_revoke_key_with_revoker(self):
@@ -654,8 +694,9 @@ class TestPGPKey_Actions(object):
 
         self.sigs['string'] = sig
 
-        # verify with GnuPG
-        self.gpg_verify(string, sig, targette_pub)
+        if gpg:
+            # verify with GnuPG
+            self.gpg_verify(string, sig, targette_pub)
 
     @pytest.mark.run(after='test_sign_string')
     def test_verify_string(self, targette_pub, string):
@@ -676,8 +717,9 @@ class TestPGPKey_Actions(object):
 
         message |= sig
 
-        # verify with GnuPG
-        self.gpg_verify(message, pubkey=targette_pub)
+        if gpg:
+            # verify with GnuPG
+            self.gpg_verify(message, pubkey=targette_pub)
 
     @pytest.mark.run(after='test_sign_message')
     def test_verify_message(self, targette_pub, message):
@@ -698,8 +740,9 @@ class TestPGPKey_Actions(object):
 
         ctmessage |= sig
 
-        # verify with GnuPG
-        self.gpg_verify(ctmessage, pubkey=targette_pub)
+        if gpg:
+            # verify with GnuPG
+            self.gpg_verify(ctmessage, pubkey=targette_pub)
 
     @pytest.mark.run(after='test_sign_ctmessage')
     def test_verify_ctmessage(self, targette_pub, ctmessage):
@@ -712,7 +755,9 @@ class TestPGPKey_Actions(object):
                              ids=[os.path.basename(f) for f in sorted(glob.glob('tests/testdata/keys/*.sec.asc'))])
     def test_sign_timestamp(self, sec):
         # test creating a timestamp signature
-        sig = sec.sign(None)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            sig = sec.sign(None)
         assert sig.type == SignatureType.Timestamp
 
         self.sigs[(sec._key.fingerprint.keyid, 'timestamp')] = sig
@@ -723,7 +768,9 @@ class TestPGPKey_Actions(object):
     def test_verify_timestamp(self, pub):
         # test verifying a timestamp signature
         sig = self.sigs[(pub._key.fingerprint.keyid, 'timestamp')]
-        sv = pub.verify(None, sig)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            sv = pub.verify(None, sig)
 
         assert sv
         assert sig in sv
@@ -732,7 +779,9 @@ class TestPGPKey_Actions(object):
                              ids=[os.path.basename(f) for f in sorted(glob.glob('tests/testdata/keys/*.sec.asc'))])
     def test_sign_standalone(self, sec):
         # test creating a standalone signature
-        sig = sec.sign(None, notation={"cheese status": "standing alone"})
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            sig = sec.sign(None, notation={"cheese status": "standing alone"})
 
         assert sig.type == SignatureType.Standalone
         assert sig.notation == {"cheese status": "standing alone"}
@@ -744,7 +793,9 @@ class TestPGPKey_Actions(object):
     def test_verify_standalone(self, pub):
         # test verifying a standalone signature
         sig = self.sigs[(pub._key.fingerprint.keyid, 'standalone')]
-        sv = pub.verify(None, sig)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            sv = pub.verify(None, sig)
 
         assert sv
         assert sig in sv
@@ -780,12 +831,15 @@ class TestPGPKey_Actions(object):
     def test_certify_uid(self, sec, abe):
         # sign the uid
         userid = abe.userids[0]
-        # test with all possible subpackets
-        sig = sec.certify(userid, SignatureType.Casual_Cert,
-                          trust=(1, 60),
-                          regex='(.*)',
-                          exportable=True,)
-        userid |= sig
+        
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            # test with all possible subpackets
+            sig = sec.certify(userid, SignatureType.Casual_Cert,
+                              trust=(1, 60),
+                              regex='(.*)',
+                              exportable=True,)
+            userid |= sig
 
         assert sig.type == SignatureType.Casual_Cert
         assert sig.exportable
@@ -820,12 +874,14 @@ class TestPGPKey_Actions(object):
 
     def test_self_certify_key(self, abe):
         # add an 0x1f signature with notation
-        sig = abe.certify(abe, notation={'Notice': 'This key has been self-frobbed!'})
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            sig = abe.certify(abe, notation={'Notice': 'This key has been self-frobbed!'})
 
-        assert sig.type == SignatureType.DirectlyOnKey
-        assert sig.notation == {'Notice': 'This key has been self-frobbed!'}
+            assert sig.type == SignatureType.DirectlyOnKey
+            assert sig.notation == {'Notice': 'This key has been self-frobbed!'}
 
-        abe |= sig
+            abe |= sig
 
     @pytest.mark.parametrize('pub', pubkeys,
                              ids=[os.path.basename(f) for f in sorted(glob.glob('tests/testdata/keys/*.pub.asc'))])
@@ -836,6 +892,8 @@ class TestPGPKey_Actions(object):
         assert len(list(sv.good_signatures)) > 0
 
     def test_gpg_import_abe(self, abe):
+        if gpg is None:
+            pytest.skip('integration test')
         # verify all of the things we did to Abe's key with GnuPG in one fell swoop
         self.gpg_verify(abe)
 
@@ -852,7 +910,9 @@ class TestPGPKey_Actions(object):
         # test encrypting a message
         mtxt = "This message will have been encrypted"
         msg = PGPMessage.new(mtxt)
-        emsg = pub.encrypt(msg, cipher=cipher)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            emsg = pub.encrypt(msg, cipher=cipher)
         self.msgs[(pub.fingerprint, cipher)] = emsg
 
     @pytest.mark.run(after='test_encrypt_message')
@@ -865,7 +925,9 @@ class TestPGPKey_Actions(object):
             pytest.skip('Message not present; see test_encrypt_message skip or xfail reason')
 
         emsg = self.msgs[(sec.fingerprint, cipher)]
-        dmsg = sec.decrypt(emsg)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            dmsg = sec.decrypt(emsg)
 
         assert dmsg.message == "This message will have been encrypted"
 
@@ -874,7 +936,8 @@ class TestPGPKey_Actions(object):
             # GnuPG prior to 2.1.x does not support EC* keys, so skip this step
             return
 
-        assert self.gpg_decrypt(emsg, sec).decode('utf-8') == dmsg.message
+        if gpg:
+            assert self.gpg_decrypt(emsg, sec).decode('utf-8') == dmsg.message
 
     @pytest.mark.run(after='test_encrypt_message')
     @pytest.mark.parametrize('sf,cipher',
@@ -886,7 +949,9 @@ class TestPGPKey_Actions(object):
             pytest.skip('Message not present; see test_encrypt_message skip or xfail reason')
 
         emsg = self.msgs[(sec.fingerprint, cipher)]
-        emsg |= sec.sign(emsg)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            emsg |= sec.sign(emsg)
 
         assert emsg.is_signed
         assert emsg.is_encrypted
@@ -902,5 +967,7 @@ class TestPGPKey_Actions(object):
         # test the decryption of X25519 generated by GnuPG
         seckey, _ = PGPKey.from_file('tests/testdata/keys/ecc.2.sec.asc')
         emsg = PGPMessage.from_file('tests/testdata/messages/message.ecdh.cv25519.asc')
-        dmsg = seckey.decrypt(emsg)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            dmsg = seckey.decrypt(emsg)
         assert bytes(dmsg.message) == b"This message will have been encrypted"
