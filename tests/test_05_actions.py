@@ -831,7 +831,7 @@ class TestPGPKey_Actions(object):
     def test_certify_uid(self, sec, abe):
         # sign the uid
         userid = abe.userids[0]
-        
+
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
             # test with all possible subpackets

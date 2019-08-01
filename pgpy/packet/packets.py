@@ -881,7 +881,7 @@ class PrivKeyV4(PrivKey, PubKeyV4):
         for pm in self.keymaterial.__pubfields__:
             setattr(pk.keymaterial, pm, copy.copy(getattr(self.keymaterial, pm)))
 
-        if self.pkalg in [PubKeyAlgorithm.ECDSA, PubKeyAlgorithm.EdDSA]:
+        if self.pkalg in {PubKeyAlgorithm.ECDSA, PubKeyAlgorithm.EdDSA}:
             pk.keymaterial.oid = self.keymaterial.oid
 
         if self.pkalg == PubKeyAlgorithm.ECDH:
