@@ -48,7 +48,7 @@ You can also join ``#pgpy`` on Freenode to ask questions or get involved
 Requirements
 ------------
 
-- Python 3 >= 3.3; Python 2 >= 2.7
+- Python 3 >= 3.4; Python 2 >= 2.7
 
   Tested with: 3.7, 3.6, 3.5, 3.4, 2.7
 

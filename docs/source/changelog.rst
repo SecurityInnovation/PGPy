@@ -4,6 +4,29 @@
 Changelog
 *********
 
+v0.5.0
+======
+Released: August 1, 2019
+
+New Features
+------------
+
+ * Add support for Curve25519
+ * Greatly improved Elliptic Curve Point format handling code (special thanks @rot42)
+ * Add support for IssuerFingerprint subpackets (thanks @J08nY)
+ * Add support for Key Revocation signatures
+
+Bugs Fixed
+----------
+
+ * PGPy now correctly resynchronizes the block cipher stream when decrypting EncryptedDataPackets (the ones without MDC). (#160)
+ * PGPy now correctly defaults to SHA256 for keys that have no hash preferences set
+
+Other Changes
+-------------
+
+ * updated library dependencies and unit tests
+
 v0.4.3
 ======
 
