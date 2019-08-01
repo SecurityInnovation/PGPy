@@ -473,6 +473,7 @@ class ECPoint:
             self.x = MPI(MPIs.bytes_to_int(xy[:self.bytelen]))
             self.y = MPI(MPIs.bytes_to_int(xy[self.bytelen:]))
         elif self.format == ECPointFormat.Native:
+            self.bytelen = 0 # dummy value for copy
             self.x = bytes(xy)
             self.y = None
         else:
