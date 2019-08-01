@@ -22,7 +22,7 @@ with open('README.rst') as readme:
 
 
 _requires = [
-    'cryptography>=1.5',
+    'cryptography>=2.6',
     'pyasn1',
     'six>=1.9.0',
 ]
