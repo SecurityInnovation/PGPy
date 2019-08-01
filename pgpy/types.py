@@ -141,7 +141,6 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
                 m['body'] = bytearray(base64.b64decode(m['body'].encode()))
 
             except (binascii.Error, TypeError) as ex:
-                six.raise_from(PGPError, ex)
                 six.raise_from(PGPError(str(ex)), ex)
 
         if m['crc'] is not None:
