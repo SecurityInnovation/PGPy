@@ -4,6 +4,7 @@
 __all__ = ('PGPError',
            'PGPEncryptionError',
            'PGPDecryptionError',
+           'PGPIncompatibleECPointFormat',
            'PGPOpenSSLCipherNotSupported',
            'PGPInsecureCipher',
            'WontImplementError',)
@@ -21,6 +22,11 @@ class PGPEncryptionError(Exception):
 
 class PGPDecryptionError(Exception):
     """Raised when decryption fails"""
+    pass
+
+
+class PGPIncompatibleECPointFormat(Exception):
+    """Raised when the point format is incompatible with the elliptic curve"""
     pass
 
 

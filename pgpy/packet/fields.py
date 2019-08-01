@@ -55,6 +55,7 @@ from ..decorators import sdproperty
 
 from ..errors import PGPDecryptionError
 from ..errors import PGPError
+from ..errors import PGPIncompatibleECPointFormat
 
 from ..symenc import _decrypt
 from ..symenc import _encrypt
@@ -565,8 +566,7 @@ class ECDSAPub(PubKey):
 
         self.p = ECPoint(packet)
         if self.p.format != ECPointFormat.Standard:
-            raise NotImplementedError("Expected: standard Elliptic curve point format (0x40). Got: 0x{:02X}".format(self.p.format))
-
+            raise PGPIncompatibleECPointFormat("Only Standard format is valid for ECDSA")
 
 
 class ECDHPub(PubKey):
@@ -637,7 +637,7 @@ class ECDHPub(PubKey):
 
         self.p = ECPoint(packet)
         if self.p.format != ECPointFormat.Standard:
-            raise NotImplementedError("Expected: standard Elliptic curve point format (0x40). Got: 0x{:02X}".format(self.p.format))
+            raise PGPIncompatibleECPointFormat("Only curves using Standard format are currently supported for ECDH")
         self.kdf.parse(packet)
 
 
