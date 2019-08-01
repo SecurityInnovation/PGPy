@@ -339,7 +339,7 @@ def test_oneline_cleartext(sf, cleartext):
 
 @pytest.mark.regression(issue=199)
 def test_armorable_empty_str():
-    with pytest.raises(ValueError, message='Expected: ASCII-armored PGP data'):
+    with pytest.raises(ValueError, match='Expected: ASCII-armored PGP data'):
         Armorable.ascii_unarmor('')
 
 
