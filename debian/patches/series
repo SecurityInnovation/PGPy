@@ -1,8 +1,1 @@
-0001-gpg-is-finnicky-sometimes.patch
-0002-217-fix-for-six-1.11.0.patch
-0003-Fix-bogus-print-in-PGPKey.__copy__.patch
-0004-RIPEMD160-is-no-longer-accessible-through-cryptograp.patch
-0005-228-remove-default-armor-header-to-avoid-leaking-unn.patch
-0006-fixed-parsing-of-User-IDs-that-include-multibyte-utf.patch
-0007-226-fixed-incomplete-subkey-revocation-signature-cal.patch
 0008-Avoid-using-the-better-sphinx-theme.patch
