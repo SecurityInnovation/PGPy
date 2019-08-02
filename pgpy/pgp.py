@@ -3,8 +3,11 @@
 this is where the armorable PGP block objects live
 """
 import binascii
-import calendar
 import collections
+try:
+    import collections.abc as collections_abc
+except ImportError:
+    collections_abc = collections
 import contextlib
 import copy
 import functools
@@ -85,6 +88,7 @@ __all__ = ['PGPSignature',
 
 
 class PGPSignature(Armorable, ParentRef, PGPObject):
+    _reason_for_revocation = collections.namedtuple('ReasonForRevocation', ['code', 'comment'])
     @property
     def __sig__(self):
         return self._signature.signature.__sig__()
@@ -255,11 +259,27 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         return None
 
     @property
+    def revocation_reason(self):
+        if 'ReasonForRevocation' in self._signature.subpackets:
+            subpacket = next(iter(self._signature.subpackets['ReasonForRevocation']))
+            return self._reason_for_revocation(subpacket.code, subpacket.string)
+        return None
+
+    @property
     def signer(self):
         """
         The 16-character Key ID of the key that generated this signature.
         """
         return self._signature.signer
+
+    @property
+    def signer_fingerprint(self):
+        """
+        The fingerprint of the key that generated this signature, if it contained. Otherwise, an empty ``str``.
+        """
+        if 'IssuerFingerprint' in self._signature.subpackets:
+            return next(iter(self._signature.subpackets['IssuerFingerprint'])).issuer_fingerprint
+        return ''
 
     @property
     def target_signature(self):
@@ -273,13 +293,15 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         return self._signature.sigtype
 
     @classmethod
-    def new(cls, sigtype, pkalg, halg, signer):
+    def new(cls, sigtype, pkalg, halg, signer, created=None):
         sig = PGPSignature()
 
+        if created is None:
+            created=datetime.utcnow()
         sigpkt = SignatureV4()
         sigpkt.header.tag = 2
         sigpkt.header.version = 4
-        sigpkt.subpackets.addnew('CreationTime', hashed=True, created=datetime.utcnow())
+        sigpkt.subpackets.addnew('CreationTime', hashed=True, created=created)
         sigpkt.subpackets.addnew('Issuer', _issuer=signer)
 
         sigpkt.sigtype = sigtype
@@ -339,7 +361,7 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         _data = bytearray()
 
         if isinstance(subject, six.string_types):
-            subject = subject.encode('latin-1')
+            subject = subject.encode('charmap')
 
         """
         All signatures are formed by producing a hash over the signature
@@ -417,6 +439,11 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
             by an authorized revocation key, should be considered valid
             revocation signatures.
 
+            - clarification from draft-ietf-openpgp-rfc4880bis-02:
+            Primary key revocation signatures (type 0x20) hash
+            only the key being revoked.  Subkey revocation signature (type 0x28)
+            hash first the primary key and then the subkey being revoked
+
             Signature directly on a key
             This signature is calculated directly on a key.  It binds the
             information in the Signature subpackets to the key, and is
@@ -426,6 +453,11 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
             about the key itself, rather than the binding between a key and a
             name.
             """
+            if self.type == SignatureType.SubkeyRevocation:
+                # hash the primary key first if this is a Subkey Revocation signature
+                _s = subject.parent.hashdata
+                _data += b'\x99' + self.int_to_bytes(len(_s), 2) + _s
+
             _s = subject.hashdata
             _data += b'\x99' + self.int_to_bytes(len(_s), 2) + _s
 
@@ -1243,10 +1275,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
     def hashdata(self):
         # when signing a key, only the public portion of the keys is hashed
         # if this is a private key, the private components of the key material need to be left out
-        if self.is_public:
-            return self._key.__bytearray__()[len(self._key.header):]
-
-        pub = self._key.pubkey()
+        pub = self._key if self.is_public else self._key.pubkey()
         return pub.__bytearray__()[len(pub.header):]
 
     @property
@@ -1297,9 +1326,13 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         """*new in 0.4.1*
         The size pertaining to this key. ``int`` for non-EC key algorithms; :py:obj:`constants.EllipticCurveOID` for EC keys.
         """
-        if self.key_algorithm in {PubKeyAlgorithm.ECDSA, PubKeyAlgorithm.ECDH}:
+        if self.key_algorithm in {PubKeyAlgorithm.ECDSA, PubKeyAlgorithm.ECDH, PubKeyAlgorithm.EdDSA}:
             return self._key.keymaterial.oid
-        return next(iter(self._key.keymaterial)).bit_length()
+        # check if keymaterial is not an Opaque class containing a bytearray
+        param = next(iter(self._key.keymaterial))
+        if isinstance(param, bytearray):
+            return 0
+        return param.bit_length()
 
     @property
     def magic(self):
@@ -1309,36 +1342,40 @@ class PGPKey(Armorable, ParentRef, PGPObject):
     @property
     def pubkey(self):
         """If the :py:obj:`PGPKey` object is a private key, this method returns a corresponding public key object with
-        all the trimmings. Otherwise, returns ``None``
+        all the trimmings. If it is already a public key, just return it.
         """
-        if not self.is_public:
-            if self._sibling is None or isinstance(self._sibling, weakref.ref):
-                # create a new key shell
-                pub = PGPKey()
-                pub.ascii_headers = self.ascii_headers.copy()
+        if self.is_public:
+            return self
+        if self._sibling is None or isinstance(self._sibling, weakref.ref):
+            # create a new key shell
+            pub = PGPKey()
+            pub.ascii_headers = self.ascii_headers.copy()
 
-                # get the public half of the primary key
-                pub._key = self._key.pubkey()
+            # get the public half of the primary key
+            pub._key = self._key.pubkey()
 
-                # get the public half of each subkey
-                for skid, subkey in self.subkeys.items():
-                    pub |= subkey.pubkey
+            # get the public half of each subkey
+            for skid, subkey in self.subkeys.items():
+                pub |= subkey.pubkey
 
-                # copy user ids and user attributes
-                for uid in self._uids:
-                    pub |= copy.copy(uid)
+            # copy user ids and user attributes
+            for uid in self._uids:
+                pub |= copy.copy(uid)
 
-                # copy signatures that weren't copied with uids
-                for sig in self._signatures:
-                    if sig.parent is None:
-                        pub |= copy.copy(sig)
+            # copy signatures that weren't copied with uids
+            for sig in self._signatures:
+                if sig.parent is None:
+                    pub |= copy.copy(sig)
 
-                # keep connect the two halves using a weak reference
-                self._sibling = weakref.ref(pub)
-                pub._sibling = weakref.ref(self)
+            # keep connect the two halves using a weak reference
+            self._sibling = weakref.ref(pub)
+            pub._sibling = weakref.ref(self)
 
-            return self._sibling()
-        return None
+            # copy parent
+            if self.parent:
+                pub._parent = weakref.ref(self.parent)
+
+        return self._sibling()
 
     @pubkey.setter
     def pubkey(self, pubkey):
@@ -1374,6 +1411,15 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return {sig.signer for sig in self.__sig__}
 
     @property
+    def revocation_signatures(self):
+        keyid, keytype = (self.fingerprint.keyid, SignatureType.KeyRevocation) if self.is_primary \
+            else (self.parent.fingerprint.keyid, SignatureType.SubkeyRevocation)
+
+        for sig in iter(sig for sig in self._signatures
+                        if all([sig.type == keytype, sig.signer == keyid, not sig.is_expired])):
+            yield sig
+
+    @property
     def subkeys(self):
         """An :py:obj:`~collections.OrderedDict` of subkeys bound to this primary key, if applicable,
         selected by 16-character keyid."""
@@ -1389,8 +1435,17 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         """A ``list`` of :py:obj:`PGPUID` objects containing one or more images associated with this key"""
         return [u for u in self._uids if u.is_ua]
 
+    @property
+    def revocation_keys(self):
+        """A ``generator`` with the list of keys that can revoke this key.
+
+        See also :py:func:`PGPSignature.revocation_key`"""
+        for sig in self._signatures:
+            if sig.revocation_key:
+                yield sig.revocation_key
+
     @classmethod
-    def new(cls, key_algorithm, key_size):
+    def new(cls, key_algorithm, key_size, created=None):
         """
         Generate a new PGP key
 
@@ -1399,6 +1454,9 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         :param key_size: Key size in bits, unless `key_algorithm` is :py:obj:`~constants.PubKeyAlgorithm.ECDSA` or
                :py:obj:`~constants.PubKeyAlgorithm.ECDH`, in which case it should be the Curve OID to use.
         :type key_size: ``int`` or :py:obj:`~constants.EllipticCurveOID`
+
+        :param created: When was the key created? (None or unset means now)
+        :type created: :py:obj:`~datetime.datetime` or None
         :return: A newly generated :py:obj:`PGPKey`
         """
         # new private key shell first
@@ -1409,7 +1467,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             key_algorithm = PubKeyAlgorithm.RSAEncryptOrSign
 
         # generate some key data to match key_algorithm and key_size
-        key._key = PrivKeyV4.new(key_algorithm, key_size)
+        key._key = PrivKeyV4.new(key_algorithm, key_size, created=created)
 
         return key
 
@@ -1525,7 +1583,6 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                 # embedded signatures don't need to be explicitly copied
                 continue
 
-            print(len(key._signatures))
             key |= copy.copy(sig)
 
         return key
@@ -1730,7 +1787,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                 uid = next(iter(self.parent.userids), None)
 
         if sig.hash_algorithm is None:
-            sig._signature.halg = uid.selfsig.hashprefs[0]
+            sig._signature.halg = next((h for h in uid.selfsig.hashprefs if h.is_supported), HashAlgorithm.SHA256)
 
         if uid is not None and sig.hash_algorithm not in uid.selfsig.hashprefs:
             warnings.warn("Selected hash algorithm not in key preferences", stacklevel=4)
@@ -1811,6 +1868,9 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         :keyword user: Specify which User ID to use when creating this signature. Also adds a "Signer's User ID"
                        to the signature.
         :type user: ``str``
+        :keyword created: Specify the time that the signature should be made.  If unset or None,
+                          it will use the present time.
+        :type created: :py:obj:`~datetime.datetime`
         """
         sig_type = SignatureType.BinaryDocument
         hash_algo = prefs.pop('hash', None)
@@ -1824,7 +1884,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
             subject = subject.message
 
-        sig = PGPSignature.new(sig_type, self.key_algorithm, hash_algo, self.fingerprint.keyid)
+        created = prefs.pop('created', None)
+        sig = PGPSignature.new(sig_type, self.key_algorithm, hash_algo, self.fingerprint.keyid, created=created)
 
         return self._sign(subject, sig, **prefs)
 
@@ -1926,10 +1987,12 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             if cipher_prefs is not None:
                 sig._signature.subpackets.addnew('PreferredSymmetricAlgorithms', hashed=True, flags=cipher_prefs)
 
-            if hash_prefs is not None:
+            if hash_prefs:
                 sig._signature.subpackets.addnew('PreferredHashAlgorithms', hashed=True, flags=hash_prefs)
                 if sig.hash_algorithm is None:
                     sig._signature.halg = hash_prefs[0]
+            if sig.hash_algorithm is None:
+                sig._signature.halg = HashAlgorithm.SHA256
 
             if compression_prefs is not None:
                 sig._signature.subpackets.addnew('PreferredCompressionAlgorithms', hashed=True, flags=compression_prefs)
@@ -2142,7 +2205,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                 if verified is NotImplemented:
                     raise NotImplementedError(sig.key_algorithm)
 
-                sigv.add_sigsubj(sig, self.fingerprint.keyid, subj, verified)
+                sigv.add_sigsubj(sig, self, subj, verified)
 
         return sigv
 
@@ -2182,7 +2245,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             uid = next(iter(self.userids), None)
             if uid is None and self.parent is not None:
                 uid = next(iter(self.parent.userids), None)
-        cipher_algo = prefs.pop('cipher', uid.selfsig.cipherprefs[0])
+        pref_cipher = next(c for c in uid.selfsig.cipherprefs if c.is_supported)
+        cipher_algo = prefs.pop('cipher', pref_cipher)
 
         if cipher_algo not in uid.selfsig.cipherprefs:
             warnings.warn("Selected symmetric algorithm not in key preferences", stacklevel=3)
@@ -2266,9 +2330,9 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         # last holds the last non-signature thing processed
 
         ##TODO: see issue #141 and fix this better
-        getpkt = lambda d: Packet(d) if len(d) > 0 else None  # flake8: noqa
+        _getpkt = lambda d: (Packet(d) if d else None)  # flake8: noqa
         # some packets are filtered out
-        getpkt = filter(lambda p: p.header.tag != PacketTag.Trust, iter(functools.partial(getpkt, data), None))
+        getpkt = filter(lambda p: p.header.tag != PacketTag.Trust, iter(functools.partial(_getpkt, data), None))
 
         def pktgrouper():
             class PktGrouper(object):
@@ -2282,7 +2346,6 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             return PktGrouper()
 
         while True:
-            # print(type(p) for p in getpkt)
             for group in iter(group for _, group in itertools.groupby(getpkt, key=pktgrouper()) if not _.endswith('Opaque')):
                 pkt = next(group)
 
@@ -2329,7 +2392,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return keys
 
 
-class PGPKeyring(collections.Container, collections.Iterable, collections.Sized):
+class PGPKeyring(collections_abc.Container, collections_abc.Iterable, collections_abc.Sized):
     def __init__(self, *args):
         """
         PGPKeyring objects represent in-memory keyrings that can contain any combination of supported private and public
@@ -2439,11 +2502,11 @@ class PGPKeyring(collections.Container, collections.Iterable, collections.Sized)
                 self._add_key(subkey)
 
     def load(self, *args):
-        """
+        r"""
         Load all keys provided into this keyring object.
 
         :param \*args: Each arg in ``args`` can be any of the formats supported by :py:meth:`PGPKey.from_path` and
-                      :py:meth:`PGPKey.from_blob`, or a ``list`` or ``tuple`` of these.
+                      :py:meth:`PGPKey.from_blob` or a :py:class:`PGPKey` instance, or a ``list`` or ``tuple`` of these.
         :type \*args: ``list``, ``tuple``, ``str``, ``unicode``, ``bytes``, ``bytearray``
         :returns: a ``set`` containing the unique fingerprints of all of the keys that were loaded during this operation.
         """
@@ -2455,9 +2518,11 @@ class PGPKeyring(collections.Container, collections.Iterable, collections.Sized)
         loaded = set()
         for key in iter(item for ilist in iter(ilist if isinstance(ilist, (tuple, list)) else [ilist] for ilist in args)
                         for item in ilist):
-            if os.path.isfile(key):
+            keys = {}
+            if isinstance(key, PGPKey):
+                _key = key
+            elif os.path.isfile(key):
                 _key, keys = PGPKey.from_file(key)
-
             else:
                 _key, keys = PGPKey.from_blob(key)
 

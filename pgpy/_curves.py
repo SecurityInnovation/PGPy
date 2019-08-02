@@ -26,6 +26,10 @@ def _openssl_get_supported_curves():
 
     # store the result so we don't have to do all of this every time
     curves = { b.ffi.string(b.lib.OBJ_nid2sn(c.nid)).decode('utf-8') for c in cs }
+    # Ed25519 and X25519 are always present in cryptography>=2.6
+    # The python cryptography lib provides a different interface for these curves,
+    # so they are handled differently in the ECDHPriv/Pub and EdDSAPriv/Pub classes
+    curves |= {'X25519', 'ed25519'}
     _openssl_get_supported_curves._curves = curves
     return curves
 
@@ -48,7 +52,19 @@ class BrainpoolP512R1(object):
     key_size = 512
 
 
+@utils.register_interface(ec.EllipticCurve)
+class X25519(object):
+    name = 'X25519'
+    key_size = 256
+
+
+@utils.register_interface(ec.EllipticCurve)
+class Ed25519(object):
+    name = 'ed25519'
+    key_size = 256
+
+
 # add these curves to the _CURVE_TYPES list
-for curve in [BrainpoolP256R1, BrainpoolP384R1, BrainpoolP512R1]:
+for curve in [BrainpoolP256R1, BrainpoolP384R1, BrainpoolP512R1, X25519, Ed25519]:
     if curve.name not in ec._CURVE_TYPES and curve.name in _openssl_get_supported_curves():
         ec._CURVE_TYPES[curve.name] = curve

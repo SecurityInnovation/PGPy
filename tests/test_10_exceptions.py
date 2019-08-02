@@ -3,6 +3,8 @@
 import pytest
 
 import glob
+import warnings
+
 from pgpy import PGPKey
 from pgpy import PGPKeyring
 from pgpy import PGPMessage
@@ -182,7 +184,8 @@ class TestPGPKey(object):
                 pass
 
     def test_sign_protected_key(self, rsa_enc):
-        with pytest.raises(PGPError):
+        with pytest.raises(PGPError), warnings.catch_warnings():
+            warnings.simplefilter('ignore')
             rsa_enc.sign("asdf")
 
     def test_verify_wrongkey(self, rsa_pub):
@@ -206,8 +209,9 @@ class TestPGPKey(object):
             targette_sec.decrypt(msg)
 
     def test_decrypt_protected_key(self, rsa_enc, rsa_pub):
-        emsg = rsa_pub.encrypt(PGPMessage.new("asdf"))
-        with pytest.raises(PGPError):
+        with pytest.raises(PGPError), warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            emsg = rsa_pub.encrypt(PGPMessage.new("asdf"))
             rsa_enc.decrypt(emsg)
 
     def test_or_typeerror(self, rsa_sec):
@@ -235,7 +239,7 @@ class TestPGPKey(object):
         assert w.filename == __file__
 
     def test_sign_bad_prefs(self, rsa_sec, recwarn):
-        rsa_sec.subkeys['2A834D8E5918E886'].sign(PGPMessage.new('asdf'), hash=HashAlgorithm.RIPEMD160)
+        rsa_sec.subkeys['2A834D8E5918E886'].sign(PGPMessage.new('asdf'), hash=HashAlgorithm.MD5)
 
         w = recwarn.pop(UserWarning)
         assert str(w.message) == "Selected hash algorithm not in key preferences"
@@ -254,8 +258,10 @@ class TestPGPKey(object):
             rsa_sec.verify(msg)
 
     def test_verify_invalid(self, rsa_sec):
-        sig = rsa_sec.sign("Text 1")
-        assert not rsa_sec.verify("Text 2", sig)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            sig = rsa_sec.sign("Text 1")
+            assert not rsa_sec.verify("Text 2", sig)
 
     def test_parse_wrong_magic(self):
         keytext = _read('tests/testdata/keys/rsa.1.sec.asc').replace('KEY', 'EKY')
@@ -380,7 +386,7 @@ class TestPGPMessage(object):
     def test_encrypt_sessionkey_wrongtype(self):
         msg = PGPMessage.new('asdf')
         with pytest.raises(TypeError):
-            msg.encrypt('asdf', sessionkey=bytearray(b'asdf1234asdf1234'), cipher=SymmetricKeyAlgorithm.AES128)
+            msg.encrypt('asdf', sessionkey=0xabdf1234abdf1234, cipher=SymmetricKeyAlgorithm.AES128)
 
     def test_parse_wrong_magic(self):
         msgtext = _read('tests/testdata/messages/message.signed.asc').replace('MESSAGE', 'EMSSAGE')

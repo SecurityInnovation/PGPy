@@ -18,9 +18,11 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from .fields import DSAPriv, DSAPub, DSASignature
 from .fields import ECDSAPub, ECDSAPriv, ECDSASignature
 from .fields import ECDHPub, ECDHPriv, ECDHCipherText
+from .fields import EdDSAPub, EdDSAPriv, EdDSASignature
 from .fields import ElGCipherText, ElGPriv, ElGPub
 from .fields import OpaquePubKey
 from .fields import OpaquePrivKey
+from .fields import OpaqueSignature
 from .fields import RSACipherText, RSAPriv, RSAPub, RSASignature
 from .fields import String2Key
 from .fields import SubPackets
@@ -362,10 +364,10 @@ class SignatureV4(Signature):
                 PubKeyAlgorithm.RSAEncrypt: RSASignature,
                 PubKeyAlgorithm.RSASign: RSASignature,
                 PubKeyAlgorithm.DSA: DSASignature,
-                PubKeyAlgorithm.ECDSA: ECDSASignature, }
+                PubKeyAlgorithm.ECDSA: ECDSASignature,
+                PubKeyAlgorithm.EdDSA: EdDSASignature,}
 
-        if self.pubalg in sigs:
-            self.signature = sigs[self.pubalg]()
+        self.signature = sigs.get(self.pubalg, OpaqueSignature)()
 
     @sdproperty
     def halg(self):
@@ -761,6 +763,7 @@ class PubKeyV4(PubKey):
             (True, PubKeyAlgorithm.FormerlyElGamalEncryptOrSign): ElGPub,
             (True, PubKeyAlgorithm.ECDSA): ECDSAPub,
             (True, PubKeyAlgorithm.ECDH): ECDHPub,
+            (True, PubKeyAlgorithm.EdDSA): EdDSAPub,
             # False means private
             (False, PubKeyAlgorithm.RSAEncryptOrSign): RSAPriv,
             (False, PubKeyAlgorithm.RSAEncrypt): RSAPriv,
@@ -770,6 +773,7 @@ class PubKeyV4(PubKey):
             (False, PubKeyAlgorithm.FormerlyElGamalEncryptOrSign): ElGPriv,
             (False, PubKeyAlgorithm.ECDSA): ECDSAPriv,
             (False, PubKeyAlgorithm.ECDH): ECDHPriv,
+            (False, PubKeyAlgorithm.EdDSA): EdDSAPriv,
         }
 
         k = (self.public, self.pkalg)
@@ -855,13 +859,15 @@ class PrivKeyV4(PrivKey, PubKeyV4):
     __ver__ = 4
 
     @classmethod
-    def new(cls, key_algorithm, key_size):
+    def new(cls, key_algorithm, key_size, created=None):
         # build a key packet
         pk = PrivKeyV4()
         pk.pkalg = key_algorithm
         if pk.keymaterial is None:
             raise NotImplementedError(key_algorithm)
         pk.keymaterial._generate(key_size)
+        if created is not None:
+            pk.created = created
         pk.update_hlen()
         return pk
 
@@ -875,7 +881,7 @@ class PrivKeyV4(PrivKey, PubKeyV4):
         for pm in self.keymaterial.__pubfields__:
             setattr(pk.keymaterial, pm, copy.copy(getattr(self.keymaterial, pm)))
 
-        if self.pkalg == PubKeyAlgorithm.ECDSA:
+        if self.pkalg in {PubKeyAlgorithm.ECDSA, PubKeyAlgorithm.EdDSA}:
             pk.keymaterial.oid = self.keymaterial.oid
 
         if self.pkalg == PubKeyAlgorithm.ECDH:
@@ -1054,16 +1060,22 @@ class SKEData(Packet):
         del packet[:self.header.length]
 
     def decrypt(self, key, alg):  # pragma: no cover
-        pt = _decrypt(bytes(self.ct), bytes(key), alg)
+        block_size_bytes = alg.block_size // 8
+        pt_prefix = _decrypt(bytes(self.ct[:block_size_bytes + 2]), bytes(key), alg)
 
-        iv = bytes(pt[:alg.block_size // 8])
-        del pt[:alg.block_size // 8]
+        # old Symmetrically Encrypted Data Packet required
+        # to change iv after decrypting prefix
+        iv_resync = bytes(self.ct[2:block_size_bytes + 2])
 
-        ivl2 = bytes(pt[:2])
-        del pt[:2]
+        iv = bytes(pt_prefix[:block_size_bytes])
+        del pt_prefix[:block_size_bytes]
+
+        ivl2 = bytes(pt_prefix[:2])
 
         if not constant_time.bytes_eq(iv[-2:], ivl2):
             raise PGPDecryptionError("Decryption failed")
+
+        pt = _decrypt(bytes(self.ct[block_size_bytes + 2:]), bytes(key), alg, iv=iv_resync)
 
         return pt
 
@@ -1283,16 +1295,18 @@ class UserID(Packet):
         self.name = ""
         self.comment = ""
         self.email = ""
+        self._encoding_fallback = False
 
     def __bytearray__(self):
         _bytes = bytearray()
         _bytes += super(UserID, self).__bytearray__()
-        _bytes += self.text_to_bytes(self.name)
+        textenc = 'utf-8' if not self._encoding_fallback else 'charmap'
+        _bytes += self.name.encode(textenc)
         if self.comment:
-            _bytes += b' (' + self.text_to_bytes(self.comment) + b')'
+            _bytes += b' (' + self.comment.encode(textenc) + b')'
 
         if self.email:
-            _bytes += b' <' + self.text_to_bytes(self.email) + b'>'
+            _bytes += b' <' + self.email.encode(textenc) + b'>'
 
         return _bytes
 
@@ -1307,8 +1321,14 @@ class UserID(Packet):
     def parse(self, packet):
         super(UserID, self).parse(packet)
 
-        uid_text = packet[:self.header.length].decode('latin-1')
+        uid_bytes = packet[:self.header.length]
+        # uid_text = packet[:self.header.length].decode('utf-8')
         del packet[:self.header.length]
+        try:
+            uid_text = uid_bytes.decode('utf-8')
+        except UnicodeDecodeError:
+            uid_text = uid_bytes.decode('charmap')
+            self._encoding_fallback = True
 
         # came across a UID packet with no payload. If that happens, don't bother trying to parse anything!
         if self.header.length > 0:

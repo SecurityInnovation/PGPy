@@ -2,7 +2,10 @@
 """
 from conftest import gpg_ver, gnupghome
 
-import gpg
+try:
+    import gpg
+except (ModuleNotFoundError, NameError):
+    gpg = None
 import os
 import pytest
 import glob
@@ -137,9 +140,8 @@ def test_reg_bug_56():
     sig._signature.hash2 = hashlib.new('sha512', hdata).digest()[:2]
 
     # create the signature
-    signer = sk.__key__.__privkey__().signer(padding.PKCS1v15(), hashes.SHA512())
-    signer.update(hdata)
-    sig._signature.signature.from_signer(signer.finalize())
+    signature = sk.__key__.__privkey__().sign(hdata, padding.PKCS1v15(), hashes.SHA512())
+    sig._signature.signature.from_signer(signature)
     sig._signature.update_hlen()
 
     # check encoding
@@ -148,16 +150,17 @@ def test_reg_bug_56():
     # with PGPy
     assert pk.verify(sigsubject, sig)
 
-    # with GnuPG
-    with gpg.Context(armor=True, offline=True) as c:
-        c.set_engine_info(gpg.constants.PROTOCOL_OpenPGP, home_dir=gnupghome)
+    if gpg:
+        # with GnuPG
+        with gpg.Context(armor=True, offline=True) as c:
+            c.set_engine_info(gpg.constants.PROTOCOL_OpenPGP, home_dir=gnupghome)
 
-        # import the key
-        key_data = gpg.Data(string=pub)
-        gpg.core.gpgme.gpgme_op_import(c.wrapped, key_data)
+            # import the key
+            key_data = gpg.Data(string=pub)
+            gpg.core.gpgme.gpgme_op_import(c.wrapped, key_data)
 
-        _, vres = c.verify(gpg.Data(string=sigsubject.decode('latin-1')), gpg.Data(string=str(sig)))
-    assert vres
+            _, vres = c.verify(gpg.Data(string=sigsubject.decode('latin-1')), gpg.Data(string=str(sig)))
+        assert vres
 
 
 @pytest.mark.regression(issue=157)
@@ -196,13 +199,19 @@ def test_reg_bug_157(monkeypatch):
         warnings.warn("tuned_count: {}; elapsed time: {:.5f}".format(pgpy.constants.HashAlgorithm.SHA256.tuned_count, elapsed))
 
 
-_seckeys = {sk.key_algorithm.name: sk for sk in (PGPKey.from_file(f)[0] for f in sorted(glob.glob('tests/testdata/keys/*.sec.asc')))}
+# load mixed keys separately so they do not overwrite "single algo" keys in the _seckeys mapping
+_seckeys = {sk.key_algorithm.name: sk for sk in (PGPKey.from_file(f)[0] for f in sorted(glob.glob('tests/testdata/keys/*.sec.asc')) if 'keys/mixed' not in f)}
+_mixed1 = PGPKey.from_file('tests/testdata/keys/mixed.1.sec.asc')[0]
 seckm = [
     _seckeys['DSA']._key,                                # DSA private key packet
     _seckeys['DSA'].subkeys['1FD6D5D4DA0170C4']._key,    # ElGamal private key packet
     _seckeys['RSAEncryptOrSign']._key,                   # RSA private key packet
     _seckeys['ECDSA']._key,                              # ECDSA private key packet
     _seckeys['ECDSA'].subkeys['A81B93FD16BD9806']._key,  # ECDH private key packet
+    _seckeys['EdDSA']._key,                              # EdDSA private key packet
+    _seckeys['EdDSA'].subkeys['AFC377493D8E897D']._key,  # Curve25519 private key packet
+    _mixed1._key,                                        # RSA private key packet
+    _mixed1.subkeys['B345506C90A428C5']._key,            # ECDH Curve25519 private key packet
 ]
 
 
@@ -315,7 +324,7 @@ def test_pubkey_subkey_parent():
 
 cleartext_sigs = ['tests/testdata/messages/cleartext.oneline.signed.asc',
                   'tests/testdata/messages/cleartext.empty.signed.asc']
-cleartexts = ['This is stored, literally\!',
+cleartexts = [r'This is stored, literally\!',
               '']
 
 
@@ -334,5 +343,78 @@ def test_oneline_cleartext(sf, cleartext):
 
 @pytest.mark.regression(issue=199)
 def test_armorable_empty_str():
-    with pytest.raises(ValueError, message='Expected: ASCII-armored PGP data'):
+    with pytest.raises(ValueError, match='Expected: ASCII-armored PGP data'):
         Armorable.ascii_unarmor('')
+
+
+@pytest.mark.regression(issue=226)
+def test_verify_subkey_revocation_signature():
+    keyblob = ('-----BEGIN PGP PUBLIC KEY BLOCK-----\n'
+               '\n'
+               'mI0EWgtKbAEEAOEjq2UsapzI996tHhvGB7mJTo1sneUso20vz5VluECI0Xv0nr0j\n'
+               'BfknMFNeuPRR5sopgnrYT2ezJxp60D1NFaKgDh0z0qv9spk9FTP4YtaE5pfZRk3l\n'
+               'iGgyY7WiJBhKLb7ne3PeG8mtju4T+9ejbN4hVx1Vz9WHKkLGeBGkOcYZABEBAAG0\n'
+               'HVRlc3QgUmV2b2NhdGlvbiA8YWJjQGRlZi5naGk+iM4EEwEIADgWIQRIuXHQYB9/\n'
+               'm0hHY/8zq5Y87Iwq4QUCWgtKbAIbAwULCQgHAgYVCAkKCwIEFgIDAQIeAQIXgAAK\n'
+               'CRAzq5Y87Iwq4RKuA/46Zg3OSmRPJJNQegoDGLGwj81sgrLFPVDV2dSAxYPiGH3j\n'
+               'JNM760NS51FLHQvxwa9XV9/4xzL9jqsV8vD+lX5aphZS6h2olPAy9CP2FK8KFrv1\n'
+               'Rap2y9D68LStDv2jFyEYEGCCvon3Ff6O2PxwG98xkaskBPH6knGjK6rrMvYI/7iN\n'
+               'BFoLSmwBBACbGvXVtDH4aTJ3UbN/3UnLKb05ogmZDpkx8A2qGnUu1QvIxqi56emU\n'
+               'TfbxKv8jne0qas0IJ1OWrcTAuPvwgH4TJERAkngxzdYXR6ZHEO3/L8s0XSLobW5E\n'
+               'nsGnFw/PG5Lrxv1YA7nBlCKennrlaU9iiUguOUK7SW7To1SOojTOcQARAQABiLYE\n'
+               'KAEIACAWIQRIuXHQYB9/m0hHY/8zq5Y87Iwq4QUCWgtKuAIdAwAKCRAzq5Y87Iwq\n'
+               '4eFnA/4oOnM7kjgIYqs2TgAxuddMabx1US9yYZDG097Nxfw1DFJoFOg4ozrrWNRz\n'
+               'F3AHo7Ocue288VYIJtjH4KB2vGAYdWq8j6bywW7t4Be2WsU4MCJqETxS+3Gv65B6\n'
+               'NBq4Y8lJvKO/cwsqYI6XWsJsmnVns0XOdv/k6ZouVdpUu5Fpr4i2BBgBCAAgFiEE\n'
+               'SLlx0GAff5tIR2P/M6uWPOyMKuEFAloLSmwCGwwACgkQM6uWPOyMKuFrOAP/ZemA\n'
+               'yfU6zSfiReQ5fsiQhiy2jZx+JVweZ0ESgDuIvT4tlB4WK87OcITd40rTalGezRuE\n'
+               'fhi3IcnDc7L+kBGNhP3IY8IFVNYGqfowIYLl/RX+3BUjuaDpunO9kIBrhm0WrC6Y\n'
+               '+padVqwTFNFteQR0N9BW1qNf7HB20BCaElxGCuI=\n'
+               '=EoFv\n'
+               '-----END PGP PUBLIC KEY BLOCK-----\n')
+
+    pubkey, _ = PGPKey.from_blob(keyblob)
+    subkey = pubkey.subkeys['8ABD4FB3046BBCF8']
+
+    revsig = subkey._signatures[1]
+
+    assert pubkey.verify(subkey, revsig)
+
+@pytest.mark.regression(issue=243)
+def test_preference_unsupported_ciphers():
+    from pgpy import PGPMessage
+    keyblob = ('-----BEGIN PGP PUBLIC KEY BLOCK-----\n'
+               '\n'
+               'mQENBFtKbSQBCADDMwreTvJkDQkgB+n0GsNbMFKEjPYGKP365y5w+FlJ2zg69F3W\n'
+               'ituYFQcTwuge2XSh58k/XHln+MwjNc5cDQaWLtMuyJbRvLK+8MdpdYlzrlyrsgDI\n'
+               'L/1PAlGMVWB83Iu2kxqc0ppTxwsltAcvRJBE+9oSiWRACQviDmX5LeBmPoGqM93w\n'
+               'LeN3QT/tu26rxha374HPgSqqNR13r3xl7gQre+pA3jmNQqwzPnEmUKN3hO852NAw\n'
+               'QOPbf4yTCcbeZ6iZ/h0mW4DvbLiPbzUsXRvgTo3X/kzJD+ZnznvJvjcKrkXzaOAp\n'
+               'qt6Nd1LmWyv5h7gBYgBNaQONFeMl9MVBFUflABEBAAG0GnRlc3RrZXkgPHRlc3RA\n'
+               'ZXhhbXBsZS5jb20+iQFPBBMBCAA5AhsDAh4BAheAFiEEL7Bmz7+mS4Q3LDSMbIbe\n'
+               'TttFc4wFAltKbXsFCwoJCAcGFQoJCAsCBRYCAwEAAAoJEGyG3k7bRXOMI34IAINL\n'
+               'bYmZ95RgVX98+tjBAliV9xZaaxu4xpY8vz4pCwwFj9QBMxkzmITC1yb/Vav6pLFK\n'
+               'UISLGeOUqskVg9uQn8YGSnRaKoxetL894o0jGLyQF6ujF4OFhbfRlaLbNACDQqg0\n'
+               'bzV1E+s6RsnbwR7aFlOcgz5m/j7+c9t/BnZ4qOYBW85iLyzQA4BgTBSocdyom3EA\n'
+               'osCNY4tFuySFlOF34OLu1k8y9RP0KsJJptEdIwEqSxRKuQ5KTbopx9kvxVfOOwgy\n'
+               'RVYuP/OQrc/MQPGSC0Rmh/iCNEsTOIxcwnotmyRd8qDpw/EBj1a0iWxzPYOzXoEQ\n'
+               'Ff2ipWRkzS3AyWVJJxi5AQ0EW0ptJAEIAJXwfVD+3oSLPedMBvpfnveu/LjFvxJk\n'
+               'ohawApu63JzJNXoRpjeBhox073iEjeSbvq/pJ/+y0t6KkFZXoXgpqACGDNjPpojk\n'
+               '6YTo6Da7GpyXefhKyH4IQ9Lbd9UIEhOKfktXTJfR/EoCZb+rmTm0WnjwkwOAVdQv\n'
+               'vuMRm8Hc39xn+Mt0CV+0KcYHhNfK+A2XU6bZkHuwaTzxTaotmeLeCgC+BA2Phwxp\n'
+               'BIhkSNE8ayYLN0VBPraw28xONzNV5e6f8RWNoGTDQxhZflmvIGz/XO5wo1DV1G0k\n'
+               'VIR49brAmrapqpCW7XWhuuupVbrpbjRUa+c4G03tySXQXUTdA3etH0EAEQEAAYkB\n'
+               'NgQYAQgAIBYhBC+wZs+/pkuENyw0jGyG3k7bRXOMBQJbSm0kAhsMAAoJEGyG3k7b\n'
+               'RXOMKbMIAKymk6Fe1qpjXtK56jpMurz1wBL0/twQbvtKQlgMBNdro0MX30xKGXh1\n'
+               'rCEIV3ls7CJnUm2NEeqFPzFZhsZS2FkgDXXT20K3S6nscv8xlF2z+jktK2RY6oCJ\n'
+               'Lgw447Rgjw5ARgW2XNrGRzapAf4KBgcyO1KtTCbjh8leg4Fs1O7B8EbiBvoeUJR0\n'
+               'wj2xNG4cOHoWN7Zjv8lLsJn60+ZbTeU25ghybmt7WjCs4ht7TZmamerLPzrFvP2c\n'
+               'ftLsb17HhrBPdfs42SsD8A816JDM7PcJWujlDV9FPJgoVjndK+4Jfpg9b4jOBA7J\n'
+               '7zeGuobtKdS9Y97BVFNtTPZK66YUIEQ=\n'
+               '=lGIy\n'
+               '-----END PGP PUBLIC KEY BLOCK-----\n')
+    pubkey, _ = PGPKey.from_blob(keyblob)
+    msg = PGPMessage.new('asdf')
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        pubkey.encrypt(msg)

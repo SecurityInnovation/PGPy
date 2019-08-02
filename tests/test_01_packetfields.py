@@ -7,6 +7,7 @@ import itertools
 from pgpy.constants import HashAlgorithm
 from pgpy.constants import String2KeyType
 from pgpy.constants import SymmetricKeyAlgorithm
+from pgpy.constants import S2KGNUExtension
 from pgpy.packet.fields import String2Key
 from pgpy.packet.types import Header
 from pgpy.packet.subpackets import Signature
@@ -106,6 +107,7 @@ _sspclasses = {
     0x1e: 'Features',
     # 0x1f: 'Target',  ##TODO: obtain one of these ##TODO: parse this, then uncomment
     0x20: 'EmbeddedSignature',
+    0x21: 'IssuerFingerprint',
     # 0x64-0x6e: Private or Experimental
     0x64: 'Opaque',
     0x65: 'Opaque',
@@ -184,6 +186,8 @@ _ssps = [
     b"\xbf\xe9\xbc\x9c\xac\x99W6\x81\xad\xe0\x81\xb4\x89n\xd0_\x1c\x92\xbe\xf6\x1cmn\xe92_\x86\xcf"
     b"\xb0v\x1f\x9dk%\xbd<\x0c\x1e\x91\x0c\xec\\\xdc\x8cCu\xd8N\xf2\x82E\x00\xc8rnSY\x1b\xa0%\x13"
     b"\xc0$Q+\xd3\xd0\xd8 \x0c\xe9\xafI5&\xe5\xc1!\xaf",
+    # 0x21
+    b'\x16!\x04\xeb\xc8\x8a\x94\xac\xb1\x10\xf1\xbe?\xe3\xc1+GK\xb0 \x84\xc7\x12',
     # 0x65
     b'\x07eGPG\x00\x01\x01',
     ]
@@ -294,6 +298,12 @@ _s2k_parts = [
 _iv = b'\xDE\xAD\xBE\xEF\xDE\xAD\xBE\xEF'
 _salt = b'\xC0\xDE\xC0\xDE\xC0\xDE\xC0\xDE'
 _count = b'\x10'  # expands from 0x10 to 2048
+_gnu_scserials = [
+    # standard 16 bytes serial
+    bytearray(range(16)),
+    # shorter serial
+    b'\x42\x43\x44\x45'
+    ]
 
 # simple S2Ks
 sis2ks = [bytearray(i) + _iv for i in itertools.product(*(_s2k_parts[:2] + [b'\x00'] + _s2k_parts[2:]))]
@@ -301,6 +311,8 @@ sis2ks = [bytearray(i) + _iv for i in itertools.product(*(_s2k_parts[:2] + [b'\x
 sas2ks = [bytearray(i) + _salt + _iv for i in itertools.product(*(_s2k_parts[:2] + [b'\x01'] + _s2k_parts[2:]))]
 # iterated S2Ks
 is2ks = [bytearray(i) + _salt + _count + _iv for i in itertools.product(*(_s2k_parts[:2] + [b'\x03'] + _s2k_parts[2:]))]
+# GNU extension S2Ks
+gnus2ks = [bytearray(b'\xff\x00\x65\x00GNU' + i) for i in ([b'\x01'] + [b'\x02' + bytearray([len(s)]) + s for s in _gnu_scserials])]
 
 
 class TestString2Key(object):
@@ -354,3 +366,20 @@ class TestString2Key(object):
         assert s.salt == _salt
         assert s.count == 2048
         assert s.iv == _iv
+
+    @pytest.mark.parametrize('gnus2k', gnus2ks)
+    def test_gnu_extension_string2key(self, gnus2k):
+        b = gnus2k[:]
+        s = String2Key()
+        s.parse(gnus2k)
+
+        assert len(gnus2k) == 0
+        assert len(s) == len(b)
+        assert s.__bytes__() == b
+
+        assert bool(s)
+        assert s.encalg == SymmetricKeyAlgorithm.Plaintext
+        assert s.specifier == String2KeyType.GNUExtension
+        assert s.gnuext in S2KGNUExtension
+        if s.gnuext == S2KGNUExtension.Smartcard:
+            assert s.scserial is not None and len(s.scserial) <= 16

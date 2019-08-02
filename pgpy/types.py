@@ -19,8 +19,6 @@ from enum import IntEnum
 
 import six
 
-from ._author import __version__
-
 from .decorators import sdproperty
 
 from .errors import PGPError
@@ -143,7 +141,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
                 m['body'] = bytearray(base64.b64decode(m['body'].encode()))
 
             except (binascii.Error, TypeError) as ex:
-                six.raise_from(PGPError, ex)
+                six.raise_from(PGPError(str(ex)), ex)
 
         if m['crc'] is not None:
             m['crc'] = Header.bytes_to_int(base64.b64decode(m['crc'].encode()))
@@ -212,7 +210,6 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
     def __init__(self):
         super(Armorable, self).__init__()
         self.ascii_headers = collections.OrderedDict()
-        self.ascii_headers['Version'] = 'PGPy v' + __version__  # Default value
 
     def __str__(self):
         payload = base64.b64encode(self.__bytes__()).decode('latin-1')
@@ -258,7 +255,6 @@ class ParentRef(object):
 
 
 class PGPObject(six.with_metaclass(abc.ABCMeta, object)):
-    __metaclass__ = abc.ABCMeta
 
     @staticmethod
     def int_byte_len(i):
@@ -540,7 +536,7 @@ class MetaDispatchable(abc.ABCMeta):
                             nh.parse(packet)
 
                         except Exception as ex:
-                            six.raise_from(PGPError, ex)
+                            six.raise_from(PGPError(str(ex)), ex)
 
                         header = nh
 
@@ -560,7 +556,7 @@ class MetaDispatchable(abc.ABCMeta):
                 obj.parse(packet)
 
             except Exception as ex:
-                six.raise_from(PGPError, ex)
+                six.raise_from(PGPError(str(ex)), ex)
 
         else:
             obj = _makeobj(cls)
@@ -569,7 +565,6 @@ class MetaDispatchable(abc.ABCMeta):
 
 
 class Dispatchable(six.with_metaclass(MetaDispatchable, PGPObject)):
-    __metaclass__ = MetaDispatchable
 
     @abc.abstractproperty
     def __headercls__(self):  # pragma: no cover

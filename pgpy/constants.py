@@ -20,10 +20,11 @@ from cryptography.hazmat.primitives.ciphers import algorithms
 
 from .decorators import classproperty
 from .types import FlagEnum
-from ._curves import BrainpoolP256R1, BrainpoolP384R1, BrainpoolP512R1
+from ._curves import BrainpoolP256R1, BrainpoolP384R1, BrainpoolP512R1, X25519, Ed25519
 
 __all__ = ['Backend',
            'EllipticCurveOID',
+           'ECPointFormat',
            'PacketTag',
            'SymmetricKeyAlgorithm',
            'PubKeyAlgorithm',
@@ -33,6 +34,7 @@ __all__ = ['Backend',
            'ImageEncoding',
            'SignatureType',
            'KeyServerPreferences',
+           'S2KGNUExtension',
            'String2KeyType',
            'TrustLevel',
            'KeyFlags',
@@ -55,15 +57,9 @@ class EllipticCurveOID(Enum):
     # id = (oid, curve)
     Invalid = ('', )
     #: DJB's fast elliptic curve
-    #:
-    #: .. warning::
-    #:     This curve is not currently usable by PGPy
-    Curve25519 = ('1.3.6.1.4.1.3029.1.5.1', )
+    Curve25519 = ('1.3.6.1.4.1.3029.1.5.1', X25519)
     #: Twisted Edwards variant of Curve25519
-    #:
-    #: .. warning::
-    #:     This curve is not currently usable by PGPy
-    Ed25519 = ('1.3.6.1.4.1.11591.15.1', )
+    Ed25519 = ('1.3.6.1.4.1.11591.15.1', Ed25519)
     #: NIST P-256, also known as SECG curve secp256r1
     NIST_P256 = ('1.2.840.10045.3.1.7', ec.SECP256R1)
     #: NIST P-384, also known as SECG curve secp384r1
@@ -130,6 +126,14 @@ class EllipticCurveOID(Enum):
                 521: SymmetricKeyAlgorithm.AES256}
 
         return algs.get(self.key_size, None)
+
+
+class ECPointFormat(IntEnum):
+    # https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-07#appendix-B
+    Standard = 0x04
+    Native = 0x40
+    OnlyX = 0x41
+    OnlyY = 0x42
 
 
 class PacketTag(IntEnum):
@@ -200,6 +204,10 @@ class SymmetricKeyAlgorithm(IntEnum):
         raise NotImplementedError(repr(self))
 
     @property
+    def is_supported(self):
+        return callable(self.cipher)
+
+    @property
     def is_insecure(self):
         insecure_ciphers = {SymmetricKeyAlgorithm.IDEA}
         return self in insecure_ciphers
@@ -257,7 +265,8 @@ class PubKeyAlgorithm(IntEnum):
         return self in {PubKeyAlgorithm.RSAEncryptOrSign,
                         PubKeyAlgorithm.DSA,
                         PubKeyAlgorithm.ECDSA,
-                        PubKeyAlgorithm.ECDH}
+                        PubKeyAlgorithm.ECDH,
+                        PubKeyAlgorithm.EdDSA}
 
     @property
     def can_encrypt(self):  # pragma: no cover
@@ -265,7 +274,7 @@ class PubKeyAlgorithm(IntEnum):
 
     @property
     def can_sign(self):
-        return self in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.DSA, PubKeyAlgorithm.ECDSA}
+        return self in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.DSA, PubKeyAlgorithm.ECDSA, PubKeyAlgorithm.EdDSA}
 
     @property
     def deprecated(self):
@@ -351,6 +360,10 @@ class HashAlgorithm(IntEnum):
 
         return self._tuned_count
 
+    @property
+    def is_supported(self):
+        return True
+
     def tune_count(self):
         start = end = 0
         htd = _hashtunedata[:]
@@ -431,6 +444,12 @@ class String2KeyType(IntEnum):
     Salted = 1
     Reserved = 2
     Iterated = 3
+    GNUExtension = 101
+
+
+class S2KGNUExtension(IntEnum):
+    NoSecret = 1
+    Smartcard = 2
 
 
 class TrustLevel(IntEnum):

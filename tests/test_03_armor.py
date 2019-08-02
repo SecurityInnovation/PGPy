@@ -133,7 +133,7 @@ block_attrs = {
         [('created',       datetime(2014, 9, 11, 22, 55, 53)),
          ('fingerprint',   "AE15 9FF3 4C1A 2426 B7F8 0F1A 560C F308 EF60 CFA3"),
          ('expires_at',    datetime(2018, 9, 12, 1, 0, 59)),
-         ('is_expired',    False),
+         ('is_expired',    True),
          ('is_primary',    True),
          ('is_protected',  False),
          ('is_public',     True),

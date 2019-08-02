@@ -1,4 +1,4 @@
-cryptography>=1.1
+cryptography>=2.6
 enum34
 pyasn1
 six>=1.9.0
