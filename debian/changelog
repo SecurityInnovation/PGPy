@@ -1,3 +1,19 @@
+python-pgpy (0.5.2-1) unstable; urgency=medium
+
+  * new upstream release
+   - adds Curve25519 and Ed25519 support
+  * move to debhelper 12
+  * standards-version: bump to 4.4.0 (no changes needed)
+  * drop python3-singledispatch from build, since it is part of core
+  * drop patches already upstream
+  * pull in upstream facepalm version number fix
+  * update dependency version for python3-cryptography
+  * clean up python and pytest cache
+  * wrap-and-sort debian/tests/control, mark module load test as superficial
+  * drop X-Python3-Version: PGPy supports all modern py3 in debian
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Fri, 02 Aug 2019 12:16:03 -0400
+
 python-pgpy (0.4.3-3) unstable; urgency=medium
 
   * move to DEP-14 branch naming conventions
