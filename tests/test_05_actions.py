@@ -635,6 +635,8 @@ class TestPGPKey_Actions(object):
                     key_data = gpg.Data(string=str(pubkey))
                     gpg.core.gpgme.gpgme_op_import(c.wrapped, key_data)
 
+            print(list(c.keylist()))
+
             vargs = [gpg.Data(string=str(subject))]
             if sig is not None:
                 vargs += [gpg.Data(string=str(sig))]
