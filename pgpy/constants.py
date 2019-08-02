@@ -160,8 +160,7 @@ class PacketTag(IntEnum):
 class SymmetricKeyAlgorithm(IntEnum):
     """Supported symmetric key algorithms."""
     Plaintext = 0x00
-    #: .. warning::
-    #:     IDEA is insecure. PGPy only allows it to be used for decryption, not encryption!
+    #: .. warning:: IDEA is insecure. PGPy only allows it to be used for decryption, not encryption!
     IDEA = 0x01
     #: Triple-DES with 168-bit key derived from 192
     TripleDES = 0x02
