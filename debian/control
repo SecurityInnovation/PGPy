@@ -23,7 +23,6 @@ Build-Depends:
  python3-six (>= 1.9.0),
  python3-sphinx <!nodoc>,
 Standards-Version: 4.4.0
-X-Python3-Version: >= 3.4
 Vcs-Git: https://github.com/SecurityInnovation/PGPy -b debian/master
 Vcs-Browser: https://github.com/SecurityInnovation/PGPy
 Homepage: https://github.com/SecurityInnovation/PGPy
