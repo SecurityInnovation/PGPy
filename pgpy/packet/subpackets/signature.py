@@ -889,6 +889,21 @@ class EmbeddedSignature(Signature):
 
 
 class IssuerFingerprint(Signature):
+    '''
+    (from RFC4880bis-07)
+    5.2.3.28.  Issuer Fingerprint
+
+    (1 octet key version number, N octets of fingerprint)
+
+    The OpenPGP Key fingerprint of the key issuing the signature.  This
+    subpacket SHOULD be included in all signatures.  If the version of
+    the issuing key is 4 and an Issuer subpacket is also included in the
+    signature, the key ID of the Issuer subpacket MUST match the low 64
+    bits of the fingerprint.
+
+    Note that the length N of the fingerprint for a version 4 key is 20
+    octets; for a version 5 key N is 32.
+    '''
     __typeid__ = 0x21
 
     @sdproperty
@@ -936,7 +951,7 @@ class IssuerFingerprint(Signature):
         if self.version == 4:
             fpr_len = 20
         elif self.version == 5:  # pragma: no cover
-            fpr_len = 25
+            fpr_len = 32
         else:  # pragma: no cover
             fpr_len = self.header.length - 1
 
