@@ -4,7 +4,7 @@
 Changelog
 *********
 
-v0.5.1
+v0.5.2
 ======
 
 Released: August 1, 2019
