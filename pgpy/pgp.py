@@ -2330,9 +2330,9 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         # last holds the last non-signature thing processed
 
         ##TODO: see issue #141 and fix this better
-        getpkt = lambda d: Packet(d) if len(d) > 0 else None  # flake8: noqa
+        _getpkt = lambda d: (Packet(d) if d else None)  # flake8: noqa
         # some packets are filtered out
-        getpkt = filter(lambda p: p.header.tag != PacketTag.Trust, iter(functools.partial(getpkt, data), None))
+        getpkt = filter(lambda p: p.header.tag != PacketTag.Trust, iter(functools.partial(_getpkt, data), None))
 
         def pktgrouper():
             class PktGrouper(object):

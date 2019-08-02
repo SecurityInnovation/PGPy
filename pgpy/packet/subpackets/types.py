@@ -43,7 +43,7 @@ class Header(_Header):
 
     def __init__(self):
         super(Header, self).__init__()
-        self.typeid = b'\x00'
+        self.typeid = -1
         self.critical = False
 
     def parse(self, packet):
@@ -97,7 +97,7 @@ class SubPacket(Dispatchable):
 
     @abc.abstractmethod
     def parse(self, packet):  # pragma: no cover
-        if self.header._typeid == 0:
+        if self.header._typeid == -1:
             self.header.parse(packet)
 
 

@@ -4,6 +4,16 @@
 Changelog
 *********
 
+v0.5.1
+======
+
+Released: August 1, 2019
+
+Bugs Fixed
+----------
+
+ * Signature subpackets of type 0 cause an infinite parse loop (#252)
+
 v0.5.0
 ======
 Released: August 1, 2019
