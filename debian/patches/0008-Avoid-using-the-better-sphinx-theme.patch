@@ -9,7 +9,7 @@ documentation with the default sphinx theme of alabaster.
  1 file changed, 1 insertion(+), 4 deletions(-)
 
 diff --git a/docs/source/conf.py b/docs/source/conf.py
-index ebe620e..2b1793a 100644
+index 18b493f..c04ed27 100644
 --- a/docs/source/conf.py
 +++ b/docs/source/conf.py
 @@ -15,8 +15,6 @@
