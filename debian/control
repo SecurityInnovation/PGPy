@@ -11,7 +11,7 @@ Build-Depends:
  libffi-dev <!nocheck>,
  pgpdump <!nocheck>,
  python3-all (>= 3.2),
- python3-cryptography (>= 1.1),
+ python3-cryptography (>= 2.6),
  python3-flake8 <!nocheck>,
  python3-gpg (>= 1.9.0-3) <!nocheck>,
  python3-pep8-naming <!nocheck>,
@@ -23,7 +23,7 @@ Build-Depends:
  python3-six (>= 1.9.0),
  python3-sphinx <!nodoc>,
 Standards-Version: 4.4.0
-X-Python3-Version: >= 3.3
+X-Python3-Version: >= 3.4
 Vcs-Git: https://github.com/SecurityInnovation/PGPy -b debian/master
 Vcs-Browser: https://github.com/SecurityInnovation/PGPy
 Homepage: https://github.com/SecurityInnovation/PGPy
