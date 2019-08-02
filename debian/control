@@ -5,7 +5,7 @@ Maintainer: Michael Greene <mgreene@securityinnovation.com>
 Uploaders:
  Daniel Kahn Gillmor <dkg@fifthhorseman.net>,
 Build-Depends:
- debhelper (>= 11~),
+ debhelper-compat (= 12),
  dh-python,
  dpkg-dev (>= 1.17.14),
  libffi-dev <!nocheck>,
