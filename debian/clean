@@ -5,3 +5,5 @@ tests/testdata/pubring.kbx*
 tests/testdata/trustdb.gpg
 tests/testdata/tofu.db
 docs/build/
+.pytest_cache/
+pgpy/__pycache__/
