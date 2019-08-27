@@ -1828,6 +1828,10 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         if sig.type == SignatureType.Timestamp and len(sig._signature.subpackets._hashed_sp) > 1:
             sig._signature.sigtype = SignatureType.Standalone
 
+        if prefs.pop('include_issuer_fingerprint', True):
+            if isinstance(self._key, PrivKeyV4):
+                sig._signature.subpackets.addnew('IssuerFingerprint', hashed=True, _version=4, _issuer_fpr=self.fingerprint)
+
         sigdata = sig.hashdata(subject)
         h2 = sig.hash_algorithm.hasher
         h2.update(sigdata)
@@ -1871,6 +1875,9 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         :keyword created: Specify the time that the signature should be made.  If unset or None,
                           it will use the present time.
         :type created: :py:obj:`~datetime.datetime`
+        :keyword include_issuer_fingerprint: Whether to include a hashed subpacket indicating the issuer fingerprint.
+                                             (only for v4 keys, defaults to True)
+        :type include_issuer_fingerprint: ``bool``
         """
         sig_type = SignatureType.BinaryDocument
         hash_algo = prefs.pop('hash', None)
