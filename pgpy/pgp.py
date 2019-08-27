@@ -554,10 +554,33 @@ class PGPUID(ParentRef):
     def __sig__(self):
         return list(self._signatures)
 
+    def _splitstring(self):
+        '''returns name, comment email from User ID string'''
+        if not isinstance(self._uid, UserID):
+            return ("", "", "")
+        if self._uid.uid == "":
+            return ("", "", "")           
+        rfc2822 = re.match(r"""^
+                           # name should always match something
+                           (?P<name>.+?)
+                           # comment *optionally* matches text in parens following name
+                           # this should never come after email and must be followed immediately by
+                           # either the email field, or the end of the packet.
+                           (\ \((?P<comment>.+?)\)(?=(\ <|$)))?
+                           # email *optionally* matches text in angle brackets following name or comment
+                           # this should never come before a comment, if comment exists,
+                           # but can immediately follow name if comment does not exist
+                           (\ <(?P<email>.+)>)?
+                           $
+                           """, self._uid.uid, flags=re.VERBOSE).groupdict()
+        
+        return (rfc2822['name'], rfc2822['comment'] or "", rfc2822['email'] or "")
+
+
     @property
     def name(self):
         """If this is a User ID, the stored name. If this is not a User ID, this will be an empty string."""
-        return self._uid.name if isinstance(self._uid, UserID) else ""
+        return self._splitstring()[0]
 
     @property
     def comment(self):
@@ -565,8 +588,8 @@ class PGPUID(ParentRef):
         If this is a User ID, this will be the stored comment. If this is not a User ID, or there is no stored comment,
         this will be an empty string.,
         """
+        return self._splitstring()[1]
 
-        return self._uid.comment if isinstance(self._uid, UserID) else ""
 
     @property
     def email(self):
@@ -574,7 +597,14 @@ class PGPUID(ParentRef):
         If this is a User ID, this will be the stored email address. If this is not a User ID, or there is no stored
         email address, this will be an empty string.
         """
-        return self._uid.email if isinstance(self._uid, UserID) else ""
+        return self._splitstring()[2]
+
+    @property
+    def userid(self):
+        """
+        If this is a User ID, this will be the full UTF-8 string. If this is not a User ID, this will be ``None``.
+        """
+        return self._uid.uid if isinstance(self._uid, UserID) else None
 
     @property
     def image(self):
@@ -650,9 +680,12 @@ class PGPUID(ParentRef):
 
         else:
             uid._uid = UserID()
-            uid._uid.name = pn
-            uid._uid.comment = comment
-            uid._uid.email = email
+            uidstr = pn
+            if comment:
+                uidstr += ' (' + comment + ')'
+            if email:
+                uidstr += ' <' + email + '>'
+            uid._uid.uid = uidstr
             uid._uid.update_hlen()
 
         return uid
