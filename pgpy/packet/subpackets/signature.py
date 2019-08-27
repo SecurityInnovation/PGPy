@@ -690,7 +690,7 @@ class PreferredCompressionAlgorithms(FlagList):
     __flags__ = CompressionAlgorithm
 
 
-class KeyServerPreferences(FlagList):
+class KeyServerPreferences(ByteFlag):
     __typeid__ = 0x17
     __flags__ = _KeyServerPreferences
 
