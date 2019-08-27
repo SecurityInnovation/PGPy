@@ -160,7 +160,7 @@ def test_reg_bug_56():
             gpg.core.gpgme.gpgme_op_import(c.wrapped, key_data)
 
             _, vres = c.verify(gpg.Data(string=sigsubject.decode('latin-1')), gpg.Data(string=str(sig)))
-        assert vres
+            assert vres
 
 
 @pytest.mark.regression(issue=157)
