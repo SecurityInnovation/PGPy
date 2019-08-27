@@ -42,20 +42,24 @@ enc_msgs = [ PGPMessage.from_file(f) for f in sorted(glob.glob('tests/testdata/m
 class TestPGPMessage(object):
     @staticmethod
     def gpg_message(msg):
+        ret = None
         with gpg.Context(offline=True) as c:
             c.set_engine_info(gpg.constants.PROTOCOL_OpenPGP, home_dir=gnupghome)
             msg, _ = c.verify(gpg.Data(string=str(msg)))
-        return msg
+            ret = bytes(msg)
+        return ret
 
     @staticmethod
     def gpg_decrypt(msg, passphrase):
         try:
+            ret = None
             with gpg.Context(armor=True, offline=True, pinentry_mode=gpg.constants.PINENTRY_MODE_LOOPBACK) as c:
                 c.set_engine_info(gpg.constants.PROTOCOL_OpenPGP, file_name='/usr/bin/gpg', home_dir=gnupghome)
                 mtxt, decres, _ = c.decrypt(gpg.Data(string=str(msg)), passphrase=passphrase.encode('utf-8'), verify=False)
 
-            assert decres
-            return mtxt
+                assert decres
+                ret = bytes(mtxt)
+            return ret
 
         except gpg.errors.GPGMEError:
             # if we got here, it's because gpgme/gpg-agent are not respecting the call to gpgme_set_passphrase_cb
@@ -245,7 +249,7 @@ class TestPGPKey_Management(object):
             c.set_engine_info(gpg.constants.PROTOCOL_OpenPGP, home_dir=gnupghome)
             data, vres = c.verify(gpg.Data(string=str(key)))
 
-        assert vres
+            assert vres
 
     @pytest.mark.run('first')
     @pytest.mark.parametrize('alg,size', pkeyspecs)
@@ -643,10 +647,11 @@ class TestPGPKey_Actions(object):
 
             _, vres = c.verify(*vargs)
 
-        assert vres
+            assert vres
 
     def gpg_decrypt(self, message, privkey):
         try:
+            ret = None
             # decrypt with GnuPG
             with gpg.Context(armor=True, offline=True, pinentry_mode=gpg.constants.PINENTRY_MODE_LOOPBACK) as c:
                 c.set_engine_info(gpg.constants.PROTOCOL_OpenPGP, home_dir=gnupghome)
@@ -660,8 +665,8 @@ class TestPGPKey_Actions(object):
                     gpg.core.gpgme.gpgme_op_import(c.wrapped, key_data)
 
                 pt, _, _ = c.decrypt(gpg.Data(string=str(message)), verify=False)
-
-            return pt
+                ret = bytes(pt)
+            return ret
 
         except gpg.errors.GPGMEError:
             # if we got here, it's because gpg is screwing with us. The tests seem to pass everywhere except in the buildd.
