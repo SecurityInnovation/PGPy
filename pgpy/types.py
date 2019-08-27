@@ -66,7 +66,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
                          (?P<headers>(^.+:\ .+(?:\r?\n))+)?(?:\r?\n)?
                          # capture all lines of the body, up to 76 characters long,
                          # including the newline, and the pad character(s)
-                         (?P<body>([A-Za-z0-9+/]{1,75}={,2}(?:\r?\n))+)
+                         (?P<body>([A-Za-z0-9+/]{1,76}={,2}(?:\r?\n))+)
                          # capture the armored CRC24 value
                          ^=(?P<crc>[A-Za-z0-9+/]{4})(?:\r?\n)
                          # finally, capture the armor tail line, which must match the armor header line
