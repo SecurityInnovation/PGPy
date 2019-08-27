@@ -382,9 +382,12 @@ class HashAlgorithm(IntEnum):
         # GnuPG tunes for about 100ms, so we'll do that as well
         _TIME = 0.100
         ct = int(len(htd) * (_TIME / (end - start)))
-        c1 = ((ct >> (ct.bit_length() - 5)) - 16)
-        c2 = (ct.bit_length() - 11)
-        c = ((c2 << 4) + c1)
+        if ct.bit_length() < 11:
+            c = (ct >> 6) - 16
+        else:
+            c1 = ((ct >> (ct.bit_length() - 5)) - 16)
+            c2 = (ct.bit_length() - 11)
+            c = ((c2 << 4) + c1)
 
         # constrain self._tuned_count to be between 0 and 255
         self._tuned_count = max(min(c, 255), 0)
