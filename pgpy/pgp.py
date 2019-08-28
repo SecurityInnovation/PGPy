@@ -266,6 +266,23 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         return None
 
     @property
+    def attested_certifications(self):
+        """
+        Returns a set of all the hashes of attested certifications covered by this Attestation Key Signature.
+
+        Unhashed subpackets are ignored.
+        """
+        if self._signature.sigtype != SignatureType.Attestation:
+            return set()
+        ret = set()
+        hlen = self.hash_algorithm.digest_size
+        for n in self._signature.subpackets['h_AttestedCertifications']:
+            attestations = bytes(n.attested_certifications)
+            for i in range(0, len(attestations), hlen):
+                ret.add(attestations[i:i+hlen])
+        return ret
+
+    @property
     def signer(self):
         """
         The 16-character Key ID of the key that generated this signature.
@@ -356,6 +373,14 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         # sig.ascii_headers = self.ascii_headers.copy()
         sig |= copy.copy(self._signature)
         return sig
+
+    def attests_to(self, othersig):
+        'returns True if this signature attests to othersig (acknolwedges it for redistribution)'
+        if not isinstance(othersig, PGPSignature):
+            raise TypeError
+        h = self.hash_algorithm.hasher
+        h.update(othersig._signature.canonical_bytes())
+        return h.digest() in self.attested_certifications
 
     def hashdata(self, subject):
         _data = bytearray()
@@ -1924,6 +1949,12 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                               :py:obj:`~datetime.timedelta` of how long after the key was created it should expire.
                               This keyword is ignored for non-self-certifications.
         :type key_expiration: :py:obj:`datetime.datetime`, :py:obj:`datetime.timedelta`
+        :keyword attested_certifications: A list of third-party certifications, as :py:obj:`PGPSignature`, that
+                                          the certificate holder wants to attest to for redistribution with the certificate.
+                                          Alternatively, any element in the list can be a ``bytes``  or ``bytearray`` object
+                                          of the appropriate length (the length of this certification's digest).
+                                          This keyword is only used for signatures of type Attestation.  
+        :type attested_certifications: ``list``
         :keyword keyserver: Specify the URI of the preferred key server of the user.
                             This keyword is ignored for non-self-certifications.
         :type keyserver: ``str``, ``unicode``, ``bytes``
@@ -1976,6 +2007,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             keyserver_flags = prefs.pop('keyserver_flags', None)
             keyserver = prefs.pop('keyserver', None)
             primary_uid = prefs.pop('primary', None)
+            attested_certifications = prefs.pop('attested_certifications', [])
 
             if key_expires is not None:
                 # key expires should be a timedelta, so if it's a datetime, turn it into a timedelta
@@ -2006,8 +2038,27 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             if primary_uid is not None:
                 sig._signature.subpackets.addnew('PrimaryUserID', hashed=True, primary=primary_uid)
 
-            # Features is always set on self-signatures
-            sig._signature.subpackets.addnew('Features', hashed=True, flags=Features.pgpy_features)
+            cert_sigtypes = {SignatureType.Generic_Cert, SignatureType.Persona_Cert,
+                             SignatureType.Casual_Cert, SignatureType.Positive_Cert,
+                             SignatureType.CertRevocation}
+            # Features is always set on certifications:
+            if sig._signature.sigtype in cert_sigtypes:
+                sig._signature.subpackets.addnew('Features', hashed=True, flags=Features.pgpy_features)
+
+            # If this is an attestation, then we must include a Attested Certifications subpacket:
+            if sig._signature.sigtype == SignatureType.Attestation:
+                attestations = set()
+                for attestation in attested_certifications:
+                    if isinstance(attestation, PGPSignature) and attestation.type in cert_sigtypes:
+                        h = sig.hash_algorithm.hasher
+                        h.update(attestation._signature.canonical_bytes())
+                        attestations.add(h.digest())
+                    elif isinstance(attestation, (bytes,bytearray)) and len(attestation) == sig.hash_algorithm.digest_size:
+                        attestations.add(attestation)
+                    else:
+                        warnings.warn("Attested Certification element is neither a PGPSignature certification nor " +
+                                      "a bytes object of size %d, ignoring"%(sig.hash_algorithm.digest_size))
+                sig._signature.subpackets.addnew('AttestedCertifications', hashed=True, attested_certifications=b''.join(sorted(attestations)))
 
         else:
             # signature options that only make sense in non-self-certifications

@@ -108,6 +108,7 @@ _sspclasses = {
     # 0x1f: 'Target',  ##TODO: obtain one of these ##TODO: parse this, then uncomment
     0x20: 'EmbeddedSignature',
     0x21: 'IssuerFingerprint',
+    0x25: 'AttestedCertifications',
     # 0x64-0x6e: Private or Experimental
     0x64: 'Opaque',
     0x65: 'Opaque',
