@@ -1884,8 +1884,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
             subject = subject.message
 
-        created = prefs.pop('created', None)
-        sig = PGPSignature.new(sig_type, self.key_algorithm, hash_algo, self.fingerprint.keyid, created=created)
+        sig = PGPSignature.new(sig_type, self.key_algorithm, hash_algo, self.fingerprint.keyid, created=prefs.pop('created', None))
 
         return self._sign(subject, sig, **prefs)
 
@@ -1949,7 +1948,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         if isinstance(subject, PGPKey):
             sig_type = SignatureType.DirectlyOnKey
 
-        sig = PGPSignature.new(sig_type, self.key_algorithm, hash_algo, self.fingerprint.keyid)
+        sig = PGPSignature.new(sig_type, self.key_algorithm, hash_algo, self.fingerprint.keyid, created=prefs.pop('created', None))
 
         # signature options that only make sense in certifications
         usage = prefs.pop('usage', None)
@@ -2059,7 +2058,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         else:  # pragma: no cover
             raise TypeError
 
-        sig = PGPSignature.new(sig_type, self.key_algorithm, hash_algo, self.fingerprint.keyid)
+        sig = PGPSignature.new(sig_type, self.key_algorithm, hash_algo, self.fingerprint.keyid, created=prefs.pop('created', None))
 
         # signature options that only make sense when revoking
         reason = prefs.pop('reason', RevocationReason.NotSpecified)
@@ -2088,7 +2087,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         """
         hash_algo = prefs.pop('hash', None)
 
-        sig = PGPSignature.new(SignatureType.DirectlyOnKey, self.key_algorithm, hash_algo, self.fingerprint.keyid)
+        sig = PGPSignature.new(SignatureType.DirectlyOnKey, self.key_algorithm, hash_algo, self.fingerprint.keyid, prefs.pop('created', None))
 
         # signature options that only make sense when adding a revocation key
         sensitive = prefs.pop('sensitive', False)
@@ -2129,7 +2128,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         else:  # pragma: no cover
             raise PGPError
 
-        sig = PGPSignature.new(sig_type, self.key_algorithm, hash_algo, self.fingerprint.keyid)
+        sig = PGPSignature.new(sig_type, self.key_algorithm, hash_algo, self.fingerprint.keyid, created=prefs.pop('created', None))
 
         if sig_type == SignatureType.Subkey_Binding:
             # signature options that only make sense in subkey binding signatures
