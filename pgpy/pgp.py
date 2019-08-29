@@ -652,6 +652,53 @@ class PGPUID(ParentRef):
         if self.is_ua:
             return self._uid.subpackets.__bytearray__()
 
+    @property
+    def third_party_certifications(self):
+        '''
+        A generator returning all third-party certifications
+        '''
+        if self.parent is None:
+            return
+        fpr = self.parent.fingerprint
+        keyid = self.parent.fingerprint.keyid
+        for sig in self._signatures:
+            if (sig.signer_fingerprint != '' and fpr != sig.signer_fingerprint) or (sig.signer != keyid):
+                yield sig
+
+    def attested_to(self, certifications):
+        '''filter certifications, only returning those that have been attested to by the first party'''
+        # first find the set of the most recent valid Attestation Key Signatures:
+        if self.parent is None:
+            return
+        mostrecent = None
+        attestations = []
+        now = datetime.utcnow()
+        fpr = self.parent.fingerprint
+        keyid = self.parent.fingerprint.keyid
+        for sig in self._signatures:
+            if sig._signature.sigtype == SignatureType.Attestation and \
+               ((sig.signer_fingerprint == fpr) or (sig.signer == keyid)) and \
+               self.parent.verify(self, sig) and \
+               sig.created <= now:
+                if mostrecent is None or sig.created > mostrecent:
+                    attestations = [sig]
+                    mostrecent = sig.created
+                elif sig.created == mostrecent:
+                    attestations.append(sig)
+        # now filter the certifications:
+        for certification in certifications:
+            for a in attestations:
+                if a.attests_to(certification):
+                    yield certification
+
+    @property
+    def attested_third_party_certifications(self):
+        '''
+        A generator that provides a list of all third-party certifications attested to
+        by the primary key.
+        '''
+        return self.attested_to(self.third_party_certifications)
+
     @classmethod
     def new(cls, pn, comment="", email=""):
         """
