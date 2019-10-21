@@ -242,7 +242,7 @@ class CreationTime(Signature):
 
     def __bytearray__(self):
         _bytes = super(CreationTime, self).__bytearray__()
-        _bytes += self.int_to_bytes(calendar.timegm(self.created.timetuple()), 4)
+        _bytes += self.int_to_bytes(calendar.timegm(self.created.utctimetuple()), 4)
         return _bytes
 
     def parse(self, packet):
