@@ -1943,6 +1943,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                         this regular expression.
                         This is meaningless without also specifying trust level and amount.
         :type regex: ``str``
+        :keyword exportable: Whether this certification is exportable or not.
+        :type exportable: ``bool``
         """
         hash_algo = prefs.pop('hash', None)
         sig_type = level
