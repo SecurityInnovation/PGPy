@@ -26,6 +26,7 @@ Standards-Version: 4.4.1
 Vcs-Git: https://github.com/SecurityInnovation/PGPy -b debian/master
 Vcs-Browser: https://github.com/SecurityInnovation/PGPy
 Homepage: https://github.com/SecurityInnovation/PGPy
+Rules-Requires-Root: no
 
 Package: python3-pgpy
 Architecture: all
