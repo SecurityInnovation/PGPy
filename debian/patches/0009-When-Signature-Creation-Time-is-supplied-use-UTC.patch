@@ -1,0 +1,91 @@
+From: Daniel Kahn Gillmor <dkg@fifthhorseman.net>
+Date: Mon, 21 Oct 2019 10:15:08 -0400
+Subject: When Signature Creation Time is supplied, use UTC
+
+When the Signature Creation Time was supplied to the signing function,
+we were ignoring the fact that it might have a different timezone than
+UTC.  But the stored timestamp is supposed to always be in UTC, so it
+should roundtrip correctly.
+
+This includes a test to ensure that we don't end up with a regression.
+
+Closes: #291
+(cherry picked from commit 494e88473db593dd10c155c059431005c0e3bc14)
+---
+ pgpy/packet/subpackets/signature.py |  2 +-
+ tests/test_99_regressions.py        | 45 +++++++++++++++++++++++++++++++++++++
+ 2 files changed, 46 insertions(+), 1 deletion(-)
+
+diff --git a/pgpy/packet/subpackets/signature.py b/pgpy/packet/subpackets/signature.py
+index d82799c..410a714 100644
+--- a/pgpy/packet/subpackets/signature.py
++++ b/pgpy/packet/subpackets/signature.py
+@@ -242,7 +242,7 @@ class CreationTime(Signature):
+ 
+     def __bytearray__(self):
+         _bytes = super(CreationTime, self).__bytearray__()
+-        _bytes += self.int_to_bytes(calendar.timegm(self.created.timetuple()), 4)
++        _bytes += self.int_to_bytes(calendar.timegm(self.created.utctimetuple()), 4)
+         return _bytes
+ 
+     def parse(self, packet):
+diff --git a/tests/test_99_regressions.py b/tests/test_99_regressions.py
+index 2c32798..04643d2 100644
+--- a/tests/test_99_regressions.py
++++ b/tests/test_99_regressions.py
+@@ -7,6 +7,7 @@ try:
+ except (ModuleNotFoundError, NameError):
+     gpg = None
+ import os
++import datetime
+ import pytest
+ import glob
+ import warnings
+@@ -418,3 +419,47 @@ def test_preference_unsupported_ciphers():
+     with warnings.catch_warnings():
+         warnings.simplefilter('ignore')
+         pubkey.encrypt(msg)
++
++@pytest.mark.regression(issue=291)
++def test_sig_timezone():
++    from pgpy import PGPKey, PGPSignature
++    # from https://tools.ietf.org/html/draft-bre-openpgp-samples-00#section-2.2:
++    alice_sec = '''-----BEGIN PGP PRIVATE KEY BLOCK-----
++Comment: Alice's OpenPGP Transferable Secret Key
++
++lFgEXEcE6RYJKwYBBAHaRw8BAQdArjWwk3FAqyiFbFBKT4TzXcVBqPTB3gmzlC/U
++b7O1u10AAP9XBeW6lzGOLx7zHH9AsUDUTb2pggYGMzd0P3ulJ2AfvQ4RtCZBbGlj
++ZSBMb3ZlbGFjZSA8YWxpY2VAb3BlbnBncC5leGFtcGxlPoiQBBMWCAA4AhsDBQsJ
++CAcCBhUKCQgLAgQWAgMBAh4BAheAFiEE64W7X6M6deFelE5j8jFVDE9H444FAl2l
++nzoACgkQ8jFVDE9H447pKwD6A5xwUqIDprBzrHfahrImaYEZzncqb25vkLV2arYf
++a78A/R3AwtLQvjxwLDuzk4dUtUwvUYibL2sAHwj2kGaHnfICnF0EXEcE6RIKKwYB
++BAGXVQEFAQEHQEL/BiGtq0k84Km1wqQw2DIikVYrQrMttN8d7BPfnr4iAwEIBwAA
++/3/xFPG6U17rhTuq+07gmEvaFYKfxRB6sgAYiW6TMTpQEK6IeAQYFggAIBYhBOuF
++u1+jOnXhXpROY/IxVQxPR+OOBQJcRwTpAhsMAAoJEPIxVQxPR+OOWdABAMUdSzpM
++hzGs1O0RkWNQWbUzQ8nUOeD9wNbjE3zR+yfRAQDbYqvtWQKN4AQLTxVJN5X5AWyb
++Pnn+We1aTBhaGa86AQ==
++=n8OM
++-----END PGP PRIVATE KEY BLOCK-----
++'''
++
++    alice_key, _ = PGPKey.from_blob(alice_sec)
++
++    class FixedOffset(datetime.tzinfo):
++        def __init__(self, hours, name):
++            self.__offset = datetime.timedelta(hours=hours)
++            self.__name = name
++        def utcoffset(self, dt):
++            return self.__offset
++        def tzname(self, dt):
++            return self.__name
++        def dst(self, dt):
++            return datetime.timedelta(0)
++    # America/New_York during DST:
++    tz = FixedOffset(-4, 'EDT')
++    # 2019-10-20T09:18:11-0400
++    when = datetime.datetime.fromtimestamp(1571577491, tz)
++
++    pgpsig = alice_key.sign('this is a test', created=when)
++    roundtrip = PGPSignature.from_blob(str(pgpsig))
++
++    assert pgpsig.created.utctimetuple() == roundtrip.created.utctimetuple()

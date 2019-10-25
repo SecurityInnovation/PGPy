@@ -1,2 +1,9 @@
 0008-Avoid-using-the-better-sphinx-theme.patch
 0002-facepalm.patch
+0003-Fix-sphinx-warnings-about-IDEA-documentation.patch
+0004-Permit-skipping-cross-signing-unless-strictly-requir.patch
+0005-IssuerFingerprint-include-spec-and-update-length-for.patch
+0006-types-Unarmor-76-character-long-lines.patch
+0007-progress.rst-Updating-Ed25519-status.patch
+0008-tests-avoid-references-to-gpg.Context-after-deletion.patch
+0009-When-Signature-Creation-Time-is-supplied-use-UTC.patch
