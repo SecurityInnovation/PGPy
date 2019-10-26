@@ -433,8 +433,7 @@ class SignatureType(IntEnum):
     ThirdParty_Confirmation = 0x50
 
 
-class KeyServerPreferences(IntEnum):
-    Unknown = 0x00
+class KeyServerPreferences(FlagEnum):
     NoModify = 0x80
 
 

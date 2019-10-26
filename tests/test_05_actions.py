@@ -335,7 +335,7 @@ class TestPGPKey_Management(object):
                         hashes=[HashAlgorithm.SHA384],
                         compression=[CompressionAlgorithm.ZLIB],
                         key_expiration=expiration,
-                        keyserver_flags=0x80,
+                        keyserver_flags={KeyServerPreferences.NoModify},
                         keyserver='about:none',
                         primary=False)
 
@@ -348,7 +348,7 @@ class TestPGPKey_Management(object):
         assert sig.features == {Features.ModificationDetection}
         assert sig.key_expiration == expiration - key.created
         assert sig.keyserver == 'about:none'
-        assert sig.keyserverprefs == [KeyServerPreferences.NoModify]
+        assert sig.keyserverprefs == {KeyServerPreferences.NoModify}
 
         assert uid.is_primary is False
 

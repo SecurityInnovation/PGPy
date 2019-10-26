@@ -1927,6 +1927,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         :keyword keyserver: Specify the URI of the preferred key server of the user.
                             This keyword is ignored for non-self-certifications.
         :type keyserver: ``str``, ``unicode``, ``bytes``
+        :keyword keyserver_flags: A set of Key Server Preferences, as :py:obj:`~constants.KeyServerPreferences`.
+        :type keyserver_flags: ``set``
         :keyword primary: Whether or not to consider the certified User ID as the primary one.
                           This keyword is ignored for non-self-certifications, and any certifications directly on keys.
         :type primary: ``bool``
