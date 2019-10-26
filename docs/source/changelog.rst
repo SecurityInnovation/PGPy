@@ -4,6 +4,14 @@
 Changelog
 *********
 
+v?
+==
+
+Bugs Fixed
+----------
+
+ * Passphrases are now encoded as utf-8 instead of latin-1 (#294)
+
 v0.5.2
 ======
 
