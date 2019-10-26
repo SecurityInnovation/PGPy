@@ -228,7 +228,7 @@ class SOPGPy(sop.StatelessOpenPGP):
                 recipients:List[str]) -> bytes:
         # FIXME!
         if literaltype != 'binary' or mode != 'any' or passwords or sessionkey or signers:
-            raise Exception('sopgpy does not support any arguments to encrypt yet, sorry')
+            raise sop.SOPUnsupportedOption('sopgpy does not support any arguments to encrypt yet, sorry')
         
         certs: List[pgpy.PGPKey] = []
         for fname in recipients:
@@ -274,7 +274,7 @@ class SOPGPy(sop.StatelessOpenPGP):
                 secretkeys:List[str]) -> bytes:
         # FIXME!!!
         if sessionkey or passwords or verifications or signers or start or end:
-            raise Exception('sopgpy does not support any arguments to decrypt yet, sorry')
+            raise sop.SOPUnsupportedOption('sopgpy does not support any arguments to decrypt yet, sorry')
         
         seckeys: List[pgpy.PGPKey] = []
         for fname in secretkeys:
