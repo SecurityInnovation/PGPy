@@ -126,8 +126,9 @@ class SOPGPy(sop.StatelessOpenPGP):
 
         subkey = pgpy.PGPKey.new(pgpy.constants.PubKeyAlgorithm.ECDH,
                                  pgpy.constants.EllipticCurveOID.Curve25519)
-        subflags = pgpy.constants.KeyFlags.EncryptCommunications
-        subflags |= pgpy.constants.KeyFlags.EncryptStorage
+        subflags: Set[int] = set()
+        subflags.add(pgpy.constants.KeyFlags.EncryptCommunications)
+        subflags.add(pgpy.constants.KeyFlags.EncryptStorage)
         primary.add_subkey(subkey, usage=subflags)
         return self._maybe_armor(armor, primary)
 
