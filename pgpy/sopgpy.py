@@ -227,8 +227,16 @@ class SOPGPy(sop.StatelessOpenPGP):
                 signers:List[str],
                 recipients:List[str]) -> bytes:
         # FIXME!
-        if literaltype != 'binary' or mode != 'any' or passwords or sessionkey or signers:
-            raise sop.SOPUnsupportedOption('sopgpy does not support any arguments to encrypt yet, sorry')
+        if literaltype != 'binary'
+            raise sop.SOPUnsupportedOption('sopgpy encrypt does not support --as yet')
+        if or mode != 'any':
+            raise sop.SOPUnsupportedOption('sopgpy encrypt does not support --mode yet')
+        if passwords:
+            raise sop.SOPUnsupportedOption('sopgpy encrypt does not support --with-password yet')
+        if signers:
+            raise sop.SOPUnsupportedOption('sopgpy encrypt does not support --sign-with yet')
+        if sessionkey:
+            raise sop.SOPUnsupportedOption('sopgpy encrypt does not support --session-key yet')
         
         certs: List[pgpy.PGPKey] = []
         for fname in recipients:
@@ -273,8 +281,16 @@ class SOPGPy(sop.StatelessOpenPGP):
                 end:Optional[str],
                 secretkeys:List[str]) -> bytes:
         # FIXME!!!
-        if sessionkey or passwords or verifications or signers or start or end:
-            raise sop.SOPUnsupportedOption('sopgpy does not support any arguments to decrypt yet, sorry')
+        if sessionkey:
+            raise sop.SOPUnsupportedOption('sopgpy does not support --session-key yet')
+        if passwords: 
+            raise sop.SOPUnsupportedOption('sopgpy does not support --with-password yet')
+        if verifications:
+            raise sop.SOPUnsupportedOption('sopgpy does not support --verify-out yet')
+        if signers:
+            raise sop.SOPUnsupportedOption('sopgpy does not support --verify-with yet')
+        if start or end:
+            raise sop.SOPUnsupportedOption('sopgpy does not support --verify-not-before or --verify-not-after yet')
         
         seckeys: List[pgpy.PGPKey] = []
         for fname in secretkeys:
