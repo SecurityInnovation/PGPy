@@ -31,9 +31,10 @@ import io
 import os
 import sop
 import pgpy
+import codecs
 import logging
 
-from typing import List, Union, Optional, Set
+from typing import List, Union, Optional, Set, Tuple
 
 class SOPGPy(sop.StatelessOpenPGP):
     def __init__(self):
@@ -58,6 +59,27 @@ class SOPGPy(sop.StatelessOpenPGP):
             return str(data).encode('ascii')
         else:
             return bytes(data)
+
+    def _get_session_key(self, fname:str) -> Tuple[pgpy.constants.SymmetricKeyAlgorithm,Optional[bytes]]:
+        data:str = ''
+        if fname.startswith('@FD:'):
+            fd = int(fname.split(':', maxsplit=1)[1])
+            with open(fd, 'r') as filed:
+                data = filed.read()
+        elif fname.startswith('@ENV:'):
+            data = os.environ[fname.split(':', maxsplit=1)[1]]
+        else:
+            with open(fname, 'r') as f:
+                data = f.read()
+        data = data.strip()
+        algostr, keystr = data.split(':', maxsplit=2)
+        algo:pgpy.constants.SymmetricKeyAlgorithm = pgpy.constants.SymmetricKeyAlgorithm(int(algostr))
+        key:Optional[bytes] = None
+        if keystr != '':
+            key = codecs.decode(keystr, 'hex')
+            if len(key) * 8 != algo.key_size:
+                raise sop.SOPInvalidDataType(f'session key {fname} has wrong size ({len(key)*8} bits) for cipher {algo} (expected: {algo.key_size} bits)')
+        return algo, key
 
     def _get_pgp_signature(self, fname:str) -> pgpy.PGPSignature:
         sig:Optional[pgpy.PGPSignature] = None
@@ -227,16 +249,14 @@ class SOPGPy(sop.StatelessOpenPGP):
                 signers:List[str],
                 recipients:List[str]) -> bytes:
         # FIXME!
-        if literaltype != 'binary'
+        if literaltype != 'binary':
             raise sop.SOPUnsupportedOption('sopgpy encrypt does not support --as yet')
-        if or mode != 'any':
+        if mode != 'any':
             raise sop.SOPUnsupportedOption('sopgpy encrypt does not support --mode yet')
         if passwords:
             raise sop.SOPUnsupportedOption('sopgpy encrypt does not support --with-password yet')
         if signers:
             raise sop.SOPUnsupportedOption('sopgpy encrypt does not support --sign-with yet')
-        if sessionkey:
-            raise sop.SOPUnsupportedOption('sopgpy encrypt does not support --session-key yet')
         
         certs: List[pgpy.PGPKey] = []
         for fname in recipients:
@@ -246,28 +266,36 @@ class SOPGPy(sop.StatelessOpenPGP):
         if not certs:
             raise Exception('needs at least one OpenPGP certificate')
 
-        ciphers = set(self._cipherprefs)
-        for cert in certs:
-            keyciphers=set()
-            for uid in cert.userids:
-                if uid.selfsig and uid.selfsig.cipherprefs:
-                    for cipher in uid.selfsig.cipherprefs:
-                        keyciphers.add(cipher)
-            ciphers = ciphers.intersection(keyciphers)
-        cipher = None
-        for c in self._cipherprefs:
-            if c in ciphers:
-                cipher = c
-                break
+        cipher:Optional[pgpy.constants.SymmetricKeyAlgorithm] = None
+        symmetrickey:Optional[bytes] = None
+
+        if sessionkey:
+            (cipher, symmetrickey) = self._get_session_key(sessionkey)
+            del sessionkey
+        else:
+            ciphers = set(self._cipherprefs)
+            for cert in certs:
+                keyciphers=set()
+                for uid in cert.userids:
+                    if uid.selfsig and uid.selfsig.cipherprefs:
+                        for cipher in uid.selfsig.cipherprefs:
+                            keyciphers.add(cipher)
+                ciphers = ciphers.intersection(keyciphers)
+            for c in self._cipherprefs:
+                if c in ciphers:
+                    cipher = c
+                    break
         # AES128 is MTI in RFC4880:
         if cipher is None:
             cipher = pgpy.constants.SymmetricKeyAlgorithm.AES128
+        if symmetrickey is None:
+            symmetrickey = cipher.gen_key()
+
         data: bytes = inp.read()
-        sessionkey = cipher.gen_key()
         msg = pgpy.PGPMessage.new(data, compression=pgpy.constants.CompressionAlgorithm.Uncompressed)
         for cert in certs:
-            msg = cert.encrypt(msg, cipher=cipher, sessionkey=sessionkey)
-        del sessionkey
+            msg = cert.encrypt(msg, cipher=cipher, sessionkey=symmetrickey)
+        del symmetrickey
         return self._maybe_armor(armor, msg)
 
 
