@@ -301,7 +301,57 @@ class SOPGPy(sop.StatelessOpenPGP):
             raise Exception(f'could not find anything capable of decryption')
         return ret
 
-    
+    def armor(self,
+              inp:io.BufferedReader,
+              label:Optional[str]) -> bytes:
+        data:bytes = inp.read()
+        obj:Union[None,pgpy.PGPMessage,pgpy.PGPKey,pgpy.PGPSignature] = None
+        try:
+            if label == 'message':
+                obj = pgpy.PGPMessage.from_blob(data)
+            elif label == 'key':
+                obj, _ = pgpy.PGPKey.from_blob(data)
+                if obj.is_public or not obj.is_primary:
+                    raise sop.SOPInvalidDataType('not an OpenPGP secret key')
+            elif label == 'cert':
+                obj, _ = pgpy.PGPKey.from_blob(data)
+                if not obj.is_public:
+                    raise sop.SOPInvalidDataType('not an OpenPGP certificate')
+            elif label == 'sig':
+                obj = pgpy.PGPSignature.from_blob(data)
+            elif label is None: # try to guess
+                try:
+                    obj, _ = pgpy.PGPKey.from_blob(data)
+                except:
+                    try:
+                        obj = pgpy.PGPSignature.from_blob(data)
+                    except:
+                        try:
+                            obj = pgpy.PGPMessage.from_blob(data)
+                        except:
+                            obj = pgpy.PGPMessage.new(data)
+            else:
+                raise sop.SOPInvalidDataType(f'unknown armor type {label}')
+        except (ValueError,TypeError) as e:
+            raise sop.SOPInvalidDataType(f'{e}')
+        return str(obj).encode('ascii')
+
+    def dearmor(self,
+                inp:io.BufferedReader) -> bytes:
+        data:bytes = inp.read()
+        try:
+            key, _ = pgpy.PGPKey.from_blob(data)
+            return bytes(key)
+        except:
+            pass
+        for cls in [ pgpy.PGPSignature, pgpy.PGPMessage ]:
+            try:
+                obj:cls = cls.from_blob(data)
+                return bytes(obj)
+            except:
+                pass
+        raise sop.SOPInvalidDataType()
+        
 def main():
     sop = SOPGPy()
     sop.dispatch()
