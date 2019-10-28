@@ -253,15 +253,15 @@ class SOPGPy(sop.StatelessOpenPGP):
 
     def decrypt(self,
                 data:bytes,
-                sessionkey:Optional[sop.SOPSessionKey],
+                wantsessionkey:bool,
                 passwords:MutableMapping[str,bytes],
                 signers:MutableMapping[str,bytes],
                 start:Optional[datetime],
                 end:Optional[datetime],
-                secretkeys:MutableMapping[str,bytes]) -> Tuple[bytes, List[sop.SOPSigResult]]:
+                secretkeys:MutableMapping[str,bytes]) -> Tuple[bytes, List[sop.SOPSigResult], Optional[sop.SOPSessionKey]]:
         # FIXME!!!
-        if sessionkey:
-            raise sop.SOPUnsupportedOption('sopgpy does not support --session-key yet')
+        if wantsessionkey:
+            raise sop.SOPUnsupportedOption('sopgpy does not support --session-key-out yet')
         if passwords: 
             raise sop.SOPUnsupportedOption('sopgpy does not support --with-password yet')
         if signers:
@@ -289,7 +289,7 @@ class SOPGPy(sop.StatelessOpenPGP):
                 logging.warning(f'could not decrypt with {seckey.fingerprint}')
         if ret is None:
             raise sop.SOPCouldNotDecrypt(f'could not find anything capable of decryption')
-        return (ret, [])
+        return (ret, [], None)
 
     def armor(self, data:bytes, label:Optional[sop.SOPArmorLabel]) -> bytes:
         obj:Union[None,pgpy.PGPMessage,pgpy.PGPKey,pgpy.PGPSignature] = None
