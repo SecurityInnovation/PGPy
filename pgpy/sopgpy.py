@@ -182,7 +182,7 @@ class SOPGPy(sop.StatelessOpenPGP):
                 goodsig:pgpy.types.sigsubj
                 for goodsig in verif.good_signatures:
                     if goodsig.verified:
-                        ret += [sop.SOPSigResult(goodsig.signature.created, cert.fingerprint, cert)]
+                        ret += [sop.SOPSigResult(goodsig.signature.created, cert.fingerprint, goodsig.signature.__repr__())]
             except:
                 pass
         if not ret:
