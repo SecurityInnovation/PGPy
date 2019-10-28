@@ -30,97 +30,63 @@ SOFTWARE.
 import io
 import os
 import sop
-import pgpy
+import pgpy #type: ignore
 import codecs
 import logging
 
-from typing import List, Union, Optional, Set, Tuple
+from datetime import datetime
+from typing import List, Union, Optional, Set, Tuple, MutableMapping, Dict
 
 class SOPGPy(sop.StatelessOpenPGP):
-    def __init__(self):
-        super().__init__(prog='SOPGPy', version=pgpy.__version__,
+    def __init__(self) -> None:
+        super().__init__(name='SOPGPy', version=pgpy.__version__,
                          description=f'Stateless OpenPGP using PGPy {pgpy.__version__}')
 
     # implemented ciphers, in the order we prefer them:
-    _cipherprefs = [pgpy.constants.SymmetricKeyAlgorithm.AES256,
-                    pgpy.constants.SymmetricKeyAlgorithm.AES192,
-                    pgpy.constants.SymmetricKeyAlgorithm.AES128,
-                    pgpy.constants.SymmetricKeyAlgorithm.Camellia256,
-                    pgpy.constants.SymmetricKeyAlgorithm.Camellia192,
-                    pgpy.constants.SymmetricKeyAlgorithm.Camellia128,
-                    pgpy.constants.SymmetricKeyAlgorithm.CAST5,
-                    pgpy.constants.SymmetricKeyAlgorithm.TripleDES,
-                    pgpy.constants.SymmetricKeyAlgorithm.Blowfish,
-                    pgpy.constants.SymmetricKeyAlgorithm.IDEA]
-
+    _cipherprefs:List[pgpy.constants.SymmetricKeyAlgorithm] = \
+        [pgpy.constants.SymmetricKeyAlgorithm.AES256,
+         pgpy.constants.SymmetricKeyAlgorithm.AES192,
+         pgpy.constants.SymmetricKeyAlgorithm.AES128,
+         pgpy.constants.SymmetricKeyAlgorithm.Camellia256,
+         pgpy.constants.SymmetricKeyAlgorithm.Camellia192,
+         pgpy.constants.SymmetricKeyAlgorithm.Camellia128,
+         pgpy.constants.SymmetricKeyAlgorithm.CAST5,
+         pgpy.constants.SymmetricKeyAlgorithm.TripleDES,
+         pgpy.constants.SymmetricKeyAlgorithm.Blowfish,
+         pgpy.constants.SymmetricKeyAlgorithm.IDEA]
         
-    def _maybe_armor(self, armor:bool, data:Union[pgpy.PGPSignature,pgpy.PGPMessage,pgpy.PGPKey]):
+    def _maybe_armor(self, armor:bool, data:Union[pgpy.PGPSignature,pgpy.PGPMessage,pgpy.PGPKey]) -> bytes:
         if (armor):
             return str(data).encode('ascii')
         else:
             return bytes(data)
 
-    def _get_session_key(self, fname:str) -> Tuple[pgpy.constants.SymmetricKeyAlgorithm,Optional[bytes]]:
-        data:str = ''
-        if fname.startswith('@FD:'):
-            fd = int(fname.split(':', maxsplit=1)[1])
-            with open(fd, 'r') as filed:
-                data = filed.read()
-        elif fname.startswith('@ENV:'):
-            data = os.environ[fname.split(':', maxsplit=1)[1]]
-        else:
-            with open(fname, 'r') as f:
-                data = f.read()
-        data = data.strip()
-        algostr, keystr = data.split(':', maxsplit=2)
-        algo:pgpy.constants.SymmetricKeyAlgorithm = pgpy.constants.SymmetricKeyAlgorithm(int(algostr))
-        key:Optional[bytes] = None
-        if keystr != '':
-            key = codecs.decode(keystr, 'hex')
-            if len(key) * 8 != algo.key_size:
-                raise sop.SOPInvalidDataType(f'session key {fname} has wrong size ({len(key)*8} bits) for cipher {algo} (expected: {algo.key_size} bits)')
-        return algo, key
-
-    def _get_pgp_signature(self, fname:str) -> pgpy.PGPSignature:
+    def _get_pgp_signature(self, data:bytes) -> Optional[pgpy.PGPSignature]:
         sig:Optional[pgpy.PGPSignature] = None
-        if fname.startswith('@FD:'):
-            fd = int(fname.split(':', maxsplit=1)[1])
-            with open(fd, 'rb') as filed:
-                data:bytes = filed.read()
-                sig = pgpy.PGPSignature.from_blob(data)
-        elif fname.startswith('@ENV:'):
-            sig = pgpy.PGPSignature.from_blob(os.environ[fname.split(':', maxsplit=1)[1]])
-        else:
-            sig = pgpy.PGPSignature.from_file(fname)
+        sig = pgpy.PGPSignature.from_blob(data)
         return sig
-        
-    def _get_pgp_key(self, fname:str, secret:bool) -> pgpy.PGPKey:
-        # handle @FD: and @ENV: here
-        key:Optional[pgpy.PGPKey] = None
-        if fname.startswith('@FD:'):
-            fd = int(fname.split(':', maxsplit=1)[1])
-            with open(fd, 'rb') as filed:
-                data:bytes = filed.read()
-                key, _ = pgpy.PGPKey.from_blob(data)
-        elif fname.startswith('@ENV:'):
-            key, _ = pgpy.PGPKey.from_blob(os.environ[fname.split(':', maxsplit=1)[1]])
-        else:
-            key, _ = pgpy.PGPKey.from_file(fname)
-        if secret:
-            if key.is_public:
-                raise Exception(f'file "{fname}" does not contain OpenPGP secret key material (probably a certificate)')
-            logging.info(f'loaded secret key {key.fingerprint} from {fname}')
 
-        if not secret:
-            if not key.is_public:
-                raise Exception(f'file "{fname}" does not contain an OpenPGP certificate (probably a secret key)')
-            logging.info(f'loaded certificate {key.fingerprint} from {fname}')
-        return key
-        
-    def generate(self,
-                 inp:io.BufferedReader,
-                 armor:bool,
-                 uids:List[str]) -> bytes:
+    def _get_certs(self, vals:MutableMapping[str,bytes]) -> MutableMapping[str,pgpy.PGPKey]:
+        certs:Dict[str,pgpy.PGPKey] = {}
+        for handle, data in vals.items():
+            cert:pgpy.PGPKey
+            cert, _ = pgpy.PGPKey.from_blob(data)
+            if not cert.is_public:
+                raise sop.SOPInvalidDataType('cert {handle} is not an OpenPGP certificate (maybe secret key?)')
+            certs[handle] = cert
+        return certs
+
+    def _get_keys(self, vals:MutableMapping[str,bytes]) -> MutableMapping[str,pgpy.PGPKey]:
+        keys:Dict[str,pgpy.PGPKey] = {}
+        for handle, data in vals.items():
+            key:pgpy.PGPKey
+            key, _  = pgpy.PGPKey.from_blob(data)
+            if key.is_public:
+                raise sop.SOPInvalidDataType('cert {handle} is not an OpenPGP transferable secret key (maybe certificate?)')
+            keys[handle] = key
+        return keys
+    
+    def generate(self, armor:bool, uids:List[str]) -> bytes:
         primary = pgpy.PGPKey.new(pgpy.constants.PubKeyAlgorithm.EdDSA,
                                   pgpy.constants.EllipticCurveOID.Ed25519)
         primaryflags: Set[int] = set()
@@ -156,125 +122,110 @@ class SOPGPy(sop.StatelessOpenPGP):
 
 
     def convert(self,
-                inp:io.BufferedReader,
+                key:bytes,
                 armor:bool) -> bytes:
-        data: bytes = inp.read()
-        seckey, _ = pgpy.PGPKey.from_blob(data)
+        seckey, _ = pgpy.PGPKey.from_blob(key)
         return self._maybe_armor(armor, seckey.pubkey)
 
 
     def sign(self,
-             inp:io.BufferedReader,
+             data:bytes,
              armor:bool,
-             sigtype:str,
-             signers:List[str]) -> bytes:
+             sigtype:sop.SOPSigType,
+             signers:MutableMapping[str, bytes]) -> bytes:
         if not signers:
-            raise Exception("Need at least one OpenPGP Secret Key file as an argument")
-
-        seckeys = []
-        for keyfile in signers:
-            seckey = self._get_pgp_key(keyfile, True)
-            seckeys.append(seckey)
-
-        data:bytes = inp.read()
-        msg:Optional[pgpy.PGPMessage] = None
-        if sigtype == 'text':
+            raise sop.SOPMissingRequiredArgument("Need at least one OpenPGP Secret Key file as an argument")
+        seckeys:MutableMapping[str,pgpy.PGPKey] = self._get_keys(signers)
+        msg:pgpy.PGPMessage
+        if sigtype is sop.SOPSigType.text:
             msg = pgpy.PGPMessage.new(data.decode('utf8'), cleartext=True, format='u')
-        elif sigtype == 'binary':
+        elif sigtype == sop.SOPSigType.binary:
             msg = pgpy.PGPMessage.new(data, format='b')
         else:
-            raise Exception(f'unknown signature type {sigtype}')
+            raise sop.SOPUnsupportedOption(f'unknown signature type {sigtype}')
         signatures:List[pgpy.PGPSignature] = []
-        for seckey in seckeys:
+        for handle,seckey in seckeys.items():
             signatures.append(seckey.sign(msg))
 
         # hack to assemble multiple signature packets! FIXME: need to report to PGPy
         sigdata:bytes = b''
         for signature in signatures:
             sigdata += bytes(seckey.sign(msg))
-        class _multisig(pgpy.types.Armorable):
+        class _multisig(pgpy.types.Armorable): #type: ignore
             @property
-            def magic(self):
+            def magic(self) -> str:
                 return 'SIGNATURE'
-            def parse(self, x):
-                self._bytes = x
-            def __bytes__(self):
+            def parse(self, x:bytes) -> None:
+                self._bytes:bytes = x
+            def __bytes__(self) -> bytes:
                 return self._bytes
         return self._maybe_armor(armor, _multisig.from_blob(sigdata))
 
 
     def verify(self,
-               inp:io.BufferedReader,
-               start:Optional[str],
-               end:Optional[str],
-               sig:str,
-               signers:List[str]) -> bytes:
+               data:bytes,
+               start:Optional[datetime],
+               end:Optional[datetime],
+               sig:bytes,
+               signers:MutableMapping[str,bytes]) -> List[sop.SOPSigResult]:
+        if not signers:
+            raise sop.SOPMissingRequiredArgument('needs at least one OpenPGP certificate')
         signature = self._get_pgp_signature(sig)
-        certs: List[pgpy.PGPKey] = []
-        for fname in signers:
-            cert = self._get_pgp_key(fname, False)
-            certs.append(cert)
-
-        if not certs:
-            raise Exception('needs at least one OpenPGP certificate')
-
+        certs:MutableMapping[str,pgpy.PGPKey] = self._get_certs(signers)
         if start is not None or end is not None:
-            raise Exception('have not implemented --not-before and --not-after')
+            raise sop.SOPUnsupportedOption('have not implemented --not-before and --not-after')
         
-        data:bytes = inp.read()
-        good:bool = False
-        ret:bytes = b''
-        for cert in certs:
+        ret:List[sop.SOPSigResult] = []
+        for (handle,cert) in certs.items():
             try:
-                verif = cert.verify(data, signature=signature)
-                for sig in verif.good_signatures:
-                    if sig.verified:
-                        ts = sig.signature.created.strftime('%Y-%m-%dT%H:%M:%SZ\n')
-                        good = True
-                        ret += ts.encode('ascii')
+                verif:pgpy.types.SignatureVerification = cert.verify(data, signature=signature)
+                goodsig:pgpy.types.sigsubj
+                for goodsig in verif.good_signatures:
+                    if goodsig.verified:
+                        ret += [sop.SOPSigResult(goodsig.signature.created, cert.fingerprint, cert)]
             except:
                 pass
-        if not good:
-            raise Exception("No good signature found")
+        if not ret:
+            raise sop.SOPNoSignature("No good signature found")
         return ret
 
 
     def encrypt(self,
-                inp:io.BufferedReader,
-                literaltype:str,
+                data:bytes,
+                literaltype:sop.SOPLiteralDataType,
                 armor:bool,
-                mode:str,
-                passwords:List[str],
-                sessionkey:Optional[str],
-                signers:List[str],
-                recipients:List[str]) -> bytes:
+                mode:sop.SOPEncryptMode,
+                passwords:MutableMapping[str,bytes],
+                sessionkey:Optional[sop.SOPSessionKey],
+                signers:MutableMapping[str,bytes],
+                recipients:MutableMapping[str,bytes]) -> bytes:
+        handle:str
         # FIXME!
-        if literaltype != 'binary':
+        if literaltype is not sop.SOPLiteralDataType.binary:
             raise sop.SOPUnsupportedOption('sopgpy encrypt does not support --as yet')
-        if mode != 'any':
+        if mode is not sop.SOPEncryptMode.any:
             raise sop.SOPUnsupportedOption('sopgpy encrypt does not support --mode yet')
         if passwords:
             raise sop.SOPUnsupportedOption('sopgpy encrypt does not support --with-password yet')
         if signers:
             raise sop.SOPUnsupportedOption('sopgpy encrypt does not support --sign-with yet')
-        
-        certs: List[pgpy.PGPKey] = []
-        for fname in recipients:
-            cert = self._get_pgp_key(fname, False)
-            certs.append(cert)
 
-        if not certs:
-            raise Exception('needs at least one OpenPGP certificate')
+        if not recipients and not passwords:
+            raise sop.SOPMissingRequiredArgument('needs at least one OpenPGP certificate or password to encrypt to')
+
+        certs:MutableMapping[str,pgpy.PGPKey] = self._get_certs(recipients)
+
 
         cipher:Optional[pgpy.constants.SymmetricKeyAlgorithm] = None
         symmetrickey:Optional[bytes] = None
 
         if sessionkey:
-            (cipher, symmetrickey) = self._get_session_key(sessionkey)
+            cipher = pgpy.constants.SymmetricKeyAlgorithm(sessionkey.algo)
+            symmetrickey = sessionkey.key
             del sessionkey
         else:
             ciphers = set(self._cipherprefs)
-            for cert in certs:
+            for handle, cert in certs.items():
                 keyciphers=set()
                 for uid in cert.userids:
                     if uid.selfsig and uid.selfsig.cipherprefs:
@@ -291,48 +242,41 @@ class SOPGPy(sop.StatelessOpenPGP):
         if symmetrickey is None:
             symmetrickey = cipher.gen_key()
 
-        data: bytes = inp.read()
         msg = pgpy.PGPMessage.new(data, compression=pgpy.constants.CompressionAlgorithm.Uncompressed)
-        for cert in certs:
+        for handle, cert in certs.items():
             msg = cert.encrypt(msg, cipher=cipher, sessionkey=symmetrickey)
         del symmetrickey
         return self._maybe_armor(armor, msg)
 
 
     def decrypt(self,
-                inp:io.BufferedReader,
-                sessionkey:Optional[str],
-                passwords:List[str],
-                verifications:Optional[str],
-                signers:List[str],
-                start:Optional[str],
-                end:Optional[str],
-                secretkeys:List[str]) -> bytes:
+                data:bytes,
+                sessionkey:Optional[sop.SOPSessionKey],
+                passwords:MutableMapping[str,bytes],
+                signers:MutableMapping[str,bytes],
+                start:Optional[datetime],
+                end:Optional[datetime],
+                secretkeys:MutableMapping[str,bytes]) -> Tuple[bytes, List[sop.SOPSigResult]]:
         # FIXME!!!
         if sessionkey:
             raise sop.SOPUnsupportedOption('sopgpy does not support --session-key yet')
         if passwords: 
             raise sop.SOPUnsupportedOption('sopgpy does not support --with-password yet')
-        if verifications:
-            raise sop.SOPUnsupportedOption('sopgpy does not support --verify-out yet')
         if signers:
             raise sop.SOPUnsupportedOption('sopgpy does not support --verify-with yet')
         if start or end:
             raise sop.SOPUnsupportedOption('sopgpy does not support --verify-not-before or --verify-not-after yet')
         
-        seckeys: List[pgpy.PGPKey] = []
-        for fname in secretkeys:
-            seckey = self._get_pgp_key(fname, True)
-            seckeys.append(seckey)
+        if not secretkeys and not passwords:
+            raise sop.SOPMissingRequiredArgument('needs at least one OpenPGP secret key')
 
-        if not seckeys:
-            raise Exception('needs at least one OpenPGP secret key')
-        data: bytes = inp.read()
+        seckeys:MutableMapping[str,pgpy.PGPKey] = self._get_keys(secretkeys)
+
         encmsg:pgpy.PGPMessage = pgpy.PGPMessage.from_blob(data)
         ret:Optional[bytes] = None
-        for seckey in seckeys:
+        for handle,seckey in seckeys.items():
             try:
-                msg: pgpy.PGPMessage = seckey.decrypt(encmsg)
+                msg:pgpy.PGPMessage = seckey.decrypt(encmsg)
                 out:Union[str,bytes] = msg.message
                 if isinstance(out, str):
                     ret = out.encode('utf8')
@@ -342,26 +286,23 @@ class SOPGPy(sop.StatelessOpenPGP):
             except pgpy.errors.PGPDecryptionError as e:
                 logging.warning(f'could not decrypt with {seckey.fingerprint}')
         if ret is None:
-            raise Exception(f'could not find anything capable of decryption')
-        return ret
+            raise sop.SOPCouldNotDecrypt(f'could not find anything capable of decryption')
+        return (ret, [])
 
-    def armor(self,
-              inp:io.BufferedReader,
-              label:Optional[str]) -> bytes:
-        data:bytes = inp.read()
+    def armor(self, data:bytes, label:Optional[sop.SOPArmorLabel]) -> bytes:
         obj:Union[None,pgpy.PGPMessage,pgpy.PGPKey,pgpy.PGPSignature] = None
         try:
-            if label == 'message':
+            if label is sop.SOPArmorLabel.message:
                 obj = pgpy.PGPMessage.from_blob(data)
-            elif label == 'key':
+            elif label is sop.SOPArmorLabel.key:
                 obj, _ = pgpy.PGPKey.from_blob(data)
                 if obj.is_public or not obj.is_primary:
                     raise sop.SOPInvalidDataType('not an OpenPGP secret key')
-            elif label == 'cert':
+            elif label is sop.SOPArmorLabel.cert:
                 obj, _ = pgpy.PGPKey.from_blob(data)
                 if not obj.is_public:
                     raise sop.SOPInvalidDataType('not an OpenPGP certificate')
-            elif label == 'sig':
+            elif label is sop.SOPArmorLabel.sig:
                 obj = pgpy.PGPSignature.from_blob(data)
             elif label is None: # try to guess
                 try:
@@ -380,23 +321,26 @@ class SOPGPy(sop.StatelessOpenPGP):
             raise sop.SOPInvalidDataType(f'{e}')
         return str(obj).encode('ascii')
 
-    def dearmor(self,
-                inp:io.BufferedReader) -> bytes:
-        data:bytes = inp.read()
+    def dearmor(self, data:bytes) -> bytes:
         try:
+            key:pgpy.PGPKey
             key, _ = pgpy.PGPKey.from_blob(data)
             return bytes(key)
         except:
             pass
-        for cls in [ pgpy.PGPSignature, pgpy.PGPMessage ]:
-            try:
-                obj:cls = cls.from_blob(data)
-                return bytes(obj)
-            except:
-                pass
+        try:
+            sig:pgpy.PGPSignature = pgpy.PGPSignature.from_blob(data)
+            return bytes(sig)
+        except:
+            pass
+        try:
+            msg:pgpy.PGPMessage = pgpy.PGPMessage.from_blob(data)
+            return bytes(msg)
+        except:
+            pass
         raise sop.SOPInvalidDataType()
         
-def main():
+def main() -> None:
     sop = SOPGPy()
     sop.dispatch()
 
