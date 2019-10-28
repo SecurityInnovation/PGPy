@@ -36,6 +36,7 @@ import logging
 
 from datetime import datetime
 from typing import List, Union, Optional, Set, Tuple, MutableMapping, Dict
+from argparse import Namespace, _SubParsersAction, ArgumentParser
 
 __version__ = '0.1.0'
 
@@ -87,8 +88,9 @@ class SOPGPy(sop.StatelessOpenPGP):
                 raise sop.SOPInvalidDataType('cert {handle} is not an OpenPGP transferable secret key (maybe certificate?)')
             keys[handle] = key
         return keys
-    
-    def generate(self, armor:bool, uids:List[str]) -> bytes:
+
+    def generate(self, armor:bool=True, uids:List[str]=[], **kwargs:Namespace) -> bytes:
+        self.raise_on_unknown_options(**kwargs)
         primary = pgpy.PGPKey.new(pgpy.constants.PubKeyAlgorithm.EdDSA,
                                   pgpy.constants.EllipticCurveOID.Ed25519)
         primaryflags: Set[int] = set()
@@ -124,17 +126,21 @@ class SOPGPy(sop.StatelessOpenPGP):
 
 
     def convert(self,
-                key:bytes,
-                armor:bool) -> bytes:
+                key:bytes=b'',
+                armor:bool=True,
+                **kwargs:Namespace) -> bytes:
+        self.raise_on_unknown_options(**kwargs)
         seckey, _ = pgpy.PGPKey.from_blob(key)
         return self._maybe_armor(armor, seckey.pubkey)
 
 
     def sign(self,
-             data:bytes,
-             armor:bool,
-             sigtype:sop.SOPSigType,
-             signers:MutableMapping[str, bytes]) -> bytes:
+             data:bytes=b'',
+             armor:bool=True,
+             sigtype:sop.SOPSigType=sop.SOPSigType.binary,
+             signers:MutableMapping[str, bytes]={},
+             **kwargs:Namespace) -> bytes:
+        self.raise_on_unknown_options(**kwargs)
         if not signers:
             raise sop.SOPMissingRequiredArgument("Need at least one OpenPGP Secret Key file as an argument")
         seckeys:MutableMapping[str,pgpy.PGPKey] = self._get_keys(signers)
@@ -166,10 +172,12 @@ class SOPGPy(sop.StatelessOpenPGP):
 
     def verify(self,
                data:bytes,
-               start:Optional[datetime],
-               end:Optional[datetime],
-               sig:bytes,
-               signers:MutableMapping[str,bytes]) -> List[sop.SOPSigResult]:
+               start:Optional[datetime]=None,
+               end:Optional[datetime]=None,
+               sig:bytes=b'',
+               signers:MutableMapping[str,bytes]={},
+               **kwargs:Namespace) -> List[sop.SOPSigResult]:
+        self.raise_on_unknown_options(**kwargs)
         if not signers:
             raise sop.SOPMissingRequiredArgument('needs at least one OpenPGP certificate')
         signature = self._get_pgp_signature(sig)
@@ -194,13 +202,15 @@ class SOPGPy(sop.StatelessOpenPGP):
 
     def encrypt(self,
                 data:bytes,
-                literaltype:sop.SOPLiteralDataType,
-                armor:bool,
-                mode:sop.SOPEncryptMode,
-                passwords:MutableMapping[str,bytes],
-                sessionkey:Optional[sop.SOPSessionKey],
-                signers:MutableMapping[str,bytes],
-                recipients:MutableMapping[str,bytes]) -> bytes:
+                literaltype:sop.SOPLiteralDataType=sop.SOPLiteralDataType.binary,
+                armor:bool=True,
+                mode:sop.SOPEncryptMode=sop.SOPEncryptMode.any,
+                passwords:MutableMapping[str,bytes]={},
+                sessionkey:Optional[sop.SOPSessionKey]=None,
+                signers:MutableMapping[str,bytes]={},
+                recipients:MutableMapping[str,bytes]={},
+                **kwargs:Namespace) -> bytes:
+        self.raise_on_unknown_options(**kwargs)
         handle:str
         # FIXME!
         if literaltype is not sop.SOPLiteralDataType.binary:
@@ -253,12 +263,14 @@ class SOPGPy(sop.StatelessOpenPGP):
 
     def decrypt(self,
                 data:bytes,
-                wantsessionkey:bool,
-                passwords:MutableMapping[str,bytes],
-                signers:MutableMapping[str,bytes],
-                start:Optional[datetime],
-                end:Optional[datetime],
-                secretkeys:MutableMapping[str,bytes]) -> Tuple[bytes, List[sop.SOPSigResult], Optional[sop.SOPSessionKey]]:
+                wantsessionkey:bool=False,
+                passwords:MutableMapping[str,bytes]={},
+                signers:MutableMapping[str,bytes]={},
+                start:Optional[datetime]=None,
+                end:Optional[datetime]=None,
+                secretkeys:MutableMapping[str,bytes]={},
+                **kwargs:Namespace) -> Tuple[bytes, List[sop.SOPSigResult], Optional[sop.SOPSessionKey]]:
+        self.raise_on_unknown_options(**kwargs)
         # FIXME!!!
         if wantsessionkey:
             raise sop.SOPUnsupportedOption('sopgpy does not support --session-key-out yet')
@@ -291,7 +303,10 @@ class SOPGPy(sop.StatelessOpenPGP):
             raise sop.SOPCouldNotDecrypt(f'could not find anything capable of decryption')
         return (ret, [], None)
 
-    def armor(self, data:bytes, label:Optional[sop.SOPArmorLabel]) -> bytes:
+    def armor(self, data:bytes,
+              label:Optional[sop.SOPArmorLabel]=None,
+              **kwargs:Namespace) -> bytes:
+        self.raise_on_unknown_options(**kwargs)
         obj:Union[None,pgpy.PGPMessage,pgpy.PGPKey,pgpy.PGPSignature] = None
         try:
             if label is sop.SOPArmorLabel.message:
@@ -323,7 +338,8 @@ class SOPGPy(sop.StatelessOpenPGP):
             raise sop.SOPInvalidDataType(f'{e}')
         return str(obj).encode('ascii')
 
-    def dearmor(self, data:bytes) -> bytes:
+    def dearmor(self, data:bytes, **kwargs:Namespace) -> bytes:
+        self.raise_on_unknown_options(**kwargs)
         try:
             key:pgpy.PGPKey
             key, _ = pgpy.PGPKey.from_blob(data)
