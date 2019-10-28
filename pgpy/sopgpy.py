@@ -37,12 +37,15 @@ import logging
 from datetime import datetime
 from typing import List, Union, Optional, Set, Tuple, MutableMapping, Dict
 
+__version__ = '0.1.0'
+
 class SOPGPy(sop.StatelessOpenPGP):
     def __init__(self) -> None:
-        super().__init__(name='SOPGPy', version=pgpy.__version__,
+        super().__init__(name='SOPGPy', version=f'{__version__}/{pgpy.__version__}',
                          description=f'Stateless OpenPGP using PGPy {pgpy.__version__}')
 
-    # implemented ciphers, in the order we prefer them:
+    # implemented ciphers that we are willing to use to encrypt, in
+    # the order we prefer them:
     _cipherprefs:List[pgpy.constants.SymmetricKeyAlgorithm] = \
         [pgpy.constants.SymmetricKeyAlgorithm.AES256,
          pgpy.constants.SymmetricKeyAlgorithm.AES192,
@@ -52,8 +55,7 @@ class SOPGPy(sop.StatelessOpenPGP):
          pgpy.constants.SymmetricKeyAlgorithm.Camellia128,
          pgpy.constants.SymmetricKeyAlgorithm.CAST5,
          pgpy.constants.SymmetricKeyAlgorithm.TripleDES,
-         pgpy.constants.SymmetricKeyAlgorithm.Blowfish,
-         pgpy.constants.SymmetricKeyAlgorithm.IDEA]
+         pgpy.constants.SymmetricKeyAlgorithm.Blowfish]
         
     def _maybe_armor(self, armor:bool, data:Union[pgpy.PGPSignature,pgpy.PGPMessage,pgpy.PGPKey]) -> bytes:
         if (armor):
