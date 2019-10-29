@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 # PYTHON_ARGCOMPLETE_OK
 '''OpenPGP Interoperability Test Suite Generic Functionality using PGPy
 
