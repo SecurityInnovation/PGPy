@@ -56,6 +56,7 @@ __all__ = ['URI',
            'Features',
            'EmbeddedSignature',
            'IssuerFingerprint',
+           'IntendedRecipient',
            'AttestedCertifications']
 
 
@@ -960,6 +961,78 @@ class IssuerFingerprint(Signature):
         del packet[:fpr_len]
 
 
+class IntendedRecipient(Signature):
+    '''
+    (from RFC4880bis-08)
+    5.2.3.29. Intended Recipient
+
+    (1 octet key version number, N octets of fingerprint)
+
+    The OpenPGP Key fingerprint of the intended recipient primary key.
+    If one or more subpackets of this type are included in a signature,
+    it SHOULD be considered valid only in an encrypted context, where the
+    key it was encrypted to is one of the indicated primary keys, or one
+    of their subkeys.  This can be used to prevent forwarding a signature
+    outside of its intended, encrypted context.
+
+    Note that the length N of the fingerprint for a version 4 key is 20
+    octets; for a version 5 key N is 32.
+    '''
+    __typeid__ = 0x23
+
+    @sdproperty
+    def version(self):
+        return self._version
+
+    @version.register(int)
+    def version_int(self, val):
+        self._version = val
+
+    @version.register(bytearray)
+    def version_bytearray(self, val):
+        self.version = self.bytes_to_int(val)
+
+    @sdproperty
+    def intended_recipient(self):
+        return self._intended_recipient
+
+    @intended_recipient.register(str)
+    @intended_recipient.register(six.text_type)
+    @intended_recipient.register(Fingerprint)
+    def intended_recipient_str(self, val):
+        self._intended_recipient = Fingerprint(val)
+
+    @intended_recipient.register(bytearray)
+    def intended_recipient_bytearray(self, val):
+        self.intended_recipient = ''.join('{:02x}'.format(c) for c in val).upper()
+
+    def __init__(self):
+        super(IntendedRecipient, self).__init__()
+        self.version = 4
+        self._intended_recipient = ""
+
+    def __bytearray__(self):
+        _bytes = super(IntendedRecipient, self).__bytearray__()
+        _bytes += self.int_to_bytes(self.version)
+        _bytes += self.intended_recipient.__bytes__()
+        return _bytes
+
+    def parse(self, packet):
+        super(IntendedRecipient, self).parse(packet)
+        self.version = packet[:1]
+        del packet[:1]
+
+        if self.version == 4:
+            fpr_len = 20
+        elif self.version == 5:  # pragma: no cover
+            fpr_len = 32
+        else:  # pragma: no cover
+            fpr_len = self.header.length - 1
+
+        self.intended_recipient = packet[:fpr_len]
+        del packet[:fpr_len]
+
+        
 class AttestedCertifications(Signature):
     '''
     (from RFC4880bis-08)

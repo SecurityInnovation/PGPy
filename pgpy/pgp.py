@@ -299,6 +299,13 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         return ''
 
     @property
+    def intended_recipients(self):
+        """
+        Returns an iterator over all the primary key fingerprints marked as intended encrypted recipients for this signature.
+        """
+        return map(lambda x: x.intended_recipient, self._signature.subpackets['IntendedRecipient'])
+
+    @property
     def target_signature(self):
         return NotImplemented
 
@@ -1869,6 +1876,18 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         notation = prefs.pop('notation', None)
         revocable = prefs.pop('revocable', True)
         policy_uri = prefs.pop('policy_uri', None)
+        intended_recipients = prefs.pop('intended_recipients', [])
+
+        for intended_recipient in intended_recipients:
+            if isinstance(intended_recipient, PGPKey) and isinstance(intended_recipient._key, PubKeyV4):
+                sig._signature.subpackets.addnew('IntendedRecipient', hashed=True, version=4,
+                                                 intended_recipient=intended_recipient.fingerprint)
+            elif isinstance(intended_recipient, Fingerprint):
+                # FIXME: what if it's not a v4 fingerprint?
+                sig._signature.subpackets.addnew('IntendedRecipient', hashed=True, version=4,
+                                                 intended_recipient=intended_recipient)
+            else:
+                warnings.warn("Intended Recipient is not a PGPKey, ignoring")
 
         if expires is not None:
             # expires should be a timedelta, so if it's a datetime, turn it into a timedelta
@@ -1947,6 +1966,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         :keyword created: Specify the time that the signature should be made.  If unset or None,
                           it will use the present time.
         :type created: :py:obj:`~datetime.datetime`
+        :keyword intended_recipients: Specify a list of :py:obj:`PGPKey` objects that will be encrypted to.
+        :type intended_recipients: ``list``
         :keyword include_issuer_fingerprint: Whether to include a hashed subpacket indicating the issuer fingerprint.
                                              (only for v4 keys, defaults to True)
         :type include_issuer_fingerprint: ``bool``
