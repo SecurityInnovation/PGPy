@@ -2217,9 +2217,6 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         sigv = SignatureVerification()
         for sig, subj in sspairs:
             if self.fingerprint.keyid != sig.signer and sig.signer in self.subkeys:
-                warnings.warn("Signature was signed with this key's subkey: {:s}. "
-                              "Verifying with subkey...".format(sig.signer),
-                              stacklevel=2)
                 sigv &= self.subkeys[sig.signer].verify(subj, sig)
 
             else:
