@@ -7,6 +7,7 @@ try:
 except (ModuleNotFoundError, NameError):
     gpg = None
 import os
+import datetime
 import pytest
 import glob
 import warnings
@@ -418,3 +419,47 @@ def test_preference_unsupported_ciphers():
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
         pubkey.encrypt(msg)
+
+@pytest.mark.regression(issue=291)
+def test_sig_timezone():
+    from pgpy import PGPKey, PGPSignature
+    # from https://tools.ietf.org/html/draft-bre-openpgp-samples-00#section-2.2:
+    alice_sec = '''-----BEGIN PGP PRIVATE KEY BLOCK-----
+Comment: Alice's OpenPGP Transferable Secret Key
+
+lFgEXEcE6RYJKwYBBAHaRw8BAQdArjWwk3FAqyiFbFBKT4TzXcVBqPTB3gmzlC/U
+b7O1u10AAP9XBeW6lzGOLx7zHH9AsUDUTb2pggYGMzd0P3ulJ2AfvQ4RtCZBbGlj
+ZSBMb3ZlbGFjZSA8YWxpY2VAb3BlbnBncC5leGFtcGxlPoiQBBMWCAA4AhsDBQsJ
+CAcCBhUKCQgLAgQWAgMBAh4BAheAFiEE64W7X6M6deFelE5j8jFVDE9H444FAl2l
+nzoACgkQ8jFVDE9H447pKwD6A5xwUqIDprBzrHfahrImaYEZzncqb25vkLV2arYf
+a78A/R3AwtLQvjxwLDuzk4dUtUwvUYibL2sAHwj2kGaHnfICnF0EXEcE6RIKKwYB
+BAGXVQEFAQEHQEL/BiGtq0k84Km1wqQw2DIikVYrQrMttN8d7BPfnr4iAwEIBwAA
+/3/xFPG6U17rhTuq+07gmEvaFYKfxRB6sgAYiW6TMTpQEK6IeAQYFggAIBYhBOuF
+u1+jOnXhXpROY/IxVQxPR+OOBQJcRwTpAhsMAAoJEPIxVQxPR+OOWdABAMUdSzpM
+hzGs1O0RkWNQWbUzQ8nUOeD9wNbjE3zR+yfRAQDbYqvtWQKN4AQLTxVJN5X5AWyb
+Pnn+We1aTBhaGa86AQ==
+=n8OM
+-----END PGP PRIVATE KEY BLOCK-----
+'''
+
+    alice_key, _ = PGPKey.from_blob(alice_sec)
+
+    class FixedOffset(datetime.tzinfo):
+        def __init__(self, hours, name):
+            self.__offset = datetime.timedelta(hours=hours)
+            self.__name = name
+        def utcoffset(self, dt):
+            return self.__offset
+        def tzname(self, dt):
+            return self.__name
+        def dst(self, dt):
+            return datetime.timedelta(0)
+    # America/New_York during DST:
+    tz = FixedOffset(-4, 'EDT')
+    # 2019-10-20T09:18:11-0400
+    when = datetime.datetime.fromtimestamp(1571577491, tz)
+
+    pgpsig = alice_key.sign('this is a test', created=when)
+    roundtrip = PGPSignature.from_blob(str(pgpsig))
+
+    assert pgpsig.created.utctimetuple() == roundtrip.created.utctimetuple()

@@ -109,6 +109,7 @@ _sspclasses = {
     0x20: 'EmbeddedSignature',
     0x21: 'IssuerFingerprint',
     0x23: 'IntendedRecipient',
+    0x25: 'AttestedCertifications',
     # 0x64-0x6e: Private or Experimental
     0x64: 'Opaque',
     0x65: 'Opaque',
