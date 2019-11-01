@@ -3,7 +3,7 @@
 import contextlib
 import functools
 import six
-import warnings
+import logging
 
 try:
     from singledispatch import singledispatch
@@ -100,7 +100,7 @@ class KeyAction(object):
 
         if _key is not key:
             em['subkeyid'] = _key.fingerprint.keyid
-            warnings.warn("Key {keyid:s} does not have the required usage flag {flags:s}; using subkey {subkeyid:s}"
+            logging.debug("Key {keyid:s} does not have the required usage flag {flags:s}; using subkey {subkeyid:s}"
                           "".format(**em), stacklevel=4)
 
         yield _key
