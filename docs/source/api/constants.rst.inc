@@ -165,6 +165,9 @@ Constants
     .. autoattribute:: Positive_Cert
         :annotation:
 
+    .. autoattribute:: Attestation
+        :annotation:
+
     .. autoattribute:: Subkey_Binding
         :annotation:
 

@@ -415,6 +415,36 @@ class SignatureV4(Signature):
 
         return _bytes
 
+    def canonical_bytes(self):
+        '''Returns a bytearray that is the way the signature packet
+        should be represented if it is itself being signed.
+
+        from RFC 4880 section 5.2.4:
+
+        When a signature is made over a Signature packet (type 0x50), the
+        hash data starts with the octet 0x88, followed by the four-octet
+        length of the signature, and then the body of the Signature packet.
+        (Note that this is an old-style packet header for a Signature packet
+        with the length-of-length set to zero.)  The unhashed subpacket data
+        of the Signature packet being hashed is not included in the hash, and
+        the unhashed subpacket data length value is set to zero.
+
+        '''
+        _body = bytearray()
+        _body += self.int_to_bytes(self.header.version)
+        _body += self.int_to_bytes(self.sigtype)
+        _body += self.int_to_bytes(self.pubalg)
+        _body += self.int_to_bytes(self.halg)
+        _body += self.subpackets.__hashbytearray__()
+        _body += self.int_to_bytes(0, minlen=2) # empty unhashed subpackets
+        _body += self.hash2
+        _body += self.signature.__bytearray__()
+
+        _hdr = bytearray()
+        _hdr += b'\x88'
+        _hdr += self.int_to_bytes(len(_body), minlen=4)
+        return _hdr + _body
+    
     def __copy__(self):
         spkt = SignatureV4()
         spkt.header = copy.copy(self.header)

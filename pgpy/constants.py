@@ -423,6 +423,7 @@ class SignatureType(IntEnum):
     Persona_Cert = 0x11
     Casual_Cert = 0x12
     Positive_Cert = 0x13
+    Attestation = 0x16
     Subkey_Binding = 0x18
     PrimaryKey_Binding = 0x19
     DirectlyOnKey = 0x1F
