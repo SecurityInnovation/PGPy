@@ -2318,9 +2318,6 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             mis = set(message.encrypters)
             if sks & mis:
                 skid = list(sks & mis)[0]
-                warnings.warn("Message was encrypted with this key's subkey: {:s}. "
-                              "Decrypting with that...".format(skid),
-                              stacklevel=2)
                 return self.subkeys[skid].decrypt(message)
 
             raise PGPError("Cannot decrypt the provided message with this key")
