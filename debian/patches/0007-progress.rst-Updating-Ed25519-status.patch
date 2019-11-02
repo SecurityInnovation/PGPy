@@ -1,0 +1,33 @@
+From: Jonathan Cross <jcross@gmail.com>
+Date: Tue, 27 Aug 2019 19:00:27 +0200
+Subject: progress.rst : Updating Ed25519 status
+
+(cherry picked from commit 600c7f6ceea4183c2bbb48ff040f080c77b5786d)
+---
+ docs/source/progress.rst | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/docs/source/progress.rst b/docs/source/progress.rst
+index fb6a985..1f72d58 100644
+--- a/docs/source/progress.rst
++++ b/docs/source/progress.rst
+@@ -276,10 +276,11 @@ This section covers things that are considered extensions to PGP, but are not co
+         - Update,    False, Update keys on the WKS (section 4.  Web Key Directory Update Protocol)
+ 
+ .. progress:: EdDSA for OpenPGP
+-    :text: Use of Ed25519 with ECDSA and ECDH in OpenPGP is currently specified in an in-progress RFC draft by Werner Koch, `draft-koch-eddsa-for-openpgp`_.
++    :text: Use of Ed25519 with ECDSA and ECDH in OpenPGP is currently specified in an in-progress RFC draft by Werner Koch, `draft-ietf-openpgp-rfc4880bis`_.
+ 
+     :Curves:
+-        - Curve, False, Ed25519
++        - Curve, True, Ed25519
++        - Curve, True, X25519
+ 
+ 
+ .. progress:: Additional Curves for OpenPGP
+@@ -301,4 +302,4 @@ This section covers things that are considered extensions to PGP, but are not co
+ .. _`Marc Horowitz's thesis paper`: http://www.mit.edu/afs/net.mit.edu/project/pks/thesis/paper/thesis.html
+ .. _`draft-shaw-openpgp-hkp-00`: https://tools.ietf.org/html/draft-shaw-openpgp-hkp-00
+ .. _`draft-koch-openpgp-webkey-service`: https://tools.ietf.org/html/draft-koch-openpgp-webkey-service-04
+-.. _`draft-koch-eddsa-for-openpgp`: https://tools.ietf.org/html/draft-koch-eddsa-for-openpgp-04
++.. _`draft-ietf-openpgp-rfc4880bis`: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis

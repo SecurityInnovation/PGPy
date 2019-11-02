@@ -1,3 +1,12 @@
+python-pgpy (0.5.2-2) unstable; urgency=medium
+
+  * import minor bugfixes reported upstream
+  * Update standards version to 4.4.1, no changes needed.
+  * Set upstream metadata fields: Repository.
+  * Rules-Requires-Root: no
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Fri, 25 Oct 2019 14:24:38 -0400
+
 python-pgpy (0.5.2-1) unstable; urgency=medium
 
   * new upstream release

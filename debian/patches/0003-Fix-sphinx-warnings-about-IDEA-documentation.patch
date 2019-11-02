@@ -1,0 +1,33 @@
+From: Daniel Kahn Gillmor <dkg@fifthhorseman.net>
+Date: Fri, 2 Aug 2019 16:56:01 -0400
+Subject: Fix sphinx warnings about IDEA documentation
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+Without this change, the warning about IDEA is not properly rendered
+in html, and ./setup.py build_sphinx itself produces a warning:
+
+…/pgpy/constants.py:docstring of pgpy.constants.SymmetricKeyAlgorithm.IDEA:1: WARNING: Content block expected for the "warning" directive; none found.
+…/pgpy/constants.py:docstring of pgpy.constants.SymmetricKeyAlgorithm.IDEA:2: WARNING: Explicit markup ends without a blank line; unexpected unindent.
+
+Signed-off-by: Daniel Kahn Gillmor <dkg@fifthhorseman.net>
+(cherry picked from commit 138b0d555a52cd45d5b109f1772cc4f9461ba69e)
+---
+ pgpy/constants.py | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/pgpy/constants.py b/pgpy/constants.py
+index 68a7627..48cf56e 100644
+--- a/pgpy/constants.py
++++ b/pgpy/constants.py
+@@ -160,8 +160,7 @@ class PacketTag(IntEnum):
+ class SymmetricKeyAlgorithm(IntEnum):
+     """Supported symmetric key algorithms."""
+     Plaintext = 0x00
+-    #: .. warning::
+-    #:     IDEA is insecure. PGPy only allows it to be used for decryption, not encryption!
++    #: .. warning:: IDEA is insecure. PGPy only allows it to be used for decryption, not encryption!
+     IDEA = 0x01
+     #: Triple-DES with 168-bit key derived from 192
+     TripleDES = 0x02

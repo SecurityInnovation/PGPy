@@ -1,0 +1,67 @@
+From: Daniel Kahn Gillmor <dkg@fifthhorseman.net>
+Date: Wed, 5 Jun 2019 15:48:07 -0400
+Subject: Permit skipping cross-signing unless strictly required
+
+This is done by setting 'crosssign' to False in the prefs parameter to
+the sign function.
+
+You probably don't want to use this feature! It is likely to make
+OpenPGP certificates without cross-signatures that some other
+implementations will reject.
+
+(cherry picked from commit c066719eb4f8760d5a6d16de63f58dd5c648d696)
+---
+ pgpy/pgp.py | 26 +++++++++++++++++++-------
+ 1 file changed, 19 insertions(+), 7 deletions(-)
+
+diff --git a/pgpy/pgp.py b/pgpy/pgp.py
+index 4e31928..9e0fa37 100644
+--- a/pgpy/pgp.py
++++ b/pgpy/pgp.py
+@@ -2109,7 +2109,14 @@ class PGPKey(Armorable, ParentRef, PGPObject):
+         """
+         Bind a subkey to this key.
+ 
+-        Valid optional keyword arguments are identical to those of self-signatures for :py:meth:`PGPkey.certify`
++        In addition to the optional keyword arguments accepted for self-signatures by :py:meth:`PGPkey.certify`,
++        the following optional keyword arguments can be used with :py:meth:`PGPKey.bind`.
++
++        :keyword crosssign: If ``False``, do not attempt a cross-signature (defaults to ``True``). Subkeys
++                            which are not capable of signing will not produce a cross-signature in any case.
++                            Setting ``crosssign`` to ``False`` is likely to produce subkeys that will be rejected
++                            by some other OpenPGP implementations.
++        :type crosssign: ``bool``
+         """
+         hash_algo = prefs.pop('hash', None)
+ 
+@@ -2131,19 +2138,24 @@ class PGPKey(Armorable, ParentRef, PGPObject):
+             if usage is not None:
+                 sig._signature.subpackets.addnew('KeyFlags', hashed=True, flags=usage)
+ 
++            crosssig = None
+             # if possible, have the subkey create a primary key binding signature
+-            if key.key_algorithm.can_sign:
++            if key.key_algorithm.can_sign and prefs.pop('crosssign', True):
+                 subkeyid = key.fingerprint.keyid
+-                esig = None
+ 
+                 if not key.is_public:
+-                    esig = key.bind(self)
++                    crosssig = key.bind(self)
+ 
+                 elif subkeyid in self.subkeys:  # pragma: no cover
+-                    esig = self.subkeys[subkeyid].bind(self)
++                    crosssig = self.subkeys[subkeyid].bind(self)
+ 
+-                if esig is not None:
+-                    sig._signature.subpackets.addnew('EmbeddedSignature', hashed=False, _sig=esig._signature)
++            if crosssig is None:
++                if usage is None:
++                    raise PGPError('subkey with no key usage flags (may be used for any purpose, including signing) requires a cross-signature')
++                if KeyFlags.Sign in usage:
++                    raise PGPError('subkey marked for signing usage requires a cross-signature')
++            else:
++                sig._signature.subpackets.addnew('EmbeddedSignature', hashed=False, _sig=crosssig._signature)
+ 
+         return self._sign(key, sig, **prefs)
+ 
