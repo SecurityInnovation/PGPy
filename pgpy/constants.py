@@ -342,7 +342,7 @@ class HashAlgorithm(IntEnum):
 
     def __init__(self, *args):
         super(self.__class__, self).__init__()
-        self._tuned_count = 0
+        self._tuned_count = 255
 
     @property
     def hasher(self):
@@ -354,40 +354,11 @@ class HashAlgorithm(IntEnum):
 
     @property
     def tuned_count(self):
-        if self._tuned_count == 0:
-            self.tune_count()
-
         return self._tuned_count
 
     @property
     def is_supported(self):
         return True
-
-    def tune_count(self):
-        start = end = 0
-        htd = _hashtunedata[:]
-
-        while start == end:
-            # potentially do this multiple times in case the resolution of time.time is low enough that
-            # hashing 100 KiB isn't enough time to produce a measurable difference
-            # (e.g. if the timer for time.time doesn't have enough precision)
-            htd = htd + htd
-            h = self.hasher
-
-            start = time.time()
-            h.update(htd)
-            end = time.time()
-
-        # now calculate how many bytes need to be hashed to reach our expected time period
-        # GnuPG tunes for about 100ms, so we'll do that as well
-        _TIME = 0.100
-        ct = int(len(htd) * (_TIME / (end - start)))
-        c1 = ((ct >> (ct.bit_length() - 5)) - 16)
-        c2 = (ct.bit_length() - 11)
-        c = ((c2 << 4) + c1)
-
-        # constrain self._tuned_count to be between 0 and 255
-        self._tuned_count = max(min(c, 255), 0)
 
 
 class RevocationReason(IntEnum):
