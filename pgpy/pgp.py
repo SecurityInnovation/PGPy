@@ -393,7 +393,10 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         _data = bytearray()
 
         if isinstance(subject, six.string_types):
-            subject = subject.encode('charmap')
+            try:
+                subject = subject.encode('utf-8')
+            except UnicodeEncodeError:
+                subject = subject.encode('charmap')
 
         """
         All signatures are formed by producing a hash over the signature
