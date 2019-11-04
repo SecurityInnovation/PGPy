@@ -996,7 +996,7 @@ class PGPMessage(Armorable, PGPObject):
 
         else:
             ##TODO: is it worth coming up with a way of disabling one-pass signing?
-            for sig in self._signatures:
+            for sig in reversed(self._signatures):
                 ops = sig.make_onepass()
                 if sig is not self._signatures[-1]:
                     ops.nested = True
