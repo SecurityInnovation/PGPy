@@ -1,6 +1,7 @@
 python-pgpy (0.5.2-3) UNRELEASED; urgency=medium
 
   * Set upstream metadata fields: Repository-Browse.
+  * Use canonical URL in Vcs-Git.
 
  -- Debian Janitor <janitor@jelmer.uk>  Wed, 04 Dec 2019 01:21:17 +0000
 
