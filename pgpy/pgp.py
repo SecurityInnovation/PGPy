@@ -594,7 +594,7 @@ class PGPUID(ParentRef):
         if not isinstance(self._uid, UserID):
             return ("", "", "")
         if self._uid.uid == "":
-            return ("", "", "")           
+            return ("", "", "")
         rfc2822 = re.match(r"""^
                            # name should always match something
                            (?P<name>.+?)
@@ -608,7 +608,7 @@ class PGPUID(ParentRef):
                            (\ <(?P<email>.+)>)?
                            $
                            """, self._uid.uid, flags=re.VERBOSE).groupdict()
-        
+
         return (rfc2822['name'], rfc2822['comment'] or "", rfc2822['email'] or "")
 
 
@@ -2063,7 +2063,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                                           the certificate holder wants to attest to for redistribution with the certificate.
                                           Alternatively, any element in the list can be a ``bytes``  or ``bytearray`` object
                                           of the appropriate length (the length of this certification's digest).
-                                          This keyword is only used for signatures of type Attestation.  
+                                          This keyword is only used for signatures of type Attestation.
         :type attested_certifications: ``list``
         :keyword keyserver: Specify the URI of the preferred key server of the user.
                             This keyword is ignored for non-self-certifications.
@@ -2419,8 +2419,11 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             uid = next(iter(self.userids), None)
             if uid is None and self.parent is not None:
                 uid = next(iter(self.parent.userids), None)
-        pref_cipher = next(c for c in uid.selfsig.cipherprefs if c.is_supported)
-        cipher_algo = prefs.pop('cipher', pref_cipher)
+
+        if uid.selfsig.cipherprefs:
+            pref_cipher = next(c for c in uid.selfsig.cipherprefs if c.is_supported)
+        else:
+            pref_cipher = None
 
         if cipher_algo not in uid.selfsig.cipherprefs:
             warnings.warn("Selected symmetric algorithm not in key preferences", stacklevel=3)
