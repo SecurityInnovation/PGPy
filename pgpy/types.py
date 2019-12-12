@@ -14,12 +14,16 @@ import re
 import warnings
 import weakref
 
+from mmap import mmap
+
+
 from enum import EnumMeta
 from enum import IntEnum
 
 from .decorators import sdproperty
 
 from .errors import PGPError
+from .utils import MMap
 
 __all__ = ['Armorable',
            'ParentRef',
@@ -81,7 +85,7 @@ class Armorable(metaclass=abc.ABCMeta):
         if isinstance(text, str):
             return bool(re.match(r'^[ -~\r\n\t]*$', text, flags=re.ASCII))
 
-        if isinstance(text, (bytes, bytearray)):
+        if isinstance(text, (bytes, bytearray, mmap)):
             return bool(re.match(br'^[ -~\r\n\t]*$', text, flags=re.ASCII))
 
         raise TypeError("Expected: ASCII input of type str, bytes, or bytearray")  # pragma: no cover
@@ -94,8 +98,8 @@ class Armorable(metaclass=abc.ABCMeta):
         :raises: :py:exc:`TypeError` if ``text`` is not a ``str``, ``bytes``, or ``bytearray``
         :returns: Whether the text is ASCII-armored.
         """
-        if isinstance(text, (bytes, bytearray)):  # pragma: no cover
-            text = text.decode('latin-1')
+        if isinstance(text, (bytes, bytearray, mmap)):  # pragma: no cover
+            text = codecs.latin_1_decode(text)[0]
 
         return Armorable.__armor_regex.search(text) is not None
 
@@ -115,8 +119,8 @@ class Armorable(metaclass=abc.ABCMeta):
             m['body'] = bytearray(text)
             return m
 
-        if isinstance(text, (bytes, bytearray)):  # pragma: no cover
-            text = text.decode('latin-1')
+        if isinstance(text, (bytes, bytearray, mmap)):  # pragma: no cover
+            text = codecs.latin_1_decode(text)[0]
 
         m = Armorable.__armor_regex.search(text)
 
@@ -176,12 +180,9 @@ class Armorable(metaclass=abc.ABCMeta):
 
     @classmethod
     def from_file(cls, filename):
-        with open(filename, 'rb') as file:
-            obj = cls()
-            data = bytearray(os.path.getsize(filename))
-            file.readinto(data)
-
-        po = obj.parse(data)
+        obj = cls()
+        with MMap(filename) as data:
+            po = obj.parse(data)
 
         if po is not None:
             return (obj, po)
@@ -191,7 +192,7 @@ class Armorable(metaclass=abc.ABCMeta):
     @classmethod
     def from_blob(cls, blob):
         obj = cls()
-        if (not isinstance(blob, bytes)) and (not isinstance(blob, bytearray)):
+        if (not isinstance(blob, bytes)) and (not isinstance(blob, (bytearray, mmap))):
             po = obj.parse(bytearray(blob, 'latin-1'))
 
         else:
@@ -691,9 +692,9 @@ class Fingerprint(str):
         if isinstance(other, Fingerprint):
             return str(self) == str(other)
 
-        if isinstance(other, (str, bytes, bytearray)):
-            if isinstance(other, (bytes, bytearray)):  # pragma: no cover
-                other = other.decode('latin-1')
+        if isinstance(other, (str, bytes, bytearray, mmap)):
+            if isinstance(other, (bytes, bytearray, mmap)):  # pragma: no cover
+                other = codecs.latin_1_decode(other)[0]
 
             other = other.replace(' ', '')
             return any([str(self) == other,
