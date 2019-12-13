@@ -677,7 +677,10 @@ class PGPUID(ParentRef):
         This will be the most recent, self-signature of this User ID or Attribute. If there isn't one, this will be ``None``.
         """
         if self.parent is not None:
-            return next((sig for sig in reversed(self._signatures) if sig.signer == self.parent.fingerprint.keyid), None)
+            for sig in reversed(self._signatures):
+                if sig.signer_fingerprint:
+                    if sig.signer == self.parent.fingerprint.keyid:
+                        return sig
 
     @property
     def signers(self):
@@ -1382,8 +1385,11 @@ class PGPKey(Armorable, ParentRef, PGPObject):
     def expires_at(self):
         """A :py:obj:`~datetime.datetime` object of when this key is to be considered expired, if any. Otherwise, ``None``"""
         try:
-            expires = min(sig.key_expiration for sig in itertools.chain(iter(uid.selfsig for uid in self.userids), self.self_signatures)
-                          if sig.key_expiration is not None)
+            def expirationsIter():
+                for sig in itertools.chain(iter(uid.selfsig for uid in self.userids if uid.selfsig), self.self_signatures):
+                    if sig.key_expiration is not None:
+                        yield sig.key_expiration
+            expires = min(expirationsIter())
 
         except ValueError:
             return None
@@ -2359,24 +2365,35 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             raise TypeError("Unexpected signature value: {:s}".format(str(type(signature))))
 
         def _filter_sigs(sigs):
-            _ids = {self.fingerprint.keyid} | set(self.subkeys)
-            return [ sig for sig in sigs if sig.signer in _ids ]
+            _ids = {self.fingerprint} | set(self.subkeys)
+            for sig in sigs:
+                if sig.signer in _ids:
+                    yield sig
 
         # collect signature(s)
         if signature is None:
             if isinstance(subject, PGPMessage):
-                sspairs += [ (sig, subject.message) for sig in _filter_sigs(subject.signatures) ]
+                for sig in _filter_sigs(subject.signatures):
+                    sspairs.append((sig, subject.message))
 
             if isinstance(subject, (PGPUID, PGPKey)):
                 sspairs += [ (sig, subject) for sig in _filter_sigs(subject.__sig__) ]
 
             if isinstance(subject, PGPKey):
                 # user ids
-                sspairs += [ (sig, uid) for uid in subject.userids for sig in _filter_sigs(uid.__sig__) ]
+                for uid in subject.userids:
+                    for sig in _filter_sigs(uid.__sig__):
+                        sspairs.append((sig, uid))
                 # user attributes
-                sspairs += [ (sig, ua) for ua in subject.userattributes for sig in _filter_sigs(ua.__sig__) ]
+                for ua in subject.userattributes:
+                    for sig in _filter_sigs(ua.__sig__):
+                        sspairs.append((sig, ua))
+                
                 # subkey binding signatures
-                sspairs += [ (sig, subkey) for subkey in subject.subkeys.values() for sig in _filter_sigs(subkey.__sig__) ]
+                for subkey in subject.subkeys.values():
+                    for sig in _filter_sigs(subkey.__sig__):
+                        sspairs.append((sig, subkey))
+                
 
         elif signature.signer in {self.fingerprint.keyid} | set(self.subkeys):
             sspairs += [(signature, subject)]
