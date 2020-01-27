@@ -793,7 +793,13 @@ class PGPUID(ParentRef):
     def __lt__(self, other):  # pragma: no cover
         if self.is_uid == other.is_uid:
             if self.is_primary == other.is_primary:
-                return self.selfsig > other.selfsig
+                mysig = self.selfsig
+                othersig = other.selfsig
+                if mysig is None:
+                    return not (othersig is None)
+                if othersig is None:
+                    return False
+                return mysig > othersig
 
             if self.is_primary:
                 return True
