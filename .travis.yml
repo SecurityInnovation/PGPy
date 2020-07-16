@@ -1,7 +1,7 @@
 dist: xenial
 os:
   - linux
-  - osx
+  # - osx
 sudo: required
 language: python
 python:
@@ -48,7 +48,7 @@ matrix:
     - python: "pypy"
     - python: "pypy3"
     # osx, until it's working
-    - os: osx
+    # - os: osx
 
 # install requirements
 install:
