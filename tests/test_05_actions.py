@@ -8,7 +8,7 @@ import copy
 import glob
 try:
     import gpg
-except (ModuleNotFoundError, NameError):
+except ImportError:
     gpg = None
 import itertools
 import os

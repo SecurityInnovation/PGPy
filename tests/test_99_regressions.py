@@ -4,7 +4,7 @@ from conftest import gpg_ver, gnupghome
 
 try:
     import gpg
-except (ModuleNotFoundError, NameError):
+except ImportError:
     gpg = None
 import os
 import datetime
