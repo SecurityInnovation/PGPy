@@ -54,7 +54,7 @@ install:
   - sed -i -e 's/^/#/' tests/gnupghome/gpg-agent.conf
   - ./install_dependencies.${TRAVIS_OS_NAME}.sh
   # ensure tox and coveralls are installed. pin PyYAML until we drop Python 3.4
-  - pip install tox python-coveralls 'PyYAML==5.2; python_version == "3.4"' 'pathlib2; python_version < "3"'
+  - pip install tox python-coveralls 'PyYAML==5.2; python_version == "3.4"'
 
 # set TOXENV if it isn't yet
 before_script:

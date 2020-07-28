@@ -1,12 +1,8 @@
-#!/usr/bin/python3
-# from distutils.core import setup
 import ast
+import os.path
+
 from setuptools import setup
 
-try:
-    from pathlib import Path
-except ImportError:
-    from pathlib2 import Path
 
 def extract_value(v):
     if isinstance(v, ast.Str):
@@ -19,7 +15,8 @@ def extract_value(v):
             if r is not None:
                 return r
 
-def extract_vars_from_python_AST(a):
+
+def extract_vars_from_python_ast(a):
     res = {}
     for e in a.body:
         if isinstance(e, ast.Assign) and len(e.targets) == 1:
@@ -28,17 +25,18 @@ def extract_vars_from_python_AST(a):
                 res[n.id] = extract_value(e.value)
     return res
 
-def extract_vars_from_python_source(p):
-    with p.open("rt", encoding="utf-8") as f:
-        t = f.read()
-    return extract_vars_from_python_AST(ast.parse(t))
 
-if __name__ == "__main__":
-    thisDir = Path(__file__).parent.absolute()
-    authorInfo = extract_vars_from_python_source(Path(thisDir / "pgpy" / "_author.py"))
-    setup(
-        version      = authorInfo["__version__"],
-        author       = authorInfo["__author__"],
-        license      = authorInfo["__license__"],
-        download_url = "https://github.com/SecurityInnovation/PGPy/archive/{pgpy_ver}.tar.gz".format(pgpy_ver=authorInfo["__version__"]),
-    )
+def extract_vars_from_python_source(p):
+    with open(p) as f:
+        t = f.read()
+    return extract_vars_from_python_ast(ast.parse(t))
+
+
+this_dir = os.path.dirname(os.path.abspath(__file__))
+author_info = extract_vars_from_python_source(os.path.join(this_dir, "pgpy", "_author.py"))
+setup(
+    version=author_info["__version__"],
+    author=author_info["__author__"],
+    license=author_info["__license__"],
+    download_url="https://github.com/SecurityInnovation/PGPy/archive/{pgpy_ver}.tar.gz".format(pgpy_ver=author_info["__version__"]),
+)
