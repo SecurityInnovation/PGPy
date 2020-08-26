@@ -844,7 +844,7 @@ class PGPUID(ParentRef):
 class PGPMessage(Armorable, PGPObject):
     @staticmethod
     def dash_unescape(text):
-        return re.subn(r'^- -', '-', text, flags=re.MULTILINE)[0]
+        return re.subn(r'^- ', '', text, flags=re.MULTILINE)[0]
 
     @staticmethod
     def dash_escape(text):
