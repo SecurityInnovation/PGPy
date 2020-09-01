@@ -651,9 +651,11 @@ class PGPUID(ParentRef):
     @property
     def is_primary(self):
         """
-        If the most recent, valid self-signature specifies this as being primary, this will be True. Otherwise, Faqlse.
+        If the most recent, valid self-signature specifies this as being primary, this will be True. Otherwise, False.
         """
-        return bool(next(iter(self.selfsig._signature.subpackets['h_PrimaryUserID']), False))
+        if self.selfsig is not None:
+            return bool(next(iter(self.selfsig._signature.subpackets['h_PrimaryUserID']), False))
+        return False
 
     @property
     def is_uid(self):
@@ -791,7 +793,13 @@ class PGPUID(ParentRef):
     def __lt__(self, other):  # pragma: no cover
         if self.is_uid == other.is_uid:
             if self.is_primary == other.is_primary:
-                return self.selfsig > other.selfsig
+                mysig = self.selfsig
+                othersig = other.selfsig
+                if mysig is None:
+                    return not (othersig is None)
+                if othersig is None:
+                    return False
+                return mysig > othersig
 
             if self.is_primary:
                 return True
