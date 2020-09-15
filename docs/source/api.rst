@@ -2,8 +2,9 @@
 PGPy API
 ********
 
-.. include:: exceptions.rst.inc
 
-.. include:: constants.rst.inc
+.. include:: api/exceptions.rst
 
-.. include:: classes.rst.inc
+.. include:: api/constants.rst
+
+.. include:: api/classes.rst
