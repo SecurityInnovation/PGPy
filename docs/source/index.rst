@@ -14,7 +14,7 @@ Contents:
 
     installation
     examples
-    API <api/index>
+    api
     progress
     changelog
 
