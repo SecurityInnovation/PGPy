@@ -106,9 +106,12 @@ class ProgressTable(Directive):
                 tr += nodes.description('',
                                         nodes.inline(text="\u2713" if comps[cur][-1] else " "),
                                         classes=['field-name', 'progress-checkbox'])
+                text_description = nodes.inline()
+                self.state.nested_parse(StringList(['{:s}'.format(nl['description'].lstrip() if nl['description'] is not None else ' ')], parent=self), 0, text_description)
+
                 tr += nodes.description('',
                                         nodes.strong(text='{:s} '.format(nl['item'])),
-                                        nodes.inline(text='{:s}'.format(nl['description'] if nl['description'] is not None else ' ')),
+                                        text_description,
                                         classes=['field-value'])
                 body += tr
 
