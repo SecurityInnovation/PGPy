@@ -2393,12 +2393,13 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
     @KeyAction(KeyFlags.EncryptCommunications, KeyFlags.EncryptStorage, is_public=True)
     def encrypt(self, message, sessionkey=None, **prefs):
-        """
+        """encrypt(message[, sessionkey=None], **prefs)
+
         Encrypt a PGPMessage using this key.
 
         :param message: The message to encrypt.
         :type message: :py:obj:`PGPMessage`
-        :optional param sessionkey: Provide a session key to use when encrypting something. Default is ``None``.
+        :param sessionkey: Provide a session key to use when encrypting something. Default is ``None``.
                                     If ``None``, a session key of the appropriate length will be generated randomly.
 
                                     .. warning::

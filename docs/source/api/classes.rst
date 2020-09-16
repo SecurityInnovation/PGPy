@@ -9,7 +9,7 @@ Classes
 .. autoclass:: PGPKey
     :members:
 
-    .. py:attribute:: ascii_header
+    .. py:attribute:: ascii_headers
         :annotation: = OrderedDict([('Version', 'PGPy v|version|')])
 
         An :py:obj:`~collections.OrderedDict` of headers that appear, in order, in the ASCII-armored form of this object.
@@ -50,7 +50,7 @@ Classes
 .. autoclass:: PGPKeyring
     :members:
 
-    .. py:attribute:: ascii_header
+    .. py:attribute:: ascii_headers
 
         An :py:obj:`~collections.OrderedDict` of headers that appear, in order, in the ASCII-armored form of this object.
 
@@ -61,7 +61,7 @@ Classes
 .. autoclass:: PGPMessage
     :members:
 
-    .. py:attribute:: ascii_header
+    .. py:attribute:: ascii_headers
 
         An :py:obj:`~collections.OrderedDict` of headers that appear, in order, in the ASCII-armored form of this object.
 
@@ -93,7 +93,7 @@ Classes
 .. autoclass:: PGPSignature
     :members:
 
-    .. py:attribute:: ascii_header
+    .. py:attribute:: ascii_headers
 
         An :py:obj:`~collections.OrderedDict` of headers that appear, in order, in the ASCII-armored form of this object.
 

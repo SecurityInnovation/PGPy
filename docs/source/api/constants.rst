@@ -116,7 +116,7 @@ Constants
 :py:class:`HashAlgorithm`
 -------------------------
 
-.. autoclass:: HashAlgorithm
+.. autoclass:: HashAlgorithm()
     :no-members:
 
     .. autoattribute:: MD5
