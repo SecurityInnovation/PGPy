@@ -53,6 +53,7 @@ class Backend(Enum):
 
 
 class EllipticCurveOID(Enum):
+    """OIDs for supported elliptic curves."""
     # these are specified as:
     # id = (oid, curve)
     Invalid = ('', )
@@ -242,6 +243,7 @@ class SymmetricKeyAlgorithm(IntEnum):
 
 
 class PubKeyAlgorithm(IntEnum):
+    """Supported public key algorithms."""
     Invalid = 0x00
     #: Signifies that a key is an RSA key.
     RSAEncryptOrSign = 0x01
@@ -283,6 +285,7 @@ class PubKeyAlgorithm(IntEnum):
 
 
 class CompressionAlgorithm(IntEnum):
+    """Supported compression algorithms."""
     #: No compression
     Uncompressed = 0x00
     #: ZIP DEFLATE
@@ -327,6 +330,7 @@ class CompressionAlgorithm(IntEnum):
 
 
 class HashAlgorithm(IntEnum):
+    """Supported hash algorithms."""
     Invalid = 0x00
     MD5 = 0x01
     SHA1 = 0x02
@@ -362,6 +366,7 @@ class HashAlgorithm(IntEnum):
 
 
 class RevocationReason(IntEnum):
+    """Reasons explaining why a key or certificate was revoked."""
     #: No reason was specified. This is the default reason.
     NotSpecified = 0x00
     #: The key was superseded by a new key. Only meaningful when revoking a key.
@@ -433,6 +438,7 @@ class TrustLevel(IntEnum):
 
 
 class KeyFlags(FlagEnum):
+    """Flags that determine a key's capabilities."""
     #: Signifies that a key may be used to certify keys and user ids. Primary keys always have this, even if it is not specified.
     Certify = 0x01
     #: Signifies that a key may be used to sign messages and documents.
