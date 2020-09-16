@@ -293,8 +293,11 @@ This section covers things that are considered extensions to PGP, but are not co
         - Curve, True,  Curve25519 [1]_
         - Curve, True,  SECP256K1
 
-.. note:: Use of Brainpool curves with ECDSA/ECDH
-    Although these curves are not explicitly mentioned in an RFC for OpenPGP at this point, GnuPG 2.1.x+ does support using them, so I have included them here as well.
+.. note::
+    Use of Brainpool curves with ECDSA/ECDH
+
+    Although these curves are not explicitly mentioned in an RFC for OpenPGP at this point, GnuPG 2.1.x+ does support
+    using them. As such, they have been included here.
 
 .. [1] Cipher availability depends on the currently installed OpenSSL being compiled with support for it
 
