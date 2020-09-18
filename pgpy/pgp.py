@@ -944,10 +944,10 @@ class PGPMessage(Armorable, PGPObject):
         """
         PGPMessage objects represent OpenPGP message compositions.
 
-        PGPMessage implements the `__str__` method, the output of which will be the message composition in
+        PGPMessage implements the ``__str__`` method, the output of which will be the message composition in
         OpenPGP-compliant ASCII-armored format.
 
-        PGPMessage implements the `__bytes__` method, the output of which will be the message composition in
+        PGPMessage implements the ``__bytes__`` method, the output of which will be the message composition in
         OpenPGP-compliant binary format.
 
         Any signatures within the PGPMessage that are marked as being non-exportable will not be included in the output
@@ -1176,11 +1176,14 @@ class PGPMessage(Armorable, PGPObject):
 
     def encrypt(self, passphrase, sessionkey=None, **prefs):
         """
+        encrypt(passphrase, [sessionkey=None,] **prefs)
+
         Encrypt the contents of this message using a passphrase.
+
         :param passphrase: The passphrase to use for encrypting this message.
         :type passphrase: ``str``, ``unicode``, ``bytes``
 
-        :optional param sessionkey: Provide a session key to use when encrypting something. Default is ``None``.
+        :param sessionkey: Provide a session key to use when encrypting something. Default is ``None``.
                                     If ``None``, a session key of the appropriate length will be generated randomly.
 
                                     .. warning::
@@ -1446,8 +1449,10 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
     @property
     def key_size(self):
-        """*new in 0.4.1*
+        """
         The size pertaining to this key. ``int`` for non-EC key algorithms; :py:obj:`constants.EllipticCurveOID` for EC keys.
+
+        .. versionadded:: 0.4.1
         """
         if self.key_algorithm in {PubKeyAlgorithm.ECDSA, PubKeyAlgorithm.ECDH, PubKeyAlgorithm.EdDSA}:
             return self._key.keymaterial.oid
@@ -1573,13 +1578,13 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         Generate a new PGP key
 
         :param key_algorithm: Key algorithm to use.
-        :type key_algorithm: A :py:obj:`~constants.PubKeyAlgorithm`
+        :type key_algorithm: :py:obj:`~constants.PubKeyAlgorithm`
         :param key_size: Key size in bits, unless `key_algorithm` is :py:obj:`~constants.PubKeyAlgorithm.ECDSA` or
                :py:obj:`~constants.PubKeyAlgorithm.ECDH`, in which case it should be the Curve OID to use.
         :type key_size: ``int`` or :py:obj:`~constants.EllipticCurveOID`
 
-        :param created: When was the key created? (None or unset means now)
-        :type created: :py:obj:`~datetime.datetime` or None
+        :param created: When was the key created? (``None`` or unset means now)
+        :type created: :py:obj:`~datetime.datetime` or ``None``
         :return: A newly generated :py:obj:`PGPKey`
         """
         # new private key shell first
@@ -1769,7 +1774,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
         Emits a :py:obj:`~warnings.UserWarning` if the key is public or not passphrase protected.
 
-        :param str passphrase: The passphrase to be used to unlock this key.
+        :param passphrase: The passphrase to be used to unlock this key.
+        :type passphrase: ``str``
         :raises: :py:exc:`~pgpy.errors.PGPDecryptionError` if the passphrase is incorrect
         """
         if self.is_public:
@@ -2035,6 +2041,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
     @KeyAction(KeyFlags.Certify, is_unlocked=True, is_public=False)
     def certify(self, subject, level=SignatureType.Generic_Cert, **prefs):
         """
+        certify(subject, level=SignatureType.Generic_Cert, **prefs)
+
         Sign a key or a user id within a key.
 
         :param subject: The user id or key to be certified.
@@ -2685,7 +2693,7 @@ class PGPKeyring(collections_abc.Container, collections_abc.Iterable, collection
         r"""
         Load all keys provided into this keyring object.
 
-        :param \*args: Each arg in ``args`` can be any of the formats supported by :py:meth:`PGPKey.from_path` and
+        :param \*args: Each arg in ``args`` can be any of the formats supported by :py:meth:`PGPKey.from_file` and
                       :py:meth:`PGPKey.from_blob` or a :py:class:`PGPKey` instance, or a ``list`` or ``tuple`` of these.
         :type \*args: ``list``, ``tuple``, ``str``, ``unicode``, ``bytes``, ``bytearray``
         :returns: a ``set`` containing the unique fingerprints of all of the keys that were loaded during this operation.
@@ -2736,10 +2744,12 @@ class PGPKeyring(collections_abc.Container, collections_abc.Iterable, collection
         """
         List loaded fingerprints with some optional filtering.
 
-        :param str keyhalf: Can be 'any', 'public', or 'private'. If 'public', or 'private', the fingerprints of keys of the
+        :param keyhalf: Can be 'any', 'public', or 'private'. If 'public', or 'private', the fingerprints of keys of the
                             the other type will not be included in the results.
-        :param str keytype: Can be 'any', 'primary', or 'sub'. If 'primary' or 'sub', the fingerprints of keys of the
+        :type keyhalf: ``str``
+        :param keytype: Can be 'any', 'primary', or 'sub'. If 'primary' or 'sub', the fingerprints of keys of the
                             the other type will not be included in the results.
+        :type keytype: ``str``
         :returns: a ``set`` of fingerprints of keys matching the filters specified.
         """
         return {pk.fingerprint for pk in self._keys.values()
@@ -2752,13 +2762,13 @@ class PGPKeyring(collections_abc.Container, collections_abc.Iterable, collection
         """
         Unload a loaded key and its subkeys.
 
+        :param key: The key to unload.
+        :type key: :py:obj:`PGPKey`
+
         The easiest way to do this is to select a key using :py:meth:`PGPKeyring.key` first::
 
             with keyring.key("DSA von TestKey") as key:
                 keyring.unload(key)
-
-        :param key: The key to unload.
-        :type key: :py:obj:`PGPKey`
         """
         assert isinstance(key, PGPKey)
         pkid = id(key)
