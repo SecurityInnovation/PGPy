@@ -13,8 +13,8 @@ PGPy: Pretty Good Privacy for Python
     :target: https://coveralls.io/github/SecurityInnovation/PGPy?branch=master
     :alt: Coveralls
 
-.. image:: https://readthedocs.org/projects/pgpy/badge/?version=stable
-    :target: https://pgpy.readthedocs.io/en/stable/?badge=stable
+.. image:: https://readthedocs.org/projects/pgpy/badge/?version=latest
+    :target: https://pgpy.readthedocs.io/en/stable/?badge=latest
     :alt: Documentation Status
 
 `PGPy` is a Python (2 and 3) library for implementing Pretty Good Privacy into Python programs, conforming to the OpenPGP specification per RFC 4880.
