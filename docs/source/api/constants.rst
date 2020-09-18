@@ -162,6 +162,9 @@ Constants
     .. autoattribute:: Persona_Cert
         :annotation:
 
+    .. autoattribute:: Casual_Cert
+        :annotation:
+
     .. autoattribute:: Positive_Cert
         :annotation:
 
