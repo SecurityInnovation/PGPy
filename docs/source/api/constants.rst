@@ -116,7 +116,7 @@ Constants
 :py:class:`HashAlgorithm`
 -------------------------
 
-.. autoclass:: HashAlgorithm
+.. autoclass:: HashAlgorithm()
     :no-members:
 
     .. autoattribute:: MD5
@@ -160,6 +160,9 @@ Constants
         :annotation:
 
     .. autoattribute:: Persona_Cert
+        :annotation:
+
+    .. autoattribute:: Casual_Cert
         :annotation:
 
     .. autoattribute:: Positive_Cert

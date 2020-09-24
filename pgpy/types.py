@@ -616,7 +616,7 @@ class SignatureVerification(object):
 
     def __init__(self):
         """
-        Returned by :py:meth:`PGPKey.verify`
+        Returned by :py:meth:`.PGPKey.verify`
 
         Can be compared directly as a boolean to determine whether or not the specified signature verified.
         """

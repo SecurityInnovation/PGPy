@@ -4,7 +4,7 @@ from conftest import gpg_ver, gnupghome
 
 try:
     import gpg
-except (ModuleNotFoundError, NameError):
+except ImportError:
     gpg = None
 import os
 import datetime
@@ -429,6 +429,7 @@ Pnn+We1aTBhaGa86AQ==
 
     assert pgpsig.created.utctimetuple() == roundtrip.created.utctimetuple()
 
+
 @pytest.mark.regression
 def test_ops_order():
     from pgpy import PGPKey, PGPMessage
@@ -548,4 +549,37 @@ xqAY9Bwizt4FWgXuLm1a4+So4V9j1TRCXd12Uc2l2RNmgDE=
     assert sig1.signer == next(it).signer # OPS 2
     next(it) # skip contents
     assert sig1 == next(it)
-    assert sig2 == next(it) 
+    assert sig2 == next(it)
+
+
+@pytest.mark.regression(issue=341)
+def test_spurious_dash_escapes():
+    from pgpy import PGPKey, PGPMessage
+
+    message_data = r'''-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1,SHA256
+
+- This is stored, literally\!
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG/MacGPG2 v2.0.20 (Darwin)
+
+iJwEAQECAAYFAlQaCpEACgkQBM3VPIdAqKYrhwQAyQhwiqrR6oZ5fTBm4JyCOEND
+72Kxbaz1i9Qh0jv7DmgRjb4udh95UQ8U0qVnmnhA8E2deKeDcWTS4fzUkU6J9OdH
+/GPHpL9QEtOJ7xifzJsnKaNJVynmNMtYOqHQ9gCmXx7jM2ngxbTKBT8YZlSLMUdO
+uoUFKrJGv0LWlSWHkeOJARwEAQECAAYFAlQaCpEACgkQKoNNjlkY6IYrhwf/ZnMN
+yKIVxGl+5/9oovvgz2MtGt9B09xRg4BqD+lUDshzQUvQIjBXZ7ZEGSWqerRymZDg
+ZzHpb1lv9oAOVU8f1qsMQJJkiz7Q+xu5FfgAp0WzMHJNy4QOmB4Kw/7UbTwdUXzw
+EzKwbJ8Eg97vJgYdfqUZLu949dwJvyYZzGDdkbrnsaZ8H29XkKXNMlMinDQjvFBR
+djgkILl3ZIdC3p+KechV3uYsqwje2qNEo69KukihPhzCe9o6/Yub5gdC+DSQDGl4
+uPjk0zXjds4G5J5Jd5g4o7vhDWs8InxX4AcLfD6lH1XQ1VCZBpucun5CVsU3dUAv
+yvO7C7FubDu1GUxdbYheBAERCAAGBQJUGgqRAAoJEKXc3JZkUxQOZ+IA/3KI8Mnl
+k3jfpRQcvtSYFlU9WZk9SqZX6xirnV7Hloq6AP9ZlivPrJdWmjRyyShkMNgP/c63
+cjMX82ahGPUVlyMP4A==
+=bcSu
+-----END PGP SIGNATURE-----
+'''
+
+    key = PGPKey.from_file('tests/testdata/keys/rsa.1.pub.asc')[0]
+    message = PGPMessage.from_blob(message_data)
+    assert key.verify(message)
