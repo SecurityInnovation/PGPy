@@ -7,7 +7,7 @@ Changelog
 v0.5.3
 ======
 
-Released: ?
+Released: October 6, 2020
 
 .. warning::
 
