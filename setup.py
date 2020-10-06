@@ -38,5 +38,4 @@ setup(
     version=author_info["__version__"],
     author=author_info["__author__"],
     license=author_info["__license__"],
-    download_url="https://github.com/SecurityInnovation/PGPy/archive/{pgpy_ver}.tar.gz".format(pgpy_ver=author_info["__version__"]),
 )
