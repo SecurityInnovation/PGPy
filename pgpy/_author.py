@@ -15,4 +15,4 @@ __all__ = ['__author__',
 __author__ = "Michael Greene"
 __copyright__ = "Copyright (c) 2014-2019 Security Innovation, Inc"
 __license__ = "BSD"
-__version__ = str(LooseVersion("0.5.3"))
+__version__ = str(LooseVersion("0.6.0-alpha"))

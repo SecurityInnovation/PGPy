@@ -4,11 +4,10 @@ os:
   # - osx
 language: python
 python:
+  - "3.8"
   - "3.7"
   - "3.6"
   - "3.5"
-  - "3.4"
-  - "2.7"
   - "pypy"
   - "pypy3"
 jobs:
@@ -18,6 +17,9 @@ jobs:
       env: TOXENV=pep8
 
     # test setup.py using each tested version
+    - python: 3.8
+      env: TOXENV=setup38
+
     - python: 3.7
       env: TOXENV=setup37
 
@@ -27,17 +29,8 @@ jobs:
     - python: 3.5
       env: TOXENV=setup35
 
-    - python: 3.4
-      env: TOXENV=setup34
-
-    - python: 2.7
-      env: TOXENV=setup27
-
     # do some tests with LC_ALL=C to check for locale variance
     - python: 3.6
-      env: LC_ALL=C
-
-    - python: 2.7
       env: LC_ALL=C
 
   allow_failures:
@@ -53,8 +46,8 @@ jobs:
 install:
   - sed -i -e 's/^/#/' tests/gnupghome/gpg-agent.conf
   - ./install_dependencies.${TRAVIS_OS_NAME}.sh
-  # ensure tox and coveralls are installed. pin PyYAML until we drop Python 3.4
-  - pip install tox python-coveralls 'PyYAML==5.2; python_version == "3.4"'
+  # ensure tox and coveralls are installed
+  - pip install tox python-coveralls
 
 # set TOXENV if it isn't yet
 before_script:
