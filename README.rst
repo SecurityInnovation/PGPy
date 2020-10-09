@@ -17,7 +17,7 @@ PGPy: Pretty Good Privacy for Python
     :target: https://pgpy.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status
 
-`PGPy` is a Python (2 and 3) library for implementing Pretty Good Privacy into Python programs, conforming to the OpenPGP specification per RFC 4880.
+`PGPy` is a Python library for implementing Pretty Good Privacy into Python programs, conforming to the OpenPGP specification per RFC 4880.
 
 Features
 --------
@@ -50,15 +50,11 @@ You can also join ``#pgpy`` on Freenode to ask questions or get involved
 Requirements
 ------------
 
-- Python 3 >= 3.4; Python 2 >= 2.7
+- Python >= 3.5
 
-  Tested with: 3.7, 3.6, 3.5, 3.4, 2.7
+  Tested with: 3.8, 3.7, 3.6, 3.5
 
 - `Cryptography <https://pypi.python.org/pypi/cryptography>`_
-
-- `enum34 <https://pypi.python.org/pypi/enum34>`_
-
-- `singledispatch <https://pypi.python.org/pypi/singledispatch>`_
 
 - `pyasn1 <https://pypi.python.org/pypi/pyasn1/>`_
 
