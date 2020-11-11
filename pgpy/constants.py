@@ -6,6 +6,7 @@ import imghdr
 import os
 import time
 import zlib
+import lzma
 
 from collections import namedtuple
 from enum import Enum
@@ -294,6 +295,8 @@ class CompressionAlgorithm(IntEnum):
     ZLIB = 0x02
     #: Bzip2
     BZ2 = 0x03
+	#: LZMA
+    XZ = 0x04
 
     def compress(self, data):
         if self is CompressionAlgorithm.Uncompressed:
@@ -307,6 +310,9 @@ class CompressionAlgorithm(IntEnum):
 
         if self is CompressionAlgorithm.BZ2:
             return bz2.compress(data)
+
+        if self is CompressionAlgorithm.XZ:
+            return lzma.compress(data, filters=[{'id': lzma.FILTER_LZMA2, 'preset': 9 | lzma.PRESET_EXTREME}])
 
         raise NotImplementedError(self)
 
@@ -325,6 +331,9 @@ class CompressionAlgorithm(IntEnum):
 
         if self is CompressionAlgorithm.BZ2:
             return bz2.decompress(data)
+
+        if self is CompressionAlgorithm.XZ:
+            return lzma.decompress(data)
 
         raise NotImplementedError(self)
 
