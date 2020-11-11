@@ -1111,7 +1111,7 @@ class PGPMessage(Armorable, PGPObject):
         cleartext = kwargs.pop('cleartext', False)
         format = kwargs.pop('format', None)
         sensitive = kwargs.pop('sensitive', False)
-        compression = kwargs.pop('compression', CompressionAlgorithm.ZIP)
+        compression = kwargs.pop('compression', CompressionAlgorithm.XZ)
         file = kwargs.pop('file', False)
         charset = kwargs.pop('encoding', None)
 

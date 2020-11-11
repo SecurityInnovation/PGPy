@@ -11,11 +11,6 @@ import itertools
 import math
 import os
 
-try:
-    import collections.abc as collections_abc
-except ImportError:
-    collections_abc = collections
-
 from pyasn1.codec.der import decoder
 from pyasn1.codec.der import encoder
 from pyasn1.type.univ import Integer
@@ -103,7 +98,7 @@ __all__ = ['SubPackets',
            'ECDHCipherText', ]
 
 
-class SubPackets(collections_abc.MutableMapping, Field):
+class SubPackets(collections.MutableMapping, Field):
     _spmodule = signature
 
     def __init__(self):
