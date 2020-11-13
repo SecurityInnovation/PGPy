@@ -30,8 +30,8 @@ Existing messages can also be loaded very simply. This is nearly identical to lo
 it only returns the new message object, instead of a tuple::
 
     # PGPMessage will automatically determine if this is a cleartext message or not
-    message_from_file = pgpy.PGPMessage.from_file("path/to/a/message")
-    message_from_blob = pgpy.PGPMessage.from_blob(msg_blob)
+    message_from_file = pgpy.PGPMessage.from_file("path/to/a/message").message
+    message_from_blob = pgpy.PGPMessage.from_blob(msg_blob).message
 
 Exporting Messages
 ------------------
