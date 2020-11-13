@@ -118,5 +118,5 @@ someone else's public key. That can be done like so::
     # enc_message.is_encrypted is True
     # a message that was encrypted using a passphrase can also be decrypted using
     # that same passphrase
-    dec_message = enc_message.decrypt("S00per_Sekr3t")
+    dec_message = enc_message.decrypt("S00per_Sekr3t").message
 
