@@ -43,7 +43,6 @@ Classes
                     key, others = PGPKey.from_file('path/to/keyfile')
                     # others: { (Fingerprint, bool(key.is_public)): PGPKey }
 
-
 :py:class:`PGPKeyring`
 ----------------------
 
@@ -86,6 +85,8 @@ Classes
         :raises: :py:exc:`~exceptions.PGPError` if de-armoring or parsing failed
         :returns: :py:obj:`PGPMessage`
 
+    .. py:attribute:: message
+        Get the original message of the PGPMessage. If it's compressed than decompress it. The message must be decrypted. Removes any headers.
 
 :py:class:`PGPSignature`
 ------------------------
