@@ -23,6 +23,7 @@ jobs:
 
   pep8:
     runs-on: ubuntu-16.04
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
