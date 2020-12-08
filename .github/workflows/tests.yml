@@ -15,8 +15,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install requirements
         run: |
-        sed -i -e 's/^/#/' tests/gnupghome/gpg-agent.conf
-        ./install_dependencies.linux.sh
-        pip install tox python-coveralls
+          sed -i -e 's/^/#/' tests/gnupghome/gpg-agent.conf
+          ./install_dependencies.linux.sh
+          pip install tox python-coveralls
       - name: Run Tox
         run: tox -e py
