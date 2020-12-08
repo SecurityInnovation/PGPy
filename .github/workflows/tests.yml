@@ -31,3 +31,26 @@ jobs:
           python-version: 3.6
       - run: pip install tox
       - run: tox -e pep8
+
+  test-setup:
+    runs-on: ubuntu-16.04
+    strategy:
+      matrix:
+        include:
+          - python-version: 3.5
+            env: setup35
+          - python-version: 3.6
+            env: setup36
+          - python-version: 3.7
+            env: setup37
+          - python-version: 3.8
+            env: setup38
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install tox
+      - run: tox -e ${{ matrix.env }}
