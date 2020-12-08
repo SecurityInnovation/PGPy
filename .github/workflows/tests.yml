@@ -28,4 +28,5 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: 3.6
+      - run: pip install tox
       - run: tox -e pep8
