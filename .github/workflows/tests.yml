@@ -20,6 +20,12 @@ jobs:
           pip install tox python-coveralls
       - name: Run Tox
         run: tox -e py
+      - name: Coveralls Parallel
+        uses: coverallsapp/github-action@v1.1.2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          flag-name: run-${{ matrix.python-version }}
+          parallel: true
 
   test-setup:
     runs-on: ubuntu-16.04
@@ -60,3 +66,13 @@ jobs:
         run: pip install tox
       - name: Run tox
         run: tox -e pep8
+
+  finish:
+    needs: unit-tests
+    runs-on: ubuntu-16.04
+    steps:
+      - name: Coveralls Finished
+        uses: coverallsapp/github-action@v1.1.2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          parallel-finished: true
