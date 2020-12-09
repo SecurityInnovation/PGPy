@@ -21,19 +21,6 @@ jobs:
       - name: Run Tox
         run: tox -e py
 
-  pep8:
-    runs-on: ubuntu-16.04
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
-        with:
-          python-version: 3.6
-      - name: Install tox
-        run: pip install tox
-      - name: Run tox
-        run: tox -e pep8
-
   test-setup:
     runs-on: ubuntu-16.04
     strategy:
@@ -58,3 +45,16 @@ jobs:
         run: pip install tox
       - name: Run tox
         run: tox -e ${{ matrix.env }}
+
+  pep8:
+    runs-on: ubuntu-16.04
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.6
+      - name: Install tox
+        run: pip install tox
+      - name: Run tox
+        run: tox -e pep8
