@@ -1,4 +1,4 @@
 #!/bin/bash
 
-brew update
-brew install libffi-dev gnupg2 pgpdump openssl@1.1 gpgme
+brew update 1>/dev/null
+brew install libffi gnupg2 pgpdump openssl@1.1 gpgme
