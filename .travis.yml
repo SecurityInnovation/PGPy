@@ -8,7 +8,6 @@ python:
   - "3.7"
   - "3.6"
   - "3.5"
-  - "pypy"
   - "pypy3"
 jobs:
   include:
@@ -61,4 +60,4 @@ script:
 
 # and report coverage to coveralls, but only if this was a pytest run
 after_success:
-  - if [[ "${TOXENV}" == "py"* ]]; then coveralls debug; fi
+  - if [[ "${TOXENV}" == "py"* ]]; then coveralls; fi
