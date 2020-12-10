@@ -17,16 +17,16 @@ jobs:
 
     # test setup.py using each tested version
     - python: 3.8
-      env: TOXENV=setup38
+      env: TOXENV=py38-setup
 
     - python: 3.7
-      env: TOXENV=setup37
+      env: TOXENV=py37-setup
 
     - python: 3.6
-      env: TOXENV=setup36
+      env: TOXENV=py36-setup
 
     - python: 3.5
-      env: TOXENV=setup35
+      env: TOXENV=py35-setup
 
     # do some tests with LC_ALL=C to check for locale variance
     - python: 3.6

@@ -27,15 +27,15 @@ jobs:
       matrix:
         include:
           - python-version: 3.5
-            env: setup35
+            env: py35-setup
           - python-version: 3.6
-            env: setup36
+            env: py36-setup
           - python-version: 3.7
-            env: setup37
+            env: py37-setup
           - python-version: 3.8
-            env: setup38
+            env: py38-setup
           - python-version: 3.9
-            env: setup39
+            env: py39-setup
 
     steps:
       - uses: actions/checkout@v2
