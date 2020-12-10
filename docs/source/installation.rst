@@ -47,6 +47,10 @@ For Debian/Ubuntu, these requirements can be installed like so::
 
     $ sudo apt install build-essential libssl-dev libffi-dev python-dev
 
+For Alpine linux, the build requirements can be installed like so::
+
+    $ apk add build-base libressl-dev libffi-dev python-dev
+
 You may need to install ``python3-dev`` if you are using PGPy on Python 3.
 
 For Fedora/RHEL derivatives, the build requirements can be installed like so::
