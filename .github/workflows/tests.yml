@@ -17,7 +17,7 @@ jobs:
       - name: Install requirements
         run: |
           sed -i -e 's/^/#/' tests/gnupghome/gpg-agent.conf
-          [ "$(uname)" = "Darwin" ] && ./install_dependencies.osx.sh || ./install_dependencies.linux.sh
+          if [ "$(uname)" = "Darwin" ]; then ./install_dependencies.osx.sh; else ./install_dependencies.linux.sh; fi
           pip install tox
       - name: Run Tox
         run: ./tox.sh -e py
