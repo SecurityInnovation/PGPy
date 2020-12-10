@@ -2,9 +2,10 @@ name: run-tox
 on: [push, pull_request]
 jobs:
   unit-tests:
-    runs-on: ubuntu-16.04
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        os: [ubuntu-16.04, macos-10.15]
         python-version: [3.5, 3.6, 3.7, 3.8, 3.9]
 
     steps:
@@ -16,10 +17,10 @@ jobs:
       - name: Install requirements
         run: |
           sed -i -e 's/^/#/' tests/gnupghome/gpg-agent.conf
-          ./install_dependencies.linux.sh
+          [ $(uname) = "Darwin"] && ./install_dependencies.osx.sh || ./install_dependencies.linux.sh
           pip install tox
       - name: Run Tox
-        run: tox -e py
+        run: ./tox.sh -e py
 
   test-setup:
     runs-on: ubuntu-16.04
