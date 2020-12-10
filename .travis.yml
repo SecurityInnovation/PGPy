@@ -47,7 +47,7 @@ install:
   - sed -i -e 's/^/#/' tests/gnupghome/gpg-agent.conf
   - ./install_dependencies.${TRAVIS_OS_NAME}.sh
   # ensure tox and coveralls are installed
-  - pip install tox python-coveralls
+  - pip install tox coveralls
 
 # set TOXENV if it isn't yet
 before_script:
@@ -61,4 +61,4 @@ script:
 
 # and report coverage to coveralls, but only if this was a pytest run
 after_success:
-  - if [[ "${TOXENV}" == "py"* ]]; then coveralls; fi
+  - if [[ "${TOXENV}" == "py"* ]]; then coveralls debug; fi
