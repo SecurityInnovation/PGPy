@@ -22,6 +22,24 @@ jobs:
       - name: Run Tox
         run: ./tox.sh -e py
 
+  c-locale-test:
+    runs-on: ubuntu-16.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.6
+      - name: Install requirements
+        run: |
+          sed -i -e 's/^/#/' tests/gnupghome/gpg-agent.conf
+          ./install_dependencies.linux.sh
+          pip install tox
+      - name: Run Tox
+        run: ./tox.sh -e py
+        env:
+          LC_ALL: C
+
   test-setup:
     runs-on: ubuntu-16.04
     strategy:
