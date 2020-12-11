@@ -62,7 +62,7 @@ Mac OS X
 
 If you are on Mac OS, you may experience more limited functionality without installing a more capable version of OpenSSL.
 
-You may refer to Cryptography's documentation on `Building cryptography on OS X <https://cryptography.io/en/latest/installation/#building-cryptography-on-os-x>`_ for information on how to do so.
+You may refer to Cryptography's documentation on `Building cryptography on macOS <https://cryptography.io/en/latest/installation.html#building-cryptography-on-macos>`_ for information on how to do so.
 
 
 Installation
