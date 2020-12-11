@@ -1,4 +1,4 @@
-name: run-tox
+name: Tox Tests
 on: [push, pull_request]
 jobs:
   unit-tests:
