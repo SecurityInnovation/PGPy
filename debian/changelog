@@ -12,6 +12,7 @@ python-pgpy (0.5.3-1) unstable; urgency=medium
   * bump standards-version to 4.5.1 (no changes needed)
   * move to dh 13
   * drop patches already upstream
+  * python3-pgpy-doc now Recommends: libjs-sphinxdoc
 
  -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Fri, 01 Jan 2021 20:15:55 -0500
 

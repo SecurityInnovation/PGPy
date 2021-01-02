@@ -49,6 +49,7 @@ Multi-Arch: foreign
 Depends:
  ${misc:Depends},
 Recommends:
+ libjs-sphinxdoc,
  python3-pgpy (= ${source:Version}),
 Description: OpenPGP (Pretty Good Privacy) RFC 4880 implementation in Python (documentation)
  PGPy offers a pure-Python implementation of the OpenPGP standard, as
