@@ -1,9 +1,9 @@
 #!/bin/bash
-sudo apt-get update
-sudo apt-get install -y libffi-dev gnupg2
+sudo apt-get -y update
+sudo apt-get -y install libffi-dev gnupg2
 
 if [ -z "${TOXENV}" ]; then
-    sudo apt-get install gpgsm libassuan-dev libgpg-error-dev swig
+    sudo apt-get -y install gpgsm libassuan-dev libgpg-error-dev swig
 
     # build/install gpgme 1.8.0 manually
     wget https://www.gnupg.org/ftp/gcrypt/gpgme/gpgme-1.7.0.tar.bz2

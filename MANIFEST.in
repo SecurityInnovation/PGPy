@@ -2,4 +2,9 @@ include LICENSE
 include README.rst
 include requirements.txt
 include requirements-test.txt
+include requirements-rtd.txt
+recursive-include docs/ *
+recursive-include tests/ *
+recursive-exclude docs/build/ *
 recursive-exclude * *.pyc
+global-exclude .DS_Store
