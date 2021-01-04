@@ -4,9 +4,10 @@ from conftest import gpg_ver, gnupghome
 
 try:
     import gpg
-except (ModuleNotFoundError, NameError):
+except ImportError:
     gpg = None
 import os
+import datetime
 import pytest
 import glob
 import warnings
@@ -160,43 +161,8 @@ def test_reg_bug_56():
             gpg.core.gpgme.gpgme_op_import(c.wrapped, key_data)
 
             _, vres = c.verify(gpg.Data(string=sigsubject.decode('latin-1')), gpg.Data(string=str(sig)))
-        assert vres
+            assert vres
 
-
-@pytest.mark.regression(issue=157)
-def test_reg_bug_157(monkeypatch):
-    # local imports for this
-    import pgpy.constants
-    from pgpy.packet.fields import String2Key
-    from time import time as rtime
-
-    # to more easily replicate this bug, hash only 8 bytes instead of 100 KiB
-    monkeypatch.setattr('pgpy.constants._hashtunedata', bytearray([10, 11, 12, 13, 14, 15, 16, 17]))
-    # also monkeypatch time.time to return fewer significant digits
-    monkeypatch.setattr('time.time', lambda: round(rtime(), 3))
-    assert len(pgpy.constants._hashtunedata) == 8
-
-    pgpy.constants.HashAlgorithm.SHA256.tune_count()
-    assert pgpy.constants.HashAlgorithm.SHA256.tuned_count > 0
-
-    # now let's try it out and ensure that the count actually worked
-    s2k = String2Key()
-    s2k.encalg = pgpy.constants.SymmetricKeyAlgorithm.AES256
-    s2k.specifier = pgpy.constants.String2KeyType.Iterated
-    s2k.halg = pgpy.constants.HashAlgorithm.SHA256
-    s2k.count = pgpy.constants.HashAlgorithm.SHA256.tuned_count
-
-    start = rtime()
-    sk = s2k.derive_key('sooper_sekret_passphrase')
-    elapsed = rtime() - start
-
-    # check that we're actually close to our target
-    assert len(sk) == 32
-    try:
-        assert 0.1 <= round(elapsed, 1) <= 0.2
-
-    except AssertionError:
-        warnings.warn("tuned_count: {}; elapsed time: {:.5f}".format(pgpy.constants.HashAlgorithm.SHA256.tuned_count, elapsed))
 
 
 # load mixed keys separately so they do not overwrite "single algo" keys in the _seckeys mapping
@@ -418,3 +384,202 @@ def test_preference_unsupported_ciphers():
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
         pubkey.encrypt(msg)
+
+@pytest.mark.regression(issue=291)
+def test_sig_timezone():
+    from pgpy import PGPKey, PGPSignature
+    # from https://tools.ietf.org/html/draft-bre-openpgp-samples-00#section-2.2:
+    alice_sec = '''-----BEGIN PGP PRIVATE KEY BLOCK-----
+Comment: Alice's OpenPGP Transferable Secret Key
+
+lFgEXEcE6RYJKwYBBAHaRw8BAQdArjWwk3FAqyiFbFBKT4TzXcVBqPTB3gmzlC/U
+b7O1u10AAP9XBeW6lzGOLx7zHH9AsUDUTb2pggYGMzd0P3ulJ2AfvQ4RtCZBbGlj
+ZSBMb3ZlbGFjZSA8YWxpY2VAb3BlbnBncC5leGFtcGxlPoiQBBMWCAA4AhsDBQsJ
+CAcCBhUKCQgLAgQWAgMBAh4BAheAFiEE64W7X6M6deFelE5j8jFVDE9H444FAl2l
+nzoACgkQ8jFVDE9H447pKwD6A5xwUqIDprBzrHfahrImaYEZzncqb25vkLV2arYf
+a78A/R3AwtLQvjxwLDuzk4dUtUwvUYibL2sAHwj2kGaHnfICnF0EXEcE6RIKKwYB
+BAGXVQEFAQEHQEL/BiGtq0k84Km1wqQw2DIikVYrQrMttN8d7BPfnr4iAwEIBwAA
+/3/xFPG6U17rhTuq+07gmEvaFYKfxRB6sgAYiW6TMTpQEK6IeAQYFggAIBYhBOuF
+u1+jOnXhXpROY/IxVQxPR+OOBQJcRwTpAhsMAAoJEPIxVQxPR+OOWdABAMUdSzpM
+hzGs1O0RkWNQWbUzQ8nUOeD9wNbjE3zR+yfRAQDbYqvtWQKN4AQLTxVJN5X5AWyb
+Pnn+We1aTBhaGa86AQ==
+=n8OM
+-----END PGP PRIVATE KEY BLOCK-----
+'''
+
+    alice_key, _ = PGPKey.from_blob(alice_sec)
+
+    class FixedOffset(datetime.tzinfo):
+        def __init__(self, hours, name):
+            self.__offset = datetime.timedelta(hours=hours)
+            self.__name = name
+        def utcoffset(self, dt):
+            return self.__offset
+        def tzname(self, dt):
+            return self.__name
+        def dst(self, dt):
+            return datetime.timedelta(0)
+    # America/New_York during DST:
+    tz = FixedOffset(-4, 'EDT')
+    # 2019-10-20T09:18:11-0400
+    when = datetime.datetime.fromtimestamp(1571577491, tz)
+
+    pgpsig = alice_key.sign('this is a test', created=when)
+    roundtrip = PGPSignature.from_blob(str(pgpsig))
+
+    assert pgpsig.created.utctimetuple() == roundtrip.created.utctimetuple()
+
+
+@pytest.mark.regression
+def test_ops_order():
+    from pgpy import PGPKey, PGPMessage
+
+    # from https://tools.ietf.org/html/draft-bre-openpgp-samples-00#section-2.2:
+    alice_sec = '''-----BEGIN PGP PRIVATE KEY BLOCK-----
+Comment: Alice's OpenPGP Transferable Secret Key
+
+lFgEXEcE6RYJKwYBBAHaRw8BAQdArjWwk3FAqyiFbFBKT4TzXcVBqPTB3gmzlC/U
+b7O1u10AAP9XBeW6lzGOLx7zHH9AsUDUTb2pggYGMzd0P3ulJ2AfvQ4RtCZBbGlj
+ZSBMb3ZlbGFjZSA8YWxpY2VAb3BlbnBncC5leGFtcGxlPoiQBBMWCAA4AhsDBQsJ
+CAcCBhUKCQgLAgQWAgMBAh4BAheAFiEE64W7X6M6deFelE5j8jFVDE9H444FAl2l
+nzoACgkQ8jFVDE9H447pKwD6A5xwUqIDprBzrHfahrImaYEZzncqb25vkLV2arYf
+a78A/R3AwtLQvjxwLDuzk4dUtUwvUYibL2sAHwj2kGaHnfICnF0EXEcE6RIKKwYB
+BAGXVQEFAQEHQEL/BiGtq0k84Km1wqQw2DIikVYrQrMttN8d7BPfnr4iAwEIBwAA
+/3/xFPG6U17rhTuq+07gmEvaFYKfxRB6sgAYiW6TMTpQEK6IeAQYFggAIBYhBOuF
+u1+jOnXhXpROY/IxVQxPR+OOBQJcRwTpAhsMAAoJEPIxVQxPR+OOWdABAMUdSzpM
+hzGs1O0RkWNQWbUzQ8nUOeD9wNbjE3zR+yfRAQDbYqvtWQKN4AQLTxVJN5X5AWyb
+Pnn+We1aTBhaGa86AQ==
+=n8OM
+-----END PGP PRIVATE KEY BLOCK-----
+'''
+    bob_sec = '''-----BEGIN PGP PRIVATE KEY BLOCK-----
+Comment: Bob's OpenPGP Transferable Secret Key
+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
+=miES
+-----END PGP PRIVATE KEY BLOCK-----
+'''
+
+    alice_key, _ = PGPKey.from_blob(alice_sec)
+    bob_key, _ = PGPKey.from_blob(bob_sec)
+
+    msg = PGPMessage.new('this is a test')
+    sig1 = alice_key.sign(msg)
+    sig2 = bob_key.sign(msg)
+    msg |= sig1
+    msg |= sig2
+
+    it = iter(msg)
+    assert sig2.signer == next(it).signer # OPS 1
+    assert sig1.signer == next(it).signer # OPS 2
+    next(it) # skip contents
+    assert sig1 == next(it)
+    assert sig2 == next(it)
+
+
+@pytest.mark.regression(issue=341)
+def test_spurious_dash_escapes():
+    from pgpy import PGPKey, PGPMessage
+
+    message_data = r'''-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1,SHA256
+
+- This is stored, literally\!
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG/MacGPG2 v2.0.20 (Darwin)
+
+iJwEAQECAAYFAlQaCpEACgkQBM3VPIdAqKYrhwQAyQhwiqrR6oZ5fTBm4JyCOEND
+72Kxbaz1i9Qh0jv7DmgRjb4udh95UQ8U0qVnmnhA8E2deKeDcWTS4fzUkU6J9OdH
+/GPHpL9QEtOJ7xifzJsnKaNJVynmNMtYOqHQ9gCmXx7jM2ngxbTKBT8YZlSLMUdO
+uoUFKrJGv0LWlSWHkeOJARwEAQECAAYFAlQaCpEACgkQKoNNjlkY6IYrhwf/ZnMN
+yKIVxGl+5/9oovvgz2MtGt9B09xRg4BqD+lUDshzQUvQIjBXZ7ZEGSWqerRymZDg
+ZzHpb1lv9oAOVU8f1qsMQJJkiz7Q+xu5FfgAp0WzMHJNy4QOmB4Kw/7UbTwdUXzw
+EzKwbJ8Eg97vJgYdfqUZLu949dwJvyYZzGDdkbrnsaZ8H29XkKXNMlMinDQjvFBR
+djgkILl3ZIdC3p+KechV3uYsqwje2qNEo69KukihPhzCe9o6/Yub5gdC+DSQDGl4
+uPjk0zXjds4G5J5Jd5g4o7vhDWs8InxX4AcLfD6lH1XQ1VCZBpucun5CVsU3dUAv
+yvO7C7FubDu1GUxdbYheBAERCAAGBQJUGgqRAAoJEKXc3JZkUxQOZ+IA/3KI8Mnl
+k3jfpRQcvtSYFlU9WZk9SqZX6xirnV7Hloq6AP9ZlivPrJdWmjRyyShkMNgP/c63
+cjMX82ahGPUVlyMP4A==
+=bcSu
+-----END PGP SIGNATURE-----
+'''
+
+    key = PGPKey.from_file('tests/testdata/keys/rsa.1.pub.asc')[0]
+    message = PGPMessage.from_blob(message_data)
+    assert key.verify(message)

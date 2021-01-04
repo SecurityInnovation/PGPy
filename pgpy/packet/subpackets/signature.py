@@ -55,7 +55,9 @@ __all__ = ['URI',
            'ReasonForRevocation',
            'Features',
            'EmbeddedSignature',
-           'IssuerFingerprint']
+           'IssuerFingerprint',
+           'IntendedRecipient',
+           'AttestedCertifications']
 
 
 class URI(Signature):
@@ -242,7 +244,7 @@ class CreationTime(Signature):
 
     def __bytearray__(self):
         _bytes = super(CreationTime, self).__bytearray__()
-        _bytes += self.int_to_bytes(calendar.timegm(self.created.timetuple()), 4)
+        _bytes += self.int_to_bytes(calendar.timegm(self.created.utctimetuple()), 4)
         return _bytes
 
     def parse(self, packet):
@@ -690,7 +692,7 @@ class PreferredCompressionAlgorithms(FlagList):
     __flags__ = CompressionAlgorithm
 
 
-class KeyServerPreferences(FlagList):
+class KeyServerPreferences(ByteFlag):
     __typeid__ = 0x17
     __flags__ = _KeyServerPreferences
 
@@ -889,6 +891,21 @@ class EmbeddedSignature(Signature):
 
 
 class IssuerFingerprint(Signature):
+    '''
+    (from RFC4880bis-07)
+    5.2.3.28.  Issuer Fingerprint
+
+    (1 octet key version number, N octets of fingerprint)
+
+    The OpenPGP Key fingerprint of the key issuing the signature.  This
+    subpacket SHOULD be included in all signatures.  If the version of
+    the issuing key is 4 and an Issuer subpacket is also included in the
+    signature, the key ID of the Issuer subpacket MUST match the low 64
+    bits of the fingerprint.
+
+    Note that the length N of the fingerprint for a version 4 key is 20
+    octets; for a version 5 key N is 32.
+    '''
     __typeid__ = 0x21
 
     @sdproperty
@@ -936,9 +953,181 @@ class IssuerFingerprint(Signature):
         if self.version == 4:
             fpr_len = 20
         elif self.version == 5:  # pragma: no cover
-            fpr_len = 25
+            fpr_len = 32
         else:  # pragma: no cover
             fpr_len = self.header.length - 1
 
         self.issuer_fingerprint = packet[:fpr_len]
         del packet[:fpr_len]
+
+
+class IntendedRecipient(Signature):
+    '''
+    (from RFC4880bis-08)
+    5.2.3.29. Intended Recipient
+
+    (1 octet key version number, N octets of fingerprint)
+
+    The OpenPGP Key fingerprint of the intended recipient primary key.
+    If one or more subpackets of this type are included in a signature,
+    it SHOULD be considered valid only in an encrypted context, where the
+    key it was encrypted to is one of the indicated primary keys, or one
+    of their subkeys.  This can be used to prevent forwarding a signature
+    outside of its intended, encrypted context.
+
+    Note that the length N of the fingerprint for a version 4 key is 20
+    octets; for a version 5 key N is 32.
+    '''
+    __typeid__ = 0x23
+
+    @sdproperty
+    def version(self):
+        return self._version
+
+    @version.register(int)
+    def version_int(self, val):
+        self._version = val
+
+    @version.register(bytearray)
+    def version_bytearray(self, val):
+        self.version = self.bytes_to_int(val)
+
+    @sdproperty
+    def intended_recipient(self):
+        return self._intended_recipient
+
+    @intended_recipient.register(str)
+    @intended_recipient.register(six.text_type)
+    @intended_recipient.register(Fingerprint)
+    def intended_recipient_str(self, val):
+        self._intended_recipient = Fingerprint(val)
+
+    @intended_recipient.register(bytearray)
+    def intended_recipient_bytearray(self, val):
+        self.intended_recipient = ''.join('{:02x}'.format(c) for c in val).upper()
+
+    def __init__(self):
+        super(IntendedRecipient, self).__init__()
+        self.version = 4
+        self._intended_recipient = ""
+
+    def __bytearray__(self):
+        _bytes = super(IntendedRecipient, self).__bytearray__()
+        _bytes += self.int_to_bytes(self.version)
+        _bytes += self.intended_recipient.__bytes__()
+        return _bytes
+
+    def parse(self, packet):
+        super(IntendedRecipient, self).parse(packet)
+        self.version = packet[:1]
+        del packet[:1]
+
+        if self.version == 4:
+            fpr_len = 20
+        elif self.version == 5:  # pragma: no cover
+            fpr_len = 32
+        else:  # pragma: no cover
+            fpr_len = self.header.length - 1
+
+        self.intended_recipient = packet[:fpr_len]
+        del packet[:fpr_len]
+
+        
+class AttestedCertifications(Signature):
+    '''
+    (from RFC4880bis-08)
+    5.2.3.30. Attested Certifications
+
+    (N octets of certification digests)
+
+    This subpacket MUST only appear as a hashed subpacket of an
+    Attestation Key Signature.  It has no meaning in any other signature
+    type.  It is used by the primary key to attest to a set of third-
+    party certifications over the associated User ID or User Attribute.
+    This enables the holder of an OpenPGP primary key to mark specific
+    third-party certifications as re-distributable with the rest of the
+    Transferable Public Key (see the "No-modify" flag in "Key Server
+    Preferences", above).  Implementations MUST include exactly one
+    Attested Certification subpacket in any generated Attestation Key
+    Signature.
+
+    The contents of the subpacket consists of a series of digests using
+    the same hash algorithm used by the signature itself.  Each digest is
+    made over one third-party signature (any Certification, i.e.,
+    signature type 0x10-0x13) that covers the same Primary Key and User
+    ID (or User Attribute).  For example, an Attestation Key Signature
+    made by key X over user ID U using hash algorithm SHA256 might
+    contain an Attested Certifications subpacket of 192 octets (6*32
+    octets) covering six third-party certification Signatures over <X,U>.
+    They SHOULD be ordered by binary hash value from low to high (e.g., a
+    hash with hexadecimal value 037a... precedes a hash with value
+    0392..., etc).  The length of this subpacket MUST be an integer
+    multiple of the length of the hash algorithm used for the enclosing
+    Attestation Key Signature.
+
+    The listed digests MUST be calculated over the third-party
+    certification's Signature packet as described in the "Computing
+    Signatures" section, but without a trailer: the hash data starts with
+    the octet 0x88, followed by the four-octet length of the Signature,
+    and then the body of the Signature packet.  (Note that this is an
+    old-style packet header for a Signature packet with the length-of-
+    length field set to zero.)  The unhashed subpacket data of the
+    Signature packet being hashed is not included in the hash, and the
+    unhashed subpacket data length value is set to zero.
+
+    If an implementation encounters more than one such subpacket in an
+    Attestation Key Signature, it MUST treat it as a single Attested
+    Certifications subpacket containing the union of all hashes.
+
+    The Attested Certifications subpacket in the most recent Attestation
+    Key Signature over a given user ID supersedes all Attested
+    Certifications subpackets from any previous Attestation Key
+    Signature.  However, note that if more than one Attestation Key
+    Signatures has the same (most recent) Signature Creation Time
+    subpacket, implementations MUST consider the union of the
+    attestations of all Attestation Key Signatures (this allows the
+    keyholder to attest to more third-party certifications than could fit
+    in a single Attestation Key Signature).
+
+    If a keyholder Alice has already attested to third-party
+    certifications from Bob and Carol and she wants to add an attestation
+    to a certification from David, she should issue a new Attestation Key
+    Signature (with a more recent Signature Creation timestamp) that
+    contains an Attested Certifications subpacket covering all three
+    third-party certifications.
+
+    If she later decides that she does not want Carol's certification to
+    be redistributed with her certificate, she can issue a new
+    Attestation Key Signature (again, with a more recent Signature
+    Creation timestamp) that contains an Attested Certifications
+    subpacket covering only the certifications from Bob and David.
+
+    Note that Certification Revocation Signatures are not relevant for
+    Attestation Key Signatures.  To rescind all attestations, the primary
+    key holder needs only to publish a more recent Attestation Key
+    Signature with an empty Attested Certifications subpacket.
+    '''
+    __typeid__ = 0x25
+
+    @sdproperty
+    def attested_certifications(self):
+        return self._attested_certifications
+
+    @attested_certifications.register(bytearray) 
+    @attested_certifications.register(bytes)
+    def attested_certifications_bytearray(self, val):
+        self._attested_certifications = val
+
+    def __init__(self):
+        super(AttestedCertifications, self).__init__()
+        self._attested_certifications = bytearray()
+
+    def __bytearray__(self):
+        _bytes = super(AttestedCertifications, self).__bytearray__()
+        _bytes += self._attested_certifications
+        return _bytes
+
+    def parse(self, packet):
+        super(AttestedCertifications, self).parse(packet)
+        self.attested_certifications = packet[:(self.header.length - 1)]
+        del packet[:(self.header.length - 1)]

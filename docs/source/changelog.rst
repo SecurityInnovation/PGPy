@@ -4,7 +4,30 @@
 Changelog
 *********
 
-v0.5.1
+v0.5.3
+======
+
+Released: October 6, 2020
+
+.. warning::
+
+    This is the last release that will support Python 2.7 and 3.4. Future releases will require Python 3.5 or greater.
+
+Bugs fixed
+----------
+
+* Passphrases are now encoded as utf-8 instead of latin-1 (#294)
+* PGPUIDs without a selfsig no longer cause crashes (#315)
+* Fixed dash un-escaping to be applied unconditionally (#341, #342)
+* Fix the ordering of one-pass signatures (#302)
+
+Other Changes
+-------------
+
+* Updated unit tests to use `gpg 1.10 <https://pypi.org/project/gpg/1.10.0/>`_
+* Lots of documentation updates and cleanup
+
+v0.5.2
 ======
 
 Released: August 1, 2019

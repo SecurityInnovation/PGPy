@@ -1,11 +1,20 @@
-python-pgpy (0.5.2-3) UNRELEASED; urgency=medium
+python-pgpy (0.5.3-1) unstable; urgency=medium
 
+  * New upstream release
+
+  [ Debian Janitor ]
   * Set upstream metadata fields: Repository-Browse.
   * Use canonical URL in Vcs-Git.
   * Set upstream metadata fields: Bug-Database, Bug-Submit, Repository.
   * Update standards version to 4.5.0, no changes needed.
 
- -- Debian Janitor <janitor@jelmer.uk>  Wed, 04 Dec 2019 01:21:17 +0000
+  [ Daniel Kahn Gillmor ]
+  * bump standards-version to 4.5.1 (no changes needed)
+  * move to dh 13
+  * drop patches already upstream
+  * python3-pgpy-doc now Recommends: libjs-sphinxdoc
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Fri, 01 Jan 2021 20:15:55 -0500
 
 python-pgpy (0.5.2-2) unstable; urgency=medium
 

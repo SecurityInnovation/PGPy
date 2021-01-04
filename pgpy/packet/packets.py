@@ -415,6 +415,36 @@ class SignatureV4(Signature):
 
         return _bytes
 
+    def canonical_bytes(self):
+        '''Returns a bytearray that is the way the signature packet
+        should be represented if it is itself being signed.
+
+        from RFC 4880 section 5.2.4:
+
+        When a signature is made over a Signature packet (type 0x50), the
+        hash data starts with the octet 0x88, followed by the four-octet
+        length of the signature, and then the body of the Signature packet.
+        (Note that this is an old-style packet header for a Signature packet
+        with the length-of-length set to zero.)  The unhashed subpacket data
+        of the Signature packet being hashed is not included in the hash, and
+        the unhashed subpacket data length value is set to zero.
+
+        '''
+        _body = bytearray()
+        _body += self.int_to_bytes(self.header.version)
+        _body += self.int_to_bytes(self.sigtype)
+        _body += self.int_to_bytes(self.pubalg)
+        _body += self.int_to_bytes(self.halg)
+        _body += self.subpackets.__hashbytearray__()
+        _body += self.int_to_bytes(0, minlen=2) # empty unhashed subpackets
+        _body += self.hash2
+        _body += self.signature.__bytearray__()
+
+        _hdr = bytearray()
+        _hdr += b'\x88'
+        _hdr += self.int_to_bytes(len(_body), minlen=4)
+        return _hdr + _body
+    
     def __copy__(self):
         spkt = SignatureV4()
         spkt.header = copy.copy(self.header)
@@ -1290,32 +1320,23 @@ class UserID(Packet):
     """
     __typeid__ = 0x0D
 
-    def __init__(self):
+    def __init__(self, uid=""):
         super(UserID, self).__init__()
-        self.name = ""
-        self.comment = ""
-        self.email = ""
+        self.uid = uid
         self._encoding_fallback = False
 
     def __bytearray__(self):
         _bytes = bytearray()
         _bytes += super(UserID, self).__bytearray__()
         textenc = 'utf-8' if not self._encoding_fallback else 'charmap'
-        _bytes += self.name.encode(textenc)
-        if self.comment:
-            _bytes += b' (' + self.comment.encode(textenc) + b')'
-
-        if self.email:
-            _bytes += b' <' + self.email.encode(textenc) + b'>'
+        _bytes += self.uid.encode(textenc)
 
         return _bytes
 
     def __copy__(self):
         uid = UserID()
         uid.header = copy.copy(self.header)
-        uid.name = self.name
-        uid.comment = self.comment
-        uid.email = self.email
+        uid.uid = self.uid
         return uid
 
     def parse(self, packet):
@@ -1325,30 +1346,10 @@ class UserID(Packet):
         # uid_text = packet[:self.header.length].decode('utf-8')
         del packet[:self.header.length]
         try:
-            uid_text = uid_bytes.decode('utf-8')
+            self.uid = uid_bytes.decode('utf-8')
         except UnicodeDecodeError:
-            uid_text = uid_bytes.decode('charmap')
+            self.uid = uid_bytes.decode('charmap')
             self._encoding_fallback = True
-
-        # came across a UID packet with no payload. If that happens, don't bother trying to parse anything!
-        if self.header.length > 0:
-            uid = re.match(r"""^
-                               # name should always match something
-                               (?P<name>.+?)
-                               # comment *optionally* matches text in parens following name
-                               # this should never come after email and must be followed immediately by
-                               # either the email field, or the end of the packet.
-                               (\ \((?P<comment>.+?)\)(?=(\ <|$)))?
-                               # email *optionally* matches text in angle brackets following name or comment
-                               # this should never come before a comment, if comment exists,
-                               # but can immediately follow name if comment does not exist
-                               (\ <(?P<email>.+)>)?
-                               $
-                            """, uid_text, flags=re.VERBOSE).groupdict()
-
-            self.name = uid['name']
-            self.comment = uid['comment'] or ""
-            self.email = uid['email'] or ""
 
 
 class PubSubKey(VersionedPacket, Sub, Public):

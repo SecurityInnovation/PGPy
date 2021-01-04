@@ -32,7 +32,7 @@ using a :py:obj:`datetime.datetime` or a :py:obj:`datetime.timedelta` object::
 
     from datetime import timedelta
 
-    # in this example, we'll use fewer preferences for the sake of brevity, and set the key to expire in 10 years
+    # in this example, we'll use fewer preferences for the sake of brevity, and set the key to expire in 1 year
     key = pgpy.PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 4096)
     uid = pgpy.PGPUID.new('Nikola Tesla')  # comment and email are optional
 
@@ -48,7 +48,7 @@ Generating Sub Keys
 Generating a subkey is similar to the process above, except that it requires an existing primary key::
 
     # assuming we already have a primary key, we can generate a new key and add it as a subkey thusly:
-    subkey = pgpy.PGPKey.new(PubKeyAlgorithm.RSA, 4096)
+    subkey = pgpy.PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 4096)
 
     # preferences that are specific to the subkey can be chosen here
     # any preference(s) needed for actions by this subkey that not specified here
