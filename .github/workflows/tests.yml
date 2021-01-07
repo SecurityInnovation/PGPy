@@ -18,15 +18,21 @@ jobs:
         run: |
           sed -i -e 's/^/#/' tests/gnupghome/gpg-agent.conf
           if [ "$(uname)" = "Darwin" ]; then ./install_dependencies.osx.sh; else ./install_dependencies.linux.sh; fi
-          pip install tox
+          pip install tox coveralls
       - name: Run Tox
         run: ./tox.sh -e py
+      - name: Upload Coveralls coverage
+        if: ${{ success() }}
+        run: coveralls
+        env:
+          COVERALLS_PARALLEL: true
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   c-locale-test:
     runs-on: ubuntu-16.04
     steps:
       - uses: actions/checkout@v2
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python
         uses: actions/setup-python@v2
         with:
           python-version: 3.6
@@ -34,11 +40,17 @@ jobs:
         run: |
           sed -i -e 's/^/#/' tests/gnupghome/gpg-agent.conf
           ./install_dependencies.linux.sh
-          pip install tox
+          pip install tox coveralls
       - name: Run Tox
         run: ./tox.sh -e py
         env:
           LC_ALL: C
+      - name: Upload Coveralls coverage
+        if: ${{ success() }}
+        run: coveralls
+        env:
+          COVERALLS_PARALLEL: true
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   test-setup:
     runs-on: ubuntu-16.04
@@ -80,3 +92,17 @@ jobs:
       - name: Run tox
         run: tox -e pep8
 
+  finish-coveralls:
+    needs: [ unit-tests, c-locale-test ]
+    runs-on: ubuntu-16.04
+
+    steps:
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.6
+      - name: Finish Coveralls
+        run: |
+          pip install coveralls
+          coveralls --finish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
