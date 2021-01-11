@@ -8,7 +8,7 @@ from .pgp import PGPMessage
 from .pgp import PGPSignature
 from .pgp import PGPUID
 
-__all__ = ['__author__',
+__all__ = ['__author__',  # noqa: F405
            '__copyright__',
            '__license__',
            '__version__',

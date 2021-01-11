@@ -22,7 +22,7 @@ if six.PY2:
 
         return _inner
 
-    class memoryview(object):  # flake8: noqa
+    class memoryview(object):  # noqa: N801
         @property
         @notreleased
         def obj(self):

@@ -78,9 +78,9 @@ class SubPacket(Dispatchable):
         self.header = Header()
 
         # if self.__typeid__ not in [-1, None]:
-        if (self.header.typeid == -1 and
-                (not hasattr(self.__typeid__, '__abstractmethod__')) and
-                (self.__typeid__ not in [-1, None])):
+        if self.header.typeid == -1 and \
+                not hasattr(self.__typeid__, '__abstractmethod__') and \
+                self.__typeid__ not in [-1, None]:
             self.header.typeid = self.__typeid__
 
     def __bytearray__(self):

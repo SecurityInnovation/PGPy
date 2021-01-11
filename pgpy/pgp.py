@@ -89,6 +89,7 @@ __all__ = ['PGPSignature',
 
 class PGPSignature(Armorable, ParentRef, PGPObject):
     _reason_for_revocation = collections.namedtuple('ReasonForRevocation', ['code', 'comment'])
+
     @property
     def __sig__(self):
         return self._signature.signature.__sig__()
@@ -279,7 +280,7 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         for n in self._signature.subpackets['h_AttestedCertifications']:
             attestations = bytes(n.attested_certifications)
             for i in range(0, len(attestations), hlen):
-                ret.add(attestations[i:i+hlen])
+                ret.add(attestations[i:i + hlen])
         return ret
 
     @property
@@ -321,7 +322,7 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         sig = PGPSignature()
 
         if created is None:
-            created=datetime.utcnow()
+            created = datetime.utcnow()
         sigpkt = SignatureV4()
         sigpkt.header.tag = 2
         sigpkt.header.version = 4
@@ -594,7 +595,7 @@ class PGPUID(ParentRef):
         if not isinstance(self._uid, UserID):
             return ("", "", "")
         if self._uid.uid == "":
-            return ("", "", "")           
+            return ("", "", "")
         rfc2822 = re.match(r"""^
                            # name should always match something
                            (?P<name>.+?)
@@ -608,9 +609,8 @@ class PGPUID(ParentRef):
                            (\ <(?P<email>.+)>)?
                            $
                            """, self._uid.uid, flags=re.VERBOSE).groupdict()
-        
-        return (rfc2822['name'], rfc2822['comment'] or "", rfc2822['email'] or "")
 
+        return (rfc2822['name'], rfc2822['comment'] or "", rfc2822['email'] or "")
 
     @property
     def name(self):
@@ -624,7 +624,6 @@ class PGPUID(ParentRef):
         this will be an empty string.,
         """
         return self._splitstring()[1]
-
 
     @property
     def email(self):
@@ -1684,7 +1683,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
         else:
             raise TypeError("unsupported operand type(s) for |: '{:s}' and '{:s}'"
-                        "".format(self.__class__.__name__, other.__class__.__name__))
+                            "".format(self.__class__.__name__, other.__class__.__name__))
 
         if isinstance(self._sibling, weakref.ref) and not from_sib:
             sib = self._sibling()
@@ -2079,7 +2078,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                                           the certificate holder wants to attest to for redistribution with the certificate.
                                           Alternatively, any element in the list can be a ``bytes``  or ``bytearray`` object
                                           of the appropriate length (the length of this certification's digest).
-                                          This keyword is only used for signatures of type Attestation.  
+                                          This keyword is only used for signatures of type Attestation.
         :type attested_certifications: ``list``
         :keyword keyserver: Specify the URI of the preferred key server of the user.
                             This keyword is ignored for non-self-certifications.
@@ -2183,11 +2182,11 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                         h = sig.hash_algorithm.hasher
                         h.update(attestation._signature.canonical_bytes())
                         attestations.add(h.digest())
-                    elif isinstance(attestation, (bytes,bytearray)) and len(attestation) == sig.hash_algorithm.digest_size:
+                    elif isinstance(attestation, (bytes, bytearray)) and len(attestation) == sig.hash_algorithm.digest_size:
                         attestations.add(attestation)
                     else:
-                        warnings.warn("Attested Certification element is neither a PGPSignature certification nor " +
-                                      "a bytes object of size %d, ignoring"%(sig.hash_algorithm.digest_size))
+                        warnings.warn("Attested Certification element is neither a PGPSignature certification nor "
+                                      "a bytes object of size %d, ignoring" % (sig.hash_algorithm.digest_size))
                 sig._signature.subpackets.addnew('AttestedCertifications', hashed=True, attested_certifications=b''.join(sorted(attestations)))
 
         else:
@@ -2518,7 +2517,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         # last holds the last non-signature thing processed
 
         ##TODO: see issue #141 and fix this better
-        _getpkt = lambda d: (Packet(d) if d else None)  # flake8: noqa
+        _getpkt = lambda d: (Packet(d) if d else None)  # noqa: E731
         # some packets are filtered out
         getpkt = filter(lambda p: p.header.tag != PacketTag.Trust, iter(functools.partial(_getpkt, data), None))
 

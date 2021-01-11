@@ -499,8 +499,8 @@ class MetaDispatchable(abc.ABCMeta):
                     if (rcls, ncls.__typeid__) not in MetaDispatchable._registry:
                         MetaDispatchable._registry[(rcls, ncls.__typeid__)] = ncls
 
-                    if (ncls.__ver__ is not None and ncls.__ver__ > 0 and
-                            (rcls, ncls.__typeid__, ncls.__ver__) not in MetaDispatchable._registry):
+                    if ncls.__ver__ is not None and ncls.__ver__ > 0 and \
+                            (rcls, ncls.__typeid__, ncls.__ver__) not in MetaDispatchable._registry:
                         MetaDispatchable._registry[(rcls, ncls.__typeid__, ncls.__ver__)] = ncls
 
         # finally, return the new class object

@@ -4,7 +4,6 @@ import bz2
 import hashlib
 import imghdr
 import os
-import time
 import zlib
 
 from collections import namedtuple
