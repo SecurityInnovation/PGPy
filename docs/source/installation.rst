@@ -47,6 +47,10 @@ For Debian/Ubuntu, these requirements can be installed like so::
 
     $ sudo apt install build-essential libssl-dev libffi-dev python-dev
 
+For Alpine linux, the build requirements can be installed like so::
+
+    $ apk add build-base libressl-dev libffi-dev python-dev
+
 You may need to install ``python3-dev`` if you are using PGPy on Python 3.
 
 For Fedora/RHEL derivatives, the build requirements can be installed like so::
@@ -58,7 +62,7 @@ Mac OS X
 
 If you are on Mac OS, you may experience more limited functionality without installing a more capable version of OpenSSL.
 
-You may refer to Cryptography's documentation on `Building cryptography on OS X <https://cryptography.io/en/latest/installation/#building-cryptography-on-os-x>`_ for information on how to do so.
+You may refer to Cryptography's documentation on `Building cryptography on macOS <https://cryptography.io/en/latest/installation.html#building-cryptography-on-macos>`_ for information on how to do so.
 
 
 Installation
