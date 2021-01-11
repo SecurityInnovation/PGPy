@@ -1,0 +1,6 @@
+brew "libffi"
+brew "gnupg2"
+brew "pgpdump"
+brew "openssl@1.1"
+brew "gpgme"
+brew "swig"
