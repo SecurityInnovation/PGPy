@@ -27,7 +27,7 @@ It is possible to generate most types of keys with PGPy now. The process is most
                 ciphers=[SymmetricKeyAlgorithm.AES256, SymmetricKeyAlgorithm.AES192, SymmetricKeyAlgorithm.AES128],
                 compression=[CompressionAlgorithm.ZLIB, CompressionAlgorithm.BZ2, CompressionAlgorithm.ZIP, CompressionAlgorithm.Uncompressed])
 
-Specifying key expiration can be done using the ``key_expires`` keyword when adding the user id. Expiration can be specified
+Specifying key expiration can be done using the ``key_expiration`` keyword when adding the user id. Expiration can be specified
 using a :py:obj:`datetime.datetime` or a :py:obj:`datetime.timedelta` object::
 
     from datetime import timedelta
@@ -40,7 +40,7 @@ using a :py:obj:`datetime.datetime` or a :py:obj:`datetime.timedelta` object::
     key.add_uid(uid, usage={KeyFlags.Sign}, hashes=[HashAlgorithm.SHA512, HashAlgorithm.SHA256],
                 ciphers=[SymmetricKeyAlgorithm.AES256, SymmetricKeyAlgorithm.Camellia256],
                 compression=[CompressionAlgorithm.BZ2, CompressionAlgorithm.Uncompressed],
-                key_expires=timedelta(days=365))
+                key_expiration=timedelta(days=365))
 
 Generating Sub Keys
 ^^^^^^^^^^^^^^^^^^^
@@ -138,8 +138,11 @@ In Python 3::
     # binary
     keybytes = bytes(key)
 
-    # ASCII armored
+    # ASCII armored private key
     keystr = str(key)
+    
+    # ASCII armored public key
+    keystr = str(key.pubkey)
 
 in Python 2::
 
