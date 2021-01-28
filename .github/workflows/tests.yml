@@ -23,7 +23,7 @@ jobs:
         run: ./tox.sh -e py
       - name: Upload Coveralls coverage
         if: ${{ success() }}
-        run: coveralls
+        run: coveralls --service=github
         env:
           COVERALLS_PARALLEL: true
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -48,7 +48,7 @@ jobs:
           LC_ALL: C
       - name: Upload Coveralls coverage
         if: ${{ success() }}
-        run: coveralls
+        run: coveralls --service=github
         env:
           COVERALLS_PARALLEL: true
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -107,6 +107,6 @@ jobs:
       - name: Finish Coveralls
         run: |
           pip install coveralls
-          coveralls --finish
+          coveralls --service=github --finish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
