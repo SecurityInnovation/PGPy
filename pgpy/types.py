@@ -16,6 +16,8 @@ import weakref
 
 from enum import EnumMeta
 from enum import IntEnum
+from typing import Deque
+from typing import TypeVar
 from typing import Union
 
 import six
@@ -723,15 +725,18 @@ class Fingerprint(str):
         return binascii.unhexlify(six.b(self.replace(' ', '')))
 
 
-class SorteDeque(collections.deque):
+_T = TypeVar('_T')
+
+
+class SorteDeque(Deque[_T]):
     """A deque subclass that tries to maintain sorted ordering using bisect"""
-    def insort(self, item):
+    def insort(self, item: _T) -> None:
         i = bisect.bisect_left(self, item)
         self.rotate(- i)
         self.appendleft(item)
         self.rotate(i)
 
-    def resort(self, item):  # pragma: no cover
+    def resort(self, item: _T) -> None:  # pragma: no cover
         if item in self:
             # if item is already in self, see if it is still in sorted order.
             # if not, re-sort it by removing it and then inserting it into its sorted order
@@ -744,7 +749,7 @@ class SorteDeque(collections.deque):
             # if item is not in self, just insert it in sorted order
             self.insort(item)
 
-    def check(self):  # pragma: no cover
+    def check(self) -> None:  # pragma: no cover
         """re-sort any items in self that are not sorted"""
         for unsorted in iter(self[i] for i in range(len(self) - 2) if not operator.le(self[i], self[i + 1])):
             self.resort(unsorted)
