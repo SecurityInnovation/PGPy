@@ -10,6 +10,8 @@ import zlib
 from collections import namedtuple
 from enum import Enum
 from enum import IntEnum
+from typing import Optional
+
 from pyasn1.type.univ import ObjectIdentifier
 
 import six
@@ -85,7 +87,7 @@ class EllipticCurveOID(Enum):
     #: SECG curve secp256k1
     SECP256K1 = ('1.3.132.0.10', ec.SECP256K1)
 
-    def __new__(cls, oid, curve=None):
+    def __new__(cls, oid: str, curve: ec.EllipticCurve = None) -> 'EllipticCurveOID':
         # preprocessing stage for enum members:
         #  - set enum_member.value to ObjectIdentifier(oid)
         #  - if curve is not None and curve.name is in ec._CURVE_TYPES, set enum_member.curve to curve
@@ -100,16 +102,16 @@ class EllipticCurveOID(Enum):
         return obj
 
     @property
-    def can_gen(self):
+    def can_gen(self) -> bool:
         return self.curve is not None
 
     @property
-    def key_size(self):
+    def key_size(self) -> Optional[int]:
         if self.curve is not None:
             return self.curve.key_size
 
     @property
-    def kdf_halg(self):
+    def kdf_halg(self) -> Optional['HashAlgorithm']:
         # return the hash algorithm to specify in the KDF fields when generating a key
         algs = {256: HashAlgorithm.SHA256,
                 384: HashAlgorithm.SHA384,
@@ -119,7 +121,7 @@ class EllipticCurveOID(Enum):
         return algs.get(self.key_size, None)
 
     @property
-    def kek_alg(self):
+    def kek_alg(self) -> Optional['SymmetricKeyAlgorithm']:
         # return the AES algorithm to specify in the KDF fields when generating a key
         algs = {256: SymmetricKeyAlgorithm.AES128,
                 384: SymmetricKeyAlgorithm.AES192,
@@ -204,20 +206,20 @@ class SymmetricKeyAlgorithm(IntEnum):
         raise NotImplementedError(repr(self))
 
     @property
-    def is_supported(self):
+    def is_supported(self) -> bool:
         return callable(self.cipher)
 
     @property
-    def is_insecure(self):
+    def is_insecure(self) -> bool:
         insecure_ciphers = {SymmetricKeyAlgorithm.IDEA}
         return self in insecure_ciphers
 
     @property
-    def block_size(self):
+    def block_size(self) -> int:
         return self.cipher.block_size
 
     @property
-    def key_size(self):
+    def key_size(self) -> int:
         ks = {SymmetricKeyAlgorithm.IDEA: 128,
               SymmetricKeyAlgorithm.TripleDES: 192,
               SymmetricKeyAlgorithm.CAST5: 128,
@@ -235,10 +237,10 @@ class SymmetricKeyAlgorithm(IntEnum):
 
         raise NotImplementedError(repr(self))
 
-    def gen_iv(self):
+    def gen_iv(self) -> bytes:
         return os.urandom(self.block_size // 8)
 
-    def gen_key(self):
+    def gen_key(self) -> bytes:
         return os.urandom(self.key_size // 8)
 
 
@@ -262,7 +264,7 @@ class PubKeyAlgorithm(IntEnum):
     EdDSA = 0x16  # https://tools.ietf.org/html/draft-koch-eddsa-for-openpgp-04
 
     @property
-    def can_gen(self):
+    def can_gen(self) -> bool:
         return self in {PubKeyAlgorithm.RSAEncryptOrSign,
                         PubKeyAlgorithm.DSA,
                         PubKeyAlgorithm.ECDSA,
@@ -270,15 +272,15 @@ class PubKeyAlgorithm(IntEnum):
                         PubKeyAlgorithm.EdDSA}
 
     @property
-    def can_encrypt(self):  # pragma: no cover
+    def can_encrypt(self) -> bool:  # pragma: no cover
         return self in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.ElGamal, PubKeyAlgorithm.ECDH}
 
     @property
-    def can_sign(self):
+    def can_sign(self) -> bool:
         return self in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.DSA, PubKeyAlgorithm.ECDSA, PubKeyAlgorithm.EdDSA}
 
     @property
-    def deprecated(self):
+    def deprecated(self) -> bool:
         return self in {PubKeyAlgorithm.RSAEncrypt,
                         PubKeyAlgorithm.RSASign,
                         PubKeyAlgorithm.FormerlyElGamalEncryptOrSign}
@@ -295,7 +297,7 @@ class CompressionAlgorithm(IntEnum):
     #: Bzip2
     BZ2 = 0x03
 
-    def compress(self, data):
+    def compress(self, data: bytes) -> bytes:
         if self is CompressionAlgorithm.Uncompressed:
             return data
 
@@ -310,7 +312,7 @@ class CompressionAlgorithm(IntEnum):
 
         raise NotImplementedError(self)
 
-    def decompress(self, data):
+    def decompress(self, data: bytes) -> bytes:
         if six.PY2:
             data = bytes(data)
 
@@ -344,7 +346,7 @@ class HashAlgorithm(IntEnum):
     SHA512 = 0x0A
     SHA224 = 0x0B
 
-    def __init__(self, *args):
+    def __init__(self, *args) -> None:
         super(self.__class__, self).__init__()
         self._tuned_count = 255
 
@@ -353,15 +355,15 @@ class HashAlgorithm(IntEnum):
         return hashlib.new(self.name)
 
     @property
-    def digest_size(self):
+    def digest_size(self) -> int:
         return self.hasher.digest_size
 
     @property
-    def tuned_count(self):
+    def tuned_count(self) -> int:
         return self._tuned_count
 
     @property
-    def is_supported(self):
+    def is_supported(self) -> bool:
         return True
 
 
@@ -384,7 +386,7 @@ class ImageEncoding(IntEnum):
     JPEG = 0x01
 
     @classmethod
-    def encodingof(cls, imagebytes):
+    def encodingof(cls, imagebytes: bytes) -> 'ImageEncoding':
         type = imghdr.what(None, h=imagebytes)
         if type == 'jpeg':
             return ImageEncoding.JPEG
@@ -522,7 +524,7 @@ class Features(FlagEnum):
     ModificationDetection = 0x01
 
     @classproperty
-    def pgpy_features(cls):
+    def pgpy_features(cls) -> 'Features':
         return Features.ModificationDetection
 
 
