@@ -16,6 +16,7 @@ import weakref
 
 from enum import EnumMeta
 from enum import IntEnum
+from typing import Union
 
 import six
 
@@ -673,14 +674,14 @@ class Fingerprint(str):
     Primarily used as a key for internal dictionaries, so it ignores spaces when comparing and hashing
     """
     @property
-    def keyid(self):
+    def keyid(self) -> str:
         return str(self).replace(' ', '')[-16:]
 
     @property
-    def shortid(self):
+    def shortid(self) -> str:
         return str(self).replace(' ', '')[-8:]
 
-    def __new__(cls, content):
+    def __new__(cls, content: Union['Fingerprint', str]) -> 'Fingerprint':
         if isinstance(content, Fingerprint):
             return content
 
@@ -697,7 +698,7 @@ class Fingerprint(str):
 
         return str.__new__(cls, content)
 
-    def __eq__(self, other):
+    def __eq__(self, other: Union['Fingerprint', str, bytes, bytearray]) -> bool:
         if isinstance(other, Fingerprint):
             return str(self) == str(other)
 
@@ -712,13 +713,13 @@ class Fingerprint(str):
 
         return False  # pragma: no cover
 
-    def __ne__(self, other):
+    def __ne__(self, other) -> bool:
         return not (self == other)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(str(self.replace(' ', '')))
 
-    def __bytes__(self):
+    def __bytes__(self) -> bytes:
         return binascii.unhexlify(six.b(self.replace(' ', '')))
 
 
