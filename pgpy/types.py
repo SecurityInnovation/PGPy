@@ -700,7 +700,7 @@ class Fingerprint(str):
 
         return str.__new__(cls, content)
 
-    def __eq__(self, other: Union['Fingerprint', str, bytes, bytearray]) -> bool:
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, Fingerprint):
             return str(self) == str(other)
 
@@ -715,7 +715,7 @@ class Fingerprint(str):
 
         return False  # pragma: no cover
 
-    def __ne__(self, other) -> bool:
+    def __ne__(self, other: object) -> bool:
         return not (self == other)
 
     def __hash__(self) -> int:
