@@ -753,3 +753,6 @@ class SorteDeque(Deque[_T]):
         """re-sort any items in self that are not sorted"""
         for unsorted in iter(self[i] for i in range(len(self) - 2) if not operator.le(self[i], self[i + 1])):
             self.resort(unsorted)
+
+
+del _T  # delete _T so that test_00_exports passes
