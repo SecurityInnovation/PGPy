@@ -16,7 +16,9 @@ import weakref
 
 from enum import EnumMeta
 from enum import IntEnum
+from typing import Any
 from typing import Deque
+from typing import Optional
 from typing import Tuple
 from typing import TypeVar
 from typing import Union
@@ -261,11 +263,11 @@ class ParentRef(object):
 class PGPObject(six.with_metaclass(abc.ABCMeta, object)):
 
     @staticmethod
-    def int_byte_len(i):
+    def int_byte_len(i: int) -> int:
         return (i.bit_length() + 7) // 8
 
     @staticmethod
-    def bytes_to_int(b, order='big'):  # pragma: no cover
+    def bytes_to_int(b: bytes, order: str = 'big') -> int:  # pragma: no cover
         """convert bytes to integer"""
         if six.PY2:
             # save the original type of b without having to copy any data
@@ -281,7 +283,7 @@ class PGPObject(six.with_metaclass(abc.ABCMeta, object)):
         return int.from_bytes(b, order)
 
     @staticmethod
-    def int_to_bytes(i, minlen=1, order='big'):  # pragma: no cover
+    def int_to_bytes(i: int, minlen: int = 1, order: str = 'big') -> bytes:  # pragma: no cover
         """convert integer to bytes"""
         blen = max(minlen, PGPObject.int_byte_len(i), 1)
 
@@ -292,7 +294,7 @@ class PGPObject(six.with_metaclass(abc.ABCMeta, object)):
         return i.to_bytes(blen, order)
 
     @staticmethod
-    def text_to_bytes(text):
+    def text_to_bytes(text: Optional[str]) -> Optional[bytes]:
         if text is None:
             return text
 
@@ -305,24 +307,24 @@ class PGPObject(six.with_metaclass(abc.ABCMeta, object)):
         return text.encode('utf-8')
 
     @staticmethod
-    def bytes_to_text(text):
+    def bytes_to_text(text: Optional[Union[bytes, str]]) -> Optional[str]:
         if text is None or isinstance(text, six.text_type):
             return text
 
         return text.decode('utf-8')
 
     @abc.abstractmethod
-    def parse(self, packet):
+    def parse(self, packet: Any) -> Any:
         """this method is too abstract to understand"""
 
     @abc.abstractmethod
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         """
         Returns the contents of concrete subclasses in a binary format that can be understood by other OpenPGP
         implementations
         """
 
-    def __bytes__(self):
+    def __bytes__(self) -> bytes:
         """
         Return the contents of concrete subclasses in a binary format that can be understood by other OpenPGP
         implementations
