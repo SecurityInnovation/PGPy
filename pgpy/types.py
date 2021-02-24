@@ -333,7 +333,7 @@ class PGPObject(six.with_metaclass(abc.ABCMeta, object)):
 
 class Field(PGPObject):
     @abc.abstractmethod
-    def __len__(self):
+    def __len__(self) -> int:
         """Return the length of the output of __bytes__"""
 
 
