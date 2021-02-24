@@ -17,6 +17,7 @@ import weakref
 from enum import EnumMeta
 from enum import IntEnum
 from typing import Deque
+from typing import Tuple
 from typing import TypeVar
 from typing import Union
 
@@ -338,8 +339,8 @@ class Field(PGPObject):
 
 class Header(Field):
     @staticmethod
-    def encode_length(l, nhf=True, llen=1):
-        def _new_length(l):
+    def encode_length(l: int, nhf: bool = True, llen: int = 1) -> bytes:
+        def _new_length(l: int) -> bytes:
             if 192 > l:
                 return Header.int_to_bytes(l)
 
@@ -349,24 +350,24 @@ class Header(Field):
 
             return b'\xFF' + Header.int_to_bytes(l, 4)
 
-        def _old_length(l, llen):
+        def _old_length(l: int, llen: int) -> bytes:
             return Header.int_to_bytes(l, llen) if llen > 0 else b''
 
         return _new_length(l) if nhf else _old_length(l, llen)
 
     @sdproperty
-    def length(self):
+    def length(self) -> int:
         return self._len
 
     @length.register(int)
-    def length_int(self, val):
+    def length_int(self, val: int) -> None:
         self._len = val
 
     @length.register(six.binary_type)
     @length.register(bytearray)
-    def length_bin(self, val):
-        def _new_len(b):
-            def _parse_len(a, offset=0):
+    def length_bin(self, val: bytes) -> None:
+        def _new_len(b: bytes) -> None:
+            def _parse_len(a: bytes, offset: int = 0) -> Tuple[int, int, bool]:
                 # returns (the parsed length, size of length field, whether the length was of partial type)
                 fo = a[offset]
 
@@ -400,7 +401,7 @@ class Header(Field):
             else:
                 self._len = part_len
 
-        def _old_len(b):
+        def _old_len(b: bytes) -> None:
             if self.llen > 0:
                 self._len = self.bytes_to_int(b[:self.llen])
                 del b[:self.llen]
@@ -411,7 +412,7 @@ class Header(Field):
         _new_len(val) if self._lenfmt == 1 else _old_len(val)
 
     @sdproperty
-    def llen(self):
+    def llen(self) -> int:
         l = self.length
         lf = self._lenfmt
 
@@ -432,11 +433,11 @@ class Header(Field):
             return self._llen
 
     @llen.register(int)
-    def llen_int(self, val):
+    def llen_int(self, val: int) -> None:
         if self._lenfmt == 0:
             self._llen = {0: 1, 1: 2, 2: 4, 3: 0}[val]
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(Header, self).__init__()
         self._len = 1
         self._llen = 1
