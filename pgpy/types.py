@@ -238,13 +238,13 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
 class ParentRef(object):
     # mixin class to handle weak-referencing a parent object
     @property
-    def _parent(self):
+    def _parent(self) -> Any:
         if isinstance(self.__parent, weakref.ref):
             return self.__parent()
         return self.__parent
 
     @_parent.setter
-    def _parent(self, parent):
+    def _parent(self, parent: Any) -> None:
         try:
             self.__parent = weakref.ref(parent)
 
@@ -252,10 +252,10 @@ class ParentRef(object):
             self.__parent = parent
 
     @property
-    def parent(self):
+    def parent(self) -> Any:
         return self._parent
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(ParentRef, self).__init__()
         self._parent = None
 
