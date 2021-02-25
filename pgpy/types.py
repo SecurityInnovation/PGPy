@@ -367,8 +367,8 @@ class Header(Field):
 
     @length.register(six.binary_type)
     @length.register(bytearray)
-    def length_bin(self, val: bytes) -> None:
-        def _new_len(b: bytes) -> None:
+    def length_bin(self, val: bytearray) -> None:
+        def _new_len(b: bytearray) -> None:
             def _parse_len(a: bytes, offset: int = 0) -> Tuple[int, int, bool]:
                 # returns (the parsed length, size of length field, whether the length was of partial type)
                 fo = a[offset]
@@ -403,7 +403,7 @@ class Header(Field):
             else:
                 self._len = part_len
 
-        def _old_len(b: bytes) -> None:
+        def _old_len(b: bytearray) -> None:
             if self.llen > 0:
                 self._len = self.bytes_to_int(b[:self.llen])
                 del b[:self.llen]
