@@ -31,12 +31,12 @@ __all__ = ['Header',
 
 class Header(_Header):
     @sdproperty
-    def tag(self):
+    def tag(self) -> int:
         return self._tag
 
     @tag.register(int)
     @tag.register(PacketTag)
-    def tag_int(self, val):
+    def tag_int(self, val: int) -> None:
         _tag = (val & 0x3F) if self._lenfmt else ((val & 0x3C) >> 2)
         try:
             self._tag = PacketTag(_tag)
@@ -45,14 +45,14 @@ class Header(_Header):
             self._tag = _tag
 
     @property
-    def typeid(self):
+    def typeid(self) -> int:
         return self.tag
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(Header, self).__init__()
         self.tag = 0x00
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         tag = 0x80 | (self._lenfmt << 6)
         tag |= (self.tag) if self._lenfmt else ((self.tag << 2) | {1: 0, 2: 1, 4: 2, 0: 3}[self.llen])
 
@@ -60,10 +60,10 @@ class Header(_Header):
         _bytes += self.encode_length(self.length, self._lenfmt, self.llen)
         return _bytes
 
-    def __len__(self):
+    def __len__(self) -> int:
         return 1 + self.llen
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         """
         There are two formats for headers
 
