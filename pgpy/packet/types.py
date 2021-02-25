@@ -174,12 +174,12 @@ class Packet(Dispatchable):
 class VersionedPacket(Packet):
     __headercls__ = VersionedHeader
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(VersionedPacket, self).__init__()
         if isinstance(self.__ver__, six.integer_types):
             self.header.version = self.__ver__
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<{cls:s} [tag {tag:02d}][v{ver:d}] at 0x{id:x}>".format(cls=self.__class__.__name__, tag=self.header.tag,
                                                                         ver=self.header.version, id=id(self))
 
