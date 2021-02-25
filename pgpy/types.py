@@ -357,6 +357,13 @@ class Header(Field):
 
         return _new_length(l) if nhf else _old_length(l, llen)
 
+    def __init__(self) -> None:
+        super(Header, self).__init__()
+        self._len = 1
+        self._llen = 1
+        self._lenfmt = 1
+        self._partial = False
+
     @sdproperty
     def length(self) -> int:
         return self._len
@@ -438,13 +445,6 @@ class Header(Field):
     def llen_int(self, val: int) -> None:
         if self._lenfmt == 0:
             self._llen = {0: 1, 1: 2, 2: 4, 3: 0}[val]
-
-    def __init__(self) -> None:
-        super(Header, self).__init__()
-        self._len = 1
-        self._llen = 1
-        self._lenfmt = 1
-        self._partial = False
 
 
 class MetaDispatchable(abc.ABCMeta):
