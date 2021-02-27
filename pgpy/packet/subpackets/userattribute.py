@@ -1,6 +1,7 @@
 """ userattribute.py
 """
 import struct
+from typing import Union
 
 from .types import UserAttribute
 
@@ -51,20 +52,20 @@ class Image(UserAttribute):
     __typeid__ = 0x01
 
     @sdproperty
-    def version(self):
+    def version(self) -> int:
         return self._version
 
     @version.register(int)
-    def version_int(self, val):
+    def version_int(self, val: int) -> None:
         self._version = val
 
     @sdproperty
-    def iencoding(self):
+    def iencoding(self) -> Union[ImageEncoding, int]:
         return self._iencoding
 
     @iencoding.register(int)
     @iencoding.register(ImageEncoding)
-    def iencoding_int(self, val):
+    def iencoding_int(self, val: Union[ImageEncoding, int]) -> None:
         try:
             self._iencoding = ImageEncoding(val)
 
@@ -72,21 +73,21 @@ class Image(UserAttribute):
             self._iencoding = val
 
     @sdproperty
-    def image(self):
+    def image(self) -> bytearray:
         return self._image
 
     @image.register(bytes)
     @image.register(bytearray)
-    def image_bin(self, val):
+    def image_bin(self, val: Union[bytes, bytearray]) -> None:
         self._image = bytearray(val)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(Image, self).__init__()
         self.version = 1
         self.iencoding = 1
         self.image = bytearray()
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super(Image, self).__bytearray__()
 
         if self.version == 1:
@@ -97,7 +98,7 @@ class Image(UserAttribute):
         _bytes += self.image
         return _bytes
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         super(Image, self).parse(packet)
 
         # on Python 2, this will be the wrapper object from memoryview.py
