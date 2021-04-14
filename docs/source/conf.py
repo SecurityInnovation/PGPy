@@ -60,7 +60,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'PGPy'
-copyright = '2014-2019, Security Innovation, Inc'
+copyright = '2014-2021, Security Innovation, Inc'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
