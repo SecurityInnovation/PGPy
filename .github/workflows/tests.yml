@@ -5,7 +5,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-18.04, macos-10.15]
+        os: [ubuntu-18.04]
         python-version: [2.7, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9]
 
     steps:
@@ -18,19 +18,13 @@ jobs:
         run: |
           sed -i -e 's/^/#/' tests/gnupghome/gpg-agent.conf
           if [ "$(uname)" = "Darwin" ]; then ./install_dependencies.osx.sh; else ./install_dependencies.linux.sh; fi
-          pip install tox coveralls
+          pip install tox 'PyYAML==5.2; python_version == "3.4"'
       - name: Run Tox
         run: ./tox.sh -e py
-      - name: Upload Coveralls coverage
-        if: ${{ success() }}
-        run: coveralls --service=github
-        env:
-          COVERALLS_PARALLEL: true
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # do some tests with LC_ALL=C to check for locale variance
   c-locale-test:
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-18.04
     strategy:
       matrix:
         python-version: [2.7, 3.6]
@@ -45,21 +39,15 @@ jobs:
         run: |
           sed -i -e 's/^/#/' tests/gnupghome/gpg-agent.conf
           ./install_dependencies.linux.sh
-          pip install tox coveralls 'PyYAML==5.2; python_version == "3.4"'
+          pip install tox 'PyYAML==5.2; python_version == "3.4"'
       - name: Run Tox
         run: ./tox.sh -e py
         env:
           LC_ALL: C
-      - name: Upload Coveralls coverage
-        if: ${{ success() }}
-        run: coveralls --service=github
-        env:
-          COVERALLS_PARALLEL: true
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # test setup.py using each tested version
   test-setup:
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-18.04
     strategy:
       matrix:
         include:
@@ -91,7 +79,7 @@ jobs:
 
   # add a pep8 test
   pep8:
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-18.04
     continue-on-error: true # pep8 failures shouldn't be considered fatal
     steps:
       - uses: actions/checkout@v2
@@ -102,19 +90,3 @@ jobs:
         run: pip install tox
       - name: Run tox
         run: tox -e pep8
-
-  # report coverage to coveralls, but only for pytest runs
-  finish-coveralls:
-    needs: [ unit-tests, c-locale-test ]
-    runs-on: ubuntu-16.04
-
-    steps:
-      - uses: actions/setup-python@v2
-        with:
-          python-version: 3.6
-      - name: Finish Coveralls
-        run: |
-          pip install coveralls
-          coveralls --service=github --finish
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
