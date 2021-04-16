@@ -5,8 +5,8 @@ PGPy: Pretty Good Privacy for Python
     :target: https://badge.fury.io/py/PGPy
     :alt: Latest stable version
 
-.. image:: https://travis-ci.org/SecurityInnovation/PGPy.svg?branch=master
-    :target: https://travis-ci.org/SecurityInnovation/PGPy?branch=master
+.. image:: https://travis-ci.com/SecurityInnovation/PGPy.svg?branch=master
+    :target: https://travis-ci.com/SecurityInnovation/PGPy?branch=master
     :alt: Travis-CI
 
 .. image:: https://coveralls.io/repos/github/SecurityInnovation/PGPy/badge.svg?branch=master
@@ -67,4 +67,4 @@ Requirements
 License
 -------
 
-BSD 3-Clause licensed. See the bundled `LICENSE <https://github.com/SecurityInnovation/PGPy/blob/master/LICENSE>`_ file for more details.
+BSD 3-Clause licensed. See the bundled `LICENSE <https://github.com/SecurityInnovation/PGPy/blob/0.5.x/LICENSE>`_ file for more details.
