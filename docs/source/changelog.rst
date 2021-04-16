@@ -7,16 +7,17 @@ Changelog
 v0.5.4
 ======
 
-Released: ?
+Released: April 16, 2021
 
 .. note::
-    PGPy v0.5.x is still compatible with Python 2.7 and 3.4. Support those versions will be dropped in PGPy v0.6.0.
+
+    PGPy v0.5.x is still compatible with Python 2.7 and 3.4. Support for those versions will be dropped in PGPy v0.6.0.
 
 Bugs Fixed
 ----------
 
 * Fixed compatibility break with Python < 3.8 (#368)
-* Fixed importing ABCs from `collections` (#328)
+* Fixed importing ABCs from ``collections`` (#328)
 
 Other Changes
 -------------
