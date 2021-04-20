@@ -3,6 +3,7 @@ include README.rst
 include requirements.txt
 include requirements-test.txt
 include requirements-rtd.txt
+include tox.ini
 recursive-include docs/ *
 recursive-include tests/ *
 recursive-exclude docs/build/ *
