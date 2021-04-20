@@ -1850,8 +1850,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
     def add_subkey(self, key, **prefs):
         """
         Add a key as a subkey to this key.
-        :param key: A private :py:obj:`~pgpy.PGPKey` that does not have any subkeys of its own
 
+        :param key: A private :py:obj:`~pgpy.PGPKey` that does not have any subkeys of its own
         :keyword usage: A ``set`` of key usage flags, as :py:obj:`~constants.KeyFlags` for the subkey to be added.
         :type usage: ``set``
 
