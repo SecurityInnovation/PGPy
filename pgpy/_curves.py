@@ -2,6 +2,8 @@
 specify some additional curves that OpenSSL provides but cryptography doesn't explicitly expose
 """
 
+from typing import Set
+
 from cryptography import utils
 
 from cryptography.hazmat.primitives.asymmetric import ec
@@ -14,18 +16,18 @@ __all__ = tuple()
 #       https://wiki.openssl.org/index.php/Elliptic_Curve_Cryptography#Defining_Curves
 
 
-def _openssl_get_supported_curves():
+def _openssl_get_supported_curves() -> Set[str]:
     if hasattr(_openssl_get_supported_curves, '_curves'):
         return _openssl_get_supported_curves._curves
 
     # use cryptography's cffi bindings to get an array of curve names
     b = Binding()
-    cn = b.lib.EC_get_builtin_curves(b.ffi.NULL, 0)
+    cn = b.lib.EC_get_builtin_curves(b.ffi.NULL, 0)  # type: int
     cs = b.ffi.new('EC_builtin_curve[]', cn)
     b.lib.EC_get_builtin_curves(cs, cn)
 
     # store the result so we don't have to do all of this every time
-    curves = { b.ffi.string(b.lib.OBJ_nid2sn(c.nid)).decode('utf-8') for c in cs }
+    curves = { b.ffi.string(b.lib.OBJ_nid2sn(c.nid)).decode('utf-8') for c in cs }  # type: Set[str]
     # Ed25519 and X25519 are always present in cryptography>=2.6
     # The python cryptography lib provides a different interface for these curves,
     # so they are handled differently in the ECDHPriv/Pub and EdDSAPriv/Pub classes
