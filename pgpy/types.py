@@ -18,11 +18,18 @@ from enum import EnumMeta
 from enum import IntEnum
 from typing import Any
 from typing import Deque
+from typing import Iterator
+from typing import List
+from typing import NamedTuple
 from typing import Optional
 from typing import Set
 from typing import Tuple
 from typing import TypeVar
+from typing import TYPE_CHECKING
 from typing import Union
+
+if TYPE_CHECKING:
+    from pgpy import PGPKey, PGPSignature, PGPMessage, PGPUID
 
 import six
 
@@ -585,10 +592,15 @@ class Dispatchable(six.with_metaclass(MetaDispatchable, PGPObject)):
 
 
 class SignatureVerification(object):
-    _sigsubj = collections.namedtuple('sigsubj', ['verified', 'by', 'signature', 'subject'])
+    _sigsubj = NamedTuple('sigsubj', [
+        ('verified', bool),
+        ('by', 'PGPKey'),
+        ('signature', 'PGPSignature'),
+        ('subject', Union[str, 'PGPMessage', 'PGPKey', 'PGPUID'])
+    ])
 
     @property
-    def good_signatures(self):
+    def good_signatures(self) -> Iterator[_sigsubj]:
         """
         A generator yielding namedtuples of all signatures that were successfully verified
         in the operation that returned this instance. The namedtuple has the following attributes:
@@ -605,7 +617,7 @@ class SignatureVerification(object):
             yield s
 
     @property
-    def bad_signatures(self):  # pragma: no cover
+    def bad_signatures(self) -> Iterator[_sigsubj]:  # pragma: no cover
         """
         A generator yielding namedtuples of all signatures that were not verified
         in the operation that returned this instance. The namedtuple has the following attributes:
@@ -621,38 +633,40 @@ class SignatureVerification(object):
         for s in [ i for i in self._subjects if not i.verified ]:
             yield s
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Returned by :py:meth:`.PGPKey.verify`
 
         Can be compared directly as a boolean to determine whether or not the specified signature verified.
         """
         super(SignatureVerification, self).__init__()
-        self._subjects = []
+        self._subjects = []  # type: List[SignatureVerification._sigsubj]
 
-    def __contains__(self, item):
+    def __contains__(self, item: Union[str, 'PGPMessage', 'PGPKey', 'PGPUID', 'PGPSignature']) -> bool:
         return item in {ii for i in self._subjects for ii in [i.signature, i.subject]}
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._subjects)
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         return all(s.verified for s in self._subjects)
 
-    def __nonzero__(self):
+    def __nonzero__(self) -> bool:
         return self.__bool__()
 
-    def __and__(self, other):
+    def __and__(self, other: 'SignatureVerification') -> 'SignatureVerification':
         if not isinstance(other, SignatureVerification):
             raise TypeError(type(other))
 
         self._subjects += other._subjects
         return self
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<SignatureVerification({verified})>".format(verified=str(bool(self)))
 
-    def add_sigsubj(self, signature, by, subject=None, verified=False):
+    def add_sigsubj(self, signature: 'PGPSignature', by: 'PGPKey',
+                    subject: Optional[Union[str, 'PGPMessage', 'PGPKey', 'PGPUID']] = None,
+                    verified: bool = False) -> None:
         self._subjects.append(self._sigsubj(verified, by, signature, subject))
 
 
