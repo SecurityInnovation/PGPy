@@ -19,6 +19,7 @@ from enum import IntEnum
 from typing import Any
 from typing import Deque
 from typing import Optional
+from typing import Set
 from typing import Tuple
 from typing import TypeVar
 from typing import Union
@@ -656,10 +657,10 @@ class SignatureVerification(object):
 
 
 class FlagEnumMeta(EnumMeta):
-    def __and__(self, other):
+    def __and__(self, other: 'FlagEnumMeta') -> Set['FlagEnumMeta']:
         return { f for f in iter(self) if f.value & other }
 
-    def __rand__(self, other):  # pragma: no cover
+    def __rand__(self, other: 'FlagEnumMeta') -> Set['FlagEnumMeta']:  # pragma: no cover
         return self & other
 
 
