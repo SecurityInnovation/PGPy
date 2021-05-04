@@ -8,6 +8,16 @@ import calendar
 from datetime import datetime
 from datetime import timedelta
 
+from typing import List
+from typing import Set
+from typing import Tuple
+from typing import TYPE_CHECKING
+from typing import Union
+
+if TYPE_CHECKING:
+    from ..packets import SignatureV4
+    from ..fields import SubPackets
+
 import six
 
 from .types import EmbeddedSignatureHeader
@@ -22,6 +32,7 @@ from ...constants import NotationDataFlags
 from ...constants import PubKeyAlgorithm
 from ...constants import RevocationKeyClass
 from ...constants import RevocationReason
+from ...constants import SignatureType
 from ...constants import SymmetricKeyAlgorithm
 
 from ...decorators import sdproperty
@@ -62,28 +73,28 @@ __all__ = ['URI',
 
 class URI(Signature):
     @sdproperty
-    def uri(self):
+    def uri(self) -> str:
         return self._uri
 
     @uri.register(str)
     @uri.register(six.text_type)
-    def uri_str(self, val):
+    def uri_str(self, val: str) -> None:
         self._uri = val
 
     @uri.register(bytearray)
-    def uri_bytearray(self, val):
+    def uri_bytearray(self, val: bytearray) -> None:
         self.uri = val.decode('latin-1')
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(URI, self).__init__()
         self.uri = ""
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super(URI, self).__bytearray__()
         _bytes += self.uri.encode()
         return _bytes
 
-    def parse(self, packet):
+    def parse(self, packet) -> None:
         super(URI, self).parse(packet)
         self.uri = packet[:(self.header.length - 1)]
         del packet[:(self.header.length - 1)]
@@ -93,12 +104,12 @@ class FlagList(Signature):
     __flags__ = None
 
     @sdproperty
-    def flags(self):
+    def flags(self) -> List[int]:
         return self._flags
 
     @flags.register(list)
     @flags.register(tuple)
-    def flags_list(self, val):
+    def flags_list(self, val: Union[List[int], Tuple[int]]) -> None:
         self._flags = list(val)
 
     @flags.register(int)
@@ -106,26 +117,26 @@ class FlagList(Signature):
     @flags.register(HashAlgorithm)
     @flags.register(PubKeyAlgorithm)
     @flags.register(SymmetricKeyAlgorithm)
-    def flags_int(self, val):
+    def flags_int(self, val: int) -> None:
         if self.__flags__ is None:  # pragma: no cover
             raise AttributeError("Error: __flags__ not set!")
 
         self._flags.append(self.__flags__(val))
 
     @flags.register(bytearray)
-    def flags_bytearray(self, val):
+    def flags_bytearray(self, val: bytearray) -> None:
         self.flags = self.bytes_to_int(val)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(FlagList, self).__init__()
         self.flags = []
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super(FlagList, self).__bytearray__()
         _bytes += b''.join(self.int_to_bytes(b) for b in self.flags)
         return _bytes
 
-    def parse(self, packet):
+    def parse(self, packet) -> None:
         super(FlagList, self).parse(packet)
         for i in range(0, self.header.length - 1):
             self.flags = packet[:1]
@@ -136,32 +147,32 @@ class ByteFlag(Signature):
     __flags__ = None
 
     @sdproperty
-    def flags(self):
+    def flags(self) -> Set[int]:
         return self._flags
 
     @flags.register(set)
     @flags.register(list)
-    def flags_seq(self, val):
+    def flags_seq(self, val: Union[Set[int], List[int]]) -> None:
         self._flags = set(val)
 
     @flags.register(int)
     @flags.register(_KeyFlags)
     @flags.register(_Features)
-    def flags_int(self, val):
+    def flags_int(self, val: int) -> None:
         if self.__flags__ is None:  # pragma: no cover
             raise AttributeError("Error: __flags__ not set!")
 
         self._flags |= (self.__flags__ & val)
 
     @flags.register(bytearray)
-    def flags_bytearray(self, val):
+    def flags_bytearray(self, val: bytearray) -> None:
         self.flags = self.bytes_to_int(val)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(ByteFlag, self).__init__()
         self.flags = []
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super(ByteFlag, self).__bytearray__()
         _bytes += self.int_to_bytes(sum(self.flags))
         # null-pad _bytes if they are not up to the end now
@@ -169,7 +180,7 @@ class ByteFlag(Signature):
             _bytes += b'\x00' * (len(self) - len(_bytes))
         return _bytes
 
-    def parse(self, packet):
+    def parse(self, packet) -> None:
         super(ByteFlag, self).parse(packet)
         for i in range(0, self.header.length - 1):
             self.flags = packet[:1]
@@ -178,33 +189,33 @@ class ByteFlag(Signature):
 
 class Boolean(Signature):
     @sdproperty
-    def bflag(self):
+    def bflag(self) -> bool:
         return self._bool
 
     @bflag.register(bool)
-    def bflag_bool(self, val):
+    def bflag_bool(self, val: bool) -> None:
         self._bool = val
 
     @bflag.register(bytearray)
-    def bflag_bytearray(self, val):
+    def bflag_bytearray(self, val: bytearray) -> None:
         self.bool = bool(self.bytes_to_int(val))
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(Boolean, self).__init__()
         self.bflag = False
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super(Boolean, self).__bytearray__()
         _bytes += self.int_to_bytes(int(self.bflag))
         return _bytes
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         return self.bflag
 
-    def __nonzero__(self):
+    def __nonzero__(self) -> bool:
         return self.__bool__()
 
-    def parse(self, packet):
+    def parse(self, packet) -> None:
         super(Boolean, self).parse(packet)
         self.bflag = packet[:1]
         del packet[:1]
@@ -223,31 +234,31 @@ class CreationTime(Signature):
     __typeid__ = 0x02
 
     @sdproperty
-    def created(self):
+    def created(self) -> datetime:
         return self._created
 
     @created.register(datetime)
-    def created_datetime(self, val):
+    def created_datetime(self, val: datetime) -> None:
         self._created = val
 
     @created.register(int)
-    def created_int(self, val):
+    def created_int(self, val: int) -> None:
         self.created = datetime.utcfromtimestamp(val)
 
     @created.register(bytearray)
-    def created_bytearray(self, val):
+    def created_bytearray(self, val: bytearray) -> None:
         self.created = self.bytes_to_int(val)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(CreationTime, self).__init__()
         self.created = datetime.utcnow()
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super(CreationTime, self).__bytearray__()
         _bytes += self.int_to_bytes(calendar.timegm(self.created.utctimetuple()), 4)
         return _bytes
 
-    def parse(self, packet):
+    def parse(self, packet) -> None:
         super(CreationTime, self).parse(packet)
         self.created = packet[:4]
         del packet[:4]
@@ -266,31 +277,31 @@ class SignatureExpirationTime(Signature):
     __typeid__ = 0x03
 
     @sdproperty
-    def expires(self):
+    def expires(self) -> timedelta:
         return self._expires
 
     @expires.register(timedelta)
-    def expires_timedelta(self, val):
+    def expires_timedelta(self, val: timedelta) -> None:
         self._expires = val
 
     @expires.register(int)
-    def expires_int(self, val):
+    def expires_int(self, val: int) -> None:
         self.expires = timedelta(seconds=val)
 
     @expires.register(bytearray)
-    def expires_bytearray(self, val):
+    def expires_bytearray(self, val: bytearray) -> None:
         self.expires = self.bytes_to_int(val)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(SignatureExpirationTime, self).__init__()
         self.expires = 0
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super(SignatureExpirationTime, self).__bytearray__()
         _bytes += self.int_to_bytes(int(self.expires.total_seconds()), 4)
         return _bytes
 
-    def parse(self, packet):
+    def parse(self, packet) -> None:
         super(SignatureExpirationTime, self).parse(packet)
         self.expires = packet[:4]
         del packet[:4]
@@ -351,42 +362,42 @@ class TrustSignature(Signature):
     __typeid__ = 0x05
 
     @sdproperty
-    def level(self):
+    def level(self) -> int:
         return self._level
 
     @level.register(int)
-    def level_int(self, val):
+    def level_int(self, val: int) -> None:
         self._level = val
 
     @level.register(bytearray)
-    def level_bytearray(self, val):
+    def level_bytearray(self, val: bytearray) -> None:
         self.level = self.bytes_to_int(val)
 
     @sdproperty
-    def amount(self):
+    def amount(self) -> int:
         return self._amount
 
     @amount.register(int)
-    def amount_int(self, val):
+    def amount_int(self, val: int) -> None:
         # clamp 'val' to the range 0-255
         self._amount = max(0, min(val, 255))
 
     @amount.register(bytearray)
-    def amount_bytearray(self, val):
+    def amount_bytearray(self, val: bytearray) -> None:
         self.amount = self.bytes_to_int(val)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(TrustSignature, self).__init__()
         self.level = 0
         self.amount = 0
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super(TrustSignature, self).__bytearray__()
         _bytes += self.int_to_bytes(self.level)
         _bytes += self.int_to_bytes(self.amount)
         return _bytes
 
-    def parse(self, packet):
+    def parse(self, packet) -> None:
         super(TrustSignature, self).parse(packet)
         self.level = packet[:1]
         del packet[:1]
@@ -411,28 +422,28 @@ class RegularExpression(Signature):
     __typeid__ = 0x06
 
     @sdproperty
-    def regex(self):
+    def regex(self) -> str:
         return self._regex
 
     @regex.register(str)
     @regex.register(six.text_type)
-    def regex_str(self, val):
+    def regex_str(self, val: str) -> None:
         self._regex = val
 
     @regex.register(bytearray)
-    def regex_bytearray(self, val):
+    def regex_bytearray(self, val: bytearray) -> None:
         self.regex = val.decode('latin-1')
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(RegularExpression, self).__init__()
         self.regex = r''
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super(RegularExpression, self).__bytearray__()
         _bytes += self.regex.encode()
         return _bytes
 
-    def parse(self, packet):
+    def parse(self, packet) -> None:
         super(RegularExpression, self).parse(packet)
         self.regex = packet[:(self.header.length - 1)]
         del packet[:(self.header.length - 1)]
@@ -511,63 +522,63 @@ class RevocationKey(Signature):
     __typeid__ = 0x0C
 
     @sdproperty
-    def keyclass(self):
+    def keyclass(self) -> List[int]:
         return self._keyclass
 
     @keyclass.register(list)
-    def keyclass_list(self, val):
+    def keyclass_list(self, val: List[int]) -> None:
         self._keyclass = val
 
     @keyclass.register(int)
     @keyclass.register(RevocationKeyClass)
-    def keyclass_int(self, val):
+    def keyclass_int(self, val: int) -> None:
         self._keyclass += RevocationKeyClass & val
 
     @keyclass.register(bytearray)
-    def keyclass_bytearray(self, val):
+    def keyclass_bytearray(self, val: bytearray) -> None:
         self.keyclass = self.bytes_to_int(val)
 
     @sdproperty
-    def algorithm(self):
+    def algorithm(self) -> PubKeyAlgorithm:
         return self._algorithm
 
     @algorithm.register(int)
     @algorithm.register(PubKeyAlgorithm)
-    def algorithm_int(self, val):
+    def algorithm_int(self, val: int) -> None:
         self._algorithm = PubKeyAlgorithm(val)
 
     @algorithm.register(bytearray)
-    def algorithm_bytearray(self, val):
+    def algorithm_bytearray(self, val: bytearray) -> None:
         self.algorithm = self.bytes_to_int(val)
 
     @sdproperty
-    def fingerprint(self):
+    def fingerprint(self) -> Fingerprint:
         return self._fingerprint
 
     @fingerprint.register(str)
     @fingerprint.register(six.text_type)
     @fingerprint.register(Fingerprint)
-    def fingerprint_str(self, val):
+    def fingerprint_str(self, val: str) -> None:
         self._fingerprint = Fingerprint(val)
 
     @fingerprint.register(bytearray)
-    def fingerprint_bytearray(self, val):
+    def fingerprint_bytearray(self, val: bytearray) -> None:
         self.fingerprint = ''.join('{:02x}'.format(c) for c in val).upper()
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(RevocationKey, self).__init__()
         self.keyclass = []
         self.algorithm = PubKeyAlgorithm.Invalid
         self._fingerprint = ""
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super(RevocationKey, self).__bytearray__()
         _bytes += self.int_to_bytes(sum(self.keyclass))
         _bytes += self.int_to_bytes(self.algorithm.value)
         _bytes += self.fingerprint.__bytes__()
         return _bytes
 
-    def parse(self, packet):
+    def parse(self, packet) -> None:
         super(RevocationKey, self).parse(packet)
         self.keyclass = packet[:1]
         del packet[:1]
@@ -581,23 +592,23 @@ class Issuer(Signature):
     __typeid__ = 0x10
 
     @sdproperty
-    def issuer(self):
+    def issuer(self) -> str:
         return self._issuer
 
     @issuer.register(bytearray)
-    def issuer_bytearray(self, val):
+    def issuer_bytearray(self, val: bytearray) -> None:
         self._issuer = binascii.hexlify(val).upper().decode('latin-1')
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(Issuer, self).__init__()
         self.issuer = bytearray()
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super(Issuer, self).__bytearray__()
         _bytes += binascii.unhexlify(self._issuer.encode())
         return _bytes
 
-    def parse(self, packet):
+    def parse(self, packet) -> None:
         super(Issuer, self).parse(packet)
         self.issuer = packet[:8]
         del packet[:8]
@@ -611,55 +622,55 @@ class NotationData(Signature):
         return self._flags
 
     @flags.register(list)
-    def flags_list(self, val):
+    def flags_list(self, val: List[int]) -> None:
         self._flags = val
 
     @flags.register(int)
     @flags.register(NotationDataFlags)
-    def flags_int(self, val):
+    def flags_int(self, val: int) -> None:
         self.flags += NotationDataFlags & val
 
     @flags.register(bytearray)
-    def flags_bytearray(self, val):
+    def flags_bytearray(self, val: bytearray) -> None:
         self.flags = self.bytes_to_int(val)
 
     @sdproperty
-    def name(self):
+    def name(self) -> str:
         return self._name
 
     @name.register(str)
     @name.register(six.text_type)
-    def name_str(self, val):
+    def name_str(self, val: str) -> None:
         self._name = val
 
     @name.register(bytearray)
-    def name_bytearray(self, val):
+    def name_bytearray(self, val: bytearray) -> None:
         self.name = val.decode('latin-1')
 
     @sdproperty
-    def value(self):
+    def value(self) -> str:
         return self._value
 
     @value.register(str)
     @value.register(six.text_type)
-    def value_str(self, val):
+    def value_str(self, val: str) -> None:
         self._value = val
 
     @value.register(bytearray)
-    def value_bytearray(self, val):
+    def value_bytearray(self, val: bytearray) -> None:
         if NotationDataFlags.HumanReadable in self.flags:
             self.value = val.decode('latin-1')
 
         else:  # pragma: no cover
             self._value = val
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(NotationData, self).__init__()
         self.flags = [0, 0, 0, 0]
         self.name = ""
         self.value = ""
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super(NotationData, self).__bytearray__()
         _bytes += self.int_to_bytes(sum(self.flags)) + b'\x00\x00\x00'
         _bytes += self.int_to_bytes(len(self.name), 2)
@@ -668,7 +679,7 @@ class NotationData(Signature):
         _bytes += self.value if isinstance(self.value, bytearray) else self.value.encode()
         return bytes(_bytes)
 
-    def parse(self, packet):
+    def parse(self, packet) -> None:
         super(NotationData, self).parse(packet)
         self.flags = packet[:1]
         del packet[:4]
@@ -705,33 +716,33 @@ class PrimaryUserID(Signature):
     __typeid__ = 0x19
 
     @sdproperty
-    def primary(self):
+    def primary(self) -> bool:
         return self._primary
 
     @primary.register(bool)
-    def primary_bool(self, val):
+    def primary_bool(self, val: bool) -> None:
         self._primary = val
 
     @primary.register(bytearray)
-    def primary_byrearray(self, val):
+    def primary_byrearray(self, val: bytearray) -> None:
         self.primary = bool(self.bytes_to_int(val))
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(PrimaryUserID, self).__init__()
         self.primary = True
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super(PrimaryUserID, self).__bytearray__()
         _bytes += self.int_to_bytes(int(self.primary))
         return _bytes
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         return self.primary
 
-    def __nonzero__(self):
+    def __nonzero__(self) -> bool:
         return self.__bool__()
 
-    def parse(self, packet):
+    def parse(self, packet) -> None:
         super(PrimaryUserID, self).parse(packet)
         self.primary = packet[:1]
         del packet[:1]
@@ -755,23 +766,23 @@ class SignersUserID(Signature):
 
     @userid.register(str)
     @userid.register(six.text_type)
-    def userid_str(self, val):
+    def userid_str(self, val: str) -> None:
         self._userid = val
 
     @userid.register(bytearray)
-    def userid_bytearray(self, val):
+    def userid_bytearray(self, val: bytearray) -> None:
         self.userid = val.decode('latin-1')
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(SignersUserID, self).__init__()
         self.userid = ""
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super(SignersUserID, self).__bytearray__()
         _bytes += self.userid.encode()
         return _bytes
 
-    def parse(self, packet):
+    def parse(self, packet) -> None:
         super(SignersUserID, self).parse(packet)
         self.userid = packet[:(self.header.length - 1)]
         del packet[:(self.header.length - 1)]
@@ -781,43 +792,43 @@ class ReasonForRevocation(Signature):
     __typeid__ = 0x1D
 
     @sdproperty
-    def code(self):
+    def code(self) -> RevocationReason:
         return self._code
 
     @code.register(int)
     @code.register(RevocationReason)
-    def code_int(self, val):
+    def code_int(self, val: int) -> None:
         self._code = RevocationReason(val)
 
     @code.register(bytearray)
-    def code_bytearray(self, val):
+    def code_bytearray(self, val: bytearray) -> None:
         self.code = self.bytes_to_int(val)
 
     @sdproperty
-    def string(self):
+    def string(self) -> str:
         return self._string
 
     @string.register(str)
     @string.register(six.text_type)
-    def string_str(self, val):
+    def string_str(self, val: str) -> None:
         self._string = val
 
     @string.register(bytearray)
-    def string_bytearray(self, val):
+    def string_bytearray(self, val: bytearray) -> None:
         self.string = val.decode('latin-1')
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(ReasonForRevocation, self).__init__()
         self.code = 0x00
         self.string = ""
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super(ReasonForRevocation, self).__bytearray__()
         _bytes += self.int_to_bytes(self.code)
         _bytes += self.string.encode()
         return _bytes
 
-    def parse(self, packet):
+    def parse(self, packet) -> None:
         super(ReasonForRevocation, self).parse(packet)
         self.code = packet[:1]
         del packet[:1]
@@ -837,7 +848,7 @@ class EmbeddedSignature(Signature):
     __typeid__ = 0x20
 
     @sdproperty
-    def _sig(self):
+    def _sig(self) -> 'SignatureV4':
         return self._sigpkt
 
     @_sig.setter
@@ -849,23 +860,23 @@ class EmbeddedSignature(Signature):
         self._sigpkt = val
 
     @property
-    def sigtype(self):
+    def sigtype(self) -> SignatureType:
         return self._sig.sigtype
 
     @property
-    def pubalg(self):
+    def pubalg(self) -> PubKeyAlgorithm:
         return self._sig.pubalg
 
     @property
-    def halg(self):
+    def halg(self) -> HashAlgorithm:
         return self._sig.halg
 
     @property
-    def subpackets(self):
+    def subpackets(self) -> 'SubPackets':
         return self._sig.subpackets
 
     @property
-    def hash2(self):  # pragma: no cover
+    def hash2(self) -> bytearray:  # pragma: no cover
         return self._sig.hash2
 
     @property
@@ -876,16 +887,16 @@ class EmbeddedSignature(Signature):
     def signer(self):
         return self._sig.signer
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(EmbeddedSignature, self).__init__()
         from ..packets import SignatureV4
         self._sigpkt = SignatureV4()
         self._sigpkt.header = EmbeddedSignatureHeader()
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         return super(EmbeddedSignature, self).__bytearray__() + self._sigpkt.__bytearray__()
 
-    def parse(self, packet):
+    def parse(self, packet) -> None:
         super(EmbeddedSignature, self).parse(packet)
         self._sig.parse(packet)
 
@@ -909,43 +920,43 @@ class IssuerFingerprint(Signature):
     __typeid__ = 0x21
 
     @sdproperty
-    def version(self):
+    def version(self) -> int:
         return self._version
 
     @version.register(int)
-    def version_int(self, val):
+    def version_int(self, val: int) -> None:
         self._version = val
 
     @version.register(bytearray)
-    def version_bytearray(self, val):
+    def version_bytearray(self, val: bytearray) -> None:
         self.version = self.bytes_to_int(val)
 
     @sdproperty
-    def issuer_fingerprint(self):
+    def issuer_fingerprint(self) -> Fingerprint:
         return self._issuer_fpr
 
     @issuer_fingerprint.register(str)
     @issuer_fingerprint.register(six.text_type)
     @issuer_fingerprint.register(Fingerprint)
-    def issuer_fingerprint_str(self, val):
+    def issuer_fingerprint_str(self, val: str) -> None:
         self._issuer_fpr = Fingerprint(val)
 
     @issuer_fingerprint.register(bytearray)
     def issuer_fingerprint_bytearray(self, val):
         self.issuer_fingerprint = ''.join('{:02x}'.format(c) for c in val).upper()
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(IssuerFingerprint, self).__init__()
         self.version = 4
         self._issuer_fpr = ""
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super(IssuerFingerprint, self).__bytearray__()
         _bytes += self.int_to_bytes(self.version)
         _bytes += self.issuer_fingerprint.__bytes__()
         return _bytes
 
-    def parse(self, packet):
+    def parse(self, packet) -> None:
         super(IssuerFingerprint, self).parse(packet)
         self.version = packet[:1]
         del packet[:1]
@@ -981,43 +992,43 @@ class IntendedRecipient(Signature):
     __typeid__ = 0x23
 
     @sdproperty
-    def version(self):
+    def version(self) -> int:
         return self._version
 
     @version.register(int)
-    def version_int(self, val):
+    def version_int(self, val: int) -> None:
         self._version = val
 
     @version.register(bytearray)
-    def version_bytearray(self, val):
+    def version_bytearray(self, val: bytearray) -> None:
         self.version = self.bytes_to_int(val)
 
     @sdproperty
-    def intended_recipient(self):
+    def intended_recipient(self) -> Fingerprint:
         return self._intended_recipient
 
     @intended_recipient.register(str)
     @intended_recipient.register(six.text_type)
     @intended_recipient.register(Fingerprint)
-    def intended_recipient_str(self, val):
+    def intended_recipient_str(self, val: str) -> None:
         self._intended_recipient = Fingerprint(val)
 
     @intended_recipient.register(bytearray)
-    def intended_recipient_bytearray(self, val):
+    def intended_recipient_bytearray(self, val: bytearray) -> None:
         self.intended_recipient = ''.join('{:02x}'.format(c) for c in val).upper()
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(IntendedRecipient, self).__init__()
         self.version = 4
         self._intended_recipient = ""
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super(IntendedRecipient, self).__bytearray__()
         _bytes += self.int_to_bytes(self.version)
         _bytes += self.intended_recipient.__bytes__()
         return _bytes
 
-    def parse(self, packet):
+    def parse(self, packet) -> None:
         super(IntendedRecipient, self).parse(packet)
         self.version = packet[:1]
         del packet[:1]
@@ -1110,24 +1121,24 @@ class AttestedCertifications(Signature):
     __typeid__ = 0x25
 
     @sdproperty
-    def attested_certifications(self):
+    def attested_certifications(self) -> bytearray:
         return self._attested_certifications
 
     @attested_certifications.register(bytearray) 
     @attested_certifications.register(bytes)
-    def attested_certifications_bytearray(self, val):
+    def attested_certifications_bytearray(self, val: bytes) -> None:
         self._attested_certifications = val
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(AttestedCertifications, self).__init__()
         self._attested_certifications = bytearray()
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super(AttestedCertifications, self).__bytearray__()
         _bytes += self._attested_certifications
         return _bytes
 
-    def parse(self, packet):
+    def parse(self, packet) -> None:
         super(AttestedCertifications, self).parse(packet)
         self.attested_certifications = packet[:(self.header.length - 1)]
         del packet[:(self.header.length - 1)]
