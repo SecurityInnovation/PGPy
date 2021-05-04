@@ -5,6 +5,8 @@ from __future__ import division
 import abc
 import copy
 
+from typing import Iterator
+from typing import Tuple
 from typing import Union
 
 import six
@@ -272,17 +274,17 @@ class MPI(long):
 class MPIs(Field):
     # this differs from MPI in that it's subclasses hold/parse several MPI fields
     # and, in the case of v4 private keys, also a String2Key specifier/information.
-    __mpis__ = ()
+    __mpis__ = ()  # type: Tuple[str]
 
-    def __len__(self):
+    def __len__(self) -> int:
         return sum(len(i) for i in self)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[MPI]:
         """yield all components of an MPI so it can be iterated over"""
         for i in self.__mpis__:
             yield getattr(self, i)
 
-    def __copy__(self):
+    def __copy__(self) -> 'MPIs':
         pk = self.__class__()
         for m in self.__mpis__:
             setattr(pk, m, copy.copy(getattr(self, m)))
