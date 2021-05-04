@@ -5,6 +5,8 @@ from __future__ import division
 import abc
 import copy
 
+from typing import Union
+
 import six
 
 from ..constants import PacketTag
@@ -242,7 +244,7 @@ if not six.PY2:
 
 
 class MPI(long):
-    def __new__(cls, num):
+    def __new__(cls, num: Union[int, bytes, bytearray]) -> 'MPI':
         mpi = num
 
         if isinstance(num, (bytes, bytearray)):
@@ -257,13 +259,13 @@ class MPI(long):
 
         return super(MPI, cls).__new__(cls, mpi)
 
-    def byte_length(self):
+    def byte_length(self) -> int:
         return ((self.bit_length() + 7) // 8)
 
-    def to_mpibytes(self):
+    def to_mpibytes(self) -> bytes:
         return MPIs.int_to_bytes(self.bit_length(), 2) + MPIs.int_to_bytes(self, self.byte_length())
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.byte_length() + 2
 
 
