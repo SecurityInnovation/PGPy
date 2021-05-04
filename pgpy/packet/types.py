@@ -117,23 +117,23 @@ class Header(_Header):
 
 class VersionedHeader(Header):
     @sdproperty
-    def version(self):
+    def version(self) -> int:
         return self._version
 
     @version.register(int)
-    def version_int(self, val):
+    def version_int(self, val: int) -> None:
         self._version = val
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(VersionedHeader, self).__init__()
         self.version = 0
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = bytearray(super(VersionedHeader, self).__bytearray__())
         _bytes += bytearray([self.version])
         return _bytes
 
-    def parse(self, packet):  # pragma: no cover
+    def parse(self, packet: bytearray) -> None:  # pragma: no cover
         if self.tag == 0:
             super(VersionedHeader, self).parse(packet)
 
