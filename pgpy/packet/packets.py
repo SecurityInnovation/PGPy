@@ -24,6 +24,7 @@ from .fields import OpaquePubKey
 from .fields import OpaquePrivKey
 from .fields import OpaqueSignature
 from .fields import RSACipherText, RSAPriv, RSAPub, RSASignature
+from .fields import Signature as fields_Signature
 from .fields import String2Key
 from .fields import SubPackets
 from .fields import UserAttributeSubPackets
@@ -343,21 +344,21 @@ class SignatureV4(Signature):
     __ver__ = 4
 
     @sdproperty
-    def sigtype(self):
+    def sigtype(self) -> SignatureType:
         return self._sigtype
 
     @sigtype.register(int)
     @sigtype.register(SignatureType)
-    def sigtype_int(self, val):
+    def sigtype_int(self, val: int) -> None:
         self._sigtype = SignatureType(val)
 
     @sdproperty
-    def pubalg(self):
+    def pubalg(self) -> PubKeyAlgorithm:
         return self._pubalg
 
     @pubalg.register(int)
     @pubalg.register(PubKeyAlgorithm)
-    def pubalg_int(self, val):
+    def pubalg_int(self, val: int) -> None:
         self._pubalg = PubKeyAlgorithm(val)
 
         sigs = {PubKeyAlgorithm.RSAEncryptOrSign: RSASignature,
@@ -370,12 +371,12 @@ class SignatureV4(Signature):
         self.signature = sigs.get(self.pubalg, OpaqueSignature)()
 
     @sdproperty
-    def halg(self):
+    def halg(self) -> HashAlgorithm:
         return self._halg
 
     @halg.register(int)
     @halg.register(HashAlgorithm)
-    def halg_int(self, val):
+    def halg_int(self, val: int) -> None:
         try:
             self._halg = HashAlgorithm(val)
 
@@ -383,18 +384,18 @@ class SignatureV4(Signature):
             self._halg = val
 
     @property
-    def signature(self):
+    def signature(self) -> fields_Signature:
         return self._signature
 
     @signature.setter
-    def signature(self, val):
+    def signature(self, val: fields_Signature) -> None:
         self._signature = val
 
     @property
-    def signer(self):
+    def signer(self) -> str:
         return self.subpackets['Issuer'][-1].issuer
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(Signature, self).__init__()
         self._sigtype = None
         self._pubalg = None
@@ -403,7 +404,7 @@ class SignatureV4(Signature):
         self.hash2 = bytearray(2)
         self.signature = None
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = bytearray()
         _bytes += super(Signature, self).__bytearray__()
         _bytes += self.int_to_bytes(self.sigtype)
@@ -415,7 +416,7 @@ class SignatureV4(Signature):
 
         return _bytes
 
-    def canonical_bytes(self):
+    def canonical_bytes(self) -> bytearray:
         '''Returns a bytearray that is the way the signature packet
         should be represented if it is itself being signed.
 
@@ -445,7 +446,7 @@ class SignatureV4(Signature):
         _hdr += self.int_to_bytes(len(_body), minlen=4)
         return _hdr + _body
     
-    def __copy__(self):
+    def __copy__(self) -> 'SignatureV4':
         spkt = SignatureV4()
         spkt.header = copy.copy(self.header)
         spkt._sigtype = self._sigtype
@@ -458,11 +459,11 @@ class SignatureV4(Signature):
 
         return spkt
 
-    def update_hlen(self):
+    def update_hlen(self) -> None:
         self.subpackets.update_hlen()
         super(SignatureV4, self).update_hlen()
 
-    def parse(self, packet):
+    def parse(self, packet) -> None:
         super(Signature, self).parse(packet)
         self.sigtype = packet[0]
         del packet[0]
