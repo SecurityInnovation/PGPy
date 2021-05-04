@@ -101,7 +101,7 @@ class KeyAction(object):
         if _key is not key:
             em['subkeyid'] = _key.fingerprint.keyid
             logging.debug("Key {keyid:s} does not have the required usage flag {flags:s}; using subkey {subkeyid:s}"
-                          "".format(**em), stacklevel=4)
+                          "".format(**em))  # TODO: consider adding stacklevel=4 when we only support Python >= 3.8
 
         yield _key
 

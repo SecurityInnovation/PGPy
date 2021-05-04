@@ -17,6 +17,7 @@ import sys
 import os
 # this needs sphinx-better-theme
 from better import better_theme_path
+from setuptools.config import read_configuration
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -25,7 +26,7 @@ _docsrcdir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _docsrcdir)
 sys.path.insert(0, os.path.dirname(os.path.dirname(_docsrcdir)))
 
-from pgpy._author import __version__
+__version__ = read_configuration(os.path.join('..', '..', 'setup.cfg'))['metadata']['version']
 
 # -- General configuration ------------------------------------------------
 
@@ -60,7 +61,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'PGPy'
-copyright = '2014-2019, Security Innovation, Inc'
+copyright = '2014-2021, Security Innovation, Inc'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
