@@ -22,6 +22,7 @@ import six
 from .decorators import sdproperty
 
 from .errors import PGPError
+from .constants import SecurityIssues
 
 __all__ = ['Armorable',
            'ParentRef',
@@ -31,7 +32,6 @@ __all__ = ['Armorable',
            'MetaDispatchable',
            'Dispatchable',
            'SignatureVerification',
-           'FlagEnumMeta',
            'FlagEnum',
            'Fingerprint',
            'SorteDeque']
@@ -578,7 +578,8 @@ class Dispatchable(six.with_metaclass(MetaDispatchable, PGPObject)):
 
 
 class SignatureVerification(object):
-    _sigsubj = collections.namedtuple('sigsubj', ['verified', 'by', 'signature', 'subject'])
+    __slots__ = ("_subjects",)
+    _sigsubj = collections.namedtuple('sigsubj', ['issues', 'by', 'signature', 'subject'])
 
     @property
     def good_signatures(self):
@@ -586,7 +587,7 @@ class SignatureVerification(object):
         A generator yielding namedtuples of all signatures that were successfully verified
         in the operation that returned this instance. The namedtuple has the following attributes:
 
-        ``sigsubj.verified`` - ``bool`` of whether the signature verified successfully or not.
+        ``sigsubj.issues`` - ``SecurityIssues`` of whether the signature verified successfully or not. Must be 0 for success.
 
         ``sigsubj.by`` - the :py:obj:`~pgpy.PGPKey` that was used in this verify operation.
 
@@ -594,7 +595,7 @@ class SignatureVerification(object):
 
         ``sigsubj.subject`` - the subject that was verified using the signature.
         """
-        for s in [ i for i in self._subjects if i.verified ]:
+        for s in [ i for i in self._subjects if not i.issues ]:
             yield s
 
     @property
@@ -611,7 +612,7 @@ class SignatureVerification(object):
 
         ``sigsubj.subject`` - the subject that was verified using the signature.
         """
-        for s in [ i for i in self._subjects if not i.verified ]:
+        for s in [ i for i in self._subjects if i.issues ]:
             yield s
 
     def __init__(self):
@@ -630,7 +631,7 @@ class SignatureVerification(object):
         return len(self._subjects)
 
     def __bool__(self):
-        return all(s.verified for s in self._subjects)
+        return all(not s.issues for s in self._subjects)
 
     def __nonzero__(self):
         return self.__bool__()
@@ -643,27 +644,10 @@ class SignatureVerification(object):
         return self
 
     def __repr__(self):
-        return "<SignatureVerification({verified})>".format(verified=str(bool(self)))
+        return "<"+ self.__class__.__name__ + "({" + str(bool(self)) + "})>"
 
-    def add_sigsubj(self, signature, by, subject=None, verified=False):
-        self._subjects.append(self._sigsubj(verified, by, signature, subject))
-
-
-class FlagEnumMeta(EnumMeta):
-    def __and__(self, other):
-        return { f for f in iter(self) if f.value & other }
-
-    def __rand__(self, other):  # pragma: no cover
-        return self & other
-
-
-if six.PY2:
-    class FlagEnum(IntEnum):
-        __metaclass__ = FlagEnumMeta
-
-else:
-    namespace = FlagEnumMeta.__prepare__('FlagEnum', (IntEnum,))
-    FlagEnum = FlagEnumMeta('FlagEnum', (IntEnum,), namespace)
+    def add_sigsubj(self, signature, by, subject=None, issues=SecurityIssues(0xFF)):
+        self._subjects.append(self._sigsubj(issues, by, signature, subject))
 
 
 class Fingerprint(str):
