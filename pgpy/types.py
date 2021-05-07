@@ -674,11 +674,11 @@ class Fingerprint(str):
     """
     @property
     def keyid(self):
-        return str(self).replace(' ', '')[-16:]
+        return self[-16:]
 
     @property
     def shortid(self):
-        return str(self).replace(' ', '')[-8:]
+        return self[-8:]
 
     def __new__(cls, content):
         if isinstance(content, Fingerprint):
@@ -686,15 +686,6 @@ class Fingerprint(str):
 
         # validate input before continuing: this should be a string of 40 hex digits
         content = content.upper().replace(' ', '')
-        if not bool(re.match(r'^[A-F0-9]{40}$', content)):
-            raise ValueError("Expected: String of 40 hex digits")
-
-        # store in the format: "AAAA BBBB CCCC DDDD EEEE  FFFF 0000 1111 2222 3333"
-        #                                               ^^ note 2 spaces here
-        spaces = [ ' ' if i != 4 else '  ' for i in range(10) ]
-        chunks = [ ''.join(g) for g in six.moves.zip_longest(*[iter(content)] * 4) ]
-        content = ''.join(j for i in six.moves.zip_longest(chunks, spaces, fillvalue='') for j in i).strip()
-
         return str.__new__(cls, content)
 
     def __eq__(self, other):
@@ -713,13 +704,29 @@ class Fingerprint(str):
         return False  # pragma: no cover
 
     def __ne__(self, other):
-        return not (self == other)
+        return str(self) != str(other)
 
     def __hash__(self):
-        return hash(str(self.replace(' ', '')))
+        return hash(str(self))
 
     def __bytes__(self):
-        return binascii.unhexlify(six.b(self.replace(' ', '')))
+        return binascii.unhexlify(six.b(self))
+    
+    def __pretty__(self):
+        content = self
+        if not bool(re.match(r'^[A-F0-9]{40}$', content)):
+            raise ValueError("Expected: String of 40 hex digits")
+
+        # store in the format: "AAAA BBBB CCCC DDDD EEEE  FFFF 0000 1111 2222 3333"
+        #                                               ^^ note 2 spaces here
+        spaces = [ ' ' if i != 4 else '  ' for i in range(10) ]
+        chunks = [ ''.join(g) for g in six.moves.zip_longest(*[iter(content)] * 4) ]
+        content = ''.join(j for i in six.moves.zip_longest(chunks, spaces, fillvalue='') for j in i).strip()
+        return content
+    
+    def __repr__(self):
+        return self.__class__.__name__+"("+repr(self.__pretty__())+")"
+
 
 
 class SorteDeque(collections.deque):
