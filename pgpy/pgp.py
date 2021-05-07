@@ -1618,6 +1618,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         self._signatures = SorteDeque()
         self._uids = SorteDeque()
         self._sibling = None
+        self._require_usage_flags = True
 
     def __bytearray__(self):
         _bytes = bytearray()

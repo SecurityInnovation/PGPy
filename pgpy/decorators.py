@@ -2,15 +2,15 @@
 """
 import contextlib
 import functools
-import six
 import logging
+
+import six
 
 try:
     from singledispatch import singledispatch
 
 except ImportError:  # pragma: no cover
     from functools import singledispatch
-
 
 from .errors import PGPError
 
@@ -93,7 +93,10 @@ class KeyAction(object):
                     break
 
             else:  # pragma: no cover
-                raise PGPError("Key {keyid:s} does not have the required usage flag {flags:s}".format(**em))
+                warning = "Key {keyid:s} does not have the required usage flag {flags:s}".format(**em)
+                logging.warning(warning)
+                if key._require_usage_flags:
+                    raise PGPError(warning)
 
         else:
             _key = key
