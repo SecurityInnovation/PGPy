@@ -16,7 +16,9 @@ import weakref
 
 from enum import EnumMeta
 from enum import IntEnum
+
 from typing import Any
+from typing import AnyStr
 from typing import Deque
 from typing import Iterator
 from typing import List
@@ -30,6 +32,16 @@ from typing import Union
 
 if TYPE_CHECKING:
     from pgpy import PGPKey, PGPSignature, PGPMessage, PGPUID
+    from typing_extensions import TypedDict, OrderedDict
+
+    UnarmorDict = TypedDict('UnarmorDict',
+                            {'magic': Optional[str],
+                             'headers': Optional[OrderedDict[str, str]],
+                             'hashes': Optional[List[str]],
+                             'cleartext': str,
+                             'body': bytearray,
+                             'crc': Optional[int]},
+                            total=False)
 
 import six
 
@@ -88,15 +100,15 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
                          """, flags=re.MULTILINE | re.VERBOSE)
 
     @property
-    def charset(self):
+    def charset(self) -> str:
         return self.ascii_headers.get('Charset', 'utf-8')
 
     @charset.setter
-    def charset(self, encoding):
+    def charset(self, encoding: str) -> None:
         self.ascii_headers['Charset'] = codecs.lookup(encoding).name
 
     @staticmethod
-    def is_ascii(text):
+    def is_ascii(text: AnyStr) -> bool:
         if isinstance(text, six.string_types):
             return bool(re.match(r'^[ -~\r\n]*$', text, flags=re.ASCII))
 
@@ -106,7 +118,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
         raise TypeError("Expected: ASCII input of type str, bytes, or bytearray")  # pragma: no cover
 
     @staticmethod
-    def is_armor(text):
+    def is_armor(text: AnyStr) -> bool:
         """
         Whether the ``text`` provided is an ASCII-armored PGP block.
         :param text: A possible ASCII-armored PGP block.
@@ -119,7 +131,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
         return Armorable.__armor_regex.search(text) is not None
 
     @staticmethod
-    def ascii_unarmor(text):
+    def ascii_unarmor(text: AnyStr) -> 'UnarmorDict':
         """
         Takes an ASCII-armored PGP block and returns the decoded byte value.
 
@@ -165,7 +177,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
         return m
 
     @staticmethod
-    def crc24(data):
+    def crc24(data: bytes) -> int:
         # CRC24 computation, as described in the RFC 4880 section on Radix-64 Conversions
         #
         # The checksum is a 24-bit Cyclic Redundancy Check (CRC) converted to
@@ -190,11 +202,11 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
         return crc & 0xFFFFFF
 
     @abc.abstractproperty
-    def magic(self):
+    def magic(self) -> str:
         """The magic string identifier for the current PGP type"""
 
     @classmethod
-    def from_file(cls, filename):
+    def from_file(cls, filename: str) -> Union['Armorable', Tuple['Armorable', Any]]:
         with open(filename, 'rb') as file:
             obj = cls()
             data = bytearray(os.path.getsize(filename))
@@ -208,7 +220,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
         return obj  # pragma: no cover
 
     @classmethod
-    def from_blob(cls, blob):
+    def from_blob(cls, blob: AnyStr) -> Union['Armorable', Tuple['Armorable', Any]]:
         obj = cls()
         if (not isinstance(blob, six.binary_type)) and (not isinstance(blob, bytearray)):
             po = obj.parse(bytearray(blob, 'latin-1'))
@@ -221,11 +233,11 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
 
         return obj  # pragma: no cover
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(Armorable, self).__init__()
         self.ascii_headers = collections.OrderedDict()
 
-    def __str__(self):
+    def __str__(self) -> str:
         payload = base64.b64encode(self.__bytes__()).decode('latin-1')
         payload = '\n'.join(payload[i:(i + 64)] for i in range(0, len(payload), 64))
 
@@ -236,7 +248,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
             crc=base64.b64encode(PGPObject.int_to_bytes(self.crc24(self.__bytes__()), 3)).decode('latin-1')
         )
 
-    def __copy__(self):
+    def __copy__(self) -> 'Armorable':
         obj = self.__class__()
         obj.ascii_headers = self.ascii_headers.copy()
 
