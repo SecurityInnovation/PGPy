@@ -251,7 +251,7 @@ class TestPGPKey_Management(object):
 
             assert vres
 
-    @pytest.mark.run('first')
+    @pytest.mark.order(1)
     @pytest.mark.parametrize('alg,size', pkeyspecs)
     def test_gen_key(self, alg, size):
         # create a primary key with a UID
@@ -275,7 +275,7 @@ class TestPGPKey_Management(object):
             # try to verify with GPG
             self.gpg_verify_key(key)
 
-    @pytest.mark.run(after='test_gen_key')
+    @pytest.mark.order(after='test_gen_key')
     @pytest.mark.parametrize('pkspec,skspec',
                              itertools.product(pkeyspecs, skeyspecs),
                              ids=['{}-{}-{}'.format(pk[0].name, sk[0].name, sk[1]) for pk, sk in itertools.product(pkeyspecs, skeyspecs)])
@@ -315,7 +315,7 @@ class TestPGPKey_Management(object):
             # try to verify with GPG
             self.gpg_verify_key(key)
 
-    @pytest.mark.run(after='test_add_subkey')
+    @pytest.mark.order(after='test_add_subkey')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
     def test_add_altuid(self, pkspec):
         if pkspec not in self.keys:
@@ -356,7 +356,7 @@ class TestPGPKey_Management(object):
             # try to verify with GPG
             self.gpg_verify_key(key)
 
-    @pytest.mark.run(after='test_add_altuid')
+    @pytest.mark.order(after='test_add_altuid')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
     def test_add_photo(self, pkspec, userphoto):
         if pkspec not in self.keys:
@@ -373,7 +373,7 @@ class TestPGPKey_Management(object):
             # try to verify with GPG
             self.gpg_verify_key(key)
 
-    @pytest.mark.run(after='test_add_photo')
+    @pytest.mark.order(after='test_add_photo')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
     def test_revoke_altuid(self, pkspec):
         if pkspec not in self.keys:
@@ -386,7 +386,7 @@ class TestPGPKey_Management(object):
         revsig = key.revoke(altuid)
         altuid |= revsig
 
-    @pytest.mark.run(after='test_remove_altuid')
+    @pytest.mark.order(after='test_remove_altuid')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
     def test_remove_altuid(self, pkspec):
         if pkspec not in self.keys:
@@ -398,7 +398,7 @@ class TestPGPKey_Management(object):
 
         assert not key.get_uid('T. Keyerson')
 
-    @pytest.mark.run(after='test_remove_altuid')
+    @pytest.mark.order(after='test_remove_altuid')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
     def test_add_revocation_key(self, pkspec):
         if pkspec not in self.keys:
@@ -416,7 +416,7 @@ class TestPGPKey_Management(object):
             # try to verify with GPG
             self.gpg_verify_key(key)
 
-    @pytest.mark.run(after='test_add_revocation_key')
+    @pytest.mark.order(after='test_add_revocation_key')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
     def test_protect(self, pkspec):
         if pkspec not in self.keys:
@@ -436,7 +436,7 @@ class TestPGPKey_Management(object):
             # try to verify with GPG
             self.gpg_verify_key(key)
 
-    @pytest.mark.run(after='test_protect')
+    @pytest.mark.order(after='test_protect')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
     def test_unlock(self, pkspec):
         if pkspec not in self.keys:
@@ -451,7 +451,7 @@ class TestPGPKey_Management(object):
         with key.unlock('There Are Many Like It, But This Key Is Mine') as _unlocked:
             assert _unlocked.is_unlocked
 
-    @pytest.mark.run(after='test_unlock')
+    @pytest.mark.order(after='test_unlock')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
     def test_change_passphrase(self, pkspec):
         if pkspec not in self.keys:
@@ -463,7 +463,7 @@ class TestPGPKey_Management(object):
         with key.unlock('There Are Many Like It, But This Key Is Mine') as ukey:
             ukey.protect('This Password Has Been Changed', ukey._key.keymaterial.s2k.encalg, ukey._key.keymaterial.s2k.halg)
 
-    @pytest.mark.run(after='test_change_passphrase')
+    @pytest.mark.order(after='test_change_passphrase')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
     def test_unlock2(self, pkspec):
         if pkspec not in self.keys:
@@ -475,7 +475,7 @@ class TestPGPKey_Management(object):
         with key.unlock('This Password Has Been Changed') as ukey:
             assert ukey.is_unlocked
 
-    @pytest.mark.run(after='test_unlock2')
+    @pytest.mark.order(after='test_unlock2')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
     def test_pub_from_sec(self, pkspec):
         if pkspec not in self.keys:
@@ -497,7 +497,7 @@ class TestPGPKey_Management(object):
             # try to verify with GPG
             self.gpg_verify_key(pub)
 
-    @pytest.mark.run(after='test_pub_from_spec')
+    @pytest.mark.order(after='test_pub_from_spec')
     @pytest.mark.parametrize('pkspec,skspec',
                              itertools.product(pkeyspecs, skeyspecs),
                              ids=['{}-{}-{}'.format(pk[0].name, sk[0].name, sk[1]) for pk, sk in
@@ -534,7 +534,7 @@ class TestPGPKey_Management(object):
             # try to verify with GPG
             self.gpg_verify_key(key)
 
-    @pytest.mark.run(after='test_revoke_subkey')
+    @pytest.mark.order(after='test_revoke_subkey')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
     def test_revoke_key(self, pkspec):
         if pkspec not in self.keys:
@@ -558,7 +558,7 @@ class TestPGPKey_Management(object):
             # try to verify with GPG
             self.gpg_verify_key(key)
 
-    @pytest.mark.run(after='test_revoke_key')
+    @pytest.mark.order(after='test_revoke_key')
     def test_revoke_key_with_revoker(self):
         pytest.skip("not implemented yet")
 
@@ -705,7 +705,7 @@ class TestPGPKey_Actions(object):
             # verify with GnuPG
             self.gpg_verify(string, sig, targette_pub)
 
-    @pytest.mark.run(after='test_sign_string')
+    @pytest.mark.order(after='test_sign_string')
     def test_verify_string(self, targette_pub, string):
         # verify the signature on the string
         sig = self.sigs['string']
@@ -728,7 +728,7 @@ class TestPGPKey_Actions(object):
             # verify with GnuPG
             self.gpg_verify(message, pubkey=targette_pub)
 
-    @pytest.mark.run(after='test_sign_message')
+    @pytest.mark.order(after='test_sign_message')
     def test_verify_message(self, targette_pub, message):
         # test verifying a signed message
         sv = targette_pub.verify(message)
@@ -751,7 +751,7 @@ class TestPGPKey_Actions(object):
             # verify with GnuPG
             self.gpg_verify(ctmessage, pubkey=targette_pub)
 
-    @pytest.mark.run(after='test_sign_ctmessage')
+    @pytest.mark.order(after='test_sign_ctmessage')
     def test_verify_ctmessage(self, targette_pub, ctmessage):
         # test verifying a signed cleartext message
         sv = targette_pub.verify(ctmessage)
@@ -769,7 +769,7 @@ class TestPGPKey_Actions(object):
 
         self.sigs[(sec._key.fingerprint.keyid, 'timestamp')] = sig
 
-    @pytest.mark.run(after='test_sign_timestamp')
+    @pytest.mark.order(after='test_sign_timestamp')
     @pytest.mark.parametrize('pub', pubkeys,
                              ids=[os.path.basename(f) for f in sorted(glob.glob('tests/testdata/keys/*.pub.asc'))])
     def test_verify_timestamp(self, pub):
@@ -794,7 +794,7 @@ class TestPGPKey_Actions(object):
         assert sig.notation == {"cheese status": "standing alone"}
         self.sigs[(sec._key.fingerprint.keyid, 'standalone')] = sig
 
-    @pytest.mark.run(after='test_sign_standalone')
+    @pytest.mark.order(after='test_sign_standalone')
     @pytest.mark.parametrize('pub', pubkeys,
                              ids=[os.path.basename(f) for f in sorted(glob.glob('tests/testdata/keys/*.pub.asc'))])
     def test_verify_standalone(self, pub):
@@ -852,7 +852,7 @@ class TestPGPKey_Actions(object):
         assert sig.exportable
         assert ({sec.fingerprint.keyid} | set(sec.subkeys)) & userid.signers
 
-    @pytest.mark.run(after='test_certify_uid')
+    @pytest.mark.order(after='test_certify_uid')
     @pytest.mark.parametrize('pub', pubkeys,
                              ids=[os.path.basename(f) for f in sorted(glob.glob('tests/testdata/keys/*.pub.asc'))])
     def test_verify_userid(self, pub, abe):
@@ -869,7 +869,7 @@ class TestPGPKey_Actions(object):
         userphoto = abe.userattributes[0]
         userphoto |= sec.certify(userphoto)
 
-    @pytest.mark.run(after='test_certify_photo')
+    @pytest.mark.order(after='test_certify_photo')
     @pytest.mark.parametrize('pub', pubkeys,
                              ids=[os.path.basename(f) for f in sorted(glob.glob('tests/testdata/keys/*.pub.asc'))])
     def test_verify_photo(self, pub, abe):
@@ -922,7 +922,7 @@ class TestPGPKey_Actions(object):
             emsg = pub.encrypt(msg, cipher=cipher)
         self.msgs[(pub.fingerprint, cipher)] = emsg
 
-    @pytest.mark.run(after='test_encrypt_message')
+    @pytest.mark.order(after='test_encrypt_message')
     @pytest.mark.parametrize('sf,cipher',
                              itertools.product(sorted(glob.glob('tests/testdata/keys/*.sec.asc')), sorted(SymmetricKeyAlgorithm)))
     def test_decrypt_message(self, sf, cipher):
@@ -946,7 +946,7 @@ class TestPGPKey_Actions(object):
         if gpg:
             assert self.gpg_decrypt(emsg, sec).decode('utf-8') == dmsg.message
 
-    @pytest.mark.run(after='test_encrypt_message')
+    @pytest.mark.order(after='test_encrypt_message')
     @pytest.mark.parametrize('sf,cipher',
                              itertools.product(sorted(glob.glob('tests/testdata/keys/*.sec.asc')), sorted(SymmetricKeyAlgorithm)))
     def test_sign_encrypted_message(self, sf, cipher):
