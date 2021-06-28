@@ -1,7 +1,7 @@
 -r requirements.txt
 pytest
 pytest-cov
-pytest-ordering
+pytest-order<1.0
 flake8
 pep8-naming
 # NOTE: gpg is not here on purpose currently
