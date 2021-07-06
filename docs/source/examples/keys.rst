@@ -78,6 +78,28 @@ Keys can be loaded individually into PGPKey objects::
     # or from a text or binary string/bytes/bytearray that has already been read in:
     key, _ = pgpy.PGPKey.from_blob(keyblob)
 
+
+Loading Keys Without Usage Flags
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In some cases the key does not specific with usage flags, an error as the following is raised when the key is not available for some function::
+
+    import pgpy
+    publickey = pgpy.PGPKey.from_blob(bytearray(open('path/to/key_without_usage_flags.asc').read(), 'utf-8'))[0]
+
+    publickey.encrypt('secret message', user=publickey.userids[0].email)
+    >>> PGPError: Key 64C4D5362A88CF19 does not have the required usage flag EncryptStorage, EncryptCommunications
+
+To unapply this flags check, only need assign _require_usage_flags as False to the key before call encrypt function::
+
+    from pgpy import PGPKey
+    from pgpy import PGPMessage
+
+    key, _ = PGPKey.from_file('path/to/key_without_usage_flags.asc')
+    msg_pgp = PGPMessage.new(msg_to_encrypt)
+    key._require_usage_flags = False  # This allow ignore the validation
+    encrypted_phrase = key.encrypt(msg_pgp)
+
 Loading Keys Into a Keyring
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
