@@ -31,6 +31,7 @@ from pgpy.constants import PubKeyAlgorithm
 from pgpy.constants import RevocationReason
 from pgpy.constants import SignatureType
 from pgpy.constants import SymmetricKeyAlgorithm
+from pgpy.errors import PGPError
 from pgpy.packet import Packet
 from pgpy.packet.packets import PrivKeyV4
 from pgpy.packet.packets import PrivSubKeyV4
@@ -978,3 +979,17 @@ class TestPGPKey_Actions(object):
             warnings.simplefilter('ignore')
             dmsg = seckey.decrypt(emsg)
         assert bytes(dmsg.message) == b"This message will have been encrypted"
+
+    def test_ignore_flags(self):
+        # Test that ignoring key flags works properly
+        pubkey, _ = PGPKey.from_file('tests/testdata/keys/targette.pub.rsa.asc')
+        msg = PGPMessage.new('secret message')
+
+        with pytest.raises(PGPError):
+            pubkey.encrypt(msg)
+
+        pubkey._require_usage_flags = False
+        try:
+            pubkey.encrypt(msg)
+        except PGPError as e:
+            pytest.fail("Unexpected exception raised: {}".format(e))
