@@ -120,3 +120,24 @@ someone else's public key. That can be done like so::
     # that same passphrase
     dec_message = enc_message.decrypt("S00per_Sekr3t")
 
+
+Ignoring Usage Flags
+^^^^^^^^^^^^^^^^^^^^
+
+.. warning:: Don't do this unless you're *really* sure you need to!
+
+Sometimes a key is created without the correct usage flags and an error is raised when you try to use the key::
+
+    >>> from pgpy import PGPKey, PGPMessage
+    >>> key, _ = PGPKey.from_file('path/to/key_without_usage_flags.asc')
+    >>> message = PGPMessage.new('secret message')
+    >>> encrypted_phrase = key.encrypt(message)
+    PGPError: Key 0123456789ABCDEF does not have the required usage flag EncryptStorage, EncryptCommunications
+
+To disable this check, set ``_require_usage_flags`` to ``False`` on the key before calling the problem function::
+
+    >>> from pgpy import PGPKey, PGPMessage
+    >>> key, _ = PGPKey.from_file('path/to/key_without_usage_flags.asc')
+    >>> key._require_usage_flags = False
+    >>> message = PGPMessage.new('secret message')
+    >>> encrypted_phrase = key.encrypt(message)

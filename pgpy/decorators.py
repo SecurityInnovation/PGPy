@@ -93,7 +93,11 @@ class KeyAction(object):
                     break
 
             else:  # pragma: no cover
-                raise PGPError("Key {keyid:s} does not have the required usage flag {flags:s}".format(**em))
+                warning = "Key {keyid:s} does not have the required usage flag {flags:s}".format(**em)
+                if key._require_usage_flags:
+                    raise PGPError(warning)
+                else:
+                    logging.warning(warning)
 
         else:
             _key = key
