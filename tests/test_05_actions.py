@@ -387,7 +387,7 @@ class TestPGPKey_Management(object):
         revsig = key.revoke(altuid)
         altuid |= revsig
 
-    @pytest.mark.order(after='test_remove_altuid')
+    @pytest.mark.order(after='test_revoke_altuid')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
     def test_remove_altuid(self, pkspec):
         if pkspec not in self.keys:
@@ -478,7 +478,7 @@ class TestPGPKey_Management(object):
 
     @pytest.mark.order(after='test_unlock2')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])
-    def test_pub_from_sec(self, pkspec):
+    def test_pub_from_spec(self, pkspec):
         if pkspec not in self.keys:
             pytest.skip('Keyspec {} not in keys; must not have generated'.format(pkspec))
 
