@@ -4,6 +4,8 @@ this is where the armorable PGP block objects live
 """
 import binascii
 import collections
+from typing import Optional, Any, Union, Set, List, Tuple, Generator, OrderedDict
+
 try:
     import collections.abc as collections_abc
 except ImportError:
@@ -25,6 +27,7 @@ from datetime import datetime
 from cryptography.hazmat.primitives import hashes
 
 from .constants import CompressionAlgorithm
+from .constants import EllipticCurveOID
 from .constants import Features
 from .constants import HashAlgorithm
 from .constants import ImageEncoding
@@ -1370,16 +1373,16 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return self._key.keymaterial
 
     @property
-    def __sig__(self):
+    def __sig__(self) -> List[SignatureV4]:
         return list(self._signatures)
 
     @property
-    def created(self):
+    def created(self) -> datetime:
         """A :py:obj:`~datetime.datetime` object of the creation date and time of the key, in UTC."""
         return self._key.created
 
     @property
-    def expires_at(self):
+    def expires_at(self) -> Optional[datetime]:
         """A :py:obj:`~datetime.datetime` object of when this key is to be considered expired, if any. Otherwise, ``None``"""
         try:
             expires = min(sig.key_expiration for sig in itertools.chain(iter(uid.selfsig for uid in self.userids), self.self_signatures)
@@ -1392,20 +1395,20 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             return (self.created + expires)
 
     @property
-    def fingerprint(self):
+    def fingerprint(self) -> Optional[Fingerprint]:
         """The fingerprint of this key, as a :py:obj:`~pgpy.types.Fingerprint` object."""
         if self._key:
             return self._key.fingerprint
 
     @property
-    def hashdata(self):
+    def hashdata(self) -> bytearray:
         # when signing a key, only the public portion of the keys is hashed
         # if this is a private key, the private components of the key material need to be left out
         pub = self._key if self.is_public else self._key.pubkey()
         return pub.__bytearray__()[len(pub.header):]
 
     @property
-    def is_expired(self):
+    def is_expired(self) -> bool:
         """``True`` if this key is expired, otherwise ``False``"""
         expires = self.expires_at
         if expires is not None:
@@ -1414,12 +1417,12 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return False
 
     @property
-    def is_primary(self):
+    def is_primary(self) -> bool:
         """``True`` if this is a primary key; ``False`` if this is a subkey"""
         return isinstance(self._key, Primary) and not isinstance(self._key, Sub)
 
     @property
-    def is_protected(self):
+    def is_protected(self) -> bool:
         """``True`` if this is a private key that is protected with a passphrase, otherwise ``False``"""
         if self.is_public:
             return False
@@ -1427,12 +1430,12 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return self._key.protected
 
     @property
-    def is_public(self):
+    def is_public(self) -> bool:
         """``True`` if this is a public key, otherwise ``False``"""
         return isinstance(self._key, Public) and not isinstance(self._key, Private)
 
     @property
-    def is_unlocked(self):
+    def is_unlocked(self) -> bool:
         """``False`` if this is a private key that is protected with a passphrase and has not yet been unlocked, otherwise ``True``"""
         if self.is_public:
             return True
@@ -1443,12 +1446,12 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return self._key.unlocked
 
     @property
-    def key_algorithm(self):
+    def key_algorithm(self) -> PubKeyAlgorithm:
         """The :py:obj:`constants.PubKeyAlgorithm` pertaining to this key"""
         return self._key.pkalg
 
     @property
-    def key_size(self):
+    def key_size(self) -> Union[int, EllipticCurveOID]:
         """
         The size pertaining to this key. ``int`` for non-EC key algorithms; :py:obj:`constants.EllipticCurveOID` for EC keys.
 
@@ -1463,12 +1466,12 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return param.bit_length()
 
     @property
-    def magic(self):
+    def magic(self) -> str:
         return '{:s} KEY BLOCK'.format('PUBLIC' if (isinstance(self._key, Public) and not isinstance(self._key, Private)) else
                                        'PRIVATE' if isinstance(self._key, Private) else '')
 
     @property
-    def pubkey(self):
+    def pubkey(self) -> 'PGPKey':
         """If the :py:obj:`PGPKey` object is a private key, this method returns a corresponding public key object with
         all the trimmings. If it is already a public key, just return it.
         """
@@ -1506,7 +1509,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return self._sibling()
 
     @pubkey.setter
-    def pubkey(self, pubkey):
+    def pubkey(self, pubkey: 'PGPKey') -> None:
         if self.is_public:
             raise TypeError("cannot add public sibling to pubkey")
 
@@ -1534,7 +1537,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             yield sig
 
     @property
-    def signers(self):
+    def signers(self) -> Set:
         """A ``set`` of key ids of keys that were used to sign this key"""
         return {sig.signer for sig in self.__sig__}
 
@@ -1548,23 +1551,23 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             yield sig
 
     @property
-    def subkeys(self):
+    def subkeys(self) -> collections.OrderedDict:
         """An :py:obj:`~collections.OrderedDict` of subkeys bound to this primary key, if applicable,
         selected by 16-character keyid."""
         return self._children
 
     @property
-    def userids(self):
+    def userids(self) -> List[PGPUID]:
         """A ``list`` of :py:obj:`PGPUID` objects containing User ID information about this key"""
         return [ u for u in self._uids if u.is_uid ]
 
     @property
-    def userattributes(self):
+    def userattributes(self) -> List[PGPUID]:
         """A ``list`` of :py:obj:`PGPUID` objects containing one or more images associated with this key"""
         return [u for u in self._uids if u.is_ua]
 
     @property
-    def revocation_keys(self):
+    def revocation_keys(self) -> Generator[None, None, None]:
         """A ``generator`` with the list of keys that can revoke this key.
 
         See also :py:func:`PGPSignature.revocation_key`"""
@@ -1573,7 +1576,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                 yield sig.revocation_key
 
     @classmethod
-    def new(cls, key_algorithm, key_size, created=None):
+    def new(cls, key_algorithm: PubKeyAlgorithm, key_size: Union[int, EllipticCurveOID],
+            created: Optional[datetime] = None) -> 'PGPKey':
         """
         Generate a new PGP key
 
@@ -1599,7 +1603,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
         return key
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         PGPKey objects represent OpenPGP compliant keys along with all of their associated data.
 
@@ -1613,13 +1617,13 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         of either of those methods.
         """
         super(PGPKey, self).__init__()
-        self._key = None
+        self._key = None  # type: PrivKeyV4
         self._children = collections.OrderedDict()
-        self._signatures = SorteDeque()
-        self._uids = SorteDeque()
+        self._signatures = SorteDeque()  # type: SorteDeque[SignatureV4]
+        self._uids = SorteDeque()  # type: SorteDeque[PGPUID]
         self._sibling = None
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = bytearray()
         # us
         _bytes += self._key.__bytearray__()
@@ -1637,7 +1641,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
         return _bytes
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if self._key is not None:
             return "<PGPKey [{:s}][0x{:s}] at 0x{:02X}>" \
                    "".format(self._key.__class__.__name__, self.fingerprint.keyid, id(self))
@@ -1645,7 +1649,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return "<PGPKey [unknown] at 0x{:02X}>" \
                "".format(id(self))
 
-    def __contains__(self, item):
+    def __contains__(self, item: Union['PGPKey', Fingerprint, PGPUID, PGPSignature]) -> bool:
         if isinstance(item, PGPKey):  # pragma: no cover
             return item.fingerprint.keyid in self.subkeys
 
@@ -1660,7 +1664,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
         raise TypeError
 
-    def __or__(self, other, from_sib=False):
+    def __or__(self, other: Union[Key, 'PGPKey', PGPSignature, PGPUID], from_sib: bool = False) -> 'PGPKey':
         if isinstance(other, Key) and self._key is None:
             self._key = other
 
@@ -1715,7 +1719,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
         return key
 
-    def protect(self, passphrase, enc_alg, hash_alg):
+    def protect(self, passphrase: str, enc_alg: SymmetricKeyAlgorithm, hash_alg: HashAlgorithm) -> None:
         """
         Add a passphrase to a private key. If the key is already passphrase protected, it should be unlocked before
         a new passphrase can be specified.
@@ -1747,7 +1751,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         del passphrase
 
     @contextlib.contextmanager
-    def unlock(self, passphrase):
+    def unlock(self, passphrase: str):
         """
         Context manager method for unlocking passphrase-protected private keys. Has no effect if the key is not both
         private and passphrase-protected.
@@ -1801,7 +1805,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             for sk in itertools.chain([self], self.subkeys.values()):
                 sk._key.keymaterial.clear()
 
-    def add_uid(self, uid, selfsign=True, **prefs):
+    def add_uid(self, uid: PGPUID, selfsign: bool = True, **prefs: Any) -> None:
         """
         Add a User ID to this key.
 
@@ -1819,7 +1823,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
         self |= uid
 
-    def get_uid(self, search):
+    def get_uid(self, search: str) -> Optional[PGPUID]:
         """
         Find and return a User ID that matches the search string given.
 
@@ -1831,7 +1835,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             return next((u for u in self._uids if search in filter(lambda a: a is not None, (u.name, u.comment, u.email))), None)
         return self.parent.get_uid(search)
 
-    def del_uid(self, search):
+    def del_uid(self, search: str) -> None:
         """
         Find and remove a user id that matches the search string given. This method does not modify the corresponding
         :py:obj:`~pgpy.PGPUID` object; it only removes it from the list of user ids on the key.
@@ -1847,7 +1851,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         u._parent = None
         self._uids.remove(u)
 
-    def add_subkey(self, key, **prefs):
+    def add_subkey(self, key: 'PGPKey', **prefs: Any) -> None:
         """
         Add a key as a subkey to this key.
 
@@ -1882,7 +1886,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         bsig = self.bind(key, **prefs)
         key |= bsig
 
-    def _get_key_flags(self, user=None):
+    def _get_key_flags(self, user: Optional[PGPUID] = None) -> Set[KeyFlags]:
         if self.is_primary:
             if user is not None:
                 user = self.get_uid(user)
@@ -1898,7 +1902,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
         return next(self.self_signatures).key_flags
 
-    def _sign(self, subject, sig, **prefs):
+    def _sign(self, subject, sig: PGPSignature, **prefs: Any) -> PGPSignature:
         """
         The actual signing magic happens here.
         :param subject: The subject to sign
@@ -1988,7 +1992,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return sig
 
     @KeyAction(KeyFlags.Sign, is_unlocked=True, is_public=False)
-    def sign(self, subject, **prefs):
+    def sign(self, subject: Optional[Union[str, PGPMessage]], **prefs: Any) -> PGPSignature:
         """
         Sign text, a message, or a timestamp using this key.
 
@@ -2039,7 +2043,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return self._sign(subject, sig, **prefs)
 
     @KeyAction(KeyFlags.Certify, is_unlocked=True, is_public=False)
-    def certify(self, subject, level=SignatureType.Generic_Cert, **prefs):
+    def certify(self, subject: Union['PGPKey', PGPUID],
+                level: SignatureType = SignatureType.Generic_Cert, **prefs: Any) -> PGPSignature:
         """
         certify(subject, level=SignatureType.Generic_Cert, **prefs)
 
@@ -2204,7 +2209,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return self._sign(subject, sig, **prefs)
 
     @KeyAction(KeyFlags.Certify, is_unlocked=True, is_public=False)
-    def revoke(self, target, **prefs):
+    def revoke(self, target: Union['PGPKey', PGPUID], **prefs: Any) -> PGPSignature:
         """
         Revoke a key, a subkey, or all current certification signatures of a User ID that were generated by this key so far.
 
@@ -2250,7 +2255,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return self._sign(target, sig, **prefs)
 
     @KeyAction(is_unlocked=True, is_public=False)
-    def revoker(self, revoker, **prefs):
+    def revoker(self, revoker: 'PGPKey', **prefs: Any) -> PGPSignature:
         """
         Generate a signature that specifies another key as being valid for revoking this key.
 
@@ -2286,7 +2291,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return self._sign(self, sig, **prefs)
 
     @KeyAction(is_unlocked=True, is_public=False)
-    def bind(self, key, **prefs):
+    def bind(self, key: 'PGPKey', crosssign: bool = True, **prefs: Any) -> PGPSignature:
         """
         Bind a subkey to this key.
 
@@ -2297,7 +2302,6 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                             which are not capable of signing will not produce a cross-signature in any case.
                             Setting ``crosssign`` to ``False`` is likely to produce subkeys that will be rejected
                             by some other OpenPGP implementations.
-        :type crosssign: ``bool``
         """
         hash_algo = prefs.pop('hash', None)
 
@@ -2321,7 +2325,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
             crosssig = None
             # if possible, have the subkey create a primary key binding signature
-            if key.key_algorithm.can_sign and prefs.pop('crosssign', True):
+            if key.key_algorithm.can_sign and crosssign:
                 subkeyid = key.fingerprint.keyid
 
                 if not key.is_public:
@@ -2340,15 +2344,13 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
         return self._sign(key, sig, **prefs)
 
-    def verify(self, subject, signature=None):
+    def verify(self, subject: Optional[Union[str, PGPMessage, 'PGPKey', PGPUID]],
+               signature: Optional[PGPSignature] = None) -> SignatureVerification:
         """
         Verify a subject with a signature using this key.
 
         :param subject: The subject to verify
-        :type subject: ``str``, ``unicode``, ``None``, :py:obj:`PGPMessage`, :py:obj:`PGPKey`, :py:obj:`PGPUID`
         :param signature: If the signature is detached, it should be specified here.
-        :type signature: :py:obj:`PGPSignature`
-        :returns: :py:obj:`~pgpy.types.SignatureVerification`
         """
         sspairs = []
 
@@ -2400,13 +2402,13 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return sigv
 
     @KeyAction(KeyFlags.EncryptCommunications, KeyFlags.EncryptStorage, is_public=True)
-    def encrypt(self, message, sessionkey=None, **prefs):
+    def encrypt(self, message: PGPMessage, sessionkey: Optional[Union[str, bytes]] = None,
+                cipher: Optional[SymmetricKeyAlgorithm] = None, user: Optional[str] = None) -> PGPMessage:
         """encrypt(message[, sessionkey=None], **prefs)
 
         Encrypt a PGPMessage using this key.
 
         :param message: The message to encrypt.
-        :type message: :py:obj:`PGPMessage`
         :param sessionkey: Provide a session key to use when encrypting something. Default is ``None``.
                                     If ``None``, a session key of the appropriate length will be generated randomly.
 
@@ -2415,7 +2417,6 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                                         Care should be taken when making use of this option! Session keys *absolutely need*
                                         to be unpredictable! Use the ``gen_key()`` method on the desired
                                         :py:obj:`~constants.SymmetricKeyAlgorithm` to generate the session key!
-        :type sessionkey: ``bytes``, ``str``
 
         :raises: :py:exc:`~errors.PGPEncryptionError` if encryption failed for any reason.
         :returns: A new :py:obj:`PGPMessage` with the encrypted contents of ``message``
@@ -2426,9 +2427,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         :type cipher: :py:obj:`~constants.SymmetricKeyAlgorithm`
         :keyword user: Specifies the User ID to use as the recipient for this encryption operation, for the purposes of
                        preference defaults and selection validation.
-        :type user: ``str``, ``unicode``
         """
-        user = prefs.pop('user', None)
         uid = None
         if user is not None:
             uid = self.get_uid(user)
@@ -2437,7 +2436,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             if uid is None and self.parent is not None:
                 uid = next(iter(self.parent.userids), None)
         pref_cipher = next(c for c in uid.selfsig.cipherprefs if c.is_supported)
-        cipher_algo = prefs.pop('cipher', pref_cipher)
+        cipher_algo = cipher if cipher is not None else pref_cipher
 
         if cipher_algo not in uid.selfsig.cipherprefs:
             warnings.warn("Selected symmetric algorithm not in key preferences", stacklevel=3)
@@ -2469,7 +2468,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return _m
 
     @KeyAction(is_unlocked=True, is_public=False)
-    def decrypt(self, message):
+    def decrypt(self, message: PGPMessage) -> PGPMessage:
         """
         Decrypt a PGPMessage using this key.
 
@@ -2500,7 +2499,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
         return decmsg
 
-    def parse(self, data):
+    def parse(self, data: Union[str, bytes, bytearray]) -> OrderedDict[Tuple[str, bool], 'PGPKey']:
         unarmored = self.ascii_unarmor(data)
         data = unarmored['body']
 
