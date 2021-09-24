@@ -93,7 +93,7 @@ asymmetric encryption/decryption using RSA or ECDH::
     key, _ = PGPKey.from_file("PATH TO _PRIVATE_ KEY FILE")
 
     # after the sender sends the encrypted message, the recipient decrypts:
-    plaintext_message = key.decrypt(encrypted_message).message
+    plaintext = key.decrypt(encrypted_message).message
 
 Encrypting Messages to Multiple Recipients
 """"""""""""""""""""""""""""""""""""""""""
