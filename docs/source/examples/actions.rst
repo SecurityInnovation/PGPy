@@ -89,7 +89,7 @@ asymmetric encryption/decryption using RSA or ECDH::
     # unencrypted message
     encrypted_message = pubkey.encrypt(message)
 
-    # Recipient loads the private key (assuming it were stored in a file):
+    # Recipient loads the private key
     key, _ = PGPKey.from_file("PATH TO _PRIVATE_ KEY FILE")
 
     # after the sender sends the encrypted message, the recipient decrypts:
