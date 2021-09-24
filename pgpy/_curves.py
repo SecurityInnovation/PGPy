@@ -10,7 +10,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 
 from cryptography.hazmat.bindings.openssl.binding import Binding
 
-__all__ = tuple()
+__all__ = ()
 
 # TODO: investigate defining additional curves using EC_GROUP_new_curve
 #       https://wiki.openssl.org/index.php/Elliptic_Curve_Cryptography#Defining_Curves
