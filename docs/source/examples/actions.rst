@@ -78,9 +78,22 @@ Encrypting/Decrypting Messages With a Public Key
 Encryption using keys requires a public key, while decryption requires a private key. PGPy currently only supports
 asymmetric encryption/decryption using RSA or ECDH::
 
-    # this returns a new PGPMessage that contains an encrypted form of the
+    # Assume the sender has retrieved the public key and saved it to a file.
+    # reload the public key 
+    pubkey, _ = PGPKey.from_file("PATH TO PUBLIC KEY FILE")
+
+    # As usual, construct a PGPMessage from a string:
+    message = PGPMessage.new("42 is quite a pleasant number")
+
+    # Transform it into a new PGPMessage that contains an encrypted form of the
     # unencrypted message
     encrypted_message = pubkey.encrypt(message)
+
+    # Recipient loads the private key
+    key, _ = PGPKey.from_file("PATH TO _PRIVATE_ KEY FILE")
+
+    # after the sender sends the encrypted message, the recipient decrypts:
+    plaintext = key.decrypt(encrypted_message).message
 
 Encrypting Messages to Multiple Recipients
 """"""""""""""""""""""""""""""""""""""""""
