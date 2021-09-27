@@ -228,16 +228,16 @@ class UserAttributeSubPackets(SubPackets):
     """
     _spmodule = userattribute
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = bytearray()
         for uhsp in self._unhashed_sp.values():
             _bytes += uhsp.__bytearray__()
         return _bytes
 
-    def __len__(self):  # pragma: no cover
+    def __len__(self) -> int:  # pragma: no cover
         return sum(len(sp) for sp in self._unhashed_sp.values())
 
-    def parse(self, packet):
+    def parse(self, packet) -> None:
         # parse just one packet and add it to the unhashed subpacket ordereddict
         # I actually have yet to come across a User Attribute packet with more than one subpacket
         # which makes sense, given that there is only one defined subpacket
