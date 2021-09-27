@@ -10,6 +10,7 @@ import hashlib
 import itertools
 import math
 import os
+from typing import Union
 
 try:
     import collections.abc as collections_abc
@@ -299,7 +300,7 @@ class RSASignature(Signature):
 class DSASignature(Signature):
     __mpis__ = ('r', 's')
 
-    def __sig__(self):
+    def __sig__(self) -> bytes:
         # return the signature data into an ASN.1 sequence of integers in DER format
         seq = Sequence(componentType=NamedTypes(*[NamedType(n, Integer()) for n in self.__mpis__]))
         for n in self.__mpis__:
@@ -307,9 +308,9 @@ class DSASignature(Signature):
 
         return encoder.encode(seq)
 
-    def from_signer(self, sig):
+    def from_signer(self, sig: Union[bytes, bytearray]) -> None:
         ##TODO: just use pyasn1 for this
-        def _der_intf(_asn):
+        def _der_intf(_asn: bytearray) -> int:
             if _asn[0] != 0x02:  # pragma: no cover
                 raise ValueError("Expected: Integer (0x02). Got: 0x{:02X}".format(_asn[0]))
             del _asn[0]
@@ -348,7 +349,7 @@ class DSASignature(Signature):
         self.r = MPI(_der_intf(sig))
         self.s = MPI(_der_intf(sig))
 
-    def parse(self, packet):
+    def parse(self, packet) -> None:
         self.r = MPI(packet)
         self.s = MPI(packet)
 
