@@ -1283,14 +1283,14 @@ class PrivKey(PubKey):
 
 
 class OpaquePrivKey(PrivKey, OpaquePubKey):  # pragma: no cover
-    def __privkey__(self):
+    def __privkey__(self) -> NotImplemented:
         return NotImplemented
 
-    def _generate(self, key_size):
+    def _generate(self, key_size: object) -> NoReturn:
         # return NotImplemented
         raise NotImplementedError()
 
-    def decrypt_keyblob(self, passphrase):
+    def decrypt_keyblob(self, passphrase: object) -> NotImplemented:
         return NotImplemented
 
 
