@@ -653,34 +653,34 @@ class EdDSAPub(PubKey):
 class ECDHPub(PubKey):
     __pubfields__ = ('p',)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(ECDHPub, self).__init__()
         self.oid = None
         self.kdf = ECKDF()
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.p) + len(self.kdf) + len(encoder.encode(self.oid.value)) - 1
 
-    def __pubkey__(self):
+    def __pubkey__(self) -> Union[x25519.X25519PublicKey, ec.EllipticCurvePublicKey]:
         if self.oid == EllipticCurveOID.Curve25519:
             return x25519.X25519PublicKey.from_public_bytes(self.p.x)
         else:
             return ec.EllipticCurvePublicNumbers(self.p.x, self.p.y, self.oid.curve()).public_key(default_backend())
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _b = bytearray()
         _b += encoder.encode(self.oid.value)[1:]
         _b += self.p.to_mpibytes()
         _b += self.kdf.__bytearray__()
         return _b
 
-    def __copy__(self):
+    def __copy__(self) -> 'ECDHPub':
         pkt = super(ECDHPub, self).__copy__()
         pkt.oid = self.oid
         pkt.kdf = copy.copy(self.kdf)
         return pkt
 
-    def parse(self, packet):
+    def parse(self, packet) -> None:
         """
         Algorithm-Specific Fields for ECDH keys:
 
