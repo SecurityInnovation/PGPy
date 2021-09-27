@@ -437,10 +437,10 @@ class OpaquePubKey(PubKey):  # pragma: no cover
 class RSAPub(PubKey):
     __pubfields__ = ('n', 'e')
 
-    def __pubkey__(self):
+    def __pubkey__(self) -> rsa.RSAPublicKey:
         return rsa.RSAPublicNumbers(self.e, self.n).public_key(default_backend())
 
-    def verify(self, subj, sigbytes, hash_alg):
+    def verify(self, subj, sigbytes, hash_alg) -> bool:
         # zero-pad sigbytes if necessary
         sigbytes = (b'\x00' * (self.n.byte_length() - len(sigbytes))) + sigbytes
         try:
@@ -449,7 +449,7 @@ class RSAPub(PubKey):
             return False
         return True
 
-    def parse(self, packet):
+    def parse(self, packet: Union[int, bytes, bytearray]) -> None:
         self.n = MPI(packet)
         self.e = MPI(packet)
 
