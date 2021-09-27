@@ -286,13 +286,13 @@ class OpaqueSignature(Signature):
 class RSASignature(Signature):
     __mpis__ = ('md_mod_n', )
 
-    def __sig__(self):
+    def __sig__(self) -> bytes:
         return self.md_mod_n.to_mpibytes()[2:]
 
-    def parse(self, packet):
+    def parse(self, packet) -> None:
         self.md_mod_n = MPI(packet)
 
-    def from_signer(self, sig):
+    def from_signer(self, sig: bytes) -> None:
         self.md_mod_n = MPI(self.bytes_to_int(sig))
 
 
