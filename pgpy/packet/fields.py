@@ -12,6 +12,7 @@ import math
 import os
 from typing import Iterator
 from typing import NoReturn
+from typing import Optional
 from typing import Union
 
 try:
@@ -489,7 +490,7 @@ class ElGPub(PubKey):
 
 
 class ECPoint:
-    def __init__(self, packet=None):
+    def __init__(self, packet: Union[int, bytes, bytearray] = None) -> None:
         if packet is None:
             return
         xy = bytearray(MPI(packet).to_mpibytes()[2:])
@@ -510,7 +511,7 @@ class ECPoint:
             raise NotImplementedError("No curve is supposed to use only X or Y coordinates")
 
     @classmethod
-    def from_values(cls, bitlen, pform, x, y=None):
+    def from_values(cls, bitlen: int, pform: ECPointFormat, x: Union[MPI, bytes], y: Optional[MPI] = None) -> 'ECPoint':
         ct = cls()
         ct.bytelen = (bitlen + 7) // 8
         ct.format = pform
@@ -518,7 +519,7 @@ class ECPoint:
         ct.y = y
         return ct
 
-    def __len__(self):
+    def __len__(self) -> int:
         """ Returns length of MPI encoded point """
         if self.format == ECPointFormat.Standard:
             return 2 * self.bytelen + 3
@@ -527,7 +528,7 @@ class ECPoint:
         else:
             raise NotImplementedError("No curve is supposed to use only X or Y coordinates")
 
-    def to_mpibytes(self):
+    def to_mpibytes(self) -> bytes:
         """ Returns MPI encoded point as it should be written in packet """
         b = bytearray()
         b.append(self.format)
@@ -540,10 +541,10 @@ class ECPoint:
             raise NotImplementedError("No curve is supposed to use only X or Y coordinates")
         return MPI(MPIs.bytes_to_int(b)).to_mpibytes()
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         return self.to_mpibytes()
 
-    def __copy__(self):
+    def __copy__(self) -> 'ECPoint':
         pk = self.__class__()
         pk.bytelen = self.bytelen
         pk.format = self.format
