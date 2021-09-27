@@ -1572,7 +1572,7 @@ class EdDSAPriv(PrivKey, EdDSAPub):
 
 
 class ECDHPriv(ECDSAPriv, ECDHPub):
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _b = ECDHPub.__bytearray__(self)
         _b += self.s2k.__bytearray__()
         if not self.s2k:
@@ -1583,7 +1583,7 @@ class ECDHPriv(ECDSAPriv, ECDHPub):
             _b += self.encbytes
         return _b
 
-    def __len__(self):
+    def __len__(self) -> int:
         l = ECDHPub.__len__(self) + len(self.s2k) + len(self.chksum)
         if self.s2k:
             l += len(self.encbytes)
@@ -1591,7 +1591,7 @@ class ECDHPriv(ECDSAPriv, ECDHPub):
             l += sum(len(getattr(self, i)) for i in self.__privfields__)
         return l
 
-    def __privkey__(self):
+    def __privkey__(self) -> Union[x25519.X25519PrivateKey, ec.EllipticCurvePrivateKey]:
         if self.oid == EllipticCurveOID.Curve25519:
             # NOTE: openssl and GPG don't use the same endianness for Curve25519 secret value
             s = self.int_to_bytes(self.s, (self.oid.key_size + 7) // 8, 'little')
@@ -1599,7 +1599,7 @@ class ECDHPriv(ECDSAPriv, ECDHPub):
         else:
             return ECDSAPriv.__privkey__(self)
 
-    def _generate(self, oid):
+    def _generate(self, oid: str) -> None:
         _oid = EllipticCurveOID(oid)
         if _oid == EllipticCurveOID.Curve25519:
             if any(c != 0 for c in self):  # pragma: no cover
@@ -1620,10 +1620,10 @@ class ECDHPriv(ECDSAPriv, ECDHPub):
         self.kdf.halg = self.oid.kdf_halg
         self.kdf.encalg = self.oid.kek_alg
 
-    def publen(self):
+    def publen(self) -> int:
         return ECDHPub.__len__(self)
 
-    def parse(self, packet):
+    def parse(self, packet) -> None:
         ECDHPub.parse(self, packet)
         self.s2k.parse(packet)
 
@@ -1636,7 +1636,7 @@ class ECDHPriv(ECDSAPriv, ECDHPub):
             ##TODO: this needs to be bounded to the length of the encrypted key material
             self.encbytes = packet
 
-    def sign(self, sigdata, hash_alg):
+    def sign(self, sigdata: object, hash_alg: object) -> NoReturn:
         raise PGPError("Cannot sign with an ECDH key")
 
 
