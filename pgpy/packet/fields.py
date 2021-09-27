@@ -11,6 +11,7 @@ import itertools
 import math
 import os
 from typing import Iterator
+from typing import NoReturn
 from typing import Union
 
 try:
@@ -478,10 +479,10 @@ class DSAPub(PubKey):
 class ElGPub(PubKey):
     __pubfields__ = ('p', 'g', 'y')
 
-    def __pubkey__(self):
+    def __pubkey__(self) -> NoReturn:
         raise NotImplementedError()
 
-    def parse(self, packet):
+    def parse(self, packet: Union[int, bytes, bytearray]) -> None:
         self.p = MPI(packet)
         self.g = MPI(packet)
         self.y = MPI(packet)
