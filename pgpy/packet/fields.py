@@ -416,20 +416,20 @@ class PubKey(MPIs):
 
 
 class OpaquePubKey(PubKey):  # pragma: no cover
-    def __init__(self):
+    def __init__(self) -> None:
         super(OpaquePubKey, self).__init__()
         self.data = bytearray()
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[int]:
         yield self.data
 
-    def __pubkey__(self):
+    def __pubkey__(self) -> NotImplemented:
         return NotImplemented
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         return self.data
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         ##TODO: this needs to be length-bounded to the end of the packet
         self.data = packet
 
