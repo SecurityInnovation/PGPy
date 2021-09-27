@@ -602,28 +602,28 @@ class ECDSAPub(PubKey):
 class EdDSAPub(PubKey):
     __pubfields__ = ('p', )
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(EdDSAPub, self).__init__()
         self.oid = None
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.p) + len(encoder.encode(self.oid.value)) - 1
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _b = bytearray()
         _b += encoder.encode(self.oid.value)[1:]
         _b += self.p.to_mpibytes()
         return _b
 
-    def __pubkey__(self):
+    def __pubkey__(self) -> ed25519.Ed25519PublicKey:
         return ed25519.Ed25519PublicKey.from_public_bytes(self.p.x)
 
-    def __copy__(self):
+    def __copy__(self) -> 'EdDSAPub':
         pkt = super(EdDSAPub, self).__copy__()
         pkt.oid = self.oid
         return pkt
 
-    def verify(self, subj, sigbytes, hash_alg):
+    def verify(self, subj, sigbytes, hash_alg) -> bool:
         # GnuPG requires a pre-hashing with EdDSA
         # https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-06#section-14.8
         digest = hashes.Hash(hash_alg, backend=default_backend())
@@ -635,7 +635,7 @@ class EdDSAPub(PubKey):
             return False
         return True
 
-    def parse(self, packet):
+    def parse(self, packet) -> None:
         oidlen = packet[0]
         del packet[0]
         _oid = bytearray(b'\x06')
