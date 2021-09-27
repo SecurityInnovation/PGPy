@@ -556,35 +556,35 @@ class ECPoint:
 class ECDSAPub(PubKey):
     __pubfields__ = ('p',)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(ECDSAPub, self).__init__()
         self.oid = None
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.p) + len(encoder.encode(self.oid.value)) - 1
 
-    def __pubkey__(self):
+    def __pubkey__(self) -> ec.EllipticCurvePublicKey:
         return ec.EllipticCurvePublicNumbers(self.p.x, self.p.y, self.oid.curve()).public_key(default_backend())
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _b = bytearray()
         _b += encoder.encode(self.oid.value)[1:]
         _b += self.p.to_mpibytes()
         return _b
 
-    def __copy__(self):
+    def __copy__(self) -> 'ECDSAPub':
         pkt = super(ECDSAPub, self).__copy__()
         pkt.oid = self.oid
         return pkt
 
-    def verify(self, subj, sigbytes, hash_alg):
+    def verify(self, subj, sigbytes, hash_alg) -> bool:
         try:
             self.__pubkey__().verify(sigbytes, subj, ec.ECDSA(hash_alg))
         except InvalidSignature:
             return False
         return True
 
-    def parse(self, packet):
+    def parse(self, packet) -> None:
         oidlen = packet[0]
         del packet[0]
         _oid = bytearray(b'\x06')
