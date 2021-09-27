@@ -362,7 +362,7 @@ class ECDSASignature(DSASignature):
 
 
 class EdDSASignature(DSASignature):
-    def from_signer(self, sig):
+    def from_signer(self, sig) -> None:
         lsig = len(sig)
         if lsig % 2 != 0:
             raise PGPError("malformed EdDSA signature")
@@ -370,7 +370,7 @@ class EdDSASignature(DSASignature):
         self.r = MPI(self.bytes_to_int(sig[:split]))
         self.s = MPI(self.bytes_to_int(sig[split:]))
 
-    def __sig__(self):
+    def __sig__(self) -> bytes:
         # TODO: change this length when EdDSA can be used with another curve (Ed448)
         l = (EllipticCurveOID.Ed25519.key_size + 7) // 8
         return self.int_to_bytes(self.r, l) + self.int_to_bytes(self.s, l)
