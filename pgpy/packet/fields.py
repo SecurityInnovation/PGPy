@@ -266,20 +266,20 @@ class Signature(MPIs):
 
 
 class OpaqueSignature(Signature):
-    def __init__(self):
+    def __init__(self) -> None:
         super(OpaqueSignature, self).__init__()
         self.data = bytearray()
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         return self.data
 
-    def __sig__(self):
+    def __sig__(self) -> bytearray:
         return self.data
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         self.data = packet
 
-    def from_signer(self, sig):
+    def from_signer(self, sig) -> None:
         self.data = bytearray(sig)
 
 
