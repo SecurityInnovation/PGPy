@@ -457,18 +457,18 @@ class RSAPub(PubKey):
 class DSAPub(PubKey):
     __pubfields__ = ('p', 'q', 'g', 'y')
 
-    def __pubkey__(self):
+    def __pubkey__(self) -> dsa.DSAPublicKey:
         params = dsa.DSAParameterNumbers(self.p, self.q, self.g)
         return dsa.DSAPublicNumbers(self.y, params).public_key(default_backend())
 
-    def verify(self, subj, sigbytes, hash_alg):
+    def verify(self, subj, sigbytes, hash_alg) -> bool:
         try:
             self.__pubkey__().verify(sigbytes, subj, hash_alg)
         except InvalidSignature:
             return False
         return True
 
-    def parse(self, packet):
+    def parse(self, packet: Union[int, bytes, bytearray]) -> None:
         self.p = MPI(packet)
         self.q = MPI(packet)
         self.g = MPI(packet)
