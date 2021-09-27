@@ -10,6 +10,7 @@ import hashlib
 import itertools
 import math
 import os
+from typing import Iterator
 from typing import Union
 
 try:
@@ -380,11 +381,11 @@ class PubKey(MPIs):
     __pubfields__ = ()
 
     @property
-    def __mpis__(self):
+    def __mpis__(self) -> Iterator[str]:
         for i in self.__pubfields__:
             yield i
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(PubKey, self).__init__()
         for field in self.__pubfields__:
             if isinstance(field, tuple):  # pragma: no cover
@@ -397,20 +398,20 @@ class PubKey(MPIs):
     def __pubkey__(self):
         """return the requisite *PublicKey class from the cryptography library"""
 
-    def __len__(self):
+    def __len__(self) -> int:
         return sum(len(getattr(self, i)) for i in self.__pubfields__)
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = bytearray()
         for field in self.__pubfields__:
             _bytes += getattr(self, field).to_mpibytes()
 
         return _bytes
 
-    def publen(self):
+    def publen(self) -> int:
         return len(self)
 
-    def verify(self, subj, sigbytes, hash_alg):
+    def verify(self, subj, sigbytes, hash_alg) -> NotImplemented:
         return NotImplemented  # pragma: no cover
 
 
