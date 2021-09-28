@@ -1433,14 +1433,14 @@ class ElGPriv(PrivKey, ElGPub):
     def __privkey__(self):
         raise NotImplementedError()
 
-    def _compute_chksum(self):
+    def _compute_chksum(self) -> None:
         chs = sum(bytearray(self.x.to_mpibytes())) % 65536
         self.chksum = bytearray(self.int_to_bytes(chs, 2))
 
     def _generate(self, key_size):
         raise NotImplementedError(PubKeyAlgorithm.ElGamal)
 
-    def parse(self, packet):
+    def parse(self, packet) -> None:
         super(ElGPriv, self).parse(packet)
         self.s2k.parse(packet)
 
@@ -1454,7 +1454,7 @@ class ElGPriv(PrivKey, ElGPub):
             self.chksum = packet[:2]
             del packet[:2]
 
-    def decrypt_keyblob(self, passphrase):
+    def decrypt_keyblob(self, passphrase: str) -> None:
         kb = super(ElGPriv, self).decrypt_keyblob(passphrase)
         del passphrase
 
