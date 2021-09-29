@@ -358,7 +358,7 @@ class DSASignature(Signature):
 
 
 class ECDSASignature(DSASignature):
-    def from_signer(self, sig) -> None:
+    def from_signer(self, sig: bytes) -> None:
         seq, _ = decoder.decode(sig)
         self.r = MPI(seq[0])
         self.s = MPI(seq[1])
