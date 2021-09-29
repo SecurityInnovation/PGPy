@@ -19,43 +19,43 @@ __all__ = ['Header',
 
 class Header(_Header):
     @sdproperty
-    def critical(self):
+    def critical(self) -> bool:
         return self._critical
 
     @critical.register(bool)
-    def critical_bool(self, val):
+    def critical_bool(self, val: bool) -> None:
         self._critical = val
 
     @sdproperty
-    def typeid(self):
+    def typeid(self) -> int:
         return self._typeid
 
     @typeid.register(int)
-    def typeid_int(self, val):
+    def typeid_int(self, val: int) -> None:
         self._typeid = val & 0x7f
 
     @typeid.register(bytes)
     @typeid.register(bytearray)
-    def typeid_bin(self, val):
+    def typeid_bin(self, val: bytes) -> None:
         v = self.bytes_to_int(val)
         self.typeid = v
         self.critical = bool(v & 0x80)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(Header, self).__init__()
         self._typeid = -1
         self.critical = False
 
-    def parse(self, packet):
+    def parse(self, packet) -> None:
         self.length = packet
 
         self.typeid = packet[:1]
         del packet[:1]
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.llen + 1
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = bytearray(self.encode_length(self.length))
         _bytes += self.int_to_bytes((int(self.critical) << 7) + self.typeid)
         return _bytes
