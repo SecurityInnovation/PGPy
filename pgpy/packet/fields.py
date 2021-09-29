@@ -250,11 +250,11 @@ class UserAttributeSubPackets(SubPackets):
 
 
 class Signature(MPIs):
-    def __init__(self):
+    def __init__(self) -> None:
         for i in self.__mpis__:
             setattr(self, i, MPI(0))
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = bytearray()
         for i in self:
             _bytes += i.to_mpibytes()
