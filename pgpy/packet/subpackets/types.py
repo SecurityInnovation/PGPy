@@ -113,24 +113,24 @@ class Opaque(Signature, UserAttribute):
     __typeid__ = None
 
     @sdproperty
-    def payload(self):
+    def payload(self) -> bytearray:
         return self._payload
 
     @payload.register(bytes)
     @payload.register(bytearray)
-    def payload_bin(self, val):
+    def payload_bin(self, val: bytes) -> None:
         self._payload = bytearray(val)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(Opaque, self).__init__()
         self.payload = b''
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super(Opaque, self).__bytearray__()
         _bytes += self.payload
         return _bytes
 
-    def parse(self, packet):
+    def parse(self, packet) -> None:
         super(Opaque, self).parse(packet)
         self.payload = packet[:(self.header.length - 1)]
         del packet[:(self.header.length - 1)]
