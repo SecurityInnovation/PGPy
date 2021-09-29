@@ -73,7 +73,7 @@ class EmbeddedSignatureHeader(VersionedHeader):
 class SubPacket(Dispatchable):
     __headercls__ = Header
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(SubPacket, self).__init__()
         self.header = Header()
 
@@ -83,20 +83,20 @@ class SubPacket(Dispatchable):
                 (self.__typeid__ not in [-1, None])):
             self.header.typeid = self.__typeid__
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         return self.header.__bytearray__()
 
-    def __len__(self):
+    def __len__(self) -> int:
         return (self.header.llen + self.header.length)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<{} [0x{:02x}] at 0x{:x}>".format(self.__class__.__name__, self.header.typeid, id(self))
 
-    def update_hlen(self):
+    def update_hlen(self) -> None:
         self.header.length = (len(self.__bytearray__()) - len(self.header)) + 1
 
     @abc.abstractmethod
-    def parse(self, packet):  # pragma: no cover
+    def parse(self, packet) -> None:  # pragma: no cover
         if self.header._typeid == -1:
             self.header.parse(packet)
 
