@@ -192,24 +192,24 @@ class Opaque(Packet):
     __typeid__ = None
 
     @sdproperty
-    def payload(self):
+    def payload(self) -> bytes:
         return self._payload
 
     @payload.register(bytearray)
     @payload.register(bytes)
-    def payload_bin(self, val):
+    def payload_bin(self, val: bytes) -> None:
         self._payload = val
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(Opaque, self).__init__()
         self.payload = b''
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super(Opaque, self).__bytearray__()
         _bytes += self.payload
         return _bytes
 
-    def parse(self, packet):  # pragma: no cover
+    def parse(self, packet) -> None:  # pragma: no cover
         super(Opaque, self).parse(packet)
         pend = self.header.length
         if hasattr(self.header, 'version'):
