@@ -62,10 +62,10 @@ class Header(_Header):
 
 
 class EmbeddedSignatureHeader(VersionedHeader):
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         return bytearray([self.version])
 
-    def parse(self, packet):
+    def parse(self, packet) -> None:
         self.tag = 2
         super(EmbeddedSignatureHeader, self).parse(packet)
 
