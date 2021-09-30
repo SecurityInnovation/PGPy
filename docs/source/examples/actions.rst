@@ -78,9 +78,22 @@ Encrypting/Decrypting Messages With a Public Key
 Encryption using keys requires a public key, while decryption requires a private key. PGPy currently only supports
 asymmetric encryption/decryption using RSA or ECDH::
 
-    # this returns a new PGPMessage that contains an encrypted form of the
+    # Assume the sender has retrieved the public key and saved it to a file.
+    # reload the public key 
+    pubkey, _ = PGPKey.from_file("PATH TO PUBLIC KEY FILE")
+
+    # As usual, construct a PGPMessage from a string:
+    message = PGPMessage.new("42 is quite a pleasant number")
+
+    # Transform it into a new PGPMessage that contains an encrypted form of the
     # unencrypted message
     encrypted_message = pubkey.encrypt(message)
+
+    # Recipient loads the private key
+    key, _ = PGPKey.from_file("PATH TO _PRIVATE_ KEY FILE")
+
+    # after the sender sends the encrypted message, the recipient decrypts:
+    plaintext = key.decrypt(encrypted_message).message
 
 Encrypting Messages to Multiple Recipients
 """"""""""""""""""""""""""""""""""""""""""
@@ -120,3 +133,24 @@ someone else's public key. That can be done like so::
     # that same passphrase
     dec_message = enc_message.decrypt("S00per_Sekr3t")
 
+
+Ignoring Usage Flags
+^^^^^^^^^^^^^^^^^^^^
+
+.. warning:: Don't do this unless you're *really* sure you need to!
+
+Sometimes a key is created without the correct usage flags and an error is raised when you try to use the key::
+
+    >>> from pgpy import PGPKey, PGPMessage
+    >>> key, _ = PGPKey.from_file('path/to/key_without_usage_flags.asc')
+    >>> message = PGPMessage.new('secret message')
+    >>> encrypted_phrase = key.encrypt(message)
+    PGPError: Key 0123456789ABCDEF does not have the required usage flag EncryptStorage, EncryptCommunications
+
+To disable this check, set ``_require_usage_flags`` to ``False`` on the key before calling the problem function::
+
+    >>> from pgpy import PGPKey, PGPMessage
+    >>> key, _ = PGPKey.from_file('path/to/key_without_usage_flags.asc')
+    >>> key._require_usage_flags = False
+    >>> message = PGPMessage.new('secret message')
+    >>> encrypted_phrase = key.encrypt(message)

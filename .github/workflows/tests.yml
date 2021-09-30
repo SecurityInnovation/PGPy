@@ -6,7 +6,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-16.04, macos-10.15]
+        os: [ubuntu-18.04, macos-10.15]
         python-version: [3.5, 3.6, 3.7, 3.8, 3.9]
 
     steps:
@@ -31,7 +31,7 @@ jobs:
 
   # do some tests with LC_ALL=C to check for locale variance
   c-locale-test:
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python
@@ -56,7 +56,7 @@ jobs:
 
   # test setup.py using each tested version
   test-setup:
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-18.04
     strategy:
       matrix:
         include:
@@ -84,7 +84,7 @@ jobs:
 
   # add a pep8 test
   pep8:
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-18.04
     continue-on-error: true # pep8 failures shouldn't be considered fatal
     steps:
       - uses: actions/checkout@v2
@@ -99,7 +99,7 @@ jobs:
   # report coverage to coveralls, but only for pytest runs
   finish-coveralls:
     needs: [ unit-tests, c-locale-test ]
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-18.04
 
     steps:
       - uses: actions/setup-python@v2

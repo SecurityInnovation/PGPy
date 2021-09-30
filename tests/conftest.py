@@ -64,8 +64,8 @@ def pytest_configure(config):
     else:
         # we're not running integration tests
         print("running without integration tests")
-        # if we're on Travis, this is an error
-        if os.getenv('TRAVIS_PYTHON_VERSION'):
+        # if we're on GitHub CI, this is an error
+        if os.getenv('CI'):
             sys.exit(1)
 
     # display the working directory and the OpenSSL/GPG/pgpdump versions
