@@ -1068,6 +1068,14 @@ class PGPMessage(Armorable, PGPObject):
         if isinstance(other, Opaque):
             # XXX: fix some other time for 'real'
             return self  # basically ignore packet for now
+        
+        if isinstance(other, SKEData):
+            # XXX: fix some other time for 'real'
+            return self  # basically ignore packet for now
+
+        if isinstance(other, pgpy.packet.packets.Trust):
+            # XXX: fix some other time for 'real'
+            return self  # basically ignore packet for now
 
         raise NotImplementedError(str(type(other)))
 
