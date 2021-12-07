@@ -1064,6 +1064,10 @@ class PGPMessage(Armorable, PGPObject):
             self._sessionkeys += other._sessionkeys
             self._signatures += other._signatures
             return self
+        
+        if isinstance(other, Opaque):
+            # XXX: fix some other time for 'real'
+            return self  # basically ignore packet for now
 
         raise NotImplementedError(str(type(other)))
 
@@ -2553,7 +2557,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
                 # and file away pgpobj
                 if isinstance(pgpobj, PGPKey):
-                    if pgpobj.is_primary:
+                    if pgpobj.is_primary or not keys:  # avoid erroring the else below if next(reversed(keys)) isn't available yet
                         keys[(pgpobj.fingerprint.keyid, pgpobj.is_public)] = pgpobj
 
                     else:
