@@ -1065,19 +1065,12 @@ class PGPMessage(Armorable, PGPObject):
             self._signatures += other._signatures
             return self
         
-        if isinstance(other, Opaque):
-            # XXX: fix some other time for 'real'
-            return self  # basically ignore packet for now
-        
-        if isinstance(other, SKEData):
-            # XXX: fix some other time for 'real'
-            return self  # basically ignore packet for now
-
-        if isinstance(other, pgpy.packet.packets.Trust):
+        if isinstance(other, (Opaque, SKEData, pgpy.packet.packets.Trust, pgpy.packet.packets.UserID, pgpy.packet.packets.UserAttribute)):
             # XXX: fix some other time for 'real'
             return self  # basically ignore packet for now
 
         raise NotImplementedError(str(type(other)))
+        
 
     def __copy__(self):
         msg = super(PGPMessage, self).__copy__()
