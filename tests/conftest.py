@@ -9,16 +9,11 @@ except ImportError:
 import os
 import sys
 
-from distutils.version import LooseVersion
-
 from cryptography.hazmat.backends import openssl
 
-openssl_ver = LooseVersion(openssl.backend.openssl_version_text().split(' ')[1])
-gpg_ver = LooseVersion('0')
+openssl_ver = openssl.backend.openssl_version_text().split(' ')[1]
+gpg_ver = 'unknown'
 gnupghome = os.path.join(os.path.dirname(__file__), 'gnupghome')
-if gpg:
-    gpgme_ver = gpg.core.check_version()
-
 
 # ensure external commands we need to run exist
 
@@ -52,7 +47,7 @@ def pytest_configure(config):
             os.unlink(fpath)
 
         # get the GnuPG version
-        gpg_ver.parse(gpg.core.get_engine_info()[0].version)
+        gpg_ver = list(filter(lambda x: x.protocol == gpg.constants.PROTOCOL_OpenPGP, gpg.core.get_engine_info()))[0].version
 
         # check that there are no keys loaded, now
         with gpg.Context(offline=True) as c:
