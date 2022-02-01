@@ -144,6 +144,6 @@ def depart_progress(self, node):
 
 
 def setup(app):
-    app.add_stylesheet('progress.css')
+    app.add_css_file('progress.css')
     app.add_node(progress, html=(visit_progress, depart_progress))
     app.add_directive('progress', ProgressTable)
