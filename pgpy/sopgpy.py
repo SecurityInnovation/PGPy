@@ -148,7 +148,11 @@ class SOPGPy(sop.StatelessOpenPGP):
         seckeys:MutableMapping[str,pgpy.PGPKey] = self._get_keys(signers)
         msg:pgpy.PGPMessage
         if sigtype is sop.SOPSigType.text:
-            msg = pgpy.PGPMessage.new(data.decode('utf8'), cleartext=True, format='u')
+            try:
+                datastr:str = data.decode(encoding='utf-8')
+            except UnicodeDecodeError:
+                raise sop.SOPNotUTF8Text('Message was not encoded UTF-8 text')
+            msg = pgpy.PGPMessage.new(datastr, cleartext=True, format='u')
         elif sigtype == sop.SOPSigType.binary:
             msg = pgpy.PGPMessage.new(data, format='b')
         else:
