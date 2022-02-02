@@ -212,14 +212,15 @@ class SOPGPy(sop.StatelessOpenPGP):
                 **kwargs:Namespace) -> bytes:
         self.raise_on_unknown_options(**kwargs)
         handle:str
+        keys:MutableMapping[str,pgpy.PGPKey] = {}
         # FIXME!
         if literaltype is not sop.SOPLiteralDataType.binary:
             raise sop.SOPUnsupportedOption('sopgpy encrypt does not support --as yet')
         if passwords:
             raise sop.SOPUnsupportedOption('sopgpy encrypt does not support --with-password yet')
-        if signers:
-            raise sop.SOPUnsupportedOption('sopgpy encrypt does not support --sign-with yet')
 
+        if signers:
+            keys = self._get_keys(signers)
         if not recipients and not passwords:
             raise sop.SOPMissingRequiredArgument('needs at least one OpenPGP certificate or password to encrypt to')
 
@@ -246,6 +247,10 @@ class SOPGPy(sop.StatelessOpenPGP):
         sessionkey = cipher.gen_key()
 
         msg = pgpy.PGPMessage.new(data, compression=pgpy.constants.CompressionAlgorithm.Uncompressed)
+        for signer in keys:
+            sig = keys[signer].sign(msg)
+            msg |= sig
+        
         for handle, cert in certs.items():
             msg = cert.encrypt(msg, cipher=cipher, sessionkey=sessionkey)
         del sessionkey
