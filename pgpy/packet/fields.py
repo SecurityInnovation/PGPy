@@ -1023,8 +1023,10 @@ class String2Key(Field):
 
         # Simple S2K - always done
         hsalt = b''
-        ##TODO: we could accept a passphrase that is optionally already `bytes`
-        hpass = passphrase.encode('utf-8')
+        if isinstance(passphrase, bytes):
+            hpass = passphrase
+        else:
+            hpass = passphrase.encode('utf-8')
 
         # salted, iterated S2K
         if self.specifier >= String2KeyType.Salted:
