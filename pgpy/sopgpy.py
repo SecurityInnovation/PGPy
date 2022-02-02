@@ -202,12 +202,18 @@ class SOPGPy(sop.StatelessOpenPGP):
         self.raise_on_unknown_options(**kwargs)
         handle:str
         keys:MutableMapping[str,pgpy.PGPKey] = {}
+        pws:MutableMapping[str,str] = {}
         # FIXME!
         if literaltype is not sop.SOPLiteralDataType.binary:
             raise sop.SOPUnsupportedOption('sopgpy encrypt does not support --as yet')
-        if passwords:
-            raise sop.SOPUnsupportedOption('sopgpy encrypt does not support --with-password yet')
 
+        if passwords:
+            for p, pwdata in passwords.items():
+                try:
+                    pstring = pwdata.decode(encoding='utf-8')
+                except UnicodeDecodeError:
+                    raise sop.SOPPasswordNotHumanReadable(f'Password in {p} was not UTF-8')
+                pws[p] = pstring.strip()
         if signers:
             keys = self._get_keys(signers)
         if not recipients and not passwords:
@@ -242,6 +248,8 @@ class SOPGPy(sop.StatelessOpenPGP):
         
         for handle, cert in certs.items():
             msg = cert.encrypt(msg, cipher=cipher, sessionkey=sessionkey)
+        for p, pw in pws.items():
+            msg = msg.encrypt(passphrase=pw, sessionkey=sessionkey)
         del sessionkey
         return self._maybe_armor(armor, msg)
 
