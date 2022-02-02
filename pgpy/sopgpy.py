@@ -185,18 +185,7 @@ class SOPGPy(sop.StatelessOpenPGP):
         signature = self._get_pgp_signature(sig)
         certs:MutableMapping[str,pgpy.PGPKey] = self._get_certs(signers)
         
-        ret:List[sop.SOPSigResult] = []
-        for (handle,cert) in certs.items():
-            try:
-                verif:pgpy.types.SignatureVerification = cert.verify(data, signature=signature)
-                goodsig:pgpy.types.sigsubj
-                for goodsig in verif.good_signatures:
-                    if goodsig.verified:
-                        if start is None or goodsig.signature.created >= start:
-                            if end is None or goodsig.signature.created <= end:
-                                ret += [sop.SOPSigResult(goodsig.signature.created, goodsig.by.fingerprint, cert.fingerprint, goodsig.signature.__repr__())]
-            except:
-                pass
+        ret:List[sop.SOPSigResult] = self._check_sigs(certs, data, signature, start, end)
         if not ret:
             raise sop.SOPNoSignature("No good signature found")
         return ret
@@ -247,8 +236,8 @@ class SOPGPy(sop.StatelessOpenPGP):
         sessionkey = cipher.gen_key()
 
         msg = pgpy.PGPMessage.new(data, compression=pgpy.constants.CompressionAlgorithm.Uncompressed)
-        for signer in keys:
-            sig = keys[signer].sign(msg)
+        for signer, key in keys.items():
+            sig = key.sign(msg)
             msg |= sig
         
         for handle, cert in certs.items():
@@ -256,6 +245,26 @@ class SOPGPy(sop.StatelessOpenPGP):
         del sessionkey
         return self._maybe_armor(armor, msg)
 
+
+    def _check_sigs(self,
+                    certs:MutableMapping[str,pgpy.PGPKey],
+                    msg:pgpy.PGPMessage,
+                    sig:Optional[pgpy.PGPSignature]=None,
+                    start:Optional[datetime]=None,
+                    end:Optional[datetime]=None) -> List[sop.SOPSigResult]:
+        sigs:List[sop.SOPSigResult] = []
+        for signer, cert in certs.items():
+            try:
+                verif:pgpy.types.SignatureVerification = cert.verify(msg, signature=sig)
+                goodsig:pgpy.types.sigsubj
+                for goodsig in verif.good_signatures:
+                    if goodsig.verified:
+                        if start is None or goodsig.signature.created >= start:
+                            if end is None or goodsig.signature.created <= end:
+                                sigs += [sop.SOPSigResult(goodsig.signature.created, goodsig.by.fingerprint, cert.fingerprint, goodsig.signature.__repr__())]
+            except:
+                pass
+        return sigs
 
     def decrypt(self,
                 data:bytes,
@@ -268,6 +277,7 @@ class SOPGPy(sop.StatelessOpenPGP):
                 secretkeys:MutableMapping[str,bytes]={},
                 **kwargs:Namespace) -> Tuple[bytes, List[sop.SOPSigResult], Optional[sop.SOPSessionKey]]:
         self.raise_on_unknown_options(**kwargs)
+        certs:MutableMapping[str,pgpy.PGPKey] = {}
         # FIXME!!!
         if wantsessionkey:
             raise sop.SOPUnsupportedOption('sopgpy does not support --session-key-out yet')
@@ -275,21 +285,23 @@ class SOPGPy(sop.StatelessOpenPGP):
             raise sop.SOPUnsupportedOption('sopgpy does not support --with-password yet')
         if sessionkeys: 
             raise sop.SOPUnsupportedOption('sopgpy does not support --with-session-key yet')
-        if signers:
-            raise sop.SOPUnsupportedOption('sopgpy does not support --verify-with yet')
-        if start:
-            raise sop.SOPUnsupportedOption('sopgpy does not support --verify-not-before yet')
         
+        if signers:
+            certs = self._get_certs(signers)
         if not secretkeys and not passwords and not sessionkeys:
             raise sop.SOPMissingRequiredArgument('needs something to decrypt with (at least an OpenPGP secret key, a session key, or a password)')
 
+        sigs:List[sop.SOPSigResult] = []
         seckeys:MutableMapping[str,pgpy.PGPKey] = self._get_keys(secretkeys)
 
         encmsg:pgpy.PGPMessage = pgpy.PGPMessage.from_blob(data)
+        msg:pgpy.PGPMessage
         ret:Optional[bytes] = None
         for handle,seckey in seckeys.items():
             try:
-                msg:pgpy.PGPMessage = seckey.decrypt(encmsg)
+                msg = seckey.decrypt(encmsg)
+                if certs:
+                    sigs = self._check_sigs(certs, msg, None, start, end)
                 out:Union[str,bytes] = msg.message
                 if isinstance(out, str):
                     ret = out.encode('utf8')
@@ -300,7 +312,7 @@ class SOPGPy(sop.StatelessOpenPGP):
                 logging.warning(f'could not decrypt with {seckey.fingerprint}')
         if ret is None:
             raise sop.SOPCouldNotDecrypt(f'could not find anything capable of decryption')
-        return (ret, [], None)
+        return (ret, sigs, None)
 
     def armor(self, data:bytes,
               label:sop.SOPArmorLabel=sop.SOPArmorLabel.auto,
