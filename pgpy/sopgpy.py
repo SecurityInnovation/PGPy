@@ -33,6 +33,7 @@ import sop
 import pgpy #type: ignore
 import codecs
 import logging
+from importlib import metadata
 
 from datetime import datetime
 from typing import List, Union, Optional, Set, Tuple, MutableMapping, Dict
@@ -42,8 +43,9 @@ __version__ = '0.1.0'
 
 class SOPGPy(sop.StatelessOpenPGP):
     def __init__(self) -> None:
-        super().__init__(name='SOPGPy', version=f'{__version__}/{pgpy.__version__}',
-                         description=f'Stateless OpenPGP using PGPy {pgpy.__version__}')
+        pgpy_version = metadata.version('pgpy')
+        super().__init__(name='SOPGPy', version=f'{__version__}/{pgpy_version}',
+                         description=f'Stateless OpenPGP using PGPy {pgpy_version}')
 
     # implemented ciphers that we are willing to use to encrypt, in
     # the order we prefer them:
