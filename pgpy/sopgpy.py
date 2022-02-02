@@ -289,8 +289,6 @@ class SOPGPy(sop.StatelessOpenPGP):
         # FIXME!!!
         if wantsessionkey:
             raise sop.SOPUnsupportedOption('sopgpy does not support --session-key-out yet')
-        if passwords: 
-            raise sop.SOPUnsupportedOption('sopgpy does not support --with-password yet')
         if sessionkeys: 
             raise sop.SOPUnsupportedOption('sopgpy does not support --with-session-key yet')
         
@@ -305,12 +303,13 @@ class SOPGPy(sop.StatelessOpenPGP):
         encmsg:pgpy.PGPMessage = pgpy.PGPMessage.from_blob(data)
         msg:pgpy.PGPMessage
         ret:Optional[bytes] = None
+        out:Union[str,bytes]
         for handle,seckey in seckeys.items():
             try:
                 msg = seckey.decrypt(encmsg)
                 if certs:
                     sigs = self._check_sigs(certs, msg, None, start, end)
-                out:Union[str,bytes] = msg.message
+                out = msg.message
                 if isinstance(out, str):
                     ret = out.encode('utf8')
                 else:
@@ -318,6 +317,37 @@ class SOPGPy(sop.StatelessOpenPGP):
                 break
             except pgpy.errors.PGPDecryptionError as e:
                 logging.warning(f'could not decrypt with {seckey.fingerprint}')
+        if ret is None:
+            for p, password in passwords.items():
+                attempts:List[bytes] = [ password ]
+                extratext = ''
+                try:
+                    trimmed = password.decode(encoding='utf-8').strip().encode('utf-8')
+                    if trimmed != password:
+                        # try the version with the trailing whitespace trimmed off first,
+                        # as it is more likely to match the user's intent
+                        attempts.insert(0, trimmed)
+                        extratext = ' (also tried trimming trailing whitespace)'
+                except UnicodeDecodeError:
+                    pass
+                for attempt in attempts:
+                    if ret is None:
+                        try:
+                            # note: PGPy 0.5.4 and earlier don't accept bytes here:
+                            # https://github.com/SecurityInnovation/PGPy/pull/388
+                            msg = encmsg.decrypt(passphrase=attempt)
+                            if certs:
+                                sigs = self._check_sigs(certs, msg, None, start, end)
+                            out = msg.message
+                            if isinstance(out, str):
+                                ret = out.encode('utf8')
+                            else:
+                                ret = out
+                            break
+                        except pgpy.errors.PGPDecryptionError:
+                            pass
+            if ret is None:
+                logging.warning(f'could not decrypt with password from {p}{extratext}')
         if ret is None:
             raise sop.SOPCouldNotDecrypt(f'could not find anything capable of decryption')
         return (ret, sigs, None)
