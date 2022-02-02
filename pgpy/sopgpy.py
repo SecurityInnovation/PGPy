@@ -208,9 +208,20 @@ class SOPGPy(sop.StatelessOpenPGP):
         handle:str
         keys:MutableMapping[str,pgpy.PGPKey] = {}
         pws:MutableMapping[str,str] = {}
-        # FIXME!
-        if literaltype is not sop.SOPLiteralDataType.binary:
-            raise sop.SOPUnsupportedOption('sopgpy encrypt does not support --as yet')
+        format_octet:str
+
+        if literaltype is sop.SOPLiteralDataType.text:
+            format_octet = 'u'
+            try:
+                data.decode(encoding='utf-8')
+            except UnicodeDecodeError:
+                raise sop.SOPNotUTF8Text('Message was not encoded UTF-8 text')
+        elif literaltype is sop.SOPLiteralDataType.binary:
+            format_octet = 'b'
+        elif literaltype is sop.SOPLiteralDataType.mime:
+            format_octet = 'm'
+        else:
+            raise sop.SOPUnsupportedOption(f'sopgpy encrypt --as with value {literaltype}')
 
         if passwords:
             for p, pwdata in passwords.items():
@@ -246,7 +257,7 @@ class SOPGPy(sop.StatelessOpenPGP):
             cipher = pgpy.constants.SymmetricKeyAlgorithm.AES128
         sessionkey = cipher.gen_key()
 
-        msg = pgpy.PGPMessage.new(data, compression=pgpy.constants.CompressionAlgorithm.Uncompressed)
+        msg = pgpy.PGPMessage.new(data, format=format_octet, compression=pgpy.constants.CompressionAlgorithm.Uncompressed)
         for signer, key in keys.items():
             sig = key.sign(msg)
             msg |= sig
