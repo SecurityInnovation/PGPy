@@ -161,7 +161,8 @@ class SOPGPy(sop.StatelessOpenPGP):
         for handle,seckey in seckeys.items():
             signatures.append(seckey.sign(msg))
 
-        # hack to assemble multiple signature packets! FIXME: need to report to PGPy
+        # hack to assemble multiple signature packets! reported to PGPy at
+        # https://github.com/SecurityInnovation/PGPy/issues/197#issuecomment-1027582415
         sigdata:bytes = b''
         for signature in signatures:
             sigdata += bytes(seckey.sign(msg))
