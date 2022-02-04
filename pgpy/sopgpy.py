@@ -33,6 +33,7 @@ import sop
 import pgpy #type: ignore
 import codecs
 import logging
+import packaging.version
 from importlib import metadata
 
 from datetime import datetime
@@ -43,9 +44,9 @@ __version__ = '0.1.0'
 
 class SOPGPy(sop.StatelessOpenPGP):
     def __init__(self) -> None:
-        pgpy_version = metadata.version('pgpy')
-        super().__init__(name='SOPGPy', version=f'{__version__}/{pgpy_version}',
-                         description=f'Stateless OpenPGP using PGPy {pgpy_version}')
+        self.pgpy_version = packaging.version.Version(metadata.version('pgpy'))
+        super().__init__(name='SOPGPy', version=f'{__version__}/{self.pgpy_version}',
+                         description=f'Stateless OpenPGP using PGPy {self.pgpy_version}')
 
     # implemented ciphers that we are willing to use to encrypt, in
     # the order we prefer them:
@@ -335,7 +336,7 @@ class SOPGPy(sop.StatelessOpenPGP):
                 logging.warning(f'could not decrypt with {seckey.fingerprint}')
         if ret is None:
             for p, password in passwords.items():
-                attempts:List[bytes] = [ password ]
+                attempts:List[Union[bytes,str]] = [ password ]
                 extratext = ''
                 try:
                     trimmed = password.decode(encoding='utf-8').strip().encode('utf-8')
@@ -351,6 +352,9 @@ class SOPGPy(sop.StatelessOpenPGP):
                         try:
                             # note: PGPy 0.5.4 and earlier don't accept bytes here:
                             # https://github.com/SecurityInnovation/PGPy/pull/388
+                            if isinstance (attempt, bytes) and \
+                               self.pgpy_version <= packaging.version.Version('0.5.4'):
+                                attempt = attempt.decode(encoding='utf-8')
                             msg = encmsg.decrypt(passphrase=attempt)
                             if certs:
                                 sigs = self._check_sigs(certs, msg, None, start, end)
