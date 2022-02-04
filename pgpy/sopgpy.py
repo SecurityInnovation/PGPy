@@ -40,7 +40,7 @@ from datetime import datetime
 from typing import List, Union, Optional, Set, Tuple, MutableMapping, Dict
 from argparse import Namespace, _SubParsersAction, ArgumentParser
 
-__version__ = '0.1.0'
+__version__ = '0.2.0'
 
 class SOPGPy(sop.StatelessOpenPGP):
     def __init__(self) -> None:
