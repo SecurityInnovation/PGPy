@@ -583,3 +583,25 @@ cjMX82ahGPUVlyMP4A==
     key = PGPKey.from_file('tests/testdata/keys/rsa.1.pub.asc')[0]
     message = PGPMessage.from_blob(message_data)
     assert key.verify(message)
+
+@pytest.mark.regression(issue=393)
+def test_preference_no_supported_ciphers():
+    from pgpy import PGPMessage
+    keyblob = '''-----BEGIN PGP PUBLIC KEY BLOCK-----
+
+xo0EYmAayAEEAPQ0oYaLBPIF7bOA71X6kI0j7xnevfaHWfRzCoOJcDH4WJIRDbXD
+cUkcKJoc710mRZREQm6HYcd61DBsohW3HT96h0/1HE4E1SbgN1GIAjh9rFiNy9F4
+/M5LHtn+KzsG1yB4eTOyOw5nr+y6DEVaw0a3dnTC541x1LnMplU0HAW3ABEBAAHN
+G3Rlc3Qga2V5IDx0ZXN0QGV4YW1wbGUuY29tPsK8BBMBAgAmBQJiYBrLAhsvAhUC
+Ah4BFiEErFJI/ShgHoPluKoDdK7/b7+9sGcACgkQdK7/b7+9sGcNlgP8D8hL8g3e
+wP0HNxs7lXHyWT/uv6d02qEu/ZZ0fqf3CbEJ0aJQqDL61/utWK9hOt6nwTh+YvQP
+VSigo9gDqyHdbq8fvKxeiKJIkCZmESN0RpSjf+JQrBLs9DSOWh4bLQ9EiE6GfgdL
+n1hJ4Wx1aFL7WuPz/wj69MxPLh3nrG6i4iw=
+=aDo/
+-----END PGP PUBLIC KEY BLOCK-----'''
+
+    pubkey, _ = PGPKey.from_blob(keyblob)
+    msg = PGPMessage.new('asdf')
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        pubkey.encrypt(msg)
