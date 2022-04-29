@@ -7,6 +7,7 @@ import copy
 import hashlib
 import os
 import re
+import warnings
 
 from datetime import datetime, timezone
 
@@ -763,6 +764,8 @@ class PubKeyV4(PubKey):
 
     @created.register(datetime)
     def created_datetime(self, val):
+        if val.tzinfo is None:
+            warnings.warn("Passing TZ-naive datetime object to PubKeyV4 packet")
         self._created = val
 
     @created.register(int)
@@ -1183,6 +1186,8 @@ class LiteralData(Packet):
 
     @mtime.register(datetime)
     def mtime_datetime(self, val):
+        if val.tzinfo is None:
+            warnings.warn("Passing TZ-naive datetime object to LiteralData packet")
         self._mtime = val
 
     @mtime.register(int)

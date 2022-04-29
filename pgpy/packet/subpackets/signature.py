@@ -4,6 +4,7 @@ Signature SubPackets
 """
 import binascii
 import calendar
+import warnings
 
 from datetime import datetime
 from datetime import timedelta
@@ -230,6 +231,8 @@ class CreationTime(Signature):
 
     @created.register(datetime)
     def created_datetime(self, val):
+        if val.tzinfo is None:
+            warnings.warn("Passing TZ-naive datetime object to CreationTime subpacket")
         self._created = val
 
     @created.register(int)
