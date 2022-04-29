@@ -8,7 +8,7 @@ import hashlib
 import os
 import re
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import six
 
@@ -767,7 +767,7 @@ class PubKeyV4(PubKey):
 
     @created.register(int)
     def created_int(self, val):
-        self.created = datetime.utcfromtimestamp(val)
+        self.created = datetime.fromtimestamp(val, timezone.utc)
 
     @created.register(bytes)
     @created.register(bytearray)
@@ -846,7 +846,7 @@ class PubKeyV4(PubKey):
 
     def __init__(self):
         super(PubKeyV4, self).__init__()
-        self.created = datetime.utcnow()
+        self.created = datetime.now(timezone.utc)
         self.pkalg = 0
         self.keymaterial = None
 
@@ -1187,7 +1187,7 @@ class LiteralData(Packet):
 
     @mtime.register(int)
     def mtime_int(self, val):
-        self.mtime = datetime.utcfromtimestamp(val)
+        self.mtime = datetime.fromtimestamp(val, timezone.utc)
 
     @mtime.register(bytes)
     @mtime.register(bytearray)
@@ -1208,7 +1208,7 @@ class LiteralData(Packet):
         super(LiteralData, self).__init__()
         self.format = 'b'
         self.filename = ''
-        self.mtime = datetime.utcnow()
+        self.mtime = datetime.now(timezone.utc)
         self._contents = bytearray()
 
     def __bytearray__(self):

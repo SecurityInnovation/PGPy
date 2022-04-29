@@ -7,6 +7,7 @@ import calendar
 
 from datetime import datetime
 from datetime import timedelta
+from datetime import timezone
 
 import six
 
@@ -233,7 +234,7 @@ class CreationTime(Signature):
 
     @created.register(int)
     def created_int(self, val):
-        self.created = datetime.utcfromtimestamp(val)
+        self.created = datetime.fromtimestamp(val, timezone.utc)
 
     @created.register(bytearray)
     def created_bytearray(self, val):
@@ -241,7 +242,7 @@ class CreationTime(Signature):
 
     def __init__(self):
         super(CreationTime, self).__init__()
-        self.created = datetime.utcnow()
+        self.created = datetime.now(timezone.utc)
 
     def __bytearray__(self):
         _bytes = super(CreationTime, self).__bytearray__()

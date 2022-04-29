@@ -14,7 +14,7 @@ import itertools
 import os
 import time
 import warnings
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from pgpy import PGPKey
 from pgpy import PGPMessage
@@ -325,7 +325,7 @@ class TestPGPKey_Management(object):
         key = self.keys[pkspec]
         uid = PGPUID.new('T. Keyerson', 'Secondary UID', 'testkey@localhost.local')
 
-        expiration = datetime.utcnow() + timedelta(days=2)
+        expiration = datetime.now(timezone.utc) + timedelta(days=2)
 
         # add all of the sbpackets that only work on self-certifications
         with warnings.catch_warnings():
@@ -697,7 +697,7 @@ class TestPGPKey_Actions(object):
         # assert sig.sig.signer_uid == "{:s}".format(sec.userids[0])
         assert next(iter(sig._signature.subpackets['SignersUserID'])).userid == "{:s}".format(targette_sec.userids[0])
         # if not sig.is_expired:
-        #     time.sleep((sig.expires_at - datetime.utcnow()).total_seconds())
+        #     time.sleep((sig.expires_at - datetime.now(timezone.utc)).total_seconds())
         assert sig.is_expired is False
 
         self.sigs['string'] = sig
@@ -738,7 +738,7 @@ class TestPGPKey_Actions(object):
 
     def test_sign_ctmessage(self, targette_sec, targette_pub, ctmessage):
         # test signing a cleartext message
-        expire_at = datetime.utcnow() + timedelta(days=1)
+        expire_at = datetime.now(timezone.utc) + timedelta(days=1)
 
         sig = targette_sec.sign(ctmessage, expires=expire_at)
 

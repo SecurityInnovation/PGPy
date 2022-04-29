@@ -20,7 +20,7 @@ import weakref
 
 import six
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from cryptography.hazmat.primitives import hashes
 
@@ -179,7 +179,7 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         """
         expires_at = self.expires_at
         if expires_at is not None and expires_at != self.created:
-            return expires_at < datetime.utcnow()
+            return expires_at < datetime.now(timezone.utc)
 
         return False
 
@@ -321,7 +321,7 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         sig = PGPSignature()
 
         if created is None:
-            created=datetime.utcnow()
+            created=datetime.now(timezone.utc)
         sigpkt = SignatureV4()
         sigpkt.header.tag = 2
         sigpkt.header.version = 4
@@ -717,7 +717,7 @@ class PGPUID(ParentRef):
             return
         mostrecent = None
         attestations = []
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         fpr = self.parent.fingerprint
         keyid = self.parent.fingerprint.keyid
         for sig in self._signatures:
@@ -1119,7 +1119,7 @@ class PGPMessage(Armorable, PGPObject):
         charset = kwargs.pop('encoding', None)
 
         filename = ''
-        mtime = datetime.utcnow()
+        mtime = datetime.now(timezeone.utc)
 
         msg = PGPMessage()
 
@@ -1133,7 +1133,7 @@ class PGPMessage(Armorable, PGPObject):
         if file and os.path.isfile(message):
             filename = message
             message = bytearray(os.path.getsize(filename))
-            mtime = datetime.utcfromtimestamp(os.path.getmtime(filename))
+            mtime = datetime.fromtimestamp(os.path.getmtime(filename), timezone.utc)
 
             with open(filename, 'rb') as mf:
                 mf.readinto(message)
@@ -1415,7 +1415,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         """``True`` if this key is expired, otherwise ``False``"""
         expires = self.expires_at
         if expires is not None:
-            return expires <= datetime.utcnow()
+            return expires <= datetime.now(timezone.utc)
 
         return False
 
