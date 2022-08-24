@@ -189,7 +189,8 @@ class SOPGPy(sop.StatelessOpenPGP):
              armor:bool=True,
              sigtype:sop.SOPSigType=sop.SOPSigType.binary,
              signers:MutableMapping[str, bytes]={},
-             **kwargs:Namespace) -> bytes:
+             wantmicalg:bool=False,
+             **kwargs:Namespace) -> Tuple[bytes, Optional[str]]:
         self.raise_on_unknown_options(**kwargs)
         if not signers:
             raise sop.SOPMissingRequiredArgument("Need at least one OpenPGP Secret Key file as an argument")
@@ -206,10 +207,19 @@ class SOPGPy(sop.StatelessOpenPGP):
         else:
             raise sop.SOPUnsupportedOption(f'unknown signature type {sigtype}')
         signatures:List[pgpy.PGPSignature] = []
+        hashalgs:Set[pgpy.constants.HashAlgorithm] = set()
         for handle,seckey in seckeys.items():
-            signatures.append(seckey.sign(msg))
+            hashalgs.add(sig.hash_algorithm)
+            signatures.append(sig)
 
-        return self._maybe_armor(armor, _multisig.from_signatures(signatures))
+        micalg:Optional[str] = None
+        if wantmicalg:
+            if len(hashalgs) != 1:
+                micalg = ''
+            else:
+                micalg = f'pgp-{hashalgs.pop().lower()}'
+
+        return (self._maybe_armor(armor, _multisig.from_signatures(signatures)), micalg)
 
 
     def verify(self,
