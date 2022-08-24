@@ -64,7 +64,8 @@ class _multisig(pgpy.types.Armorable): #type: ignore
 class SOPGPy(sop.StatelessOpenPGP):
     def __init__(self) -> None:
         self.pgpy_version = packaging.version.Version(metadata.version('pgpy'))
-        super().__init__(name='SOPGPy', version=f'{__version__}/{self.pgpy_version}',
+        super().__init__(name='SOPGPy', version=f'{__version__}',
+                         backend=f'PGPy {self.pgpy_version}',
                          description=f'Stateless OpenPGP using PGPy {self.pgpy_version}')
 
     # implemented ciphers that we are willing to use to encrypt, in
