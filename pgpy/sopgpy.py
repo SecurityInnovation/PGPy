@@ -372,8 +372,8 @@ class SOPGPy(sop.StatelessOpenPGP):
                             break
                         except pgpy.errors.PGPDecryptionError:
                             pass
-            if ret is None:
-                logging.warning(f'could not decrypt with password from {p}{extratext}')
+                if ret is None:
+                    logging.warning(f'could not decrypt with password from {p}{extratext}')
         if ret is None:
             raise sop.SOPCouldNotDecrypt(f'could not find anything capable of decryption')
         return (ret, sigs, None)
