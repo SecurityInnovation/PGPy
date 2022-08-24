@@ -173,6 +173,10 @@ class SOPGPy(sop.StatelessOpenPGP):
         subflags.add(pgpy.constants.KeyFlags.EncryptCommunications)
         subflags.add(pgpy.constants.KeyFlags.EncryptStorage)
         primary.add_subkey(subkey, usage=subflags)
+        if keypassword is not None:
+            primary.protect(keypassword,
+                            pgpy.constants.SymmetricKeyAlgorithm.AES256,
+                            pgpy.constants.HashAlgorithm.SHA512)
         return self._maybe_armor(armor, primary)
 
 
