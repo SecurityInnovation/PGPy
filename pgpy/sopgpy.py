@@ -140,7 +140,9 @@ class SOPGPy(sop.StatelessOpenPGP):
         raise sop.SOPKeyIsProtected(f"Key found at {keyhandle} could not be unlocked {err}.")
 
 
-    def generate_key(self, armor:bool=True, uids:List[str]=[], **kwargs:Namespace) -> bytes:
+    def generate_key(self, armor:bool=True, uids:List[str]=[],
+                     keypassword:Optional[str]=None,
+                     **kwargs:Namespace) -> bytes:
         self.raise_on_unknown_options(**kwargs)
         primary = pgpy.PGPKey.new(pgpy.constants.PubKeyAlgorithm.EdDSA,
                                   pgpy.constants.EllipticCurveOID.Ed25519)
@@ -195,6 +197,7 @@ class SOPGPy(sop.StatelessOpenPGP):
              sigtype:sop.SOPSigType=sop.SOPSigType.binary,
              signers:MutableMapping[str, bytes]={},
              wantmicalg:bool=False,
+             keypasswords:MutableMapping[str,bytes]={},
              **kwargs:Namespace) -> Tuple[bytes, Optional[str]]:
         self.raise_on_unknown_options(**kwargs)
         if not signers:
@@ -214,6 +217,15 @@ class SOPGPy(sop.StatelessOpenPGP):
         signatures:List[pgpy.PGPSignature] = []
         hashalgs:Set[pgpy.constants.HashAlgorithm] = set()
         for handle,seckey in seckeys.items():
+            sig:pgpy.PGPSignature
+            if seckey.is_protected:
+                res = self._op_with_locked_key(seckey, handle, keypasswords, lambda key: key.sign(msg))
+                if isinstance(res, pgpy.PGPSignature):
+                    sig = res
+                else:
+                    raise TypeError("Expected signature to be produced")
+            else:
+                sig = seckey.sign(msg)
             hashalgs.add(sig.hash_algorithm)
             signatures.append(sig)
 
@@ -252,6 +264,7 @@ class SOPGPy(sop.StatelessOpenPGP):
                 armor:bool=True,
                 passwords:MutableMapping[str,bytes]={},
                 signers:MutableMapping[str,bytes]={},
+                keypasswords:MutableMapping[str,bytes]={},
                 recipients:MutableMapping[str,bytes]={},
                 **kwargs:Namespace) -> bytes:
         self.raise_on_unknown_options(**kwargs)
@@ -309,7 +322,15 @@ class SOPGPy(sop.StatelessOpenPGP):
 
         msg = pgpy.PGPMessage.new(data, format=format_octet, compression=pgpy.constants.CompressionAlgorithm.Uncompressed)
         for signer, key in keys.items():
-            sig = key.sign(msg)
+            if key.is_protected:
+                res:Union[pgpy.PGPMessage,pgpy.PGPSignature]
+                res = self._op_with_locked_key(key, signer, keypasswords, lambda seckey: seckey.sign(msg))
+                if isinstance(res, pgpy.PGPSignature):
+                    sig = res
+                else:
+                    raise TypeError("Expected signature to be produced")
+            else:
+                sig = key.sign(msg)
             msg |= sig
         
         for handle, cert in certs.items():
@@ -353,6 +374,7 @@ class SOPGPy(sop.StatelessOpenPGP):
                 signers:MutableMapping[str,bytes]={},
                 start:Optional[datetime]=None,
                 end:Optional[datetime]=None,
+                keypasswords:MutableMapping[str,bytes]={},
                 secretkeys:MutableMapping[str,bytes]={},
                 **kwargs:Namespace) -> Tuple[bytes, List[sop.SOPSigResult], Optional[sop.SOPSessionKey]]:
         self.raise_on_unknown_options(**kwargs)
@@ -377,7 +399,15 @@ class SOPGPy(sop.StatelessOpenPGP):
         out:Union[str,bytes]
         for handle,seckey in seckeys.items():
             try:
-                msg = seckey.decrypt(encmsg)
+                if seckey.is_protected:
+                    res = self._op_with_locked_key(seckey, handle, keypasswords,
+                                                   lambda key: key.decrypt(encmsg))
+                    if isinstance(res, pgpy.PGPMessage):
+                        msg = res
+                    else:
+                        raise TypeError("Expected message to be produced")
+                else:
+                    msg = seckey.decrypt(encmsg)
                 if certs:
                     sigs = self._check_sigs(certs, msg, None, start, end)
                 out = msg.message
@@ -388,6 +418,11 @@ class SOPGPy(sop.StatelessOpenPGP):
                 break
             except pgpy.errors.PGPDecryptionError as e:
                 logging.warning(f'could not decrypt with {seckey.fingerprint}')
+            except sop.SOPKeyIsProtected as e:
+                # FIXME: this means we couldn't unlock.  should we
+                # propagate this forward if no eventual unlock is
+                # found?
+                logging.warning(e)
         if ret is None:
             for p, password in passwords.items():
                 attempts:List[Union[bytes,str]] = [ password ]
