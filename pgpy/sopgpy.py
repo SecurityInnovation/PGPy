@@ -42,6 +42,25 @@ from argparse import Namespace, _SubParsersAction, ArgumentParser
 
 __version__ = '0.2.0'
 
+# hack to assemble multiple signature packets! reported to PGPy at
+# https://github.com/SecurityInnovation/PGPy/issues/197#issuecomment-1027582415
+class _multisig(pgpy.types.Armorable): #type: ignore
+    @property
+    def magic(self) -> str:
+        return 'SIGNATURE'
+    def parse(self, x:bytes) -> None:
+        self._bytes:bytes = x
+    def __bytes__(self) -> bytes:
+        return self._bytes
+    @classmethod
+    def from_signatures(cls, signatures:List[pgpy.PGPSignature]) -> pgpy.types.Armorable:
+        obj = cls()
+        sigdata:bytes = b''
+        for signature in signatures:
+            sigdata += bytes(signature)
+        obj.parse(sigdata)
+        return obj
+
 class SOPGPy(sop.StatelessOpenPGP):
     def __init__(self) -> None:
         self.pgpy_version = packaging.version.Version(metadata.version('pgpy'))
@@ -162,20 +181,7 @@ class SOPGPy(sop.StatelessOpenPGP):
         for handle,seckey in seckeys.items():
             signatures.append(seckey.sign(msg))
 
-        # hack to assemble multiple signature packets! reported to PGPy at
-        # https://github.com/SecurityInnovation/PGPy/issues/197#issuecomment-1027582415
-        sigdata:bytes = b''
-        for signature in signatures:
-            sigdata += bytes(seckey.sign(msg))
-        class _multisig(pgpy.types.Armorable): #type: ignore
-            @property
-            def magic(self) -> str:
-                return 'SIGNATURE'
-            def parse(self, x:bytes) -> None:
-                self._bytes:bytes = x
-            def __bytes__(self) -> bytes:
-                return self._bytes
-        return self._maybe_armor(armor, _multisig.from_blob(sigdata))
+        return self._maybe_armor(armor, _multisig.from_signatures(signatures))
 
 
     def verify(self,
