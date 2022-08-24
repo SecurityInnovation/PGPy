@@ -515,7 +515,85 @@ class SOPGPy(sop.StatelessOpenPGP):
         except:
             pass
         raise sop.SOPInvalidDataType()
+
+    def inline_detach(self,
+                      clearsigned:bytes,
+                      armor:bool=True,
+                      **kwargs:Namespace) -> Tuple[bytes,bytes]:
+        self.raise_on_unknown_options(**kwargs)
+        msg:pgpy.PGPMessage
+        msg = pgpy.PGPMessage.from_blob(clearsigned)
+        body:Union[bytes,bytearray,str] = msg.message
+        if isinstance(body, str):
+            body = body.encode('utf-8')
+        return (bytes(body), self._maybe_armor(armor, _multisig.from_signatures(msg.signatures)))
+
+    def inline_sign(self,
+                    data:bytes,
+                    armor:bool=True,
+                    sigtype:sop.SOPInlineSigType=sop.SOPInlineSigType.binary,
+                    signers:MutableMapping[str,bytes]={},
+                    keypasswords:MutableMapping[str,bytes]={},
+                    **kwargs:Namespace
+                    ) -> bytes:
+        self.raise_on_unknown_options(**kwargs)
+        if not signers:
+            raise sop.SOPMissingRequiredArgument("Need at least one OpenPGP Secret Key file as an argument")
+        seckeys:MutableMapping[str,pgpy.PGPKey] = self._get_keys(signers)
+        msg:pgpy.PGPMessage
+        if sigtype in [sop.SOPInlineSigType.text, sop.SOPInlineSigType.clearsigned]:
+            try:
+                datastr:str = data.decode(encoding='utf-8')
+            except UnicodeDecodeError:
+                raise sop.SOPNotUTF8Text('Message was not encoded UTF-8 text')
+            msg = pgpy.PGPMessage.new(datastr, cleartext=(sigtype == sop.SOPInlineSigType.clearsigned), format='u', compression=pgpy.constants.CompressionAlgorithm.Uncompressed)
+        elif sigtype == sop.SOPInlineSigType.binary:
+            msg = pgpy.PGPMessage.new(data, format='b', compression=pgpy.constants.CompressionAlgorithm.Uncompressed)
+        else:
+            raise sop.SOPUnsupportedOption(f'unknown signature type {sigtype}')
+        signatures:List[pgpy.PGPSignature] = []
+        for handle,seckey in seckeys.items():
+            sig:pgpy.PGPSignature
+            if seckey.is_protected:
+                res = self._op_with_locked_key(seckey, handle, keypasswords, lambda key: key.sign(msg))
+                if isinstance(res, pgpy.PGPSignature):
+                    sig = res
+                else:
+                    raise TypeError("Expected signature to be produced")
+            else:
+                sig = seckey.sign(msg)
+            signatures.append(sig)
+
+        # FIXME: this creates one-pass signatures even for the
+        # non-clearsigned output.  it would make more sense for the
+        # non-clearsigned output to create a normal signature series.
+        for sig in signatures:
+            msg |= sig
+        if armor or sigtype == sop.SOPInlineSigType.clearsigned:
+            return str(msg).encode('utf-8')
+        else:
+            return bytes(msg)
         
+    def inline_verify(self, data:bytes,
+                      start:Optional[datetime]=None,
+                      end:Optional[datetime]=None,
+                      signers:MutableMapping[str,bytes]={},
+                      **kwargs:Namespace) -> Tuple[bytes, List[sop.SOPSigResult]]:
+        self.raise_on_unknown_options(**kwargs)
+        if not signers:
+            raise sop.SOPMissingRequiredArgument('needs at least one OpenPGP certificate')
+        msg:pgpy.PGPMessage = pgpy.PGPMessage.from_blob(data)
+        certs:MutableMapping[str,pgpy.PGPKey] = self._get_certs(signers)
+
+        sigresults:List[sop.SOPSigResult] = self._check_sigs(certs, msg, None, start, end)
+        if not sigresults:
+            raise sop.SOPNoSignature("No good signature found")
+        outmsg:Union[bytes,str] = msg.message
+        if isinstance(outmsg, str):
+            outmsg = outmsg.encode("utf-8")
+        return (outmsg, sigresults)
+
+
 def main() -> None:
     sop = SOPGPy()
     sop.dispatch()
