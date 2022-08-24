@@ -36,7 +36,7 @@ import logging
 import packaging.version
 from importlib import metadata
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Union, Optional, Set, Tuple, MutableMapping, Dict
 from argparse import Namespace, _SubParsersAction, ArgumentParser
 
@@ -289,9 +289,14 @@ class SOPGPy(sop.StatelessOpenPGP):
                 verif:pgpy.types.SignatureVerification = cert.verify(msg, signature=sig)
                 goodsig:pgpy.types.sigsubj
                 for goodsig in verif.good_signatures:
+                    sigtime = goodsig.signature.created
+                    # some versions of pgpy return tz-naive objects, even though all timestamps are in UTC:
+                    # see https://docs.python.org/3/library/datetime.html#aware-and-naive-objects
+                    if sigtime.tzinfo is None:
+                        sigtime = sigtime.replace(tzinfo=timezone.utc)
                     if goodsig.verified:
-                        if start is None or goodsig.signature.created >= start:
-                            if end is None or goodsig.signature.created <= end:
+                        if start is None or sigtime >= start:
+                            if end is None or sigtime <= end:
                                 sigs += [sop.SOPSigResult(goodsig.signature.created, goodsig.by.fingerprint, cert.fingerprint, goodsig.signature.__repr__())]
             except:
                 pass
