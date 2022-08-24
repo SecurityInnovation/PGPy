@@ -40,7 +40,7 @@ from datetime import datetime, timezone
 from typing import List, Union, Optional, Set, Tuple, MutableMapping, Dict, Callable
 from argparse import Namespace, _SubParsersAction, ArgumentParser
 
-__version__ = '0.2.0'
+__version__ = '0.3.0'
 
 # hack to assemble multiple signature packets! reported to PGPy at
 # https://github.com/SecurityInnovation/PGPy/issues/197#issuecomment-1027582415
@@ -141,7 +141,7 @@ class SOPGPy(sop.StatelessOpenPGP):
 
 
     def generate_key(self, armor:bool=True, uids:List[str]=[],
-                     keypassword:Optional[str]=None,
+                     keypassword:Optional[bytes]=None,
                      **kwargs:Namespace) -> bytes:
         self.raise_on_unknown_options(**kwargs)
         primary = pgpy.PGPKey.new(pgpy.constants.PubKeyAlgorithm.EdDSA,
