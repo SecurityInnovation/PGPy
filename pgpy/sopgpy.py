@@ -380,11 +380,8 @@ class SOPGPy(sop.StatelessOpenPGP):
 
     def armor(self, data:bytes,
               label:sop.SOPArmorLabel=sop.SOPArmorLabel.auto,
-              allow_nested:bool=False,
               **kwargs:Namespace) -> bytes:
         self.raise_on_unknown_options(**kwargs)
-        if allow_nested: 
-            raise sop.SOPUnsupportedOption('sopgpy does not support --allow-nested yet')
         obj:Union[None,pgpy.PGPMessage,pgpy.PGPKey,pgpy.PGPSignature] = None
         try:
             if label is sop.SOPArmorLabel.message:
