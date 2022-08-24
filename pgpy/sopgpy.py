@@ -37,7 +37,7 @@ import packaging.version
 from importlib import metadata
 
 from datetime import datetime, timezone
-from typing import List, Union, Optional, Set, Tuple, MutableMapping, Dict
+from typing import List, Union, Optional, Set, Tuple, MutableMapping, Dict, Callable
 from argparse import Namespace, _SubParsersAction, ArgumentParser
 
 __version__ = '0.2.0'
@@ -110,6 +110,34 @@ class SOPGPy(sop.StatelessOpenPGP):
                 raise sop.SOPInvalidDataType('cert {handle} is not an OpenPGP transferable secret key (maybe certificate?)')
             keys[handle] = key
         return keys
+
+    # FIXME: consider making the return type a generic instead of this clunky Union:
+    # https://docs.python.org/3/library/typing.html#generics
+    def _op_with_locked_key(self, seckey:pgpy.PGPKey, keyhandle:str,
+                            keypasswords:MutableMapping[str,bytes],
+                            func:Callable[[pgpy.PGPKey],
+                                          Union[pgpy.PGPMessage,pgpy.PGPSignature]]) -> \
+                                          Union[pgpy.PGPMessage,pgpy.PGPSignature]:
+        # try all passphrases in map:
+        for handle,pw in keypasswords.items():
+            # FIXME: be cleverer about which password to try
+            # when multiple passwords and keys are
+            # present. see for example the discussion in:
+            # https://gitlab.com/dkg/openpgp-stateless-cli/-/issues/60
+            try:
+                with seckey.unlock(pw):
+                    return func(seckey)
+            except pgpy.errors.PGPDecryptionError:
+                pass
+        err:str
+        if len(keypasswords) == 0:
+            err = "; no passwords provided"
+        elif len(keypasswords) == 1:
+            err = "by the provided password"
+        else:
+            err = f"by any of the {len(keypasswords)} passwords provided"
+        raise sop.SOPKeyIsProtected(f"Key found at {keyhandle} could not be unlocked {err}.")
+
 
     def generate_key(self, armor:bool=True, uids:List[str]=[], **kwargs:Namespace) -> bytes:
         self.raise_on_unknown_options(**kwargs)
