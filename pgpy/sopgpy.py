@@ -79,8 +79,8 @@ class SOPGPy(sop.StatelessOpenPGP):
          pgpy.constants.SymmetricKeyAlgorithm.CAST5,
          pgpy.constants.SymmetricKeyAlgorithm.TripleDES,
          pgpy.constants.SymmetricKeyAlgorithm.Blowfish]
-        
-    def _maybe_armor(self, armor:bool, data:Union[pgpy.PGPSignature,pgpy.PGPMessage,pgpy.PGPKey]) -> bytes:
+
+    def _maybe_armor(self, armor:bool, data:pgpy.types.Armorable) -> bytes:
         if (armor):
             return str(data).encode('ascii')
         else:
