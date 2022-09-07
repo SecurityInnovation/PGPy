@@ -34,34 +34,67 @@ def _openssl_get_supported_curves():
     return curves
 
 
-@utils.register_interface(ec.EllipticCurve)
-class BrainpoolP256R1(object):
-    name = 'brainpoolP256r1'
-    key_size = 256
+def use_legacy_cryptography_decorator():
+    """
+    The decorator utils.register_interface was removed in version 38.0.0. Keep using it
+    if the decorator exists, inherit from `ec.EllipticCurve` otherwise.
+    """
+    return hasattr(utils, "register_interface") and callable(utils.register_interface)
 
 
-@utils.register_interface(ec.EllipticCurve)
-class BrainpoolP384R1(object):
-    name = 'brainpoolP384r1'
-    key_size = 384
+if use_legacy_cryptography_decorator():
+    @utils.register_interface(ec.EllipticCurve)
+    class BrainpoolP256R1(object):
+        name = 'brainpoolP256r1'
+        key_size = 256
 
 
-@utils.register_interface(ec.EllipticCurve)
-class BrainpoolP512R1(object):
-    name = 'brainpoolP512r1'
-    key_size = 512
+    @utils.register_interface(ec.EllipticCurve)
+    class BrainpoolP384R1(object):
+        name = 'brainpoolP384r1'
+        key_size = 384
 
 
-@utils.register_interface(ec.EllipticCurve)
-class X25519(object):
-    name = 'X25519'
-    key_size = 256
+    @utils.register_interface(ec.EllipticCurve)
+    class BrainpoolP512R1(object):
+        name = 'brainpoolP512r1'
+        key_size = 512
 
 
-@utils.register_interface(ec.EllipticCurve)
-class Ed25519(object):
-    name = 'ed25519'
-    key_size = 256
+    @utils.register_interface(ec.EllipticCurve)
+    class X25519(object):
+        name = 'X25519'
+        key_size = 256
+
+
+    @utils.register_interface(ec.EllipticCurve)
+    class Ed25519(object):
+        name = 'ed25519'
+        key_size = 256
+else:
+    class BrainpoolP256R1(ec.EllipticCurve):
+        name = 'brainpoolP256r1'
+        key_size = 256
+
+
+    class BrainpoolP384R1(ec.EllipticCurve):
+        name = 'brainpoolP384r1'
+        key_size = 384
+
+
+    class BrainpoolP512R1(ec.EllipticCurve):
+        name = 'brainpoolP512r1'
+        key_size = 512
+
+
+    class X25519(ec.EllipticCurve):
+        name = 'X25519'
+        key_size = 256
+
+
+    class Ed25519(ec.EllipticCurve):
+        name = 'ed25519'
+        key_size = 256
 
 
 # add these curves to the _CURVE_TYPES list
