@@ -11,7 +11,7 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
     :text: PGPy is currently focused on achieving :rfc:`4880` compliance for OpenPGP, which is the latest complete OpenPGP Message Format specification. It supersedes RFC 1991 and RFC 2440.
 
     :Versioned Packets, v1:
-        - Tag 18, True,  Symetrically Encrypted and Integrity Protected Data Packet
+        - Tag 18, True,  Symmetrically Encrypted and Integrity Protected Data Packet
 
     :Versioned Packets, v3:
         - Tag 1,  True,  Public-Key Encrypted Session Key Packets
@@ -32,7 +32,7 @@ PGPy is focused on eventually reaching complete OpenPGP implementation, adhering
 
     :Unversioned Packets:
         - Tag 8,  True, Compressed Data Packet
-        - Tag 9,  True, Symetrically Encrypted Data Packet
+        - Tag 9,  True, Symmetrically Encrypted Data Packet
         - Tag 10, True, Marker Packet
         - Tag 11, True, Literal Data Packet
         - Tag 12, True, Trust Packet

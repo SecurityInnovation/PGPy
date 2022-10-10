@@ -184,7 +184,7 @@ Bugs Fixed
 
 New Features
 ------------
- * Standalone sigantures can now be generated
+ * Standalone signatures can now be generated
  * Can now specify which User ID to use when signing things (#121)
  * Can now create new User IDs and User Attributes (#118)
  * Can now add new User IDs and User Attributes to keys (#119)
@@ -197,7 +197,7 @@ New Features
  * Message signatures can now be verified (#117)
  * Messages can now be encrypted/decrypted using a passphrase (#113)
  * Cleartext messages can now be created and signed (#26)
- * Cleartext messages with inline sigantures can now be verified (#27)
+ * Cleartext messages with inline signatures can now be verified (#27)
  * Messages can now be loaded (#102)
  * Messages can now be compressed (#100)
 
@@ -233,7 +233,7 @@ Bugs Fixed
 
 New Features
 ------------
- * Switched the main parse loop to use a bytearray instead of slicing a bytes, resulting in a ~160x speedup in parsing large blocks of pasing. (#87)
+ * Switched the main parse loop to use a bytearray instead of slicing a bytes, resulting in a ~160x speedup in parsing large blocks of passing. (#87)
 
 v0.2.1
 ======
