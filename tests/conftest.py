@@ -12,7 +12,6 @@ import sys
 from cryptography.hazmat.backends import openssl
 
 openssl_ver = openssl.backend.openssl_version_text().split(' ')[1]
-gpg_ver = 'unknown'
 gnupghome = os.path.join(os.path.dirname(__file__), 'gnupghome')
 
 # ensure external commands we need to run exist
@@ -57,6 +56,7 @@ def pytest_configure(config):
             assert len(list(c.keylist(secret=True))) == 0
 
     else:
+        gpg_ver = 'unknown'
         # we're not running integration tests
         print("running without integration tests")
         # if we're on GitHub CI, this is an error
