@@ -5,8 +5,6 @@ from __future__ import division
 import abc
 import copy
 
-import six
-
 from ..constants import PacketTag
 
 from ..decorators import sdproperty
@@ -149,7 +147,7 @@ class Packet(Dispatchable):
     def __init__(self, _=None):
         super(Packet, self).__init__()
         self.header = self.__headercls__()
-        if isinstance(self.__typeid__, six.integer_types):
+        if isinstance(self.__typeid__, int):
             self.header.tag = self.__typeid__
 
     @abc.abstractmethod
@@ -176,7 +174,7 @@ class VersionedPacket(Packet):
 
     def __init__(self):
         super(VersionedPacket, self).__init__()
-        if isinstance(self.__ver__, six.integer_types):
+        if isinstance(self.__ver__, int):
             self.header.version = self.__ver__
 
     def __repr__(self):
@@ -237,8 +235,7 @@ class Sub(Key):
 
 
 # This is required for class MPI to work in both Python 2 and 3
-if not six.PY2:
-    long = int
+long = int
 
 
 class MPI(long):

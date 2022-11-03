@@ -7,7 +7,6 @@ import copy
 import glob
 import inspect
 import os.path
-import six
 
 import pgpy
 
@@ -55,7 +54,7 @@ def check_id(obj):
         return False
 
     # these types are immutable
-    if isinstance(obj, (six.string_types, datetime)):
+    if isinstance(obj, (str, datetime)):
         return False
 
     # integers are kind of a special case.

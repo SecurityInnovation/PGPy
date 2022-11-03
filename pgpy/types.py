@@ -17,8 +17,6 @@ import weakref
 from enum import EnumMeta
 from enum import IntEnum
 
-import six
-
 from .decorators import sdproperty
 
 from .errors import PGPError
@@ -36,12 +34,8 @@ __all__ = ['Armorable',
            'Fingerprint',
            'SorteDeque']
 
-if six.PY2:
-    FileNotFoundError = IOError
-    re.ASCII = 0
 
-
-class Armorable(six.with_metaclass(abc.ABCMeta)):
+class Armorable(metaclass=abc.ABCMeta):
     __crc24_init = 0x0B704CE
     __crc24_poly = 0x1864CFB
 
@@ -83,7 +77,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
 
     @staticmethod
     def is_ascii(text):
-        if isinstance(text, six.string_types):
+        if isinstance(text, str):
             return bool(re.match(r'^[ -~\r\n\t]*$', text, flags=re.ASCII))
 
         if isinstance(text, (bytes, bytearray)):
@@ -141,7 +135,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
                 m['body'] = bytearray(base64.b64decode(m['body'].encode()))
 
             except (binascii.Error, TypeError) as ex:
-                six.raise_from(PGPError(str(ex)), ex)
+                raise PGPError(str(ex)) from ex
 
         if m['crc'] is not None:
             m['crc'] = Header.bytes_to_int(base64.b64decode(m['crc'].encode()))
@@ -163,7 +157,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
         crc = Armorable.__crc24_init
 
         if not isinstance(data, bytearray):
-            data = six.iterbytes(data)
+            data = iter(data)
 
         for b in data:
             crc ^= b << 16
@@ -196,7 +190,7 @@ class Armorable(six.with_metaclass(abc.ABCMeta)):
     @classmethod
     def from_blob(cls, blob):
         obj = cls()
-        if (not isinstance(blob, six.binary_type)) and (not isinstance(blob, bytearray)):
+        if (not isinstance(blob, bytes)) and (not isinstance(blob, bytearray)):
             po = obj.parse(bytearray(blob, 'latin-1'))
 
         else:
@@ -254,7 +248,7 @@ class ParentRef(object):
         self._parent = None
 
 
-class PGPObject(six.with_metaclass(abc.ABCMeta, object)):
+class PGPObject(metaclass=abc.ABCMeta):
 
     @staticmethod
     def int_byte_len(i):
@@ -263,16 +257,6 @@ class PGPObject(six.with_metaclass(abc.ABCMeta, object)):
     @staticmethod
     def bytes_to_int(b, order='big'):  # pragma: no cover
         """convert bytes to integer"""
-        if six.PY2:
-            # save the original type of b without having to copy any data
-            _b = b.__class__()
-            if order != 'little':
-                b = reversed(b)
-
-            if not isinstance(_b, bytearray):
-                b = six.iterbytes(b)
-
-            return sum(c << (i * 8) for i, c in enumerate(b))
 
         return int.from_bytes(b, order)
 
@@ -280,10 +264,6 @@ class PGPObject(six.with_metaclass(abc.ABCMeta, object)):
     def int_to_bytes(i, minlen=1, order='big'):  # pragma: no cover
         """convert integer to bytes"""
         blen = max(minlen, PGPObject.int_byte_len(i), 1)
-
-        if six.PY2:
-            r = iter(_ * 8 for _ in (range(blen) if order == 'little' else range(blen - 1, -1, -1)))
-            return bytes(bytearray((i >> c) & 0xff for c in r))
 
         return i.to_bytes(blen, order)
 
@@ -293,7 +273,7 @@ class PGPObject(six.with_metaclass(abc.ABCMeta, object)):
             return text
 
         # if we got bytes, just return it
-        if isinstance(text, (bytearray, six.binary_type)):
+        if isinstance(text, (bytearray, bytes)):
             return text
 
         # if we were given a unicode string, or if we translated the string into utf-8,
@@ -302,7 +282,7 @@ class PGPObject(six.with_metaclass(abc.ABCMeta, object)):
 
     @staticmethod
     def bytes_to_text(text):
-        if text is None or isinstance(text, six.text_type):
+        if text is None or isinstance(text, str):
             return text
 
         return text.decode('utf-8')
@@ -359,7 +339,7 @@ class Header(Field):
     def length_int(self, val):
         self._len = val
 
-    @length.register(six.binary_type)
+    @length.register(bytes)
     @length.register(bytearray)
     def length_bin(self, val):
         def _new_len(b):
@@ -536,7 +516,7 @@ class MetaDispatchable(abc.ABCMeta):
                             nh.parse(packet)
 
                         except Exception as ex:
-                            six.raise_from(PGPError(str(ex)), ex)
+                            raise PGPError(str(ex)) from ex
 
                         header = nh
 
@@ -556,7 +536,7 @@ class MetaDispatchable(abc.ABCMeta):
                 obj.parse(packet)
 
             except Exception as ex:
-                six.raise_from(PGPError(str(ex)), ex)
+                raise PGPError(str(ex)) from ex
 
         else:
             obj = _makeobj(cls)
@@ -564,7 +544,7 @@ class MetaDispatchable(abc.ABCMeta):
         return obj
 
 
-class Dispatchable(six.with_metaclass(MetaDispatchable, PGPObject)):
+class Dispatchable(PGPObject, metaclass=MetaDispatchable):
 
     @abc.abstractproperty
     def __headercls__(self):  # pragma: no cover
@@ -612,8 +592,7 @@ class SignatureVerification(object):
 
         ``sigsubj.subject`` - the subject that was verified using the signature.
         """
-        for s in [ i for i in self._subjects if i.issues ]:
-            yield s
+        yield from [ i for i in self._subjects if i.issues ]
 
     def __init__(self):
         """
@@ -676,7 +655,7 @@ class Fingerprint(str):
         if isinstance(other, Fingerprint):
             return str(self) == str(other)
 
-        if isinstance(other, (six.text_type, bytes, bytearray)):
+        if isinstance(other, (str, bytes, bytearray)):
             if isinstance(other, (bytes, bytearray)):  # pragma: no cover
                 other = other.decode('latin-1')
 
@@ -694,7 +673,7 @@ class Fingerprint(str):
         return hash(str(self))
 
     def __bytes__(self):
-        return binascii.unhexlify(six.b(self))
+        return binascii.unhexlify(self.encode("latin-1"))
     
     def __pretty__(self):
         content = self
@@ -704,8 +683,8 @@ class Fingerprint(str):
         # store in the format: "AAAA BBBB CCCC DDDD EEEE  FFFF 0000 1111 2222 3333"
         #                                               ^^ note 2 spaces here
         spaces = [ ' ' if i != 4 else '  ' for i in range(10) ]
-        chunks = [ ''.join(g) for g in six.moves.zip_longest(*[iter(content)] * 4) ]
-        content = ''.join(j for i in six.moves.zip_longest(chunks, spaces, fillvalue='') for j in i).strip()
+        chunks = [ ''.join(g) for g in itertools.zip_longest(*[iter(content)] * 4) ]
+        content = ''.join(j for i in itertools.zip_longest(chunks, spaces, fillvalue='') for j in i).strip()
         return content
     
     def __repr__(self):

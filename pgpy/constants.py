@@ -16,8 +16,6 @@ from enum import EnumMeta
 
 from pyasn1.type.univ import ObjectIdentifier
 
-import six
-
 from cryptography.hazmat.backends import openssl
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.ciphers import algorithms
@@ -63,13 +61,8 @@ class FlagEnumMeta(EnumMeta):
         return self & other
 
 
-if six.PY2:
-    class FlagEnum(IntEnum):
-        __metaclass__ = FlagEnumMeta
-
-else:
-    namespace = FlagEnumMeta.__prepare__('FlagEnum', (IntEnum,))
-    FlagEnum = FlagEnumMeta('FlagEnum', (IntEnum,), namespace)
+namespace = FlagEnumMeta.__prepare__('FlagEnum', (IntEnum,))
+FlagEnum = FlagEnumMeta('FlagEnum', (IntEnum,), namespace)
 
 
 
@@ -336,9 +329,6 @@ class CompressionAlgorithm(IntEnum):
         raise NotImplementedError(self)
 
     def decompress(self, data):
-        if six.PY2:
-            data = bytes(data)
-
         if self is CompressionAlgorithm.Uncompressed:
             return data
 

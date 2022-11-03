@@ -2,7 +2,6 @@
 """
 import contextlib
 import functools
-import six
 import logging
 
 try:
@@ -116,8 +115,7 @@ class KeyAction(object):
                                "".format(attr=attr, eval=str(expected), got=str(getattr(key, attr))))
 
     def __call__(self, action):
-        # @functools.wraps(action)
-        @six.wraps(action)
+        @functools.wraps(action)
         def _action(key, *args, **kwargs):
             if key._key is None:
                 raise PGPError("No key!")

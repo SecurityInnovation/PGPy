@@ -8,8 +8,6 @@ from ...constants import ImageEncoding
 
 from ...decorators import sdproperty
 
-from ...memoryview import memoryview
-
 
 __all__ = ('Image',)
 
@@ -100,7 +98,6 @@ class Image(UserAttribute):
     def parse(self, packet):
         super(Image, self).parse(packet)
 
-        # on Python 2, this will be the wrapper object from memoryview.py
         with memoryview(packet) as _head:
             _, self.version, self.iencoding, _, _, _ = struct.unpack_from('<hbbiii', _head[:16].tobytes())
         del packet[:16]
