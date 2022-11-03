@@ -40,8 +40,7 @@ def walk_obj(obj, prefix=""):
         yield '{}{}'.format(prefix, name), val
 
         if not isinstance(val, Enum):
-            for n, v in walk_obj(val, prefix="{}{}.".format(prefix, name)):
-                yield n, v
+            yield from walk_obj(val, prefix="{}{}.".format(prefix, name))
 
 
 def check_id(obj):

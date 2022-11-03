@@ -1010,8 +1010,7 @@ class PGPMessage(Armorable, PGPObject):
         elif self.is_encrypted:
             for sig in self._signatures:
                 yield sig
-            for pkt in self._sessionkeys:
-                yield pkt
+            yield from self._sessionkeys
             yield self.message
 
         else:
@@ -1541,9 +1540,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             else (self.parent.fingerprint.keyid, SignatureType.Subkey_Binding)
 
         ##TODO: filter out revoked signatures as well
-        for sig in iter(sig for sig in self._signatures
-                        if all([sig.type == keytype, sig.signer == keyid, not sig.is_expired])):
-            yield sig
+        yield from iter(sig for sig in self._signatures
+                        if all([sig.type == keytype, sig.signer == keyid, not sig.is_expired]))
 
     @property
     def signers(self):
@@ -1555,9 +1553,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         keyid, keytype = (self.fingerprint.keyid, SignatureType.KeyRevocation) if self.is_primary \
             else (self.parent.fingerprint.keyid, SignatureType.SubkeyRevocation)
 
-        for sig in iter(sig for sig in self._signatures
-                        if all([sig.type == keytype, sig.signer == keyid, not sig.is_expired])):
-            yield sig
+        yield from iter(sig for sig in self._signatures
+                        if all([sig.type == keytype, sig.signer == keyid, not sig.is_expired]))
 
     @property
     def subkeys(self):
@@ -2701,8 +2698,7 @@ class PGPKeyring(collections_abc.Container, collections_abc.Iterable, collection
         return len(self._keys)
 
     def __iter__(self):  # pragma: no cover
-        for pgpkey in itertools.chain(self._pubkeys, self._privkeys):
-            yield pgpkey
+        yield from itertools.chain(self._pubkeys, self._privkeys)
 
     def _get_key(self, alias):
         for m in self._aliases:
@@ -2796,8 +2792,7 @@ class PGPKeyring(collections_abc.Container, collections_abc.Iterable, collection
         """
         def _preiter(first, iterable):
             yield first
-            for item in iterable:
-                yield item
+            yield from iterable
 
         loaded = set()
         for key in iter(item for ilist in iter(ilist if isinstance(ilist, (tuple, list)) else [ilist] for ilist in args)

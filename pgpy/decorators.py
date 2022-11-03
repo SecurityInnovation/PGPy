@@ -79,8 +79,7 @@ class KeyAction:
     def usage(self, key, user):
         def _preiter(first, iterable):
             yield first
-            for item in iterable:
-                yield item
+            yield from iterable
 
         em = {}
         em['keyid'] = key.fingerprint.keyid

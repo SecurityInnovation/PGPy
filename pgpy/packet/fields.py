@@ -135,8 +135,7 @@ class SubPackets(collections_abc.MutableMapping, Field):
         return sum(sp.header.length for sp in itertools.chain(self._hashed_sp.values(), self._unhashed_sp.values())) + 4
 
     def __iter__(self):
-        for sp in itertools.chain(self._hashed_sp.values(), self._unhashed_sp.values()):
-            yield sp
+        yield from itertools.chain(self._hashed_sp.values(), self._unhashed_sp.values())
 
     def __setitem__(self, key, val):
         # the key provided should always be the classname for the subpacket
@@ -380,8 +379,7 @@ class PubKey(MPIs):
 
     @property
     def __mpis__(self):
-        for i in self.__pubfields__:
-            yield i
+        yield from self.__pubfields__
 
     def __init__(self):
         super().__init__()
@@ -1143,11 +1141,8 @@ class PrivKey(PubKey):
 
     @property
     def __mpis__(self):
-        for i in super().__mpis__:
-            yield i
-
-        for i in self.__privfields__:
-            yield i
+        yield from super().__mpis__
+        yield from self.__privfields__
 
     def __init__(self):
         super().__init__()
