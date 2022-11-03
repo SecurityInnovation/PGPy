@@ -79,13 +79,13 @@ class Image(UserAttribute):
         self._image = bytearray(val)
 
     def __init__(self):
-        super(Image, self).__init__()
+        super().__init__()
         self.version = 1
         self.iencoding = 1
         self.image = bytearray()
 
     def __bytearray__(self):
-        _bytes = super(Image, self).__bytearray__()
+        _bytes = super().__bytearray__()
 
         if self.version == 1:
             # v1 image header length is always 16 bytes
@@ -96,7 +96,7 @@ class Image(UserAttribute):
         return _bytes
 
     def parse(self, packet):
-        super(Image, self).parse(packet)
+        super().parse(packet)
 
         with memoryview(packet) as _head:
             _, self.version, self.iencoding, _, _, _ = struct.unpack_from('<hbbiii', _head[:16].tobytes())

@@ -352,7 +352,7 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         PGPSignature implements the ``__bytes__`` method, the output of which will be the signature object in
         OpenPGP-compliant binary format.
         """
-        super(PGPSignature, self).__init__()
+        super().__init__()
         self._signature = None
 
     def __bytearray__(self):
@@ -380,7 +380,7 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
     def __copy__(self):
         # because the default shallow copy isn't actually all that useful,
         # and deepcopy does too much work
-        sig = super(PGPSignature, self).__copy__()
+        sig = super().__copy__()
         # sig = PGPSignature()
         # sig.ascii_headers = self.ascii_headers.copy()
         sig |= copy.copy(self._signature)
@@ -793,7 +793,7 @@ class PGPUID(ParentRef):
         PGPUID implements the ``__format__`` method for User IDs, returning a string in the format
         'name (comment) <email>', leaving out any comment or email fields that are not present.
         """
-        super(PGPUID, self).__init__()
+        super().__init__()
         self._uid = None
         self._signatures = SorteDeque()
 
@@ -965,7 +965,7 @@ class PGPMessage(Armorable, PGPObject):
         Any signatures within the PGPMessage that are marked as being non-exportable will not be included in the output
         of either of those methods.
         """
-        super(PGPMessage, self).__init__()
+        super().__init__()
         self._compression = CompressionAlgorithm.Uncompressed
         self._message = None
         self._mdc = None
@@ -998,9 +998,9 @@ class PGPMessage(Armorable, PGPObject):
 
             return tmpl.format(hhdr=hhdr,
                                cleartext=self.dash_escape(self.bytes_to_text(self._message)),
-                               signature=super(PGPMessage, self).__str__())
+                               signature=super().__str__())
 
-        return super(PGPMessage, self).__str__()
+        return super().__str__()
 
     def __iter__(self):
         if self.type == 'cleartext':
@@ -1080,7 +1080,7 @@ class PGPMessage(Armorable, PGPObject):
         raise NotImplementedError(str(type(other)))
 
     def __copy__(self):
-        msg = super(PGPMessage, self).__copy__()
+        msg = super().__copy__()
         msg._compression = self._compression
         msg._message = copy.copy(self._message)
         msg._mdc = copy.copy(self._mdc)
@@ -1624,7 +1624,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         Any signatures within the PGPKey that are marked as being non-exportable will not be included in the output
         of either of those methods.
         """
-        super(PGPKey, self).__init__()
+        super().__init__()
         self._key = None
         self._children = collections.OrderedDict()
         self._signatures = SorteDeque()
@@ -1713,7 +1713,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return self
 
     def __copy__(self):
-        key = super(PGPKey, self).__copy__()
+        key = super().__copy__()
         key._key = copy.copy(self._key)
 
         for uid in self._uids:
@@ -2682,7 +2682,7 @@ class PGPKeyring(collections_abc.Container, collections_abc.Iterable, collection
         PGPKeyring objects represent in-memory keyrings that can contain any combination of supported private and public
         keys. It can not currently be conveniently exported to a format that can be understood by GnuPG.
         """
-        super(PGPKeyring, self).__init__()
+        super().__init__()
         self._keys = {}
         self._pubkeys = collections.deque()
         self._privkeys = collections.deque()

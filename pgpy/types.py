@@ -203,7 +203,7 @@ class Armorable(metaclass=abc.ABCMeta):
         return obj  # pragma: no cover
 
     def __init__(self):
-        super(Armorable, self).__init__()
+        super().__init__()
         self.ascii_headers = collections.OrderedDict()
 
     def __str__(self):
@@ -245,7 +245,7 @@ class ParentRef:
         return self._parent
 
     def __init__(self):
-        super(ParentRef, self).__init__()
+        super().__init__()
         self._parent = None
 
 
@@ -414,7 +414,7 @@ class Header(Field):
             self._llen = {0: 1, 1: 2, 2: 4, 3: 0}[val]
 
     def __init__(self):
-        super(Header, self).__init__()
+        super().__init__()
         self._len = 1
         self._llen = 1
         self._lenfmt = 1
@@ -467,7 +467,7 @@ class MetaDispatchable(abc.ABCMeta):
     """
 
     def __new__(mcs, name, bases, attrs):  # NOQA
-        ncls = super(MetaDispatchable, mcs).__new__(mcs, name, bases, attrs)
+        ncls = super().__new__(mcs, name, bases, attrs)
 
         if not hasattr(ncls.__typeid__, '__isabstractmethod__'):
             if ncls.__typeid__ == -1 and not issubclass(ncls, tuple(MetaDispatchable._roots)):
@@ -611,7 +611,7 @@ class SignatureVerification:
 
         Can be compared directly as a boolean to determine whether or not the specified signature verified.
         """
-        super(SignatureVerification, self).__init__()
+        super().__init__()
         self._subjects = []
 
     def __contains__(self, item):

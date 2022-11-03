@@ -71,7 +71,7 @@ def sdproperty(fget):
 
 class KeyAction:
     def __init__(self, *usage, **conditions):
-        super(KeyAction, self).__init__()
+        super().__init__()
         self.flags = set(usage)
         self.conditions = conditions
 

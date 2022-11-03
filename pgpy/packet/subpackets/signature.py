@@ -76,16 +76,16 @@ class URI(Signature):
         self.uri = val.decode('latin-1')
 
     def __init__(self):
-        super(URI, self).__init__()
+        super().__init__()
         self.uri = ""
 
     def __bytearray__(self):
-        _bytes = super(URI, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self.uri.encode()
         return _bytes
 
     def parse(self, packet):
-        super(URI, self).parse(packet)
+        super().parse(packet)
         self.uri = packet[:(self.header.length - 1)]
         del packet[:(self.header.length - 1)]
 
@@ -118,16 +118,16 @@ class FlagList(Signature):
         self.flags = self.bytes_to_int(val)
 
     def __init__(self):
-        super(FlagList, self).__init__()
+        super().__init__()
         self.flags = []
 
     def __bytearray__(self):
-        _bytes = super(FlagList, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += b''.join(self.int_to_bytes(b) for b in self.flags)
         return _bytes
 
     def parse(self, packet):
-        super(FlagList, self).parse(packet)
+        super().parse(packet)
         for i in range(0, self.header.length - 1):
             self.flags = packet[:1]
             del packet[:1]
@@ -159,11 +159,11 @@ class ByteFlag(Signature):
         self.flags = self.bytes_to_int(val)
 
     def __init__(self):
-        super(ByteFlag, self).__init__()
+        super().__init__()
         self.flags = []
 
     def __bytearray__(self):
-        _bytes = super(ByteFlag, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self.int_to_bytes(sum(self.flags))
         # null-pad _bytes if they are not up to the end now
         if len(_bytes) < len(self):
@@ -171,7 +171,7 @@ class ByteFlag(Signature):
         return _bytes
 
     def parse(self, packet):
-        super(ByteFlag, self).parse(packet)
+        super().parse(packet)
         for i in range(0, self.header.length - 1):
             self.flags = packet[:1]
             del packet[:1]
@@ -191,11 +191,11 @@ class Boolean(Signature):
         self.bool = bool(self.bytes_to_int(val))
 
     def __init__(self):
-        super(Boolean, self).__init__()
+        super().__init__()
         self.bflag = False
 
     def __bytearray__(self):
-        _bytes = super(Boolean, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self.int_to_bytes(int(self.bflag))
         return _bytes
 
@@ -206,7 +206,7 @@ class Boolean(Signature):
         return self.__bool__()
 
     def parse(self, packet):
-        super(Boolean, self).parse(packet)
+        super().parse(packet)
         self.bflag = packet[:1]
         del packet[:1]
 
@@ -242,16 +242,16 @@ class CreationTime(Signature):
         self.created = self.bytes_to_int(val)
 
     def __init__(self):
-        super(CreationTime, self).__init__()
+        super().__init__()
         self.created = datetime.now(timezone.utc)
 
     def __bytearray__(self):
-        _bytes = super(CreationTime, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self.int_to_bytes(calendar.timegm(self.created.utctimetuple()), 4)
         return _bytes
 
     def parse(self, packet):
-        super(CreationTime, self).parse(packet)
+        super().parse(packet)
         self.created = packet[:4]
         del packet[:4]
 
@@ -285,16 +285,16 @@ class SignatureExpirationTime(Signature):
         self.expires = self.bytes_to_int(val)
 
     def __init__(self):
-        super(SignatureExpirationTime, self).__init__()
+        super().__init__()
         self.expires = 0
 
     def __bytearray__(self):
-        _bytes = super(SignatureExpirationTime, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self.int_to_bytes(int(self.expires.total_seconds()), 4)
         return _bytes
 
     def parse(self, packet):
-        super(SignatureExpirationTime, self).parse(packet)
+        super().parse(packet)
         self.expires = packet[:4]
         del packet[:4]
 
@@ -379,18 +379,18 @@ class TrustSignature(Signature):
         self.amount = self.bytes_to_int(val)
 
     def __init__(self):
-        super(TrustSignature, self).__init__()
+        super().__init__()
         self.level = 0
         self.amount = 0
 
     def __bytearray__(self):
-        _bytes = super(TrustSignature, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self.int_to_bytes(self.level)
         _bytes += self.int_to_bytes(self.amount)
         return _bytes
 
     def parse(self, packet):
-        super(TrustSignature, self).parse(packet)
+        super().parse(packet)
         self.level = packet[:1]
         del packet[:1]
         self.amount = packet[:1]
@@ -427,16 +427,16 @@ class RegularExpression(Signature):
         self.regex = val.decode('latin-1')
 
     def __init__(self):
-        super(RegularExpression, self).__init__()
+        super().__init__()
         self.regex = r''
 
     def __bytearray__(self):
-        _bytes = super(RegularExpression, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self.regex.encode()
         return _bytes
 
     def parse(self, packet):
-        super(RegularExpression, self).parse(packet)
+        super().parse(packet)
         self.regex = packet[:(self.header.length - 1)]
         del packet[:(self.header.length - 1)]
 
@@ -558,20 +558,20 @@ class RevocationKey(Signature):
         self.fingerprint = ''.join('{:02x}'.format(c) for c in val).upper()
 
     def __init__(self):
-        super(RevocationKey, self).__init__()
+        super().__init__()
         self.keyclass = []
         self.algorithm = PubKeyAlgorithm.Invalid
         self._fingerprint = ""
 
     def __bytearray__(self):
-        _bytes = super(RevocationKey, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self.int_to_bytes(sum(self.keyclass))
         _bytes += self.int_to_bytes(self.algorithm.value)
         _bytes += self.fingerprint.__bytes__()
         return _bytes
 
     def parse(self, packet):
-        super(RevocationKey, self).parse(packet)
+        super().parse(packet)
         self.keyclass = packet[:1]
         del packet[:1]
         self.algorithm = packet[:1]
@@ -592,16 +592,16 @@ class Issuer(Signature):
         self._issuer = binascii.hexlify(val).upper().decode('latin-1')
 
     def __init__(self):
-        super(Issuer, self).__init__()
+        super().__init__()
         self.issuer = bytearray()
 
     def __bytearray__(self):
-        _bytes = super(Issuer, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += binascii.unhexlify(self._issuer.encode())
         return _bytes
 
     def parse(self, packet):
-        super(Issuer, self).parse(packet)
+        super().parse(packet)
         self.issuer = packet[:8]
         del packet[:8]
 
@@ -657,13 +657,13 @@ class NotationData(Signature):
             self._value = val
 
     def __init__(self):
-        super(NotationData, self).__init__()
+        super().__init__()
         self.flags = [0, 0, 0, 0]
         self.name = ""
         self.value = ""
 
     def __bytearray__(self):
-        _bytes = super(NotationData, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self.int_to_bytes(sum(self.flags)) + b'\x00\x00\x00'
         _bytes += self.int_to_bytes(len(self.name), 2)
         _bytes += self.int_to_bytes(len(self.value), 2)
@@ -672,7 +672,7 @@ class NotationData(Signature):
         return bytes(_bytes)
 
     def parse(self, packet):
-        super(NotationData, self).parse(packet)
+        super().parse(packet)
         self.flags = packet[:1]
         del packet[:4]
         nlen = self.bytes_to_int(packet[:2])
@@ -724,11 +724,11 @@ class PrimaryUserID(SubkeyBindingSignature):
         self.primary = bool(self.bytes_to_int(val))
 
     def __init__(self):
-        super(PrimaryUserID, self).__init__()
+        super().__init__()
         self.primary = True
 
     def __bytearray__(self):
-        _bytes = super(PrimaryUserID, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self.int_to_bytes(int(self.primary))
         return _bytes
 
@@ -739,7 +739,7 @@ class PrimaryUserID(SubkeyBindingSignature):
         return self.__bool__()
 
     def parse(self, packet):
-        super(PrimaryUserID, self).parse(packet)
+        super().parse(packet)
         self.primary = packet[:1]
         del packet[:1]
 
@@ -770,16 +770,16 @@ class SignersUserID(Signature):
         self.userid = val.decode('latin-1')
 
     def __init__(self):
-        super(SignersUserID, self).__init__()
+        super().__init__()
         self.userid = ""
 
     def __bytearray__(self):
-        _bytes = super(SignersUserID, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self.userid.encode()
         return _bytes
 
     def parse(self, packet):
-        super(SignersUserID, self).parse(packet)
+        super().parse(packet)
         self.userid = packet[:(self.header.length - 1)]
         del packet[:(self.header.length - 1)]
 
@@ -814,18 +814,18 @@ class ReasonForRevocation(Signature):
         self.string = val.decode('latin-1')
 
     def __init__(self):
-        super(ReasonForRevocation, self).__init__()
+        super().__init__()
         self.code = 0x00
         self.string = ""
 
     def __bytearray__(self):
-        _bytes = super(ReasonForRevocation, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self.int_to_bytes(self.code)
         _bytes += self.string.encode()
         return _bytes
 
     def parse(self, packet):
-        super(ReasonForRevocation, self).parse(packet)
+        super().parse(packet)
         self.code = packet[:1]
         del packet[:1]
         self.string = packet[:(self.header.length - 2)]
@@ -884,16 +884,16 @@ class EmbeddedSignature(Signature):
         return self._sig.signer
 
     def __init__(self):
-        super(EmbeddedSignature, self).__init__()
+        super().__init__()
         from ..packets import SignatureV4
         self._sigpkt = SignatureV4()
         self._sigpkt.header = EmbeddedSignatureHeader()
 
     def __bytearray__(self):
-        return super(EmbeddedSignature, self).__bytearray__() + self._sigpkt.__bytearray__()
+        return super().__bytearray__() + self._sigpkt.__bytearray__()
 
     def parse(self, packet):
-        super(EmbeddedSignature, self).parse(packet)
+        super().parse(packet)
         self._sig.parse(packet)
 
 
@@ -942,18 +942,18 @@ class IssuerFingerprint(Signature):
         self.issuer_fingerprint = ''.join('{:02x}'.format(c) for c in val).upper()
 
     def __init__(self):
-        super(IssuerFingerprint, self).__init__()
+        super().__init__()
         self.version = 4
         self._issuer_fpr = ""
 
     def __bytearray__(self):
-        _bytes = super(IssuerFingerprint, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self.int_to_bytes(self.version)
         _bytes += self.issuer_fingerprint.__bytes__()
         return _bytes
 
     def parse(self, packet):
-        super(IssuerFingerprint, self).parse(packet)
+        super().parse(packet)
         self.version = packet[:1]
         del packet[:1]
 
@@ -1014,18 +1014,18 @@ class IntendedRecipient(Signature):
         self.intended_recipient = ''.join('{:02x}'.format(c) for c in val).upper()
 
     def __init__(self):
-        super(IntendedRecipient, self).__init__()
+        super().__init__()
         self.version = 4
         self._intended_recipient = ""
 
     def __bytearray__(self):
-        _bytes = super(IntendedRecipient, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self.int_to_bytes(self.version)
         _bytes += self.intended_recipient.__bytes__()
         return _bytes
 
     def parse(self, packet):
-        super(IntendedRecipient, self).parse(packet)
+        super().parse(packet)
         self.version = packet[:1]
         del packet[:1]
 
@@ -1126,15 +1126,15 @@ class AttestedCertifications(Signature):
         self._attested_certifications = val
 
     def __init__(self):
-        super(AttestedCertifications, self).__init__()
+        super().__init__()
         self._attested_certifications = bytearray()
 
     def __bytearray__(self):
-        _bytes = super(AttestedCertifications, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self._attested_certifications
         return _bytes
 
     def parse(self, packet):
-        super(AttestedCertifications, self).parse(packet)
+        super().parse(packet)
         self.attested_certifications = packet[:(self.header.length - 1)]
         del packet[:(self.header.length - 1)]
