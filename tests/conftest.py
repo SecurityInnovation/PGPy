@@ -6,6 +6,11 @@ try:
     import gpg
 except ImportError:
     gpg = None
+    gpg_ver = 'unknown'
+else:
+    # get the GnuPG version
+    gpg_ver = list(filter(lambda x: x.protocol == gpg.constants.PROTOCOL_OpenPGP, gpg.core.get_engine_info()))[0].version
+
 import os
 import sys
 
@@ -45,9 +50,6 @@ def pytest_configure(config):
         for fpath in iter(f for cg in clear_globs for f in glob.glob(cg)):
             os.unlink(fpath)
 
-        # get the GnuPG version
-        gpg_ver = list(filter(lambda x: x.protocol == gpg.constants.PROTOCOL_OpenPGP, gpg.core.get_engine_info()))[0].version
-
         # check that there are no keys loaded, now
         with gpg.Context(offline=True) as c:
             c.set_engine_info(gpg.constants.PROTOCOL_OpenPGP, home_dir=gnupghome)
@@ -56,7 +58,6 @@ def pytest_configure(config):
             assert len(list(c.keylist(secret=True))) == 0
 
     else:
-        gpg_ver = 'unknown'
         # we're not running integration tests
         print("running without integration tests")
         # if we're on GitHub CI, this is an error
