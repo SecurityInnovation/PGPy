@@ -1,3 +1,66 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=61.2"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "PGPy"
+version = "0.6.0"
+authors = [{name = "Michael Greene", email = "mgreene@securityinnovation.com"}]
+maintainers = [{name = "Security Innovation", email = "opensource@securityinnovation.com"}]
+license = {text = "BSD-3-Clause"}
+description = "Pretty Good Privacy for Python"
+readme = "README.rst"
+keywords = ["OpenPGP", "PGP", "Pretty Good Privacy", "GPG", "GnuPG", "openpgp", "pgp", "gnupg", "gpg", "encryption", "signature"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Security",
+    "Topic :: Security :: Cryptography",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "License :: OSI Approved :: BSD License",
+]
+requires-python = ">=3.6"
+dependencies = [
+    "cryptography>=3.3.2",
+    "pyasn1",
+]
+
+[project.optional-dependencies]
+docs-build = ["sphinx", "sphinx-better-theme"]
+test = [
+    "pytest",
+    "pytest-cov",
+    "pytest-order @ git+https://github.com/SecurityInnovation/pytest-order.git@07ceb36233fb083275f34d5c8abbd3e35cd00158#egg=pytest-order", # We need a patched version of pytest-order to run on 3.5 and handle parameterized tests,
+    "flake8",
+    "pep8-naming",
+    # "gpg", # is not here on purpose currently
+]
+
+[project.urls]
+Homepage = "https://github.com/SecurityInnovation/PGPy"
+Documentation = "https://pgpy.readthedocs.io/en/latest/"
+"Bug Tracker" = "https://github.com/SecurityInnovation/PGPy/issues"
+
+[tool.setuptools]
+zip-safe = true
+include-package-data = false
+
+[tool.setuptools.packages.find]
+include = ["pgpy", "pgpy.*"]
+
+[tool.distutils.build_sphinx]
+source-dir = "docs/source"
+build-dir = "docs/build"
+all-files = 1
