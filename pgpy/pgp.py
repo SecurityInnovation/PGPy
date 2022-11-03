@@ -2437,7 +2437,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             uid = next(iter(self.userids), None)
             if uid is None and self.parent is not None:
                 uid = next(iter(self.parent.userids), None)
-        pref_cipher = next(c for c in uid.selfsig.cipherprefs if c.is_supported)
+        pref_cipher = next((c for c in uid.selfsig.cipherprefs if c.is_supported), SymmetricKeyAlgorithm.TripleDES)
         cipher_algo = prefs.pop('cipher', pref_cipher)
 
         if cipher_algo not in uid.selfsig.cipherprefs:
