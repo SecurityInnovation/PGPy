@@ -237,7 +237,7 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         """
         A ``dict`` of notation data in this signature, if any. Otherwise, an empty ``dict``.
         """
-        return dict((nd.name, nd.value) for nd in self._signature.subpackets['NotationData'])
+        return {nd.name: nd.value for nd in self._signature.subpackets['NotationData']}
 
     @property
     def policy_uri(self):
@@ -696,7 +696,7 @@ class PGPUID(ParentRef):
         """
         This will be a set of all of the key ids which have signed this User ID or Attribute.
         """
-        return set(s.signer for s in self.__sig__)
+        return {s.signer for s in self.__sig__}
 
     @property
     def hashdata(self):
@@ -873,7 +873,7 @@ class PGPMessage(Armorable, PGPObject):
     @property
     def encrypters(self):
         """A ``set`` containing all key ids (if any) to which this message was encrypted."""
-        return set(m.encrypter for m in self._sessionkeys if isinstance(m, PKESessionKey))
+        return {m.encrypter for m in self._sessionkeys if isinstance(m, PKESessionKey)}
 
     @property
     def filename(self):
@@ -936,7 +936,7 @@ class PGPMessage(Armorable, PGPObject):
     @property
     def signers(self):
         """A ``set`` containing all key ids (if any) which have signed this message."""
-        return set(m.signer for m in self._signatures)
+        return {m.signer for m in self._signatures}
 
     @property
     def type(self):
@@ -993,7 +993,7 @@ class PGPMessage(Armorable, PGPObject):
                    u"{signature:s}"
 
             # only add a Hash: header if we actually have at least one signature
-            hashes = set(s.hash_algorithm.name for s in self.signatures)
+            hashes = {s.hash_algorithm.name for s in self.signatures}
             hhdr = 'Hash: {hashes:s}\n'.format(hashes=','.join(sorted(hashes))) if hashes else ''
 
             return tmpl.format(hhdr=hhdr,
@@ -2738,7 +2738,7 @@ class PGPKeyring(collections_abc.Container, collections_abc.Iterable, collection
             self._aliases[-1][alias] = pkid
 
         # this is a duplicate alias->key link; ignore it
-        elif alias in self and pkid in set(m[alias] for m in self._aliases if alias in m):
+        elif alias in self and pkid in {m[alias] for m in self._aliases if alias in m}:
             pass  # pragma: no cover
 
         # this is an alias that already exists, but points to a key that is not already referenced by it

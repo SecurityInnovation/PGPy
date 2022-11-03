@@ -173,7 +173,7 @@ class SubPackets(collections_abc.MutableMapping, Field):
         raise NotImplementedError
 
     def __contains__(self, key):
-        return key in set(k for k, _ in itertools.chain(self._hashed_sp, self._unhashed_sp))
+        return key in {k for k, _ in itertools.chain(self._hashed_sp, self._unhashed_sp)}
 
     def __copy__(self):
         sp = SubPackets()
