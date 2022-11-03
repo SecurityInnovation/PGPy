@@ -20,7 +20,7 @@ __all__ = ['classproperty',
 
 
 def classproperty(fget):
-    class ClassProperty(object):
+    class ClassProperty:
         def __init__(self, fget):
             self.fget = fget
             self.__doc__ = fget.__doc__
@@ -69,7 +69,7 @@ def sdproperty(fget):
     return SDProperty(fget, sdmethod(defset))
 
 
-class KeyAction(object):
+class KeyAction:
     def __init__(self, *usage, **conditions):
         super(KeyAction, self).__init__()
         self.flags = set(usage)

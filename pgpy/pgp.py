@@ -2619,7 +2619,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         getpkt = filter(lambda p: p.header.tag != PacketTag.Trust, iter(functools.partial(_getpkt, data), None))
 
         def pktgrouper():
-            class PktGrouper(object):
+            class PktGrouper:
                 def __init__(self):
                     self.last = None
 

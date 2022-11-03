@@ -43,7 +43,7 @@ def binload(f):
 pktfiles = sorted(glob.glob('tests/testdata/packets/[0-9]*'))
 
 
-class TestPacket(object):
+class TestPacket:
     @pytest.mark.parametrize('packet', pktfiles, ids=[os.path.basename(f) for f in pktfiles])
     def test_load(self, packet):
         b = binload(packet) + _trailer

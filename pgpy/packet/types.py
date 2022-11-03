@@ -214,7 +214,7 @@ class Opaque(Packet):
 
 
 # key marker classes for convenience
-class Key(object):
+class Key:
     pass
 
 

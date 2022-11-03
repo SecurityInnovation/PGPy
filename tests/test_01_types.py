@@ -46,7 +46,7 @@ class FakePGPObject(PGPObject):
         self.data = packet
 
 
-class TestPGPObject(object):
+class TestPGPObject:
     @pytest.mark.regression(issue=154)
     @pytest.mark.parametrize('text', [v for _, v in sorted(text.items())], ids=sorted(text.keys()))
     def test_text_to_bytes(self, text):

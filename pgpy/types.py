@@ -224,7 +224,7 @@ class Armorable(metaclass=abc.ABCMeta):
         return obj
 
 
-class ParentRef(object):
+class ParentRef:
     # mixin class to handle weak-referencing a parent object
     @property
     def _parent(self):
@@ -560,7 +560,7 @@ class Dispatchable(PGPObject, metaclass=MetaDispatchable):
     __ver__ = None
 
 
-class SignatureVerification(object):
+class SignatureVerification:
     __slots__ = ("_subjects",)
     _sigsubj = collections.namedtuple('sigsubj', ['issues', 'by', 'signature', 'subject'])
 

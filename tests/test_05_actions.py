@@ -40,7 +40,7 @@ from pgpy.packet.packets import PrivSubKeyV4
 enc_msgs = [ PGPMessage.from_file(f) for f in sorted(glob.glob('tests/testdata/messages/message*.pass*.asc')) ]
 
 
-class TestPGPMessage(object):
+class TestPGPMessage:
     @staticmethod
     def gpg_message(msg):
         ret = None
@@ -237,7 +237,7 @@ skeyspecs = ((PubKeyAlgorithm.RSAEncryptOrSign, 2048),
              (PubKeyAlgorithm.ECDH, EllipticCurveOID.Curve25519),)
 
 
-class TestPGPKey_Management(object):
+class TestPGPKey_Management:
     # test PGPKey management actions, e.g.:
     # - key/subkey generation
     # - adding/removing UIDs
@@ -622,7 +622,7 @@ seckeys = [ PGPKey.from_file(f)[0] for f in sorted(glob.glob('tests/testdata/key
 pubkeys = [ PGPKey.from_file(f)[0] for f in sorted(glob.glob('tests/testdata/keys/*.pub.asc')) ]
 
 
-class TestPGPKey_Actions(object):
+class TestPGPKey_Actions:
     sigs = {}
     msgs = {}
 

@@ -24,7 +24,7 @@ def abe_image():
 _msgfiles = sorted(glob.glob('tests/testdata/messages/*.asc'))
 
 
-class TestPGPMessage(object):
+class TestPGPMessage:
     @pytest.mark.parametrize('msgfile', _msgfiles, ids=[os.path.basename(f) for f in _msgfiles])
     def test_load_from_file(self, msgfile):
         # TODO: figure out a good way to verify that all went well here, because
@@ -63,7 +63,7 @@ def abe():
     return PGPUID.new('Abraham Lincoln', comment='Honest Abe', email='abraham.lincoln@whitehouse.gov')
 
 
-class TestPGPUID(object):
+class TestPGPUID:
     def test_userid(self, abe):
         assert abe.name == 'Abraham Lincoln'
         assert abe.comment == 'Honest Abe'
@@ -97,7 +97,7 @@ _fingerprints = {'dsapubkey.asc': '2B5BBB143BA0B290DCEE6668B798AE8990877201',
                  'rsaseckey.asc': 'F4294BC8094A7E0585C85E8637473B3758C44F36',}
 
 
-class TestPGPKey(object):
+class TestPGPKey:
     @pytest.mark.parametrize('kf', _keyfiles, ids=[os.path.basename(f) for f in _keyfiles])
     def test_load_from_file(self, kf):
         key, _ = PGPKey.from_file(kf)
@@ -147,7 +147,7 @@ def keyring():
     return PGPKeyring()
 
 
-class TestPGPKeyring(object):
+class TestPGPKeyring:
     def test_load(self, keyring):
         # load from filenames
         keys = keyring.load(glob.glob('tests/testdata/*test.asc'), glob.glob('tests/testdata/signatures/*.key.asc'))
