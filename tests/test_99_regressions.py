@@ -125,7 +125,7 @@ def test_reg_bug_56():
           "=lqIH\n" \
           "-----END PGP PUBLIC KEY BLOCK-----\n"
 
-    # load the keypair above
+    # load the key pair above
     sk = PGPKey()
     sk.parse(sec)
     pk = PGPKey()

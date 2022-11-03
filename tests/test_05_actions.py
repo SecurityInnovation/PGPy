@@ -670,7 +670,7 @@ class TestPGPKey_Actions(object):
             return ret
 
         except gpg.errors.GPGMEError:
-            # if we got here, it's because gpg is screwing with us. The tests seem to pass everywhere except in the buildd.
+            # if we got here, it's because gpg is screwing with us. The tests seem to pass everywhere except in the build.
             # Until I can find a better fix, here's another bypass
             return privkey.decrypt(message).message.encode('utf-8')
 
