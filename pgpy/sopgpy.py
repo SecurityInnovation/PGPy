@@ -125,6 +125,8 @@ class SOPGPy(sop.StatelessOpenPGP):
             # when multiple passwords and keys are
             # present. see for example the discussion in:
             # https://gitlab.com/dkg/openpgp-stateless-cli/-/issues/60
+            # FIXME: if pw fails, retry with normalized form
+            # https://www.ietf.org/archive/id/draft-dkg-openpgp-stateless-cli-04.html#name-consuming-password-protecte
             try:
                 with seckey.unlock(pw):
                     return func(seckey)
@@ -176,6 +178,12 @@ class SOPGPy(sop.StatelessOpenPGP):
         subflags.add(pgpy.constants.KeyFlags.EncryptStorage)
         primary.add_subkey(subkey, usage=subflags)
         if keypassword is not None:
+            try:
+                pstring = keypassword.decode(encoding='utf-8')
+            except UnicodeDecodeError:
+                raise sop.SOPPasswordNotHumanReadable(f'Key password was not UTF-8')
+            keypassword = pstring.strip().encode(encoding='utf-8')
+
             primary.protect(keypassword,
                             pgpy.constants.SymmetricKeyAlgorithm.AES256,
                             pgpy.constants.HashAlgorithm.SHA512)
