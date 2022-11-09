@@ -4,7 +4,7 @@ import pytest
 
 import glob
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 from pgpy.constants import HashAlgorithm
 from pgpy.constants import PubKeyAlgorithm
@@ -187,7 +187,7 @@ block_attrs = {
                    b'\x55\x5d'),
          ('cipherprefs',    []),
          ('compprefs',      []),
-         ('created',        datetime.utcfromtimestamp(1402615373)),
+         ('created',        datetime.fromtimestamp(1402615373, timezone.utc)),
          ('embedded',       False),
          ('exportable',     True),
          ('features',       set()),

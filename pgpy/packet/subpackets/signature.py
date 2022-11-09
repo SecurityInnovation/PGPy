@@ -4,9 +4,11 @@ Signature SubPackets
 """
 import binascii
 import calendar
+import warnings
 
 from datetime import datetime
 from datetime import timedelta
+from datetime import timezone
 
 import six
 
@@ -229,11 +231,13 @@ class CreationTime(Signature):
 
     @created.register(datetime)
     def created_datetime(self, val):
+        if val.tzinfo is None:
+            warnings.warn("Passing TZ-naive datetime object to CreationTime subpacket")
         self._created = val
 
     @created.register(int)
     def created_int(self, val):
-        self.created = datetime.utcfromtimestamp(val)
+        self.created = datetime.fromtimestamp(val, timezone.utc)
 
     @created.register(bytearray)
     def created_bytearray(self, val):
@@ -241,7 +245,7 @@ class CreationTime(Signature):
 
     def __init__(self):
         super(CreationTime, self).__init__()
-        self.created = datetime.utcnow()
+        self.created = datetime.now(timezone.utc)
 
     def __bytearray__(self):
         _bytes = super(CreationTime, self).__bytearray__()
