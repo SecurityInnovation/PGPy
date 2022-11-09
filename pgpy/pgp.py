@@ -577,9 +577,12 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
 
         # load *one* packet from data
         pkt = Packet(data)
-        if pkt.header.tag == PacketTag.Signature and not isinstance(pkt, Opaque):
-            self._signature = pkt
-
+        if pkt.header.tag == PacketTag.Signature:
+            if isinstance(pkt, Opaque):
+                # this is an unrecognized version.
+                pass
+            else:
+                self._signature = pkt
         else:
             raise ValueError('Expected: Signature. Got: {:s}'.format(pkt.__class__.__name__))
 
