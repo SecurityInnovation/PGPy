@@ -1132,7 +1132,7 @@ class PGPMessage(Armorable, PGPObject):
         charset = kwargs.pop('encoding', None)
 
         filename = ''
-        mtime = datetime.now(timezeone.utc)
+        mtime = datetime.now(timezone.utc)
 
         msg = PGPMessage()
 
