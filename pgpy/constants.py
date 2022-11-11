@@ -6,10 +6,14 @@ import imghdr
 import os
 import time
 import zlib
+import warnings
 
 from collections import namedtuple
 from enum import Enum
 from enum import IntEnum
+from enum import IntFlag
+from enum import EnumMeta
+
 from pyasn1.type.univ import ObjectIdentifier
 
 import six
@@ -19,7 +23,6 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.ciphers import algorithms
 
 from .decorators import classproperty
-from .types import FlagEnum
 from ._curves import BrainpoolP256R1, BrainpoolP384R1, BrainpoolP512R1, X25519, Ed25519
 
 __all__ = ['Backend',
@@ -35,17 +38,39 @@ __all__ = ['Backend',
            'SignatureType',
            'KeyServerPreferences',
            'S2KGNUExtension',
+           'SecurityIssues',
            'String2KeyType',
            'TrustLevel',
            'KeyFlags',
            'Features',
+           'FlagEnumMeta',
            'RevocationKeyClass',
            'NotationDataFlags',
-           'TrustFlags']
+           'TrustFlags',
+           'check_assymetric_algo_and_its_parameters',
+           'is_hash_considered_secure']
 
 
 # this is 50 KiB
 _hashtunedata = bytearray([10, 11, 12, 13, 14, 15, 16, 17] * 128 * 50)
+
+
+class FlagEnumMeta(EnumMeta):
+    def __and__(self, other):
+        return { f for f in iter(self) if f.value & other }
+
+    def __rand__(self, other):  # pragma: no cover
+        return self & other
+
+
+if six.PY2:
+    class FlagEnum(IntEnum):
+        __metaclass__ = FlagEnumMeta
+
+else:
+    namespace = FlagEnumMeta.__prepare__('FlagEnum', (IntEnum,))
+    FlagEnum = FlagEnumMeta('FlagEnum', (IntEnum,), namespace)
+
 
 
 class Backend(Enum):
@@ -343,6 +368,10 @@ class HashAlgorithm(IntEnum):
     SHA384 = 0x09
     SHA512 = 0x0A
     SHA224 = 0x0B
+    #SHA3_256 = 13
+    #SHA3_384 = 14
+    #SHA3_512 = 15
+    
 
     def __init__(self, *args):
         super(self.__class__, self).__init__()
@@ -364,6 +393,9 @@ class HashAlgorithm(IntEnum):
     def is_supported(self):
         return True
 
+
+secondPreimageResistantHashes = {HashAlgorithm.SHA1}
+collisionResistantHashses = {HashAlgorithm.SHA256, HashAlgorithm.SHA384, HashAlgorithm.SHA512}
 
 class RevocationReason(IntEnum):
     """Reasons explaining why a key or certificate was revoked."""
@@ -540,3 +572,71 @@ class TrustFlags(FlagEnum):
     SubRevoked = 0x40
     Disabled = 0x80
     PendingCheck = 0x100
+
+
+class SecurityIssues(IntFlag):
+    OK = 0
+    wrongSig = (1 << 0)
+    expired = (1 << 1)
+    disabled = (1 << 2)
+    revoked = (1 << 3)
+    invalid = (1 << 4)
+    brokenAssymetricFunc = (1 << 5)
+    hashFunctionNotCollisionResistant = (1 << 6)
+    hashFunctionNotSecondPreimageResistant = (1 << 7)
+    assymetricKeyLengthIsTooShort = (1 << 8)
+    insecureCurve = (1 << 9)
+    noSelfSignature = (1 << 10)
+
+# https://safecurves.cr.yp.to/
+safeCurves = {
+    EllipticCurveOID.Curve25519,
+    EllipticCurveOID.Ed25519,
+}
+
+minimumAssymetricKeyLegths = {
+    PubKeyAlgorithm.RSAEncryptOrSign: 2048,
+    PubKeyAlgorithm.RSASign: 2048,
+    PubKeyAlgorithm.ElGamal: 2048,
+    PubKeyAlgorithm.DSA: 2048,
+    
+    PubKeyAlgorithm.ECDSA: safeCurves,
+    PubKeyAlgorithm.EdDSA: safeCurves,
+    PubKeyAlgorithm.ECDH: safeCurves,
+}
+
+
+
+def is_hash_considered_secure(hash):
+    if hash in collisionResistantHashses:
+        return SecurityIssues.OK
+    
+    warnings.warn("Hash function " + repr(hash) + " is not considered collision resistant")
+    issues = SecurityIssues.hashFunctionNotCollisionResistant
+    
+    if hash not in secondPreimageResistantHashes:
+        issues |= hashFunctionNotSecondPreimageResistant
+    
+    return issues
+
+def check_assymetric_algo_and_its_parameters(algo, size):
+    if algo in minimumAssymetricKeyLegths:
+        minLOrSetOfSecureCurves = minimumAssymetricKeyLegths[algo]
+        if isinstance(minLOrSetOfSecureCurves, set): # ECC
+            curve = size
+            safeCurvesForThisAlg = minLOrSetOfSecureCurves
+            if curve in safeCurvesForThisAlg:
+                return SecurityIssues.OK
+            else:
+                warnings.warn("Curve " + repr(curve) + " is not considered secure for " + repr(algo))
+                return SecurityIssues.insecureCurve
+        else:
+            minL = minLOrSetOfSecureCurves
+            if size < minL:
+                warnings.warn("Assymetric algo " + repr(algo) + " needs key at least of " + repr(minL) + " bits effective length to be considered secure")
+                return SecurityIssues.assymetricKeyLengthIsTooShort
+            else:
+                return SecurityIssues.OK
+    else:
+        warnings.warn("Assymetric algo " + repr(algo) + " is not considered secure")
+        return SecurityIssues.brokenAssymetricFunc
