@@ -62,8 +62,8 @@ class Armorable(metaclass=abc.ABCMeta):
                          # capture all lines of the body, up to 76 characters long,
                          # including the newline, and the pad character(s)
                          (?P<body>([A-Za-z0-9+/]{1,76}={,2}(?:\r?\n))+)
-                         # capture the armored CRC24 value
-                         ^=(?P<crc>[A-Za-z0-9+/]{4})(?:\r?\n)
+                         # optionally capture the armored CRC24 value
+                         (?:^=(?P<crc>[A-Za-z0-9+/]{4})(?:\r?\n))?
                          # finally, capture the armor tail line, which must match the armor header line
                          ^-{5}END\ PGP\ (?P=magic)-{5}(?:\r?\n)?
                          """, flags=re.MULTILINE | re.VERBOSE)
