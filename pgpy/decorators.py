@@ -115,8 +115,8 @@ class KeyAction:
             if key._key is None:
                 raise PGPError("No key!")
 
-            # keys must have a user id:
-            if len(key._uids) == 0 and key.is_primary:
+            # v4 and earlier keys must have a user id:
+            if len(key._uids) == 0 and key.is_primary and key._key.__ver__ < 6:
                 # if a key is in the process of being created, it needs to be allowed to certify its own user id
                 if action is not key.certify.__wrapped__:
                     raise PGPError("Key is not complete - please add a User ID!")

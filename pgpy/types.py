@@ -830,7 +830,11 @@ class Fingerprint(str):
     def __pretty__(self) -> str:
         content = self
         if not bool(re.match(r'^[A-F0-9]{40}$', content)):
-            raise ValueError("Expected: String of 40 hex digits")
+            if bool(re.match(r'^[A-F0-9]{64}$', content)):
+                # Based on size, this is a v6 fingerprint, we don't have a preferred "pretty" format other than the raw hex string:
+                return str(content)
+            else:
+                raise ValueError("Expected: String of 40 or 64 hex digits")
 
         halves = [
             [content[i:i + 4] for i in range(0, 20, 4)],

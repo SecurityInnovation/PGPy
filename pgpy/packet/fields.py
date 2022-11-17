@@ -1248,12 +1248,21 @@ class String2Key(Field):
         _bytes = bytearray()
         _bytes.append(self.usage)
         if bool(self):
-            _bytes.append(self.encalg)
-            if self.usage == S2KUsage.AEAD:
-                _bytes.append(self._specifier.aead_mode)
-            _bytes += self._specifier.__bytearray__()
+            conditionals = bytearray()
+            conditionals.append(self.encalg)
+            if self.usage is S2KUsage.AEAD:
+                if self._aead_mode is None:
+                    raise TypeError("AEAD Mode was not set")
+                conditionals.append(self._aead_mode)
+            s2kbytes = self._specifier.__bytearray__()
+            if self.key_version == 6 and self.usage in {S2KUsage.MalleableCFB, S2KUsage.CFB, S2KUsage.AEAD}:
+                conditionals.append(len(s2kbytes))
+            conditionals += s2kbytes
             if self.iv is not None:
-                _bytes += self.iv
+                conditionals += self.iv
+            if self.key_version == 6:
+                _bytes.append(len(conditionals))
+            _bytes += conditionals
         return _bytes
 
     def __len__(self) -> int:
@@ -1279,11 +1288,19 @@ class String2Key(Field):
         del packet[0]
 
         if bool(self):
+            if self.key_version == 6:
+                paramlen = packet[0]
+                del packet[0]
+
             self.encalg = SymmetricKeyAlgorithm(packet[0])
             del packet[0]
 
             if self.usage is S2KUsage.AEAD:
                 self._aead_mode = AEADMode(packet[0])
+                del packet[0]
+
+            if self.key_version == 6:
+                speclen = packet[0]
                 del packet[0]
 
             self._specifier.parse(packet)
@@ -1407,7 +1424,7 @@ class PrivKey(PubKey):
         for field in self.__privfields__:
             _bytes += getattr(self, field).to_mpibytes()
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = bytearray()
         _bytes += super().__bytearray__()
 
@@ -1418,7 +1435,7 @@ class PrivKey(PubKey):
         else:
             self._append_private_fields(_bytes)
 
-        if self.s2k.usage is S2KUsage.Unprotected:
+        if self.s2k.usage is S2KUsage.Unprotected and self.key_version == 4:  # checksum is only appropriate for v4 keys:
             _bytes += self.chksum
 
         return _bytes

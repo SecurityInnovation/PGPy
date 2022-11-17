@@ -421,6 +421,19 @@ class HashAlgorithm(IntEnum):
         ctx.update(data)
         return ctx.finalize()
 
+    @property
+    def sig_salt_size(self) -> Optional[int]:
+        ss = {
+            HashAlgorithm.SHA256: 16,
+            HashAlgorithm.SHA384: 24,
+            HashAlgorithm.SHA512: 32,
+            HashAlgorithm.SHA224: 16,
+            HashAlgorithm.SHA3_256: 16,
+            HashAlgorithm.SHA3_512: 32,
+        }
+
+        return ss.get(self, None)
+
 
 class ECFields(NamedTuple):
     name: str

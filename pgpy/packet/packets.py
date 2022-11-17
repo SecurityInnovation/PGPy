@@ -48,6 +48,7 @@ from .types import VersionedPacket
 from .types import VersionedHeader
 
 from ..constants import PacketType
+from ..constants import EllipticCurveOID
 from ..constants import CompressionAlgorithm
 from ..constants import HashAlgorithm
 from ..constants import PubKeyAlgorithm
@@ -61,6 +62,7 @@ from ..decorators import sdproperty
 
 from ..errors import PGPDecryptionError
 from ..errors import PGPEncryptionError
+from ..errors import PGPError
 
 from ..symenc import _cfb_decrypt
 from ..symenc import _cfb_encrypt
@@ -74,17 +76,22 @@ __all__ = ['PKESessionKey',
            'PKESessionKeyV6',
            'Signature',
            'SignatureV4',
+           'SignatureV6',
            'SKESessionKey',
            'SKESessionKeyV4',
            'SKESessionKeyV6',
            'OnePassSignature',
            'OnePassSignatureV3',
+           'OnePassSignatureV6',
            'PrivKey',
            'PubKey',
            'PubKeyV4',
+           'PubKeyV6',
            'PrivKeyV4',
+           'PrivKeyV6',
            'PrivSubKey',
            'PrivSubKeyV4',
+           'PrivSubKeyV6',
            'CompressedData',
            'SKEData',
            'Marker',
@@ -94,6 +101,7 @@ __all__ = ['PKESessionKey',
            'UserID',
            'PubSubKey',
            'PubSubKeyV4',
+           'PubSubKeyV6',
            'UserAttribute',
            'IntegrityProtectedSKEData',
            'IntegrityProtectedSKEDataV1',
@@ -610,6 +618,154 @@ class SignatureV4(Signature):
         return onepass
 
 
+class SignatureV6(Signature):
+    """from crypto-refresh-07:
+
+    A v6 Signature Packet is identical to a v4 Signature Packet, with
+    two exceptions:
+
+    - the size of the subpacket fields are four-octets instead of two
+
+    - they contain a salt, which is hashed first.
+
+    """
+    __ver__ = 6
+    __subpacket_width__ = 4
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._salt: Optional[bytes] = None
+
+    @property
+    def signer(self) -> Optional[Fingerprint]:
+        if 'IssuerFingerprint' in self.subpackets:
+            return self.subpackets['IssuerFingerprint'][-1].issuer_fingerprint
+        return None
+
+    @sdproperty
+    def salt(self) -> bytes:
+        if self._salt is None:
+            saltsize = self.halg.sig_salt_size
+            if saltsize is None:
+                raise PGPError(f"Cannot make a v6 signature with hash algorithm {self.halg!r} because there is no applicable salt size")
+            self._salt = bytes(os.urandom(saltsize))
+        return self._salt
+
+    @salt.register
+    def salt_bytes(self, val: Union[bytes, bytearray]):
+        if self._halg is None:
+            raise PGPError(f"Must set the hash algorithm of a v6 signature before setting a salt, as the salt length varies by hash algorithm")
+        saltsize = self._halg.sig_salt_size
+        if saltsize is None:
+            raise PGPError(f"Cannot make a v6 signature with hash algorithm {self.halg!r} because there is no applicable salt size")
+        if len(val) != saltsize:
+            raise ValueError(f"SignatureV6 salt must be {saltsize} octets for a v6 signature with hash {self.halg!r}, not {len(val)}")
+        if self._salt is not None:
+            raise ValueError(f"salt is already set, it cannot be set multiple times!")
+        self._salt = bytes(val)
+
+    def __bytearray__(self):
+        _bytes = bytearray()
+        _bytes += super().__bytearray__()
+        _bytes += self.int_to_bytes(self.sigtype)
+        _bytes += self.int_to_bytes(self.pubalg)
+        _bytes += self.int_to_bytes(self.halg)
+        _bytes += self.subpackets.__bytearray__()
+        _bytes += self.hash2
+        _bytes.append(self.halg.sig_salt_size)
+        _bytes += self.salt
+        _bytes += self.signature.__bytearray__()
+
+        return _bytes
+
+    def canonical_bytes(self):
+        '''Returns a bytearray that is the way the signature packet
+        should be represented if it is itself being signed.
+
+        from RFC 4880 section 5.2.4:
+
+        When a signature is made over a Signature packet (type 0x50), the
+        hash data starts with the octet 0x88, followed by the four-octet
+        length of the signature, and then the body of the Signature packet.
+        (Note that this is an old-style packet header for a Signature packet
+        with the length-of-length set to zero.)  The unhashed subpacket data
+        of the Signature packet being hashed is not included in the hash, and
+        the unhashed subpacket data length value is set to zero.
+
+        '''
+        _body = bytearray()
+        _body += self.int_to_bytes(self.header.version)
+        _body += self.int_to_bytes(self.sigtype)
+        _body += self.int_to_bytes(self.pubalg)
+        _body += self.int_to_bytes(self.halg)
+        _body += self.subpackets.__hashbytearray__()
+        _body += self.int_to_bytes(0, minlen=4)  # empty unhashed subpackets
+        _body += self.hash2
+        _body.append(self.halg.sig_salt_size)
+        _body += self.salt
+        _body += self.signature.__bytearray__()
+
+        _hdr = bytearray()
+        _hdr += b'\x88'
+        _hdr += self.int_to_bytes(len(_body), minlen=4)
+        return _hdr + _body
+
+    def __copy__(self):
+        spkt = SignatureV6()
+        spkt.header = copy.copy(self.header)
+        spkt._sigtype = self._sigtype
+        spkt._pubalg = self._pubalg
+        spkt._halg = self._halg
+
+        spkt.subpackets = copy.copy(self.subpackets)
+        spkt.hash2 = copy.copy(self.hash2)
+        spkt.salt = copy.copy(self.salt)
+        spkt.signature = copy.copy(self.signature)
+
+        return spkt
+
+    def parse(self, packet):
+        super().parse(packet)
+        self.sigtype = packet[0]
+        del packet[0]
+
+        self.pubalg = packet[0]
+        del packet[0]
+
+        self.halg = packet[0]
+        del packet[0]
+
+        self.subpackets.parse(packet)
+
+        self.hash2 = packet[:2]
+        del packet[:2]
+
+        saltsize = packet[0]
+        del packet[0]
+
+        self.salt = packet[:saltsize]
+        del packet[:saltsize]
+
+        self.signature.parse(packet)
+
+    def make_onepass(self) -> OnePassSignatureV6:
+        signer = self.signer
+        if signer is None:
+            raise ValueError("Cannot make a one-pass signature without knowledge of who the signer is")
+        if isinstance(signer, KeyID):
+            raise ValueError("Cannot make a v6 one-pass signature without the full fingerprint of the signer")
+
+        onepass = OnePassSignatureV6()
+        onepass.sigtype = self.sigtype
+        onepass.halg = self.halg
+        onepass.pubalg = self.pubalg
+        onepass.salt = self.salt
+
+        onepass._signer = signer
+        onepass.update_hlen()
+        return onepass
+
+
 class SKESessionKey(VersionedPacket):
     __typeid__ = PacketType.SymmetricKeyEncryptedSessionKey
     __ver__ = 0
@@ -1017,6 +1173,81 @@ class OnePassSignatureV3(OnePassSignature):
         del packet[0]
 
 
+class OnePassSignatureV6(OnePassSignature):
+    __ver__ = 6
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._signer = Fingerprint(b'\x00' * 32, version=6)
+        self._salt: Optional[bytes] = None
+
+    @property
+    def signer(self) -> Fingerprint:
+        return self._signer
+
+    def signer_set(self, val: Union[bytearray, bytes, str, KeyID, Fingerprint]) -> None:
+        if isinstance(val, KeyID):
+            raise ValueError("Cannot set the signer of a v6 OPS packet with only a KeyID.  Use a Fingerprint instead.")
+        self._signer = Fingerprint(val)
+
+    @sdproperty
+    def salt(self) -> Optional[bytes]:
+        return self._salt
+
+    @salt.register
+    def salt_set(self, val: bytes) -> None:
+        if self.halg is not None and len(val) != self.halg.sig_salt_size:
+            raise ValueError(f"v6 OPS: signatures over {self.halg!r} must use a salt of {self.halg.sig_salt_size} octets, got {len(val)} octets of salt.")
+        self._salt = val
+
+    def halg_set(self, val: int) -> None:
+        if not isinstance(val, HashAlgorithm):
+            val = HashAlgorithm(val)
+        if self._salt is not None and len(self._salt) != val.sig_salt_size:
+            raise ValueError(
+                f"v6 OPS: salt is already set to {len(self._salt)} octets, cannot set hash algorithm to {val!r} since it would require {val.sig_salt_size} octets.")
+        self._halg = val
+
+    def __bytearray__(self) -> bytearray:
+        if (self.sigtype is None
+            or self.halg is None
+            or self.salt is None
+                or self.pubalg is None):
+            raise ValueError("v6 OPS has not been fully initialized, it cannot be converted to wire format")
+        _bytes = bytearray()
+        _bytes += super().__bytearray__()
+        _bytes.append(self.sigtype)
+        _bytes.append(self.halg)
+        _bytes.append(self.pubalg)
+        _bytes.append(self.halg.sig_salt_size)
+        _bytes += self.salt
+        _bytes += bytes(self.signer)
+        _bytes.append(not self.nested)
+        return _bytes
+
+    def parse(self, packet: bytearray) -> None:
+        super().parse(packet)
+        self.sigtype = SignatureType(packet[0])
+        del packet[0]
+
+        self.halg = HashAlgorithm(packet[0])
+        del packet[0]
+
+        self.pubalg = PubKeyAlgorithm(packet[0])
+        del packet[0]
+
+        saltsize: int = packet[0]
+        del packet[0]
+        self.salt = bytes(packet[:saltsize])
+        del packet[:saltsize]
+
+        self._signer = Fingerprint(bytes(packet[:32]))
+        del packet[:32]
+
+        self.nested = (packet[0] == 0)
+        del packet[0]
+
+
 class PubKey(VersionedPacket, Primary, Public):
     __typeid__ = PacketType.PublicKey
     __ver__ = 0
@@ -1165,6 +1396,83 @@ class PubKeyV4(PubKey):
         del packet[:pend]
 
 
+class PubKeyV6(PubKey):
+    '''From crypto-refresh-07 a v6 key is the same as a v4 key but with a
+    four-octet count of the size of the public key material, and a
+    different fingerprint format
+
+    '''
+    __ver__ = 6
+
+    def __init__(self):
+        super().__init__()
+
+    def __bytearray__(self):
+        _bytes = bytearray()
+        _bytes += super().__bytearray__()
+        _bytes += self.int_to_bytes(calendar.timegm(self.created.timetuple()), 4)
+        _bytes += self.int_to_bytes(self.pkalg)
+        _bytes += self.int_to_bytes(self.keymaterial.publen(), 4)
+        _bytes += self.keymaterial.__bytearray__()
+        return _bytes
+
+    @property
+    def fingerprint(self):
+        # A V6 fingerprint is the SHA-256 hash of the octet 0x9b, followed by the four-octet packet length,
+        # followed by the entire Public-Key packet starting with the version field.
+        fp = HashAlgorithm.SHA256.hasher
+
+        plen = self.keymaterial.publen()
+        bcde_len = self.int_to_bytes(10 + plen, 4)
+
+        # a.1) 0x9b (1 octet)
+        # a.2) four-octet length
+        fp.update(b'\x9B' + bcde_len)
+        # b) version number = 6 (1 octet);
+        fp.update(b'\x06')
+        # c) timestamp of key creation (4 octets);
+        fp.update(self.int_to_bytes(calendar.timegm(self.created.timetuple()), 4))
+        # d) algorithm (1 octet): 17 = DSA (example);
+        fp.update(self.int_to_bytes(self.pkalg))
+        # e) four-octet length
+        fp.update(self.int_to_bytes(plen, 4))
+        # f) Algorithm-specific fields.
+        fp.update(self.keymaterial.__bytearray__()[:plen])
+
+        # and return the digest
+        return Fingerprint(fp.finalize(), version=6)
+
+    def parse(self, packet):
+        super().parse(packet)
+
+        self.created = packet[:4]
+        del packet[:4]
+
+        self.pkalg = packet[0]
+        del packet[0]
+
+        # the entire point of this field is to be able to safely
+        # convert a v6 secret key packet to a v6 public key packet
+        # without knowing the details of the asymmetric algorithm.  We
+        # aren't trying to do that, so maybe we can just ignore it?
+
+        # or, maybe it is better to move it into the self.keymaterial
+        # object directly, although those objects today don't seem to
+        # know whether they're v4 or v6, so they can't parse
+        # differently.
+        pubsize = self.bytes_to_int(packet[:4])
+        del packet[:4]
+
+        # bound keymaterial to the remaining length of the packet or the maximum
+        pend = self.header.length - 10
+        if pubsize > pend:
+            raise ValueError(f"v6 public key material is larger ({pubsize} octets) than the remaining key packet ({pend} octets)")
+        if not isinstance(self, PrivKey) and pubsize < pend:
+            raise ValueError(f"v6 public key packet has a key material size that does not exhaust the packet ({pend - pubsize} octets left over)")
+        self.keymaterial.parse(packet[:pend])
+        del packet[:pend]
+
+
 class PrivKey(PubKey, Private):
     __typeid__ = PacketType.SecretKey
     __ver__ = 0
@@ -1259,6 +1567,31 @@ class PrivKeyV4(PrivKey, PubKeyV4):
         return pk
 
 
+class PrivKeyV6(PrivKey, PubKeyV6):
+    __ver__ = 6
+
+    @classmethod
+    def new(cls, key_algorithm, key_size: Optional[Union[int, EllipticCurveOID]] = None, created=None) -> PrivKeyV6:
+        # build a key packet
+        pk = PrivKeyV6()
+        pk.pkalg = key_algorithm
+        if pk.keymaterial is None:
+            raise NotImplementedError(key_algorithm)
+        if not isinstance(pk.keymaterial, PrivKeyField):
+            raise TypeError(f"Secret key material is missing, got {type(pk.keymaterial)} instead!")
+        pk.keymaterial._generate(key_size)
+        if created is not None:
+            pk.created = created
+        pk.update_hlen()
+        return pk
+
+    def pubkey(self) -> Public:
+        # return a copy of ourselves, but just the public half
+        pk = PubKeyV6() if not isinstance(self, PrivSubKeyV6) else PubSubKeyV6()
+        self._extract_pubkey(pk)
+        return pk
+
+
 class PrivSubKey(PrivKey, Sub):
     __typeid__ = PacketType.SecretSubKey
     __ver__ = 0
@@ -1266,6 +1599,10 @@ class PrivSubKey(PrivKey, Sub):
 
 class PrivSubKeyV4(PrivSubKey, PrivKeyV4):
     __ver__ = 4
+
+
+class PrivSubKeyV6(PrivSubKey, PrivKeyV6):
+    __ver__ = 6
 
 
 class CompressedData(Packet):
@@ -1711,6 +2048,10 @@ class PubSubKey(VersionedPacket, Sub, Public):
 
 class PubSubKeyV4(PubSubKey, PubKeyV4):
     __ver__ = 4
+
+
+class PubSubKeyV6(PubSubKey, PubKeyV6):
+    __ver__ = 6
 
 
 class UserAttribute(Packet):
