@@ -2478,7 +2478,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
             else:
                 if isinstance(subj, PGPKey):
-                    self_verifying = signerFp == subj.fingerprint
+                    self_verifying = str(sig.signer_fingerprint) == subj.fingerprint
                 else:
                     self_verifying = False
                 
