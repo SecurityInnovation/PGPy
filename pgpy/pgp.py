@@ -18,8 +18,6 @@ import re
 import warnings
 import weakref
 
-import six
-
 from datetime import datetime, timezone
 
 from cryptography.hazmat.primitives import hashes
@@ -402,7 +400,7 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
     def hashdata(self, subject):
         _data = bytearray()
 
-        if isinstance(subject, six.string_types):
+        if isinstance(subject, str):
             try:
                 subject = subject.encode('utf-8')
             except UnicodeEncodeError:
@@ -858,9 +856,9 @@ class PGPUID(ParentRef):
 
     def __format__(self, format_spec):
         if self.is_uid:
-            comment = six.u("") if self.comment == "" else six.u(" ({:s})").format(self.comment)
-            email = six.u("") if self.email == "" else six.u(" <{:s}>").format(self.email)
-            return six.u("{:s}{:s}{:s}").format(self.name, comment, email)
+            comment = "" if self.comment == "" else " ({:s})".format(self.comment)
+            email = "" if self.email == "" else " <{:s}>".format(self.email)
+            return "{:s}{:s}{:s}".format(self.name, comment, email)
 
         raise NotImplementedError
 
@@ -945,7 +943,7 @@ class PGPMessage(Armorable, PGPObject):
     @property
     def type(self):
         ##TODO: it might be better to use an Enum for the output of this
-        if isinstance(self._message, (six.string_types, six.binary_type, bytearray)):
+        if isinstance(self._message, (str, bytes, bytearray)):
             return 'cleartext'
 
         if isinstance(self._message, LiteralData):
@@ -1043,7 +1041,7 @@ class PGPMessage(Armorable, PGPObject):
                 self |= pkt
             return self
 
-        if isinstance(other, (six.string_types, six.binary_type, bytearray)):
+        if isinstance(other, (str, bytes, bytearray)):
             if self._message is None:
                 self._message = self.text_to_bytes(other)
                 return self
@@ -1139,7 +1137,7 @@ class PGPMessage(Armorable, PGPObject):
         if charset:
             msg.charset = charset
 
-        # if format in 'tu' and isinstance(message, (six.binary_type, bytearray)):
+        # if format in 'tu' and isinstance(message, (bytes, bytearray)):
         #     # if message format is text or unicode and we got binary data, we'll need to transcode it to UTF-8
         #     message =
 
@@ -1153,7 +1151,7 @@ class PGPMessage(Armorable, PGPObject):
 
         # if format is None, we can try to detect it
         if format is None:
-            if isinstance(message, six.text_type):
+            if isinstance(message, str):
                 # message is definitely UTF-8 already
                 format = 'u'
 
@@ -1166,7 +1164,7 @@ class PGPMessage(Armorable, PGPObject):
                 format = 'b'
 
         # if message is a binary type and we're building a textual message, we need to transcode the bytes to UTF-8
-        if isinstance(message, (six.binary_type, bytearray)) and (cleartext or format in 'tu'):
+        if isinstance(message, (bytes, bytearray)) and (cleartext or format in 'tu'):
             message = message.decode(charset or 'utf-8')
 
         if cleartext:
@@ -2428,7 +2426,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         sspairs = []
 
         # some type checking
-        if not isinstance(subject, (type(None), PGPMessage, PGPKey, PGPUID, PGPSignature, six.string_types, bytes, bytearray)):
+        if not isinstance(subject, (type(None), PGPMessage, PGPKey, PGPUID, PGPSignature, str, bytes, bytearray)):
             raise TypeError("Unexpected subject value: {:s}".format(str(type(subject))))
         if not isinstance(signature, (type(None), PGPSignature)):
             raise TypeError("Unexpected signature value: {:s}".format(str(type(signature))))
@@ -2697,7 +2695,7 @@ class PGPKeyring(collections_abc.Container, collections_abc.Iterable, collection
     def __contains__(self, alias):
         aliases = set().union(*self._aliases)
 
-        if isinstance(alias, six.string_types):
+        if isinstance(alias, str):
             return alias in aliases or alias.replace(' ', '') in aliases
 
         return alias in aliases  # pragma: no cover

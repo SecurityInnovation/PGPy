@@ -10,8 +10,6 @@ from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 
-import six
-
 from .types import EmbeddedSignatureHeader
 from .types import Signature
 
@@ -69,7 +67,7 @@ class URI(Signature):
         return self._uri
 
     @uri.register(str)
-    @uri.register(six.text_type)
+    @uri.register(str)
     def uri_str(self, val):
         self._uri = val
 
@@ -420,7 +418,7 @@ class RegularExpression(Signature):
         return self._regex
 
     @regex.register(str)
-    @regex.register(six.text_type)
+    @regex.register(str)
     def regex_str(self, val):
         self._regex = val
 
@@ -550,7 +548,7 @@ class RevocationKey(Signature):
         return self._fingerprint
 
     @fingerprint.register(str)
-    @fingerprint.register(six.text_type)
+    @fingerprint.register(str)
     @fingerprint.register(Fingerprint)
     def fingerprint_str(self, val):
         self._fingerprint = Fingerprint(val)
@@ -633,7 +631,7 @@ class NotationData(Signature):
         return self._name
 
     @name.register(str)
-    @name.register(six.text_type)
+    @name.register(str)
     def name_str(self, val):
         self._name = val
 
@@ -646,7 +644,7 @@ class NotationData(Signature):
         return self._value
 
     @value.register(str)
-    @value.register(six.text_type)
+    @value.register(str)
     def value_str(self, val):
         self._value = val
 
@@ -761,7 +759,7 @@ class SignersUserID(Signature):
         return self._userid
 
     @userid.register(str)
-    @userid.register(six.text_type)
+    @userid.register(str)
     def userid_str(self, val):
         self._userid = val
 
@@ -805,7 +803,7 @@ class ReasonForRevocation(Signature):
         return self._string
 
     @string.register(str)
-    @string.register(six.text_type)
+    @string.register(str)
     def string_str(self, val):
         self._string = val
 
@@ -932,7 +930,7 @@ class IssuerFingerprint(Signature):
         return self._issuer_fpr
 
     @issuer_fingerprint.register(str)
-    @issuer_fingerprint.register(six.text_type)
+    @issuer_fingerprint.register(str)
     @issuer_fingerprint.register(Fingerprint)
     def issuer_fingerprint_str(self, val):
         self._issuer_fpr = Fingerprint(val)
@@ -1004,7 +1002,7 @@ class IntendedRecipient(Signature):
         return self._intended_recipient
 
     @intended_recipient.register(str)
-    @intended_recipient.register(six.text_type)
+    @intended_recipient.register(str)
     @intended_recipient.register(Fingerprint)
     def intended_recipient_str(self, val):
         self._intended_recipient = Fingerprint(val)

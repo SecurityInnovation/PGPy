@@ -1,7 +1,5 @@
 """ symenc.py
 """
-import six
-
 from cryptography.exceptions import UnsupportedAlgorithm
 
 from cryptography.hazmat.backends import default_backend
@@ -31,7 +29,7 @@ def _encrypt(pt, key, alg, iv=None):
         encryptor = Cipher(alg.cipher(key), modes.CFB(iv), default_backend()).encryptor()
 
     except UnsupportedAlgorithm as ex:  # pragma: no cover
-        six.raise_from(PGPEncryptionError, ex)
+        raise PGPEncryptionError from ex
 
     else:
         return bytearray(encryptor.update(pt) + encryptor.finalize())
@@ -52,7 +50,7 @@ def _decrypt(ct, key, alg, iv=None):
         decryptor = Cipher(alg.cipher(key), modes.CFB(iv), default_backend()).decryptor()
 
     except UnsupportedAlgorithm as ex:  # pragma: no cover
-        six.raise_from(PGPDecryptionError, ex)
+        raise PGPDecryptionError from ex
 
     else:
         return bytearray(decryptor.update(ct) + decryptor.finalize())

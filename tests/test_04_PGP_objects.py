@@ -3,7 +3,6 @@
 import pytest
 import glob
 import os
-import six
 
 from pgpy import PGPKey
 from pgpy import PGPKeyring
@@ -41,22 +40,22 @@ class TestPGPMessage(object):
 
 @pytest.fixture
 def un():
-    return PGPUID.new(six.u('Temperair\xe9e Youx\'seur'))
+    return PGPUID.new('Temperair\xe9e Youx\'seur')
 
 
 @pytest.fixture
 def unc():
-    return PGPUID.new(six.u('Temperair\xe9e Youx\'seur'), comment=six.u('\u2603'))
+    return PGPUID.new('Temperair\xe9e Youx\'seur', comment='\u2603')
 
 
 @pytest.fixture
 def une():
-    return PGPUID.new(six.u('Temperair\xe9e Youx\'seur'), email='snowman@not.an.email.addre.ss')
+    return PGPUID.new('Temperair\xe9e Youx\'seur', email='snowman@not.an.email.addre.ss')
 
 
 @pytest.fixture
 def unce():
-    return PGPUID.new(six.u('Temperair\xe9e Youx\'seur'), comment=six.u('\u2603'), email='snowman@not.an.email.addre.ss')
+    return PGPUID.new('Temperair\xe9e Youx\'seur', comment='\u2603', email='snowman@not.an.email.addre.ss')
 
 
 @pytest.fixture
@@ -81,10 +80,10 @@ class TestPGPUID(object):
         assert abe_image.image == abebytes
 
     def test_format(self, un, unc, une, unce):
-        assert six.u("{:s}").format(un) == six.u('Temperair\xe9e Youx\'seur')
-        assert six.u("{:s}").format(unc) == six.u('Temperair\xe9e Youx\'seur (\u2603)')
-        assert six.u("{:s}").format(une) == six.u('Temperair\xe9e Youx\'seur <snowman@not.an.email.addre.ss>')
-        assert six.u("{:s}").format(unce) == six.u('Temperair\xe9e Youx\'seur (\u2603) <snowman@not.an.email.addre.ss>')
+        assert "{:s}".format(un) == 'Temperair\xe9e Youx\'seur'
+        assert "{:s}".format(unc) == 'Temperair\xe9e Youx\'seur (\u2603)'
+        assert "{:s}".format(une) == 'Temperair\xe9e Youx\'seur <snowman@not.an.email.addre.ss>'
+        assert "{:s}".format(unce) == 'Temperair\xe9e Youx\'seur (\u2603) <snowman@not.an.email.addre.ss>'
 
 
 _keyfiles = sorted(glob.glob('tests/testdata/blocks/*key*.asc'))
@@ -211,10 +210,8 @@ class TestPGPKeyring(object):
 
     def test_select_fingerprint(self, keyring):
         for fp, name in [("F429 4BC8 094A 7E05 85C8 5E86 3747 3B37 58C4 4F36", "RSA von TestKey"),
-                         (six.u("F429 4BC8 094A 7E05 85C8 5E86 3747 3B37 58C4 4F36"), six.u("RSA von TestKey")),
                          (Fingerprint("F429 4BC8 094A 7E05 85C8 5E86 3747 3B37 58C4 4F36"), "RSA von TestKey"),
                          ("EBC8 8A94 ACB1 10F1 BE3F E3C1 2B47 4BB0 2084 C712", "DSA von TestKey"),
-                         (six.u("EBC8 8A94 ACB1 10F1 BE3F E3C1 2B47 4BB0 2084 C712"), six.u("DSA von TestKey")),
                          (Fingerprint("EBC8 8A94 ACB1 10F1 BE3F E3C1 2B47 4BB0 2084 C712"), "DSA von TestKey"),]:
             with keyring.key(fp) as key:
                 assert key.fingerprint == fp

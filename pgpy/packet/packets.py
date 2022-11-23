@@ -11,8 +11,6 @@ import warnings
 
 from datetime import datetime, timezone
 
-import six
-
 from cryptography.hazmat.primitives import constant_time
 from cryptography.hazmat.primitives.asymmetric import padding
 
@@ -697,7 +695,7 @@ class OnePassSignatureV3(OnePassSignature):
         return self._signer
 
     @signer.register(str)
-    @signer.register(six.text_type)
+    @signer.register(str)
     def signer_str(self, val):
         self._signer = val
 
@@ -719,7 +717,7 @@ class OnePassSignatureV3(OnePassSignature):
         _bytes += bytearray([self.sigtype])
         _bytes += bytearray([self.halg])
         _bytes += bytearray([self.pubalg])
-        _bytes += binascii.unhexlify(six.b(self.signer))
+        _bytes += binascii.unhexlify(self.signer.encode("latin-1"))
         _bytes += bytearray([int(self.nested)])
         return _bytes
 
