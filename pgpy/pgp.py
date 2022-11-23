@@ -1395,18 +1395,16 @@ class PGPKey(Armorable, ParentRef, PGPObject):
     @property
     def expires_at(self):
         """A :py:obj:`~datetime.datetime` object of when this key is to be considered expired, if any. Otherwise, ``None``"""
-        try:
-            def expirationsIter():
-                for sig in itertools.chain(iter(uid.selfsig for uid in self.userids if uid.selfsig), self.self_signatures):
-                    if sig.key_expiration is not None:
-                        yield sig.key_expiration
-            expires = min(expirationsIter())
+        expires = None
+        for sig in iter(uid.selfsig for uid in self.userids if uid.selfsig):
+            print(sig, sig.key_expiration)
+            if sig.key_expiration is not None:
+                expires = sig.key_expiration
 
-        except ValueError:
-            return None
+        if expires is not None:
+            return self.created + expires
 
-        else:
-            return (self.created + expires)
+        return None
 
     @property
     def fingerprint(self):
