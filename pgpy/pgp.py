@@ -2429,7 +2429,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             raise TypeError("Unexpected signature value: {:s}".format(str(type(signature))))
 
         def _filter_sigs(sigs):
-            _ids = {self.fingerprint} | set(self.subkeys)
+            _ids = {self.fingerprint.keyid} | set(self.subkeys)
             for sig in sigs:
                 if sig.signer in _ids:
                     yield sig
