@@ -690,7 +690,10 @@ class PGPUID(ParentRef):
         if self.parent is not None:
             for sig in reversed(self._signatures):
                 if sig.signer_fingerprint:
-                    if sig.signer == self.parent.fingerprint.keyid:
+                    if self.parent.fingerprint == sig.signer_fingerprint:
+                        return sig
+                elif sig.signer:
+                    if self.parent.fingerprint == sig.signer:
                         return sig
 
     @property
