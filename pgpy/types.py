@@ -668,7 +668,7 @@ class Fingerprint(str):
         return False  # pragma: no cover
 
     def __ne__(self, other):
-        return not (self == str(other))
+        return not (self == other)
 
     def __hash__(self):
         return hash(str(self))
