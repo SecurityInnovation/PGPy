@@ -1910,7 +1910,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                 user = next(iter(self.userids))
 
             # RFC 4880 says that primary keys *must* be capable of certification
-            return {KeyFlags.Certify} | user.selfsig.key_flags
+            return {KeyFlags.Certify} | (user.selfsig.key_flags if user.selfsig else set())
 
         return next(self.self_signatures).key_flags
 
@@ -2472,7 +2472,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
             else:
                 if isinstance(subj, PGPKey):
-                    self_verifying = signerFp == subj.fingerprint
+                    self_verifying = sig.signer == subj.fingerprint
                 else:
                     self_verifying = False
                 
