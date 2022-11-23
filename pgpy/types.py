@@ -8,7 +8,6 @@ import binascii
 import bisect
 import codecs
 import collections
-import itertools
 import operator
 import os
 import re
@@ -680,12 +679,11 @@ class Fingerprint(str):
         if not bool(re.match(r'^[A-F0-9]{40}$', content)):
             raise ValueError("Expected: String of 40 hex digits")
 
-        # store in the format: "AAAA BBBB CCCC DDDD EEEE  FFFF 0000 1111 2222 3333"
-        #                                               ^^ note 2 spaces here
-        spaces = [ ' ' if i != 4 else '  ' for i in range(10) ]
-        chunks = [ ''.join(g) for g in itertools.zip_longest(*[iter(content)] * 4) ]
-        content = ''.join(j for i in itertools.zip_longest(chunks, spaces, fillvalue='') for j in i).strip()
-        return content
+        halves = [
+            [content[i:i+4] for i in range(0, 20, 4)],
+            [content[i:i+4] for i in range(20, 40, 4)]
+        ]
+        return '  '.join(' '.join(c for c in half) for half in halves)
     
     def __repr__(self):
         return self.__class__.__name__+"("+repr(self.__pretty__())+")"
