@@ -8,6 +8,7 @@ import binascii
 import bisect
 import codecs
 import collections
+import itertools
 import operator
 import os
 import re
@@ -30,7 +31,6 @@ __all__ = ['Armorable',
            'MetaDispatchable',
            'Dispatchable',
            'SignatureVerification',
-           'FlagEnum',
            'Fingerprint',
            'SorteDeque']
 
@@ -659,15 +659,15 @@ class Fingerprint(str):
             if isinstance(other, (bytes, bytearray)):  # pragma: no cover
                 other = other.decode('latin-1')
 
-            other = str(other).replace(' ', '')
-            return any([self.replace(' ', '') == other,
+            other = other.replace(' ', '')
+            return any([str(self) == other,
                         self.keyid == other,
                         self.shortid == other])
 
         return False  # pragma: no cover
 
     def __ne__(self, other):
-        return str(self) != str(other)
+        return not (self == str(other))
 
     def __hash__(self):
         return hash(str(self))
