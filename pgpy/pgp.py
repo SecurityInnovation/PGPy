@@ -1397,7 +1397,6 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         """A :py:obj:`~datetime.datetime` object of when this key is to be considered expired, if any. Otherwise, ``None``"""
         expires = None
         for sig in iter(uid.selfsig for uid in self.userids if uid.selfsig):
-            print(sig, sig.key_expiration)
             if sig.key_expiration is not None:
                 expires = sig.key_expiration
 
