@@ -20,12 +20,14 @@ from enum import IntEnum
 from .decorators import sdproperty
 
 from .errors import PGPError
-from .constants import SecurityIssues
 
 __all__ = ['Armorable',
            'ParentRef',
            'PGPObject',
            'Field',
+           'Fingerprint',
+           'FlagEnum',
+           'FlagEnumMeta',
            'Header',
            'MetaDispatchable',
            'Dispatchable',
@@ -624,8 +626,23 @@ class SignatureVerification(object):
     def __repr__(self):
         return "<"+ self.__class__.__name__ + "({" + str(bool(self)) + "})>"
 
-    def add_sigsubj(self, signature, by, subject=None, issues=SecurityIssues(0xFF)):
+    def add_sigsubj(self, signature, by, subject=None, issues=None):
+        if issues is None:
+            from .constants import SecurityIssues
+            issues = SecurityIssues(0xFF)
         self._subjects.append(self._sigsubj(issues, by, signature, subject))
+
+
+class FlagEnumMeta(EnumMeta):
+    def __and__(self, other):
+        return { f for f in iter(self) if f.value & other }
+
+    def __rand__(self, other):  # pragma: no cover
+        return self & other
+
+
+namespace = FlagEnumMeta.__prepare__('FlagEnum', (IntEnum,))
+FlagEnum = FlagEnumMeta('FlagEnum', (IntEnum,), namespace)
 
 
 class Fingerprint(str):
@@ -689,7 +706,6 @@ class Fingerprint(str):
     
     def __repr__(self):
         return self.__class__.__name__+"("+repr(self.__pretty__())+")"
-
 
 
 class SorteDeque(collections.deque):

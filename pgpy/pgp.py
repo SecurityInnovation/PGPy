@@ -35,8 +35,6 @@ from .constants import RevocationReason
 from .constants import SignatureType
 from .constants import SymmetricKeyAlgorithm
 from .constants import SecurityIssues
-from .constants import check_assymetric_algo_and_its_parameters
-from .constants import is_hash_considered_secure
 
 from .decorators import KeyAction
 
@@ -172,10 +170,9 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         The :py:obj:`~constants.HashAlgorithm` used when computing this signature.
         """
         return self._signature.halg
-    
-    
+
     def check_primitives(self):
-        return is_hash_considered_secure(self.hash_algorithm)
+        return self.hash_algorithm.is_considered_secure
     
     def check_soundness(self):
         return self.check_primitives()
@@ -2375,10 +2372,10 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         if selfSigs:
             for s in selfSigs:
                 if not self.verify(self, s):
-                    res |= SecurityIssues.invalid
+                    res |= SecurityIssues.Invalid
                     break
         else:
-            return SecurityIssues.noSelfSignature
+            return SecurityIssues.NoSelfSignature
         return res
     
     def _do_self_signatures_verification(self):
@@ -2400,17 +2397,17 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return self._self_verified
 
     def check_primitives(self):
-        return check_assymetric_algo_and_its_parameters(self.key_algorithm, self.key_size)
+        return self.key_algorithm.validate_params(self.key_size)
 
     def check_management(self, self_verifying=False):
         res = self.self_verified
         if self.is_expired:
             warnings.warn("Key " + repr(self) + " has expired at " + str(self.expires_at))
-            res |= SecurityIssues.expired
+            res |= SecurityIssues.Expired
         
         warnings.warn("TODO: Revocation checks are not yet implemented!!!")
         warnings.warn("TODO: Flags (s.a. `disabled`) checks are not yet implemented!!!")
-        res |= int(bool(list(self.revocation_signatures))) * SecurityIssues.revoked
+        res |= int(bool(list(self.revocation_signatures))) * SecurityIssues.Revoked
         return res
 
     def check_soundness(self, self_verifying=False):
@@ -2463,7 +2460,6 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                 for subkey in subject.subkeys.values():
                     for sig in _filter_sigs(subkey.__sig__):
                         sspairs.append((sig, subkey))
-                
 
         elif signature.signer in {self.fingerprint.keyid} | set(self.subkeys):
             sspairs += [(signature, subject)]
@@ -2487,7 +2483,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                 signature_issues = self.check_primitives()
                 
                 if self_verifying:
-                    signature_issues &= ~SecurityIssues.hashFunctionNotCollisionResistant
+                    signature_issues &= ~SecurityIssues.HashFunctionNotCollisionResistant
                 
                 issues = signature_issues | subkey_issues
                 if issues:
@@ -2497,7 +2493,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                     if verified is NotImplemented:
                         raise NotImplementedError(sig.key_algorithm)
 
-                    sigv.add_sigsubj(sig, self, subj, SecurityIssues.wrongSig if not verified else SecurityIssues.OK)
+                    sigv.add_sigsubj(sig, self, subj, SecurityIssues.WrongSig if not verified else SecurityIssues.OK)
 
         return sigv
 
