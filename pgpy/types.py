@@ -648,6 +648,8 @@ class Fingerprint(str):
 
         # validate input before continuing: this should be a string of 40 hex digits
         content = content.upper().replace(' ', '')
+        if not re.match(r'^[0-9A-F]+$', content):
+            raise ValueError('Fingerprint must be a string of 40 hex digits')
         return str.__new__(cls, content)
 
     def __eq__(self, other):
