@@ -1,6 +1,5 @@
 """ types.py
 """
-from __future__ import division
 
 import abc
 import copy

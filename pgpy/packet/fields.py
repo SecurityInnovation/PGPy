@@ -1,6 +1,5 @@
 """ fields.py
 """
-from __future__ import absolute_import, division
 
 import abc
 import binascii
@@ -1017,7 +1016,7 @@ class String2Key(Field):
         keylen = self.encalg.key_size
         hashlen = self.halg.digest_size * 8
 
-        ctx = int(math.ceil((keylen / hashlen)))
+        ctx = int(math.ceil(keylen / hashlen))
 
         # Simple S2K - always done
         hsalt = b''
