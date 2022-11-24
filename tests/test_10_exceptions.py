@@ -17,13 +17,12 @@ from pgpy.constants import PubKeyAlgorithm
 from pgpy.constants import SymmetricKeyAlgorithm
 from pgpy.packet import Packet
 from pgpy.types import Armorable
-from pgpy.types import PGPObject
 from pgpy.types import Fingerprint
 from pgpy.types import SignatureVerification
 from pgpy.errors import PGPError
 from pgpy.errors import PGPDecryptionError
 from pgpy.errors import PGPEncryptionError
-from pgpy.errors import PGPInsecureCipher
+from pgpy.errors import PGPInsecureCipherError
 
 
 def _read(f, mode='r'):
@@ -230,13 +229,9 @@ class TestPGPKey(object):
         rsa_pub.subkeys['EEE097A017B979CA'].encrypt(PGPMessage.new('asdf'),
                                                     cipher=SymmetricKeyAlgorithm.CAST5)
 
-        w = recwarn.pop(UserWarning)
-        assert str(w.message) == "Selected symmetric algorithm not in key preferences"
-        assert w.filename == __file__
-
-        w = recwarn.pop(UserWarning)
-        assert str(w.message) == "Selected compression algorithm not in key preferences"
-        assert w.filename == __file__
+        relevant_warning_messages = [ str(w.message) for w in recwarn if w.category is UserWarning ]
+        assert "Selected symmetric algorithm not in key preferences" in relevant_warning_messages
+        assert "Selected compression algorithm not in key preferences" in relevant_warning_messages
 
     def test_sign_bad_prefs(self, rsa_sec, recwarn):
         rsa_sec.subkeys['2A834D8E5918E886'].sign(PGPMessage.new('asdf'), hash=HashAlgorithm.MD5)
@@ -380,7 +375,7 @@ class TestPGPMessage(object):
 
     def test_encrypt_insecure_cipher(self):
         msg = PGPMessage.new('asdf')
-        with pytest.raises(PGPInsecureCipher):
+        with pytest.raises(PGPInsecureCipherError):
             msg.encrypt('QwertyUiop', cipher=SymmetricKeyAlgorithm.IDEA)
 
     def test_encrypt_sessionkey_wrongtype(self):

@@ -1,3 +1,2 @@
 cryptography>=2.6
 pyasn1
-six>=1.9.0

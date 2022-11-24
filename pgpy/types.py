@@ -20,17 +20,18 @@ from enum import IntEnum
 from .decorators import sdproperty
 
 from .errors import PGPError
-from .constants import SecurityIssues
 
 __all__ = ['Armorable',
            'ParentRef',
            'PGPObject',
            'Field',
+           'Fingerprint',
+           'FlagEnum',
+           'FlagEnumMeta',
            'Header',
            'MetaDispatchable',
            'Dispatchable',
            'SignatureVerification',
-           'FlagEnum',
            'Fingerprint',
            'SorteDeque']
 
@@ -315,21 +316,21 @@ class Field(PGPObject):
 
 class Header(Field):
     @staticmethod
-    def encode_length(l, nhf=True, llen=1):
-        def _new_length(l):
-            if 192 > l:
-                return Header.int_to_bytes(l)
+    def encode_length(length, nhf=True, llen=1):
+        def _new_length(nl):
+            if 192 > nl:
+                return Header.int_to_bytes(nl)
 
-            elif 8384 > l:
-                elen = ((l & 0xFF00) + (192 << 8)) + ((l & 0xFF) - 192)
+            elif 8384 > nl:
+                elen = ((nl & 0xFF00) + (192 << 8)) + ((nl & 0xFF) - 192)
                 return Header.int_to_bytes(elen, 2)
 
-            return b'\xFF' + Header.int_to_bytes(l, 4)
+            return b'\xFF' + Header.int_to_bytes(nl, 4)
 
-        def _old_length(l, llen):
-            return Header.int_to_bytes(l, llen) if llen > 0 else b''
+        def _old_length(nl, llen):
+            return Header.int_to_bytes(nl, llen) if llen > 0 else b''
 
-        return _new_length(l) if nhf else _old_length(l, llen)
+        return _new_length(length) if nhf else _old_length(length, llen)
 
     @sdproperty
     def length(self):
@@ -389,12 +390,11 @@ class Header(Field):
 
     @sdproperty
     def llen(self):
-        l = self.length
         lf = self._lenfmt
 
         if lf == 1:
             # new-format length
-            if 192 > l:
+            if 192 > self.length:
                 return 1
 
             elif 8384 > self.length:  # >= 192 is implied
@@ -475,12 +475,15 @@ class MetaDispatchable(abc.ABCMeta):
                 MetaDispatchable._roots.add(ncls)
 
             elif issubclass(ncls, tuple(MetaDispatchable._roots)) and ncls.__typeid__ != -1:
-                for rcls in [ root for root in MetaDispatchable._roots if issubclass(ncls, root) ]:
+                for rcls in (root for root in MetaDispatchable._roots if issubclass(ncls, root)):
                     if (rcls, ncls.__typeid__) not in MetaDispatchable._registry:
                         MetaDispatchable._registry[(rcls, ncls.__typeid__)] = ncls
 
-                    if (ncls.__ver__ is not None and ncls.__ver__ > 0 and
-                            (rcls, ncls.__typeid__, ncls.__ver__) not in MetaDispatchable._registry):
+                    if (
+                        ncls.__ver__ is not None
+                        and ncls.__ver__ > 0
+                        and (rcls, ncls.__typeid__, ncls.__ver__) not in MetaDispatchable._registry
+                    ):
                         MetaDispatchable._registry[(rcls, ncls.__typeid__, ncls.__ver__)] = ncls
 
         # finally, return the new class object
@@ -575,8 +578,12 @@ class SignatureVerification(object):
 
         ``sigsubj.subject`` - the subject that was verified using the signature.
         """
-        for s in [ i for i in self._subjects if not i.issues ]:
-            yield s
+        yield from (
+            sigsub
+            for sigsub in self._subjects
+            if not sigsub.issues
+            or (sigsub.issues and not sigsub.issues.causes_signature_verify_to_fail)
+        )
 
     @property
     def bad_signatures(self):  # pragma: no cover
@@ -592,7 +599,11 @@ class SignatureVerification(object):
 
         ``sigsubj.subject`` - the subject that was verified using the signature.
         """
-        yield from [ i for i in self._subjects if i.issues ]
+        yield from (
+            sigsub
+            for sigsub in self._subjects
+            if sigsub.issues and sigsub.issues.causes_signature_verify_to_fail
+        )
 
     def __init__(self):
         """
@@ -610,7 +621,12 @@ class SignatureVerification(object):
         return len(self._subjects)
 
     def __bool__(self):
-        return all(not s.issues for s in self._subjects)
+        from .constants import SecurityIssues
+        return all(
+            sigsub.issues is SecurityIssues.OK
+            or (sigsub.issues and not sigsub.issues.causes_signature_verify_to_fail)
+            for sigsub in self._subjects
+        )
 
     def __nonzero__(self):
         return self.__bool__()
@@ -623,10 +639,28 @@ class SignatureVerification(object):
         return self
 
     def __repr__(self):
-        return "<"+ self.__class__.__name__ + "({" + str(bool(self)) + "})>"
+        return '<{classname}({val})>'.format(
+            classname=self.__class__.__name__,
+            val=bool(self)
+        )
 
-    def add_sigsubj(self, signature, by, subject=None, issues=SecurityIssues(0xFF)):
+    def add_sigsubj(self, signature, by, subject=None, issues=None):
+        if issues is None:
+            from .constants import SecurityIssues
+            issues = SecurityIssues(0xFF)
         self._subjects.append(self._sigsubj(issues, by, signature, subject))
+
+
+class FlagEnumMeta(EnumMeta):
+    def __and__(self, other):
+        return { f for f in iter(self) if f.value & other }
+
+    def __rand__(self, other):  # pragma: no cover
+        return self & other
+
+
+namespace = FlagEnumMeta.__prepare__('FlagEnum', (IntEnum,))
+FlagEnum = FlagEnumMeta('FlagEnum', (IntEnum,), namespace)
 
 
 class Fingerprint(str):
@@ -649,6 +683,8 @@ class Fingerprint(str):
 
         # validate input before continuing: this should be a string of 40 hex digits
         content = content.upper().replace(' ', '')
+        if not re.match(r'^[0-9A-F]+$', content):
+            raise ValueError('Fingerprint must be a string of 40 hex digits')
         return str.__new__(cls, content)
 
     def __eq__(self, other):
@@ -659,37 +695,38 @@ class Fingerprint(str):
             if isinstance(other, (bytes, bytearray)):  # pragma: no cover
                 other = other.decode('latin-1')
 
-            other = str(other).replace(' ', '')
-            return any([self.replace(' ', '') == other,
+            other = other.replace(' ', '')
+            return any([str(self) == other,
                         self.keyid == other,
                         self.shortid == other])
 
         return False  # pragma: no cover
 
     def __ne__(self, other):
-        return str(self) != str(other)
+        return not (self == other)
 
     def __hash__(self):
         return hash(str(self))
 
     def __bytes__(self):
         return binascii.unhexlify(self.encode("latin-1"))
-    
+
     def __pretty__(self):
         content = self
         if not bool(re.match(r'^[A-F0-9]{40}$', content)):
             raise ValueError("Expected: String of 40 hex digits")
 
-        # store in the format: "AAAA BBBB CCCC DDDD EEEE  FFFF 0000 1111 2222 3333"
-        #                                               ^^ note 2 spaces here
-        spaces = [ ' ' if i != 4 else '  ' for i in range(10) ]
-        chunks = [ ''.join(g) for g in itertools.zip_longest(*[iter(content)] * 4) ]
-        content = ''.join(j for i in itertools.zip_longest(chunks, spaces, fillvalue='') for j in i).strip()
-        return content
-    
-    def __repr__(self):
-        return self.__class__.__name__+"("+repr(self.__pretty__())+")"
+        halves = [
+            [content[i:i + 4] for i in range(0, 20, 4)],
+            [content[i:i + 4] for i in range(20, 40, 4)]
+        ]
+        return '  '.join(' '.join(c for c in half) for half in halves)
 
+    def __repr__(self):
+        return '{classname}({fp})'.format(
+            classname=self.__class__.__name__,
+            fp=self.__pretty__()
+        )
 
 
 class SorteDeque(collections.deque):

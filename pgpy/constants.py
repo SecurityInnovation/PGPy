@@ -4,7 +4,6 @@ import bz2
 import hashlib
 import imghdr
 import os
-import time
 import zlib
 import warnings
 
@@ -12,7 +11,6 @@ from collections import namedtuple
 from enum import Enum
 from enum import IntEnum
 from enum import IntFlag
-from enum import EnumMeta
 
 from pyasn1.type.univ import ObjectIdentifier
 
@@ -20,50 +18,37 @@ from cryptography.hazmat.backends import openssl
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.ciphers import algorithms
 
+from .types import FlagEnum
 from .decorators import classproperty
 from ._curves import BrainpoolP256R1, BrainpoolP384R1, BrainpoolP512R1, X25519, Ed25519
 
-__all__ = ['Backend',
-           'EllipticCurveOID',
-           'ECPointFormat',
-           'PacketTag',
-           'SymmetricKeyAlgorithm',
-           'PubKeyAlgorithm',
-           'CompressionAlgorithm',
-           'HashAlgorithm',
-           'RevocationReason',
-           'ImageEncoding',
-           'SignatureType',
-           'KeyServerPreferences',
-           'S2KGNUExtension',
-           'SecurityIssues',
-           'String2KeyType',
-           'TrustLevel',
-           'KeyFlags',
-           'Features',
-           'FlagEnumMeta',
-           'RevocationKeyClass',
-           'NotationDataFlags',
-           'TrustFlags',
-           'check_assymetric_algo_and_its_parameters',
-           'is_hash_considered_secure']
+__all__ = [
+    'Backend',
+    'EllipticCurveOID',
+    'ECPointFormat',
+    'PacketTag',
+    'SymmetricKeyAlgorithm',
+    'PubKeyAlgorithm',
+    'CompressionAlgorithm',
+    'HashAlgorithm',
+    'RevocationReason',
+    'ImageEncoding',
+    'SignatureType',
+    'KeyServerPreferences',
+    'S2KGNUExtension',
+    'SecurityIssues',
+    'String2KeyType',
+    'TrustLevel',
+    'KeyFlags',
+    'Features',
+    'RevocationKeyClass',
+    'NotationDataFlags',
+    'TrustFlags',
+]
 
 
 # this is 50 KiB
 _hashtunedata = bytearray([10, 11, 12, 13, 14, 15, 16, 17] * 128 * 50)
-
-
-class FlagEnumMeta(EnumMeta):
-    def __and__(self, other):
-        return { f for f in iter(self) if f.value & other }
-
-    def __rand__(self, other):  # pragma: no cover
-        return self & other
-
-
-namespace = FlagEnumMeta.__prepare__('FlagEnum', (IntEnum,))
-FlagEnum = FlagEnumMeta('FlagEnum', (IntEnum,), namespace)
-
 
 
 class Backend(Enum):
@@ -301,6 +286,26 @@ class PubKeyAlgorithm(IntEnum):
                         PubKeyAlgorithm.RSASign,
                         PubKeyAlgorithm.FormerlyElGamalEncryptOrSign}
 
+    def validate_params(self, size):
+        min_size = MINIMUM_ASYMMETRIC_KEY_LENGTHS.get(self)
+        if min_size is not None:
+            if isinstance(min_size, set):
+                # ECC
+                curve = size
+                safe_curves = min_size
+                if curve in safe_curves:
+                    return SecurityIssues.OK
+                else:
+                    return SecurityIssues.InsecureCurve
+            else:
+                # not ECC
+                if size >= min_size:
+                    return SecurityIssues.OK
+                else:
+                    return SecurityIssues.AsymmetricKeyLengthIsTooShort
+        # min_size is None
+        return SecurityIssues.BrokenAsymmetricFunc
+
 
 class CompressionAlgorithm(IntEnum):
     """Supported compression algorithms."""
@@ -361,7 +366,6 @@ class HashAlgorithm(IntEnum):
     #SHA3_256 = 13
     #SHA3_384 = 14
     #SHA3_512 = 15
-    
 
     def __init__(self, *args):
         super(self.__class__, self).__init__()
@@ -383,9 +387,27 @@ class HashAlgorithm(IntEnum):
     def is_supported(self):
         return True
 
+    @property
+    def is_second_preimage_resistant(self):
+        return self in {HashAlgorithm.SHA1}
 
-secondPreimageResistantHashes = {HashAlgorithm.SHA1}
-collisionResistantHashses = {HashAlgorithm.SHA256, HashAlgorithm.SHA384, HashAlgorithm.SHA512}
+    @property
+    def is_collision_resistant(self):
+        return self in {HashAlgorithm.SHA256, HashAlgorithm.SHA384, HashAlgorithm.SHA512}
+
+    @property
+    def is_considered_secure(self):
+        if self.is_collision_resistant:
+            return SecurityIssues.OK
+
+        warnings.warn('Hash function {hash} is not considered collision resistant'.format(hash=repr(self)))
+        issues = SecurityIssues.HashFunctionNotCollisionResistant
+
+        if not self.is_second_preimage_resistant:
+            issues |= SecurityIssues.HashFunctionNotSecondPreimageResistant
+
+        return issues
+
 
 class RevocationReason(IntEnum):
     """Reasons explaining why a key or certificate was revoked."""
@@ -566,67 +588,42 @@ class TrustFlags(FlagEnum):
 
 class SecurityIssues(IntFlag):
     OK = 0
-    wrongSig = (1 << 0)
-    expired = (1 << 1)
-    disabled = (1 << 2)
-    revoked = (1 << 3)
-    invalid = (1 << 4)
-    brokenAssymetricFunc = (1 << 5)
-    hashFunctionNotCollisionResistant = (1 << 6)
-    hashFunctionNotSecondPreimageResistant = (1 << 7)
-    assymetricKeyLengthIsTooShort = (1 << 8)
-    insecureCurve = (1 << 9)
-    noSelfSignature = (1 << 10)
+    WrongSig = (1 << 0)
+    Expired = (1 << 1)
+    Disabled = (1 << 2)
+    Revoked = (1 << 3)
+    Invalid = (1 << 4)
+    BrokenAsymmetricFunc = (1 << 5)
+    HashFunctionNotCollisionResistant = (1 << 6)
+    HashFunctionNotSecondPreimageResistant = (1 << 7)
+    AsymmetricKeyLengthIsTooShort = (1 << 8)
+    InsecureCurve = (1 << 9)
+    NoSelfSignature = (1 << 10)
+
+    @property
+    def causes_signature_verify_to_fail(self):
+        return self in {
+            SecurityIssues.WrongSig,
+            SecurityIssues.Expired,
+            SecurityIssues.Disabled,
+            SecurityIssues.Invalid,
+            SecurityIssues.NoSelfSignature,
+        }
+
 
 # https://safecurves.cr.yp.to/
-safeCurves = {
+SAFE_CURVES = {
     EllipticCurveOID.Curve25519,
     EllipticCurveOID.Ed25519,
 }
 
-minimumAssymetricKeyLegths = {
+MINIMUM_ASYMMETRIC_KEY_LENGTHS = {
     PubKeyAlgorithm.RSAEncryptOrSign: 2048,
     PubKeyAlgorithm.RSASign: 2048,
     PubKeyAlgorithm.ElGamal: 2048,
     PubKeyAlgorithm.DSA: 2048,
-    
-    PubKeyAlgorithm.ECDSA: safeCurves,
-    PubKeyAlgorithm.EdDSA: safeCurves,
-    PubKeyAlgorithm.ECDH: safeCurves,
+    ##
+    PubKeyAlgorithm.ECDSA: SAFE_CURVES,
+    PubKeyAlgorithm.EdDSA: SAFE_CURVES,
+    PubKeyAlgorithm.ECDH: SAFE_CURVES,
 }
-
-
-
-def is_hash_considered_secure(hash):
-    if hash in collisionResistantHashses:
-        return SecurityIssues.OK
-    
-    warnings.warn("Hash function " + repr(hash) + " is not considered collision resistant")
-    issues = SecurityIssues.hashFunctionNotCollisionResistant
-    
-    if hash not in secondPreimageResistantHashes:
-        issues |= hashFunctionNotSecondPreimageResistant
-    
-    return issues
-
-def check_assymetric_algo_and_its_parameters(algo, size):
-    if algo in minimumAssymetricKeyLegths:
-        minLOrSetOfSecureCurves = minimumAssymetricKeyLegths[algo]
-        if isinstance(minLOrSetOfSecureCurves, set): # ECC
-            curve = size
-            safeCurvesForThisAlg = minLOrSetOfSecureCurves
-            if curve in safeCurvesForThisAlg:
-                return SecurityIssues.OK
-            else:
-                warnings.warn("Curve " + repr(curve) + " is not considered secure for " + repr(algo))
-                return SecurityIssues.insecureCurve
-        else:
-            minL = minLOrSetOfSecureCurves
-            if size < minL:
-                warnings.warn("Assymetric algo " + repr(algo) + " needs key at least of " + repr(minL) + " bits effective length to be considered secure")
-                return SecurityIssues.assymetricKeyLengthIsTooShort
-            else:
-                return SecurityIssues.OK
-    else:
-        warnings.warn("Assymetric algo " + repr(algo) + " is not considered secure")
-        return SecurityIssues.brokenAssymetricFunc

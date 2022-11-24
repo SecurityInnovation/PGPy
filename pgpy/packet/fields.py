@@ -63,7 +63,7 @@ from ..decorators import sdproperty
 
 from ..errors import PGPDecryptionError
 from ..errors import PGPError
-from ..errors import PGPIncompatibleECPointFormat
+from ..errors import PGPIncompatibleECPointFormatError
 
 from ..symenc import _decrypt
 from ..symenc import _encrypt
@@ -371,8 +371,8 @@ class EdDSASignature(DSASignature):
 
     def __sig__(self):
         # TODO: change this length when EdDSA can be used with another curve (Ed448)
-        l = (EllipticCurveOID.Ed25519.key_size + 7) // 8
-        return self.int_to_bytes(self.r, l) + self.int_to_bytes(self.s, l)
+        siglen = (EllipticCurveOID.Ed25519.key_size + 7) // 8
+        return self.int_to_bytes(self.r, siglen) + self.int_to_bytes(self.s, siglen)
 
 
 class PubKey(MPIs):
@@ -500,7 +500,7 @@ class ECPoint:
             self.x = MPI(MPIs.bytes_to_int(xy[:self.bytelen]))
             self.y = MPI(MPIs.bytes_to_int(xy[self.bytelen:]))
         elif self.format == ECPointFormat.Native:
-            self.bytelen = 0 # dummy value for copy
+            self.bytelen = 0  # dummy value for copy
             self.x = bytes(xy)
             self.y = None
         else:
@@ -592,7 +592,7 @@ class ECDSAPub(PubKey):
 
         self.p = ECPoint(packet)
         if self.p.format != ECPointFormat.Standard:
-            raise PGPIncompatibleECPointFormat("Only Standard format is valid for ECDSA")
+            raise PGPIncompatibleECPointFormatError("Only Standard format is valid for ECDSA")
 
 
 class EdDSAPub(PubKey):
@@ -643,7 +643,7 @@ class EdDSAPub(PubKey):
 
         self.p = ECPoint(packet)
         if self.p.format != ECPointFormat.Native:
-            raise PGPIncompatibleECPointFormat("Only Native format is valid for EdDSA")
+            raise PGPIncompatibleECPointFormatError("Only Native format is valid for EdDSA")
 
 
 class ECDHPub(PubKey):
@@ -718,9 +718,9 @@ class ECDHPub(PubKey):
         self.p = ECPoint(packet)
         if self.oid == EllipticCurveOID.Curve25519:
             if self.p.format != ECPointFormat.Native:
-                raise PGPIncompatibleECPointFormat("Only Native format is valid for Curve25519")
+                raise PGPIncompatibleECPointFormatError("Only Native format is valid for Curve25519")
         elif self.p.format != ECPointFormat.Standard:
-            raise PGPIncompatibleECPointFormat("Only Standard format is valid for this curve")
+            raise PGPIncompatibleECPointFormatError("Only Standard format is valid for this curve")
         self.kdf.parse(packet)
 
 
@@ -1177,14 +1177,14 @@ class PrivKey(PubKey):
         return _bytes
 
     def __len__(self):
-        l = super(PrivKey, self).__len__() + len(self.s2k) + len(self.chksum)
+        nbytes = super(PrivKey, self).__len__() + len(self.s2k) + len(self.chksum)
         if self.s2k:
-            l += len(self.encbytes)
+            nbytes += len(self.encbytes)
 
         else:
-            l += sum(len(getattr(self, i)) for i in self.__privfields__)
+            nbytes += sum(len(getattr(self, i)) for i in self.__privfields__)
 
-        return l
+        return nbytes
 
     def __copy__(self):
         pk = super(PrivKey, self).__copy__()
@@ -1582,12 +1582,12 @@ class ECDHPriv(ECDSAPriv, ECDHPub):
         return _b
 
     def __len__(self):
-        l = ECDHPub.__len__(self) + len(self.s2k) + len(self.chksum)
+        nbytes = ECDHPub.__len__(self) + len(self.s2k) + len(self.chksum)
         if self.s2k:
-            l += len(self.encbytes)
+            nbytes += len(self.encbytes)
         else:
-            l += sum(len(getattr(self, i)) for i in self.__privfields__)
-        return l
+            nbytes += sum(len(getattr(self, i)) for i in self.__privfields__)
+        return nbytes
 
     def __privkey__(self):
         if self.oid == EllipticCurveOID.Curve25519:

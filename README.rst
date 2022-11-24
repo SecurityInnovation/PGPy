@@ -50,9 +50,9 @@ You can also join ``#pgpy`` on Freenode to ask questions or get involved
 Requirements
 ------------
 
-- Python >= 3.5
+- Python >= 3.6
 
-  Tested with: 3.8, 3.7, 3.6, 3.5
+  Tested with: 3.10, 3.9, 3.8, 3.7, 3.6
 
 - `Cryptography <https://pypi.python.org/pypi/cryptography>`_
 

@@ -703,8 +703,10 @@ class KeyServerPreferences(ByteFlag):
 class PreferredKeyServer(URI):
     __typeid__ = 0x18
 
+
 class SubkeyBindingSignature(Signature):
     __typeid__ = 0x18
+
 
 class PrimaryUserID(SubkeyBindingSignature):
     __typeid__ = 0x19
@@ -1037,7 +1039,7 @@ class IntendedRecipient(Signature):
         self.intended_recipient = packet[:fpr_len]
         del packet[:fpr_len]
 
-        
+
 class AttestedCertifications(Signature):
     '''
     (from RFC4880bis-08)
@@ -1118,7 +1120,7 @@ class AttestedCertifications(Signature):
     def attested_certifications(self):
         return self._attested_certifications
 
-    @attested_certifications.register(bytearray) 
+    @attested_certifications.register(bytearray)
     @attested_certifications.register(bytes)
     def attested_certifications_bytearray(self, val):
         self._attested_certifications = val

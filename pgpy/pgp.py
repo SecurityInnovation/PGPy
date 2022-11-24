@@ -35,8 +35,6 @@ from .constants import RevocationReason
 from .constants import SignatureType
 from .constants import SymmetricKeyAlgorithm
 from .constants import SecurityIssues
-from .constants import check_assymetric_algo_and_its_parameters
-from .constants import is_hash_considered_secure
 
 from .decorators import KeyAction
 
@@ -49,7 +47,6 @@ from .packet import Packet
 from .packet import Primary
 from .packet import Private
 from .packet import PubKeyV4
-from .packet import PubSubKeyV4
 from .packet import PrivKeyV4
 from .packet import PrivSubKeyV4
 from .packet import Public
@@ -90,6 +87,7 @@ __all__ = ['PGPSignature',
 
 class PGPSignature(Armorable, ParentRef, PGPObject):
     _reason_for_revocation = collections.namedtuple('ReasonForRevocation', ['code', 'comment'])
+
     @property
     def __sig__(self):
         return self._signature.signature.__sig__()
@@ -172,11 +170,10 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         The :py:obj:`~constants.HashAlgorithm` used when computing this signature.
         """
         return self._signature.halg
-    
-    
+
     def check_primitives(self):
-        return is_hash_considered_secure(self.hash_algorithm)
-    
+        return self.hash_algorithm.is_considered_secure
+
     def check_soundness(self):
         return self.check_primitives()
 
@@ -287,7 +284,7 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         for n in self._signature.subpackets['h_AttestedCertifications']:
             attestations = bytes(n.attested_certifications)
             for i in range(0, len(attestations), hlen):
-                ret.add(attestations[i:i+hlen])
+                ret.add(attestations[i:i + hlen])
         return ret
 
     @property
@@ -329,7 +326,7 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         sig = PGPSignature()
 
         if created is None:
-            created=datetime.now(timezone.utc)
+            created = datetime.now(timezone.utc)
         sigpkt = SignatureV4()
         sigpkt.header.tag = 2
         sigpkt.header.version = 4
@@ -603,9 +600,9 @@ class PGPUID(ParentRef):
     def _splitstring(self):
         '''returns name, comment email from User ID string'''
         if not isinstance(self._uid, UserID):
-            return ("", "", "")
+            return "", "", ""
         if self._uid.uid == "":
-            return ("", "", "")           
+            return "", "", ""
         rfc2822 = re.match(r"""^
                            # name should always match something
                            (?P<name>.+?)
@@ -619,9 +616,8 @@ class PGPUID(ParentRef):
                            (\ <(?P<email>.+)>)?
                            $
                            """, self._uid.uid, flags=re.VERBOSE).groupdict()
-        
-        return (rfc2822['name'], rfc2822['comment'] or "", rfc2822['email'] or "")
 
+        return (rfc2822['name'], rfc2822['comment'] or "", rfc2822['email'] or "")
 
     @property
     def name(self):
@@ -635,7 +631,6 @@ class PGPUID(ParentRef):
         this will be an empty string.,
         """
         return self._splitstring()[1]
-
 
     @property
     def email(self):
@@ -690,7 +685,10 @@ class PGPUID(ParentRef):
         if self.parent is not None:
             for sig in reversed(self._signatures):
                 if sig.signer_fingerprint:
-                    if sig.signer == self.parent.fingerprint.keyid:
+                    if self.parent.fingerprint == sig.signer_fingerprint:
+                        return sig
+                elif sig.signer:
+                    if self.parent.fingerprint == sig.signer:
                         return sig
 
     @property
@@ -1130,7 +1128,7 @@ class PGPMessage(Armorable, PGPObject):
         charset = kwargs.pop('encoding', None)
 
         filename = ''
-        mtime = datetime.now(timezeone.utc)
+        mtime = datetime.now(timezone.utc)
 
         msg = PGPMessage()
 
@@ -1395,18 +1393,15 @@ class PGPKey(Armorable, ParentRef, PGPObject):
     @property
     def expires_at(self):
         """A :py:obj:`~datetime.datetime` object of when this key is to be considered expired, if any. Otherwise, ``None``"""
-        try:
-            def expirationsIter():
-                for sig in itertools.chain(iter(uid.selfsig for uid in self.userids if uid.selfsig), self.self_signatures):
-                    if sig.key_expiration is not None:
-                        yield sig.key_expiration
-            expires = min(expirationsIter())
+        expires = None
+        for sig in iter(uid.selfsig for uid in self.userids if uid.selfsig):
+            if sig.key_expiration is not None:
+                expires = sig.key_expiration
 
-        except ValueError:
-            return None
+        if expires is not None:
+            return self.created + expires
 
-        else:
-            return (self.created + expires)
+        return None
 
     @property
     def fingerprint(self):
@@ -1702,8 +1697,10 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             self._uids.insort(other)
 
         else:
-            raise TypeError("unsupported operand type(s) for |: '{:s}' and '{:s}'"
-                        "".format(self.__class__.__name__, other.__class__.__name__))
+            raise TypeError(
+                "unsupported operand type(s) for |: '{:s}' and '{:s}'"
+                "".format(self.__class__.__name__, other.__class__.__name__)
+            )
 
         if isinstance(self._sibling, weakref.ref) and not from_sib:
             sib = self._sibling()
@@ -1913,7 +1910,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                 user = next(iter(self.userids))
 
             # RFC 4880 says that primary keys *must* be capable of certification
-            return {KeyFlags.Certify} | user.selfsig.key_flags
+            return {KeyFlags.Certify} | (user.selfsig.key_flags if user.selfsig else set())
 
         return next(self.self_signatures).key_flags
 
@@ -2098,7 +2095,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                                           the certificate holder wants to attest to for redistribution with the certificate.
                                           Alternatively, any element in the list can be a ``bytes``  or ``bytearray`` object
                                           of the appropriate length (the length of this certification's digest).
-                                          This keyword is only used for signatures of type Attestation.  
+                                          This keyword is only used for signatures of type Attestation.
         :type attested_certifications: ``list``
         :keyword keyserver: Specify the URI of the preferred key server of the user.
                             This keyword is ignored for non-self-certifications.
@@ -2202,11 +2199,13 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                         h = sig.hash_algorithm.hasher
                         h.update(attestation._signature.canonical_bytes())
                         attestations.add(h.digest())
-                    elif isinstance(attestation, (bytes,bytearray)) and len(attestation) == sig.hash_algorithm.digest_size:
+                    elif isinstance(attestation, (bytes, bytearray)) and len(attestation) == sig.hash_algorithm.digest_size:
                         attestations.add(attestation)
                     else:
-                        warnings.warn("Attested Certification element is neither a PGPSignature certification nor " +
-                                      "a bytes object of size %d, ignoring"%(sig.hash_algorithm.digest_size))
+                        warnings.warn(
+                            'Attested Certification element is neither a PGPSignature certification nor '
+                            'a bytes object of size {:d}; ignoring'.format(sig.hash_algorithm.digest_size)
+                        )
                 sig._signature.subpackets.addnew('AttestedCertifications', hashed=True, attested_certifications=b''.join(sorted(attestations)))
 
         else:
@@ -2361,28 +2360,27 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
     def is_considered_insecure(self, self_verifying=False):
         res = self.check_soundness(self_verifying=self_verifying)
-        
+
         for sk in self.subkeys.values():
             res |= sk.check_soundness(self_verifying=self_verifying)
         return res
 
     def self_verify(self):
-        selfSigs = list(self.self_signatures)
+        self_sigs = list(self.self_signatures)
         res = SecurityIssues.OK
-        if selfSigs:
-            for s in selfSigs:
+        if self_sigs:
+            for s in self_sigs:
                 if not self.verify(self, s):
-                    res |= SecurityIssues.invalid
+                    res |= SecurityIssues.Invalid
                     break
         else:
-            return SecurityIssues.noSelfSignature
+            return SecurityIssues.NoSelfSignature
         return res
-    
+
     def _do_self_signatures_verification(self):
         try:
-            self._self_verified = SecurityIssues.OK
             self._self_verified = self.self_verify()
-        except:
+        except Exception:
             self._self_verified = None
             raise
 
@@ -2390,24 +2388,24 @@ class PGPKey(Armorable, ParentRef, PGPObject):
     def self_verified(self):
         warnings.warn("TODO: Self-sigs verification is not yet working because self-sigs are not parsed!!!")
         return SecurityIssues.OK
-        
+
         if self._self_verified is None:
             self._do_self_signatures_verification()
-        
+
         return self._self_verified
 
     def check_primitives(self):
-        return check_assymetric_algo_and_its_parameters(self.key_algorithm, self.key_size)
+        return self.key_algorithm.validate_params(self.key_size)
 
     def check_management(self, self_verifying=False):
         res = self.self_verified
         if self.is_expired:
-            warnings.warn("Key " + repr(self) + " has expired at " + str(self.expires_at))
-            res |= SecurityIssues.expired
-        
+            warnings.warn('Key {} has expired at {:s}'.format(repr(self), self.expires_at))
+            res |= SecurityIssues.Expired
+
         warnings.warn("TODO: Revocation checks are not yet implemented!!!")
         warnings.warn("TODO: Flags (s.a. `disabled`) checks are not yet implemented!!!")
-        res |= int(bool(list(self.revocation_signatures))) * SecurityIssues.revoked
+        res |= int(bool(list(self.revocation_signatures))) * SecurityIssues.Revoked
         return res
 
     def check_soundness(self, self_verifying=False):
@@ -2432,7 +2430,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             raise TypeError("Unexpected signature value: {:s}".format(str(type(signature))))
 
         def _filter_sigs(sigs):
-            _ids = {self.fingerprint} | set(self.subkeys)
+            _ids = {self.fingerprint.keyid} | set(self.subkeys)
             for sig in sigs:
                 if sig.signer in _ids:
                     yield sig
@@ -2455,12 +2453,11 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                 for ua in subject.userattributes:
                     for sig in _filter_sigs(ua.__sig__):
                         sspairs.append((sig, ua))
-                
+
                 # subkey binding signatures
                 for subkey in subject.subkeys.values():
                     for sig in _filter_sigs(subkey.__sig__):
                         sspairs.append((sig, subkey))
-                
 
         elif signature.signer in {self.fingerprint.keyid} | set(self.subkeys):
             sspairs += [(signature, subject)]
@@ -2476,25 +2473,25 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
             else:
                 if isinstance(subj, PGPKey):
-                    self_verifying = signerFp == subj.fingerprint
+                    self_verifying = sig.signer == subj.fingerprint
                 else:
                     self_verifying = False
-                
+
                 subkey_issues = self.check_soundness(self_verifying)
                 signature_issues = self.check_primitives()
-                
+
                 if self_verifying:
-                    signature_issues &= ~SecurityIssues.hashFunctionNotCollisionResistant
-                
+                    signature_issues &= ~SecurityIssues.HashFunctionNotCollisionResistant
+
                 issues = signature_issues | subkey_issues
-                if issues:
+                if issues and issues.causes_signature_verify_to_fail:
                     sigv.add_sigsubj(sig, self, subj, issues)
                 else:
                     verified = self._key.verify(sig.hashdata(subj), sig.__sig__, getattr(hashes, sig.hash_algorithm.name)())
                     if verified is NotImplemented:
                         raise NotImplementedError(sig.key_algorithm)
 
-                    sigv.add_sigsubj(sig, self, subj, SecurityIssues.wrongSig if not verified else SecurityIssues.OK)
+                    sigv.add_sigsubj(sig, self, subj, SecurityIssues.WrongSig if not verified else SecurityIssues.OK)
 
         return sigv
 
@@ -2551,7 +2548,6 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         pkesk = PKESessionKeyV3()
         pkesk.encrypter = bytearray(binascii.unhexlify(self.fingerprint.keyid.encode('latin-1')))
         pkesk.pkalg = self.key_algorithm
-        # pkesk.encrypt_sk(self.__key__, cipher_algo, sessionkey)
         pkesk.encrypt_sk(self._key, cipher_algo, sessionkey)
 
         if message.is_encrypted:  # pragma: no cover
@@ -2617,7 +2613,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         # last holds the last non-signature thing processed
 
         ##TODO: see issue #141 and fix this better
-        _getpkt = lambda d: (Packet(d) if d else None)  # flake8: noqa
+        def _getpkt(d):
+            return Packet(d) if d else None
         # some packets are filtered out
         getpkt = filter(lambda p: p.header.tag != PacketTag.Trust, iter(functools.partial(_getpkt, data), None))
 

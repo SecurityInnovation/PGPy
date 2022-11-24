@@ -9,7 +9,7 @@ from cryptography.hazmat.primitives.ciphers import modes
 
 from .errors import PGPDecryptionError
 from .errors import PGPEncryptionError
-from .errors import PGPInsecureCipher
+from .errors import PGPInsecureCipherError
 
 __all__ = ['_encrypt',
            '_decrypt']
@@ -20,7 +20,7 @@ def _encrypt(pt, key, alg, iv=None):
         iv = b'\x00' * (alg.block_size // 8)
 
     if alg.is_insecure:
-        raise PGPInsecureCipher("{:s} is not secure. Do not use it for encryption!".format(alg.name))
+        raise PGPInsecureCipherError("{:s} is not secure. Do not use it for encryption!".format(alg.name))
 
     if not alg.is_supported:
         raise PGPEncryptionError("Cipher {:s} not supported".format(alg.name))
