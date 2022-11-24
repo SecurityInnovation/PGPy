@@ -576,8 +576,12 @@ class SignatureVerification(object):
 
         ``sigsubj.subject`` - the subject that was verified using the signature.
         """
-        for s in [ i for i in self._subjects if not i.issues ]:
-            yield s
+        yield from (
+            sigsub
+            for sigsub in self._subjects
+            if not sigsub.issues
+            or (sigsub.issues and not sigsub.issues.causes_signature_verify_to_fail)
+        )
 
     @property
     def bad_signatures(self):  # pragma: no cover
@@ -593,7 +597,11 @@ class SignatureVerification(object):
 
         ``sigsubj.subject`` - the subject that was verified using the signature.
         """
-        yield from [ i for i in self._subjects if i.issues ]
+        yield from (
+            sigsub
+            for sigsub in self._subjects
+            if sigsub.issues and sigsub.issues.causes_signature_verify_to_fail
+        )
 
     def __init__(self):
         """
@@ -611,7 +619,12 @@ class SignatureVerification(object):
         return len(self._subjects)
 
     def __bool__(self):
-        return all(not s.issues for s in self._subjects)
+        from .constants import SecurityIssues
+        return all(
+            sigsub.issues is SecurityIssues.OK
+            or (sigsub.issues and not sigsub.issues.causes_signature_verify_to_fail)
+            for sigsub in self._subjects
+        )
 
     def __nonzero__(self):
         return self.__bool__()

@@ -222,15 +222,15 @@ def userphoto():
 
 
 # TODO: add more keyspecs
-pkeyspecs = ((PubKeyAlgorithm.RSAEncryptOrSign, 1024),
-             (PubKeyAlgorithm.DSA, 1024),
+pkeyspecs = ((PubKeyAlgorithm.RSAEncryptOrSign, 2048),
+             (PubKeyAlgorithm.DSA, 2048),
              (PubKeyAlgorithm.ECDSA, EllipticCurveOID.NIST_P256),
              (PubKeyAlgorithm.EdDSA, EllipticCurveOID.Ed25519),)
 
 
-skeyspecs = ((PubKeyAlgorithm.RSAEncryptOrSign, 1024),
-             (PubKeyAlgorithm.DSA, 1024),
-             (PubKeyAlgorithm.ElGamal, 1024),
+skeyspecs = ((PubKeyAlgorithm.RSAEncryptOrSign, 2048),
+             (PubKeyAlgorithm.DSA, 2048),
+             (PubKeyAlgorithm.ElGamal, 2048),
              (PubKeyAlgorithm.ECDSA, EllipticCurveOID.SECP256K1),
              (PubKeyAlgorithm.ECDH, EllipticCurveOID.Brainpool_P256),
              (PubKeyAlgorithm.EdDSA, EllipticCurveOID.Ed25519),

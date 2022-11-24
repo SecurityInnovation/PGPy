@@ -599,6 +599,17 @@ class SecurityIssues(IntFlag):
     InsecureCurve = (1 << 9)
     NoSelfSignature = (1 << 10)
 
+    @property
+    def causes_signature_verify_to_fail(self):
+        return self in {
+            SecurityIssues.WrongSig,
+            SecurityIssues.Expired,
+            SecurityIssues.Disabled,
+            SecurityIssues.Revoked,
+            SecurityIssues.Invalid,
+            SecurityIssues.NoSelfSignature,
+        }
+
 
 # https://safecurves.cr.yp.to/
 SAFE_CURVES = {
