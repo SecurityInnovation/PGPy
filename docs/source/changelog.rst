@@ -4,6 +4,34 @@
 Changelog
 *********
 
+v0.6.0
+======
+
+Released: Nov 23, 2022
+
+.. note::
+
+New Features
+------------
+* added the ability to ignore usage flags
+
+Bugs Fixed
+----------
+* accept passphrases formatted as ``bytes``
+* default to 3DES when no preferred algorithms are supported
+* generate TZ-aware datetime objects
+* works with Cryptography 38
+
+Other Changes
+-------------
+
+* dropped support for Python 2 and Python 3 <= 3.5
+* renamed ``PGPOpenSSLCipherNotSupported`` to ``PGPOpenSSLCipherNotSupportedError``
+* renamed ``PGPOpenSSLCipherNotSupported`` to ``PGPOpenSSLCipherNotSupportedError``
+* renamed ``PGPInsecureCipher`` to ``PGPInsecureCipherError``
+* fixed a bunch of typos
+* improve code style, increase consistency
+
 v0.5.4
 ======
 
