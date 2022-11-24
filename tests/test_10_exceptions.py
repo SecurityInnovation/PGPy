@@ -230,13 +230,9 @@ class TestPGPKey(object):
         rsa_pub.subkeys['EEE097A017B979CA'].encrypt(PGPMessage.new('asdf'),
                                                     cipher=SymmetricKeyAlgorithm.CAST5)
 
-        w = recwarn.pop(UserWarning)
-        assert str(w.message) == "Selected symmetric algorithm not in key preferences"
-        assert w.filename == __file__
-
-        w = recwarn.pop(UserWarning)
-        assert str(w.message) == "Selected compression algorithm not in key preferences"
-        assert w.filename == __file__
+        relevant_warning_messages = [ str(w.message) for w in recwarn if w.category is UserWarning ]
+        assert "Selected symmetric algorithm not in key preferences" in relevant_warning_messages
+        assert "Selected compression algorithm not in key preferences" in relevant_warning_messages
 
     def test_sign_bad_prefs(self, rsa_sec, recwarn):
         rsa_sec.subkeys['2A834D8E5918E886'].sign(PGPMessage.new('asdf'), hash=HashAlgorithm.MD5)
