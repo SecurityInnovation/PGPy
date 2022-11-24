@@ -68,7 +68,7 @@ jobs:
           - python-version: 3.9
             env: py39-setup
           - python-version: '3.10'
-            env: py39-setup
+            env: py310-setup
 
     steps:
       - uses: actions/checkout@v2
