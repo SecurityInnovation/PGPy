@@ -2485,7 +2485,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                     signature_issues &= ~SecurityIssues.HashFunctionNotCollisionResistant
                 
                 issues = signature_issues | subkey_issues
-                if issues:
+                if issues and issues.causes_signature_verify_to_fail:
                     sigv.add_sigsubj(sig, self, subj, issues)
                 else:
                     verified = self._key.verify(sig.hashdata(subj), sig.__sig__, getattr(hashes, sig.hash_algorithm.name)())
