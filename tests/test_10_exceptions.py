@@ -17,13 +17,12 @@ from pgpy.constants import PubKeyAlgorithm
 from pgpy.constants import SymmetricKeyAlgorithm
 from pgpy.packet import Packet
 from pgpy.types import Armorable
-from pgpy.types import PGPObject
 from pgpy.types import Fingerprint
 from pgpy.types import SignatureVerification
 from pgpy.errors import PGPError
 from pgpy.errors import PGPDecryptionError
 from pgpy.errors import PGPEncryptionError
-from pgpy.errors import PGPInsecureCipher
+from pgpy.errors import PGPInsecureCipherError
 
 
 def _read(f, mode='r'):
@@ -376,7 +375,7 @@ class TestPGPMessage(object):
 
     def test_encrypt_insecure_cipher(self):
         msg = PGPMessage.new('asdf')
-        with pytest.raises(PGPInsecureCipher):
+        with pytest.raises(PGPInsecureCipherError):
             msg.encrypt('QwertyUiop', cipher=SymmetricKeyAlgorithm.IDEA)
 
     def test_encrypt_sessionkey_wrongtype(self):

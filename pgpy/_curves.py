@@ -49,25 +49,25 @@ if use_legacy_cryptography_decorator():
         key_size = 256
 
 
-    @utils.register_interface(ec.EllipticCurve)
+    @utils.register_interface(ec.EllipticCurve)  # noqa: E303
     class BrainpoolP384R1(object):
         name = 'brainpoolP384r1'
         key_size = 384
 
 
-    @utils.register_interface(ec.EllipticCurve)
+    @utils.register_interface(ec.EllipticCurve)  # noqa: E303
     class BrainpoolP512R1(object):
         name = 'brainpoolP512r1'
         key_size = 512
 
 
-    @utils.register_interface(ec.EllipticCurve)
+    @utils.register_interface(ec.EllipticCurve)  # noqa: E303
     class X25519(object):
         name = 'X25519'
         key_size = 256
 
 
-    @utils.register_interface(ec.EllipticCurve)
+    @utils.register_interface(ec.EllipticCurve)  # noqa: E303
     class Ed25519(object):
         name = 'ed25519'
         key_size = 256
@@ -77,22 +77,22 @@ else:
         key_size = 256
 
 
-    class BrainpoolP384R1(ec.EllipticCurve):
+    class BrainpoolP384R1(ec.EllipticCurve):  # noqa: E303
         name = 'brainpoolP384r1'
         key_size = 384
 
 
-    class BrainpoolP512R1(ec.EllipticCurve):
+    class BrainpoolP512R1(ec.EllipticCurve):  # noqa: E303
         name = 'brainpoolP512r1'
         key_size = 512
 
 
-    class X25519(ec.EllipticCurve):
+    class X25519(ec.EllipticCurve):  # noqa: E303
         name = 'X25519'
         key_size = 256
 
 
-    class Ed25519(ec.EllipticCurve):
+    class Ed25519(ec.EllipticCurve):  # noqa: E303
         name = 'ed25519'
         key_size = 256
 

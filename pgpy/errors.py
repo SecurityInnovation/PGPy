@@ -4,9 +4,9 @@
 __all__ = ('PGPError',
            'PGPEncryptionError',
            'PGPDecryptionError',
-           'PGPIncompatibleECPointFormat',
-           'PGPOpenSSLCipherNotSupported',
-           'PGPInsecureCipher',
+           'PGPIncompatibleECPointFormatError',
+           'PGPOpenSSLCipherNotSupportedError',
+           'PGPInsecureCipherError',
            'WontImplementError',)
 
 
@@ -25,17 +25,17 @@ class PGPDecryptionError(Exception):
     pass
 
 
-class PGPIncompatibleECPointFormat(Exception):
+class PGPIncompatibleECPointFormatError(Exception):
     """Raised when the point format is incompatible with the elliptic curve"""
     pass
 
 
-class PGPOpenSSLCipherNotSupported(Exception):
+class PGPOpenSSLCipherNotSupportedError(Exception):
     """Raised when OpenSSL does not support the requested cipher"""
     pass
 
 
-class PGPInsecureCipher(Exception):
+class PGPInsecureCipherError(Exception):
     """Raised when a cipher known to be insecure is attempted to be used to encrypt data"""
     pass
 

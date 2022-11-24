@@ -6,7 +6,6 @@ import calendar
 import copy
 import hashlib
 import os
-import re
 import warnings
 
 from datetime import datetime, timezone
@@ -359,12 +358,14 @@ class SignatureV4(Signature):
     def pubalg_int(self, val):
         self._pubalg = PubKeyAlgorithm(val)
 
-        sigs = {PubKeyAlgorithm.RSAEncryptOrSign: RSASignature,
-                PubKeyAlgorithm.RSAEncrypt: RSASignature,
-                PubKeyAlgorithm.RSASign: RSASignature,
-                PubKeyAlgorithm.DSA: DSASignature,
-                PubKeyAlgorithm.ECDSA: ECDSASignature,
-                PubKeyAlgorithm.EdDSA: EdDSASignature,}
+        sigs = {
+            PubKeyAlgorithm.RSAEncryptOrSign: RSASignature,
+            PubKeyAlgorithm.RSAEncrypt: RSASignature,
+            PubKeyAlgorithm.RSASign: RSASignature,
+            PubKeyAlgorithm.DSA: DSASignature,
+            PubKeyAlgorithm.ECDSA: ECDSASignature,
+            PubKeyAlgorithm.EdDSA: EdDSASignature,
+        }
 
         self.signature = sigs.get(self.pubalg, OpaqueSignature)()
 
@@ -427,7 +428,6 @@ class SignatureV4(Signature):
         with the length-of-length set to zero.)  The unhashed subpacket data
         of the Signature packet being hashed is not included in the hash, and
         the unhashed subpacket data length value is set to zero.
-
         '''
         _body = bytearray()
         _body += self.int_to_bytes(self.header.version)
@@ -435,7 +435,7 @@ class SignatureV4(Signature):
         _body += self.int_to_bytes(self.pubalg)
         _body += self.int_to_bytes(self.halg)
         _body += self.subpackets.__hashbytearray__()
-        _body += self.int_to_bytes(0, minlen=2) # empty unhashed subpackets
+        _body += self.int_to_bytes(0, minlen=2)  # empty unhashed subpackets
         _body += self.hash2
         _body += self.signature.__bytearray__()
 
@@ -443,7 +443,7 @@ class SignatureV4(Signature):
         _hdr += b'\x88'
         _hdr += self.int_to_bytes(len(_body), minlen=4)
         return _hdr + _body
-    
+
     def __copy__(self):
         spkt = SignatureV4()
         spkt.header = copy.copy(self.header)

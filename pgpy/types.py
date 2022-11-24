@@ -316,21 +316,21 @@ class Field(PGPObject):
 
 class Header(Field):
     @staticmethod
-    def encode_length(l, nhf=True, llen=1):
-        def _new_length(l):
-            if 192 > l:
-                return Header.int_to_bytes(l)
+    def encode_length(length, nhf=True, llen=1):
+        def _new_length(nl):
+            if 192 > nl:
+                return Header.int_to_bytes(nl)
 
-            elif 8384 > l:
-                elen = ((l & 0xFF00) + (192 << 8)) + ((l & 0xFF) - 192)
+            elif 8384 > nl:
+                elen = ((nl & 0xFF00) + (192 << 8)) + ((nl & 0xFF) - 192)
                 return Header.int_to_bytes(elen, 2)
 
-            return b'\xFF' + Header.int_to_bytes(l, 4)
+            return b'\xFF' + Header.int_to_bytes(nl, 4)
 
-        def _old_length(l, llen):
-            return Header.int_to_bytes(l, llen) if llen > 0 else b''
+        def _old_length(nl, llen):
+            return Header.int_to_bytes(nl, llen) if llen > 0 else b''
 
-        return _new_length(l) if nhf else _old_length(l, llen)
+        return _new_length(length) if nhf else _old_length(length, llen)
 
     @sdproperty
     def length(self):
@@ -390,12 +390,11 @@ class Header(Field):
 
     @sdproperty
     def llen(self):
-        l = self.length
         lf = self._lenfmt
 
         if lf == 1:
             # new-format length
-            if 192 > l:
+            if 192 > self.length:
                 return 1
 
             elif 8384 > self.length:  # >= 192 is implied
@@ -476,12 +475,15 @@ class MetaDispatchable(abc.ABCMeta):
                 MetaDispatchable._roots.add(ncls)
 
             elif issubclass(ncls, tuple(MetaDispatchable._roots)) and ncls.__typeid__ != -1:
-                for rcls in [ root for root in MetaDispatchable._roots if issubclass(ncls, root) ]:
+                for rcls in (root for root in MetaDispatchable._roots if issubclass(ncls, root)):
                     if (rcls, ncls.__typeid__) not in MetaDispatchable._registry:
                         MetaDispatchable._registry[(rcls, ncls.__typeid__)] = ncls
 
-                    if (ncls.__ver__ is not None and ncls.__ver__ > 0 and
-                            (rcls, ncls.__typeid__, ncls.__ver__) not in MetaDispatchable._registry):
+                    if (
+                        ncls.__ver__ is not None
+                        and ncls.__ver__ > 0
+                        and (rcls, ncls.__typeid__, ncls.__ver__) not in MetaDispatchable._registry
+                    ):
                         MetaDispatchable._registry[(rcls, ncls.__typeid__, ncls.__ver__)] = ncls
 
         # finally, return the new class object
@@ -637,7 +639,10 @@ class SignatureVerification(object):
         return self
 
     def __repr__(self):
-        return "<"+ self.__class__.__name__ + "({" + str(bool(self)) + "})>"
+        return '<{classname}({val})>'.format(
+            classname=self.__class__.__name__,
+            val=bool(self)
+        )
 
     def add_sigsubj(self, signature, by, subject=None, issues=None):
         if issues is None:
@@ -705,20 +710,23 @@ class Fingerprint(str):
 
     def __bytes__(self):
         return binascii.unhexlify(self.encode("latin-1"))
-    
+
     def __pretty__(self):
         content = self
         if not bool(re.match(r'^[A-F0-9]{40}$', content)):
             raise ValueError("Expected: String of 40 hex digits")
 
         halves = [
-            [content[i:i+4] for i in range(0, 20, 4)],
-            [content[i:i+4] for i in range(20, 40, 4)]
+            [content[i:i + 4] for i in range(0, 20, 4)],
+            [content[i:i + 4] for i in range(20, 40, 4)]
         ]
         return '  '.join(' '.join(c for c in half) for half in halves)
-    
+
     def __repr__(self):
-        return self.__class__.__name__+"("+repr(self.__pretty__())+")"
+        return '{classname}({fp})'.format(
+            classname=self.__class__.__name__,
+            fp=self.__pretty__()
+        )
 
 
 class SorteDeque(collections.deque):

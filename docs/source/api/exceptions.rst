@@ -20,15 +20,15 @@ Exceptions
 
 .. autoexception:: PGPDecryptionError
 
-:py:class:`PGPOpenSSLCipherNotSupported`
+:py:class:`PGPOpenSSLCipherNotSupportedError`
 ----------------------------------------
 
-.. autoexception:: PGPOpenSSLCipherNotSupported
+.. autoexception:: PGPOpenSSLCipherNotSupportedError
 
-:py:class:`PGPInsecureCipher`
+:py:class:`PGPInsecureCipherError`
 -----------------------------
 
-.. autoexception:: PGPInsecureCipher
+.. autoexception:: PGPInsecureCipherError
 
 :py:class:`WontImplementError`
 ------------------------------

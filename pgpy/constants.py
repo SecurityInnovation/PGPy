@@ -4,7 +4,6 @@ import bz2
 import hashlib
 import imghdr
 import os
-import time
 import zlib
 import warnings
 
@@ -23,27 +22,29 @@ from .types import FlagEnum
 from .decorators import classproperty
 from ._curves import BrainpoolP256R1, BrainpoolP384R1, BrainpoolP512R1, X25519, Ed25519
 
-__all__ = ['Backend',
-           'EllipticCurveOID',
-           'ECPointFormat',
-           'PacketTag',
-           'SymmetricKeyAlgorithm',
-           'PubKeyAlgorithm',
-           'CompressionAlgorithm',
-           'HashAlgorithm',
-           'RevocationReason',
-           'ImageEncoding',
-           'SignatureType',
-           'KeyServerPreferences',
-           'S2KGNUExtension',
-           'SecurityIssues',
-           'String2KeyType',
-           'TrustLevel',
-           'KeyFlags',
-           'Features',
-           'RevocationKeyClass',
-           'NotationDataFlags',
-           'TrustFlags',]
+__all__ = [
+    'Backend',
+    'EllipticCurveOID',
+    'ECPointFormat',
+    'PacketTag',
+    'SymmetricKeyAlgorithm',
+    'PubKeyAlgorithm',
+    'CompressionAlgorithm',
+    'HashAlgorithm',
+    'RevocationReason',
+    'ImageEncoding',
+    'SignatureType',
+    'KeyServerPreferences',
+    'S2KGNUExtension',
+    'SecurityIssues',
+    'String2KeyType',
+    'TrustLevel',
+    'KeyFlags',
+    'Features',
+    'RevocationKeyClass',
+    'NotationDataFlags',
+    'TrustFlags',
+]
 
 
 # this is 50 KiB
@@ -621,7 +622,7 @@ MINIMUM_ASYMMETRIC_KEY_LENGTHS = {
     PubKeyAlgorithm.RSASign: 2048,
     PubKeyAlgorithm.ElGamal: 2048,
     PubKeyAlgorithm.DSA: 2048,
-    
+    ##
     PubKeyAlgorithm.ECDSA: SAFE_CURVES,
     PubKeyAlgorithm.EdDSA: SAFE_CURVES,
     PubKeyAlgorithm.ECDH: SAFE_CURVES,
