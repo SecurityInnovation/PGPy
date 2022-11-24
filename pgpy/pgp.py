@@ -2199,11 +2199,13 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                         h = sig.hash_algorithm.hasher
                         h.update(attestation._signature.canonical_bytes())
                         attestations.add(h.digest())
-                    elif isinstance(attestation, (bytes,bytearray)) and len(attestation) == sig.hash_algorithm.digest_size:
+                    elif isinstance(attestation, (bytes, bytearray)) and len(attestation) == sig.hash_algorithm.digest_size:
                         attestations.add(attestation)
                     else:
-                        warnings.warn("Attested Certification element is neither a PGPSignature certification nor " +
-                                      "a bytes object of size %d, ignoring"%(sig.hash_algorithm.digest_size))
+                        warnings.warn(
+                            'Attested Certification element is neither a PGPSignature certification nor '
+                            'a bytes object of size {:d}; ignoring'.format(sig.hash_algorithm.digest_size)
+                        )
                 sig._signature.subpackets.addnew('AttestedCertifications', hashed=True, attested_certifications=b''.join(sorted(attestations)))
 
         else:
@@ -2399,7 +2401,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
     def check_management(self, self_verifying=False):
         res = self.self_verified
         if self.is_expired:
-            warnings.warn("Key " + repr(self) + " has expired at " + str(self.expires_at))
+            warnings.warn('Key {} has expired at {:s}'.format(repr(self), self.expires_at))
             res |= SecurityIssues.Expired
         
         warnings.warn("TODO: Revocation checks are not yet implemented!!!")
@@ -2547,7 +2549,6 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         pkesk = PKESessionKeyV3()
         pkesk.encrypter = bytearray(binascii.unhexlify(self.fingerprint.keyid.encode('latin-1')))
         pkesk.pkalg = self.key_algorithm
-        # pkesk.encrypt_sk(self.__key__, cipher_algo, sessionkey)
         pkesk.encrypt_sk(self._key, cipher_algo, sessionkey)
 
         if message.is_encrypted:  # pragma: no cover
