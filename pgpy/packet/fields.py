@@ -372,7 +372,7 @@ class EdDSASignature(DSASignature):
     def __sig__(self):
         # TODO: change this length when EdDSA can be used with another curve (Ed448)
         siglen = (EllipticCurveOID.Ed25519.key_size + 7) // 8
-        return self.int_to_bytes(self.r, l) + self.int_to_bytes(self.s, siglen)
+        return self.int_to_bytes(self.r, siglen) + self.int_to_bytes(self.s, siglen)
 
 
 class PubKey(MPIs):
