@@ -605,7 +605,6 @@ class SecurityIssues(IntFlag):
             SecurityIssues.WrongSig,
             SecurityIssues.Expired,
             SecurityIssues.Disabled,
-            SecurityIssues.Revoked,
             SecurityIssues.Invalid,
             SecurityIssues.NoSelfSignature,
         }
