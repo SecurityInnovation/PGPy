@@ -564,6 +564,13 @@ class KeyFlags(FlagEnum):
 
 class Features(FlagEnum):
     ModificationDetection = 0x01
+    UnknownFeature02 = 0x02
+    UnknownFeature04 = 0x04
+    UnknownFeature08 = 0x08
+    UnknownFeature10 = 0x10
+    UnknownFeature20 = 0x20
+    UnknownFeature40 = 0x40
+    UnknownFeature80 = 0x80
 
     @classproperty
     def pgpy_features(cls):
