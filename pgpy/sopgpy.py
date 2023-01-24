@@ -366,7 +366,7 @@ class SOPGPy(sop.StatelessOpenPGP):
                     # see https://docs.python.org/3/library/datetime.html#aware-and-naive-objects
                     if sigtime.tzinfo is None:
                         sigtime = sigtime.replace(tzinfo=timezone.utc)
-                    if goodsig.verified:
+                    if ('issues' in goodsig._fields and goodsig.issues == 0) or ('verified' in goodsig._fields and goodsig.verified):
                         if start is None or sigtime >= start:
                             if end is None or sigtime <= end:
                                 sigs += [sop.SOPSigResult(goodsig.signature.created, goodsig.by.fingerprint, cert.fingerprint, goodsig.signature.__repr__())]
