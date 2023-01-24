@@ -490,12 +490,15 @@ class SOPGPy(sop.StatelessOpenPGP):
             elif label is sop.SOPArmorLabel.auto: # try to guess
                 try:
                     obj, _ = pgpy.PGPKey.from_blob(data)
+                    len(str(obj)) # try to get a string out of the supposed PGPKey, triggering an error if unset
                 except:
                     try:
                         obj = pgpy.PGPSignature.from_blob(data)
+                        len(str(obj)) # try to get a string out of the supposed PGPKey, triggering an error if unset
                     except:
                         try:
                             obj = pgpy.PGPMessage.from_blob(data)
+                            len(str(obj)) # try to get a string out of the supposed PGPKey, triggering an error if unset
                         except:
                             obj = pgpy.PGPMessage.new(data)
             else:
