@@ -695,7 +695,6 @@ class OnePassSignatureV3(OnePassSignature):
         return self._signer
 
     @signer.register(str)
-    @signer.register(str)
     def signer_str(self, val):
         self._signer = val
 
