@@ -912,22 +912,24 @@ class IssuerFingerprint(Signature):
         self.version = self.bytes_to_int(val)
 
     @sdproperty
-    def issuer_fingerprint(self):
+    def issuer_fingerprint(self) -> Optional[Fingerprint]:
         return self._issuer_fpr
 
-    @issuer_fingerprint.register(str)
-    @issuer_fingerprint.register(Fingerprint)
-    def issuer_fingerprint_str(self, val):
-        self._issuer_fpr = Fingerprint(val)
+    @issuer_fingerprint.register
+    def issuer_fingerprint_str(self, val: str) -> None:
+        if isinstance(val, Fingerprint):
+            self._issuer_fpr: Optional[Fingerprint] = val
+        else:
+            self._issuer_fpr = Fingerprint(val)
 
-    @issuer_fingerprint.register(bytearray)
-    def issuer_fingerprint_bytearray(self, val):
-        self.issuer_fingerprint = ''.join('{:02x}'.format(c) for c in val).upper()
+    @issuer_fingerprint.register
+    def issuer_fingerprint_bytearray(self, val: bytearray) -> None:
+        self.issuer_fingerprint = Fingerprint(''.join('{:02x}'.format(c) for c in val).upper())
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.version = 4
-        self._issuer_fpr = ""
+        self._issuer_fpr = None
 
     def __bytearray__(self):
         _bytes = super().__bytearray__()
