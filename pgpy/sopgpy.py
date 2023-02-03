@@ -156,7 +156,7 @@ class SOPGPy(sop.StatelessOpenPGP):
         primaryflags = pgpy.constants.KeyFlags.Certify | pgpy.constants.KeyFlags.Sign
         first: bool = True
 
-        features = pgpy.constants.Features.ModificationDetection
+        features = pgpy.constants.Features.SEIPDv1
         hashes: List[pgpy.constants.HashAlgorithm] = []
 
         hashes += [pgpy.constants.HashAlgorithm.SHA512,
