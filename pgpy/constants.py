@@ -589,6 +589,7 @@ class SigSubpacketType(IntEnum):
     IssuerFingerprint = 33
     IntendedRecipientFingerprint = 35
     AttestedCertifications = 37
+    PreferredAEADCiphersuites = 39
 
 
 class AttributeType(IntEnum):

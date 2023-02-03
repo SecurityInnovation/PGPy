@@ -20,6 +20,7 @@ from .types import EmbeddedSignatureHeader
 from .types import Signature
 
 from ..types import VersionedHeader
+from ..types import AEADCiphersuiteList
 
 from ...constants import CompressionAlgorithm
 from ...constants import Features as _Features
@@ -34,6 +35,7 @@ from ...constants import RevocationReason
 from ...constants import SigSubpacketType
 from ...constants import SignatureType
 from ...constants import SymmetricKeyAlgorithm
+from ...constants import AEADMode
 
 from ...decorators import sdproperty
 
@@ -75,7 +77,9 @@ __all__ = ['URI',
            'EmbeddedSignature',
            'IssuerFingerprint',
            'IntendedRecipient',
-           'AttestedCertifications']
+           'AttestedCertifications',
+           'PreferredAEADCiphersuites',
+           ]
 
 
 class URI(Signature):
@@ -1110,4 +1114,65 @@ class AttestedCertifications(Signature):
     def parse(self, packet):
         super().parse(packet)
         self.attested_certifications = packet[:(self.header.length - 1)]
+        del packet[:(self.header.length - 1)]
+
+
+class PreferredAEADCiphersuites(Signature):
+    '''
+    (array of pairs of octets indicating Symmetric Cipher and AEAD algorithms)
+
+    A series of paired algorithm identifiers indicating how the keyholder prefers to receive version 2 Symmetrically Encrypted Integrity Protected Data ({{version-two-seipd}}).
+    Each pair of octets indicates a combination of a symmetric cipher and an AEAD mode that the key holder prefers to use.
+    The symmetric cipher identifier precedes the AEAD identifier in each pair.
+    The subpacket body is an ordered list of pairs of octets with the most preferred algorithm combination listed first.
+
+    It is assumed that only the combinations of algorithms listed are supported by the recipient's software, with the exception of the mandatory-to-implement combination of AES-128 and OCB.
+    If AES-128 and OCB are not found in the subpacket, it is implicitly listed at the end.
+
+    AEAD algorithm numbers are listed in {{aead-algorithms}}.
+    Symmetric cipher algorithm numbers are listed in {{symmetric-algos}}.
+
+    For example, a subpacket with content of these six octets:
+
+        09 02 09 03 13 02
+
+    Indicates that the keyholder prefers to receive v2 SEIPD using AES-256 with OCB, then AES-256 with GCM, then Camellia-256 with OCB, and finally the implicit AES-128 with OCB.
+
+    Note that support for version 2 of the Symmetrically Encrypted Integrity Protected Data packet ({{version-two-seipd}}) in general is indicated by a Feature Flag ({{features-subpacket}}).
+
+    This subpacket is only found on a self-signature.
+
+    When generating a v1 SEIPD packet, this preference list is not relevant.
+    See {{preferred-v1-seipd}} instead.
+    '''
+    __typeid__ = SigSubpacketType.PreferredAEADCiphersuites
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._preferred_ciphersuites: AEADCiphersuiteList = AEADCiphersuiteList()
+
+    @sdproperty
+    def preferred_ciphersuites(self) -> AEADCiphersuiteList:
+        return self._preferred_ciphersuites
+
+    @preferred_ciphersuites.register
+    def preferred_ciphersuites_native(self, val: AEADCiphersuiteList) -> None:
+        self._preferred_ciphersuites = val
+
+    @preferred_ciphersuites.register
+    def preferred_ciphersuites_bytearray(self, val: Union[bytes, bytearray]) -> None:
+        if len(val) % 2:
+            raise ValueError(f"PreferredAEADCiphersuites should have an even length, not {len(val)}")
+        self._preferred_ciphersuites = AEADCiphersuiteList()
+        for i in range(0, len(val), 2):
+            self._preferred_ciphersuites.append((SymmetricKeyAlgorithm(val[i]), AEADMode(val[i + 1])))
+
+    def __bytearray__(self) -> bytearray:
+        _bytes = super().__bytearray__()
+        _bytes += self._preferred_ciphersuites.__bytearray__()
+        return _bytes
+
+    def parse(self, packet: bytearray) -> None:
+        super().parse(packet)
+        self.preferred_ciphersuites = packet[:(self.header.length - 1)]
         del packet[:(self.header.length - 1)]
