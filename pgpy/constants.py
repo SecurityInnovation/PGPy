@@ -48,6 +48,7 @@ __all__ = [
     'RevocationKeyClass',
     'NotationDataFlags',
     'TrustFlags',
+    'AEADMode',
 ]
 
 
@@ -184,6 +185,38 @@ class SymmetricKeyAlgorithm(IntEnum):
 
     def gen_key(self) -> bytes:
         return os.urandom(self.key_size // 8)
+
+
+class AEADMode(IntEnum):
+    '''Supported AEAD Modes'''
+    Invalid = 0x00
+    EAX = 1
+    OCB = 2
+    GCM = 3
+
+    @property
+    def iv_len(self) -> int:
+        'IV length in octets'
+        ivl = {
+            AEADMode.EAX: 16,
+            AEADMode.OCB: 15,
+            AEADMode.GCM: 12,
+        }
+        if self in ivl:
+            return ivl[self]
+        raise NotImplementedError
+
+    @property
+    def tag_len(self) -> int:
+        'authentication tag length in octets'
+        tagl = {
+            AEADMode.EAX: 16,
+            AEADMode.OCB: 16,
+            AEADMode.GCM: 16,
+        }
+        if self in tagl:
+            return tagl[self]
+        raise NotImplementedError
 
 
 class PubKeyAlgorithm(IntEnum):

@@ -38,6 +38,7 @@ from .constants import RevocationReason
 from .constants import SignatureType
 from .constants import SymmetricKeyAlgorithm
 from .constants import SecurityIssues
+from .constants import AEADMode
 
 from .decorators import KeyAction
 
