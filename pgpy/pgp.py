@@ -2392,6 +2392,7 @@ class PGPKey(Armorable, ParentRef):
             primary_uid = prefs.pop('primary', None)
             attested_certifications = prefs.pop('attested_certifications', [])
             features = prefs.pop('features', Features.pgpy_features)
+            aead_ciphersuites = prefs.pop('aead_ciphersuites', [])
 
             if key_expires is not None:
                 # key expires should be a timedelta, so if it's a datetime, turn it into a timedelta
@@ -2450,6 +2451,9 @@ class PGPKey(Armorable, ParentRef):
                             'a bytes object of size {:d}; ignoring'.format(sig.hash_algorithm.digest_size)
                         )
                 sig._signature.subpackets.addnew('AttestedCertifications', hashed=True, attested_certifications=b''.join(sorted(attestations)))
+
+            if aead_ciphersuites:
+                sig._signature.subpackets.addnew('PreferredAEADCiphersuites', hashed=True, preferred_ciphersuites=aead_ciphersuites)
 
         else:
             # signature options that only make sense in non-self-certifications
