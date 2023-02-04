@@ -2242,7 +2242,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
             cert_sigtypes = {SignatureType.Generic_Cert, SignatureType.Persona_Cert,
                              SignatureType.Casual_Cert, SignatureType.Positive_Cert,
-                             SignatureType.CertRevocation}
+                             SignatureType.CertRevocation, SignatureType.DirectlyOnKey}
             # Features is always set on certifications:
             if sig._signature.sigtype in cert_sigtypes:
                 sig._signature.subpackets.addnew('Features', hashed=True, flags=features)
