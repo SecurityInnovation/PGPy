@@ -2206,6 +2206,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             keyserver = prefs.pop('keyserver', None)
             primary_uid = prefs.pop('primary', None)
             attested_certifications = prefs.pop('attested_certifications', [])
+            features = prefs.pop('features', Features.pgpy_features)
 
             if key_expires is not None:
                 # key expires should be a timedelta, so if it's a datetime, turn it into a timedelta
@@ -2244,7 +2245,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                              SignatureType.CertRevocation}
             # Features is always set on certifications:
             if sig._signature.sigtype in cert_sigtypes:
-                sig._signature.subpackets.addnew('Features', hashed=True, flags=Features.pgpy_features)
+                sig._signature.subpackets.addnew('Features', hashed=True, flags=features)
 
             # If this is an attestation, then we must include a Attested Certifications subpacket:
             if sig._signature.sigtype == SignatureType.Attestation:
