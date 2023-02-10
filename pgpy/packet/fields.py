@@ -876,9 +876,6 @@ class String2Key(Field):
     def __bool__(self):
         return self.usage in [254, 255]
 
-    def __nonzero__(self):
-        return self.__bool__()
-
     def __copy__(self):
         s2k = String2Key()
         s2k.usage = self.usage

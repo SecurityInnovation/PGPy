@@ -644,9 +644,6 @@ class SignatureVerification:
             for sigsub in self._subjects
         )
 
-    def __nonzero__(self):
-        return self.__bool__()
-
     def __and__(self, other):
         if not isinstance(other, SignatureVerification):
             raise TypeError(type(other))

@@ -200,9 +200,6 @@ class Boolean(Signature):
     def __bool__(self):
         return self.bflag
 
-    def __nonzero__(self):
-        return self.__bool__()
-
     def parse(self, packet):
         super().parse(packet)
         self.bflag = packet[:1]
@@ -724,9 +721,6 @@ class PrimaryUserID(Signature):
 
     def __bool__(self):
         return self.primary
-
-    def __nonzero__(self):
-        return self.__bool__()
 
     def parse(self, packet):
         super().parse(packet)
