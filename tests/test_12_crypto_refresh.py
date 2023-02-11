@@ -30,7 +30,8 @@ class TestPGP_CryptoRefresh(object):
     def test_v6_skesk(self, aead: str) -> None:
         msg = PGPMessage.from_file(f'tests/testdata/crypto-refresh/v6skesk-aes128-{aead}.pgp')
         assert msg.is_encrypted
-        pytest.xfail('v6 SKESK is not supported')
+        if aead == 'eax':
+            pytest.xfail('AEAD Mode EAX not supported')
         unlocked = msg.decrypt('password')
         assert not unlocked.is_encrypted
         assert unlocked.message == b'Hello, world!'

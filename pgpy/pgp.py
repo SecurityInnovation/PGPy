@@ -77,6 +77,7 @@ from .packet.packets import SKEData
 from .packet.packets import Marker
 from .packet.packets import SKESessionKey
 from .packet.packets import SKESessionKeyV4
+from .packet.packets import SKESessionKeyV6
 
 from .packet.fields import ECDSAPub, EdDSAPub, ECDHPub
 from .packet.fields import PrivKey as field_PrivKey

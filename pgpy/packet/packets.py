@@ -19,6 +19,8 @@ from cryptography.hazmat.primitives import constant_time
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives.hashes import SHA256
 
+from ..symenc import AEAD
+
 from .fields import DSAPriv, DSAPub, DSASignature
 from .fields import ECDSAPub, ECDSAPriv, ECDSASignature
 from .fields import ECDHPub, ECDHPriv, ECDHCipherText
@@ -72,6 +74,7 @@ __all__ = ['PKESessionKey',
            'SignatureV4',
            'SKESessionKey',
            'SKESessionKeyV4',
+           'SKESessionKeyV6',
            'OnePassSignature',
            'OnePassSignatureV3',
            'PrivKey',
@@ -666,6 +669,137 @@ class SKESessionKeyV4(SKESessionKey):
 
         # update header length and return sk
         self.update_hlen()
+
+
+class SKESessionKeyV6(SKESessionKey):
+    '''
+    From crypto-refresh-08:
+
+    A version 6 Symmetric-Key Encrypted Session Key (SKESK) packet
+    precedes a version 2 Symmetrically Encrypted Integrity Protected Data
+    (v2 SEIPD, see Section 5.13.2) packet.  A v6 SKESK packet MUST NOT
+    precede a v1 SEIPD packet or a deprecated Symmetrically Encrypted
+    Data packet (see Section 11.3.2.1).
+
+    A version 6 Symmetric-Key Encrypted Session Key packet consists of:
+
+    *  A one-octet version number with value 6.
+
+    *  A one-octet scalar octet count of the following 5 fields.
+
+    *  A one-octet symmetric cipher algorithm identifier.
+
+    *  A one-octet AEAD algorithm identifier.
+
+    *  A one-octet scalar octet count of the following field.
+
+    *  A string-to-key (S2K) specifier.  The length of the string-to-key
+       specifier depends on its type (see Section 3.7.1).
+
+    *  A starting initialization vector of size specified by the AEAD
+       algorithm.
+
+    *  The encrypted session key itself.
+
+    *  An authentication tag for the AEAD mode.
+
+    HKDF is used with SHA256 as hash algorithm, the key derived from S2K
+    as Initial Keying Material (IKM), no salt, and the Packet Tag in the
+    OpenPGP format encoding (bits 7 and 6 set, bits 5-0 carry the packet
+    tag), the packet version, and the cipher-algo and AEAD-mode used to
+    encrypt the key material, are used as info parameter.  Then, the
+    session key is encrypted using the resulting key, with the AEAD
+    algorithm specified for version 2 of the Symmetrically Encrypted
+    Integrity Protected Data packet.  Note that no chunks are used and
+    that there is only one authentication tag.  The Packet Tag in OpenPGP
+    format encoding (bits 7 and 6 set, bits 5-0 carry the packet tag),
+    the packet version number, the cipher algorithm octet, and the AEAD
+    algorithm octet are given as additional data.  For example, the
+    additional data used with AES-128 with OCB consists of the octets
+    0xC3, 0x06, 0x07, and 0x02.
+    '''
+    __ver__ = 6
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._aead_algo: AEADMode = AEADMode.OCB
+        self._iv: Optional[bytes] = None
+        self._ct_and_tag: Optional[bytes] = None
+
+    @property
+    def iv(self) -> bytes:
+        if self._iv is None:
+            self._iv = os.urandom(self._aead_algo.iv_len)
+        return self._iv
+
+    def __bytearray__(self) -> bytearray:
+        if self._ct_and_tag is None:
+            raise ValueError("SKESK has not been fully initialized, cannot write")
+        _bytes = bytearray()
+        _bytes += super().__bytearray__()
+
+        s2k_field: bytearray = self.s2kspec.__bytearray__()
+
+        _bytes.append(3 + len(s2k_field) + self._aead_algo.iv_len)
+        _bytes.append(self.symalg)
+        _bytes.append(self._aead_algo)
+        _bytes.append(len(s2k_field))
+        _bytes += s2k_field
+        _bytes += self.iv
+        _bytes += self._ct_and_tag
+        return _bytes
+
+    def _get_info(self) -> bytes:
+        'used for HKDF info and AEAD additional data'
+        return bytes([0b11000000 + self.__typeid__, self.__ver__, int(self.symalg), int(self._aead_algo)])
+
+    def _get_derived_key(self, passphrase: Union[str, bytes]) -> bytes:
+        s2k_derived_key = self.s2kspec.derive_key(passphrase, self.symalg.key_size)
+        hkdf = HKDF(algorithm=SHA256(), length=self.symalg.key_size // 8, salt=None, info=self._get_info())
+        return hkdf.derive(s2k_derived_key)
+
+    def _get_aead(self, passphrase: Union[str, bytes]) -> AEAD:
+        derived_key = self._get_derived_key(passphrase)
+        return AEAD(self.symalg, self._aead_algo, derived_key)
+
+    def decrypt_sk(self, passphrase: Union[str, bytes]) -> Tuple[Optional[SymmetricKeyAlgorithm], bytes]:
+        if self._iv is None or self._ct_and_tag is None:
+            raise ValueError("SKESK is not fully initialized, cannot decrypt")
+        aead = self._get_aead(passphrase)
+        return None, aead.decrypt(nonce=self._iv, data=self._ct_and_tag, associated_data=self._get_info())
+
+    def encrypt_sk(self, passphrase: Union[str, bytes], sk: ByteString) -> None:
+        aead = self._get_aead(passphrase)
+        self._ct_and_tag = aead.encrypt(nonce=self.iv, data=bytes(sk), associated_data=self._get_info())
+        # update header length and return sk
+        self.update_hlen()
+
+    def parse(self, packet: bytearray) -> None:
+        super().parse(packet)
+        param_len: int = packet[0]
+        del packet[0]
+        # FIXME: we should assert that the length of the packets up to but not including the ciphertext match this param_len count.
+
+        self.symalg = SymmetricKeyAlgorithm(packet[0])
+        del packet[0]
+
+        self._aead_algo = AEADMode(packet[0])
+        del packet[0]
+
+        s2k_len = packet[0]
+        del packet[0]
+
+        self.s2kspec.parse(packet)
+
+        self._iv = bytes(packet[:self._aead_algo.iv_len])
+        del packet[:self._aead_algo.iv_len]
+
+        # how do we know the size of the encrypted session key?
+        # we cannot know this during this packet parsing alone, we assume it runs up through the tag length.
+        # due to the cryptography module's AEAD interface, we do not separate out the tag from the ciphertext.
+        ctlen = self.header.length - (param_len + 2)
+        self._ct_and_tag = bytes(packet[:ctlen])
+        del packet[:ctlen]
 
 
 class OnePassSignature(VersionedPacket):
