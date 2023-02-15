@@ -22,6 +22,7 @@ from datetime import datetime, timezone
 from typing import Any, ByteString, Generator, Literal, List, Iterable, Iterator, Mapping, Optional, Set, Tuple, Union
 
 from cryptography.hazmat.primitives import hashes
+from cryptography.exceptions import InvalidTag
 
 from .constants import CompressionAlgorithm
 from .constants import EllipticCurveOID
@@ -64,6 +65,7 @@ from .packet import UserAttribute
 from .packet.packets import CompressedData
 from .packet.packets import IntegrityProtectedSKEData
 from .packet.packets import IntegrityProtectedSKEDataV1
+from .packet.packets import IntegrityProtectedSKEDataV2
 from .packet.packets import LiteralData
 from .packet.packets import OnePassSignature
 from .packet.packets import OnePassSignatureV3
@@ -1409,7 +1411,7 @@ class PGPMessage(Armorable):
                 decmsg = PGPMessage()
                 decmsg.parse(self._message.decrypt(key, symalg))
 
-            except (TypeError, ValueError, NotImplementedError, PGPDecryptionError):
+            except (TypeError, ValueError, NotImplementedError, PGPDecryptionError, InvalidTag) as e:
                 continue
 
             else:

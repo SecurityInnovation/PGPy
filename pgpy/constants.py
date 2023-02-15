@@ -779,7 +779,7 @@ class Features(IntFlag):
 
     @classproperty
     def pgpy_features(cls) -> Features:
-        return Features.SEIPDv1
+        return Features.SEIPDv1 | Features.SEIPDv2
 
 
 class RevocationKeyClass(IntFlag):

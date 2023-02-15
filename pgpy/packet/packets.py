@@ -11,9 +11,13 @@ import warnings
 
 from datetime import datetime, timezone
 
+from math import log2
+
 from typing import ByteString, Optional, Tuple, Union
 
 from cryptography.hazmat.primitives import constant_time
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+from cryptography.hazmat.primitives.hashes import SHA256
 
 from .fields import DSAPriv, DSAPub, DSASignature
 from .fields import ECDSAPub, ECDSAPriv, ECDSASignature
@@ -49,6 +53,7 @@ from ..constants import SignatureType
 from ..constants import SymmetricKeyAlgorithm
 from ..constants import TrustFlags
 from ..constants import TrustLevel
+from ..constants import AEADMode
 
 from ..decorators import sdproperty
 
@@ -56,6 +61,7 @@ from ..errors import PGPDecryptionError
 
 from ..symenc import _cfb_decrypt
 from ..symenc import _cfb_encrypt
+from ..symenc import AEAD
 
 from ..types import Fingerprint
 from ..types import KeyID
@@ -85,6 +91,7 @@ __all__ = ['PKESessionKey',
            'UserAttribute',
            'IntegrityProtectedSKEData',
            'IntegrityProtectedSKEDataV1',
+           'IntegrityProtectedSKEDataV2',
            'MDC']
 
 
@@ -1689,6 +1696,142 @@ class IntegrityProtectedSKEDataV1(IntegrityProtectedSKEData):
             raise PGPDecryptionError("Decryption failed")  # pragma: no cover
 
         return pt
+
+
+class IntegrityProtectedSKEDataV2(IntegrityProtectedSKEData):
+    __ver__ = 2
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.cipher: SymmetricKeyAlgorithm = SymmetricKeyAlgorithm.AES128
+        self.aead: AEADMode = AEADMode.OCB
+        self._chunksize: int = 6
+        self._salt: Optional[bytearray] = None
+        self.ct: bytearray = bytearray()
+        self.final_tag: bytearray = bytearray()
+
+    @sdproperty
+    def chunksize(self) -> int:
+        'The numeric value of chunksize, as opposed to the octet stored on the wire'
+        return 1 << (self._chunksize + 6)
+
+    @chunksize.register
+    def chunksize_int(self, val: int) -> None:
+        n = int(log2(val)) - 6
+        if n < 0:
+            raise ValueError(f"AEAD chunksize cannot be less than {1 << 6}")
+        if n > 16:
+            raise ValueError(f"AEAD chunksize cannot be more than {1 << 22}")
+        if 1 << (n + 6) != val:
+            raise ValueError(f"AEAD chunksize must be a power of 2")
+        self._chunksize = n
+
+    @sdproperty
+    def salt(self) -> bytearray:
+        if self._salt is None:
+            self._salt = bytearray(os.urandom(32))
+        return self._salt
+
+    @salt.register
+    def salt_set(self, val: Union[bytes, bytearray]) -> None:
+        if len(val) != 32:
+            raise ValueError(f"SEIPDv2 expected 32-octet salt, got {len(val)} octets")
+        self._salt = bytearray(val)
+
+    def __bytearray__(self) -> bytearray:
+        _bytes = bytearray()
+        _bytes += super().__bytearray__()
+        _bytes.append(int(self.cipher))
+        _bytes.append(int(self.aead))
+        _bytes.append(int(self._chunksize))
+        _bytes += self.salt
+        _bytes += self.ct
+        _bytes += self.final_tag
+        return _bytes
+
+    def __copy__(self) -> IntegrityProtectedSKEDataV2:
+        skd = IntegrityProtectedSKEDataV2()
+        skd.cipher = self.cipher
+        skd.aead = self.aead
+        skd._chunksize = self._chunksize
+        skd.salt = self.salt[:]
+        skd.ct = self.ct[:]
+        skd.final_tag = self.final_tag[:]
+        return skd
+
+    def parse(self, packet: bytearray) -> None:
+        super().parse(packet)
+        self.cipher = SymmetricKeyAlgorithm(packet[0])
+        del packet[0]
+        self.aead = AEADMode(packet[0])
+        del packet[0]
+        self._chunksize = packet[0]
+        del packet[0]
+        self.salt = packet[:32]
+        del packet[:32]
+
+        remainder = self.header.length - 36
+        # we need both the final tag, and we need at least one full
+        # tag length in the main ciphertext itself:
+        minlen = 2 * self.aead.tag_len
+        if remainder < minlen:
+            raise ValueError(f"Not enough material for an SEIPD v2 packet using {self.aead!r}: expected at least {minlen} octets, got {remainder}")
+        self.ct = packet[:remainder - self.aead.tag_len]
+        del packet[:remainder - self.aead.tag_len]
+        self.final_tag = packet[:self.aead.tag_len]
+        del packet[:self.aead.tag_len]
+
+    def _get_info(self) -> bytes:
+        'the info parameter used for HKDF and AEAD'
+        return bytes([0b11000000 + self.__typeid__, self.__ver__, int(self.cipher), int(self.aead), self._chunksize])
+
+    def _get_aead_and_iv(self, session_key: bytes) -> Tuple[AEAD, bytes]:
+        ivlen = self.aead.iv_len - 8
+        keylen = self.cipher.key_size // 8
+        hkdf = HKDF(algorithm=SHA256(), length=keylen + ivlen, salt=bytes(self.salt), info=self._get_info())
+        hkdf_output = hkdf.derive(session_key)
+        key = bytes(hkdf_output[:keylen])
+        iv = bytes(hkdf_output[keylen:])
+        aead = AEAD(self.cipher, self.aead, key)
+        return (aead, iv)
+
+    def encrypt(self, key: bytes, data: bytes) -> None:
+        aead, iv = self._get_aead_and_iv(key)
+        ad = self._get_info()
+        new_ct: bytearray = bytearray()
+        chunk_index: int = 0
+        # handle the chunks:
+        for offset in range(0, len(data), self.chunksize):
+            chunk: bytes = data[offset:offset + self.chunksize]
+            nonce: bytes = iv + self.int_to_bytes(chunk_index, 8)
+            new_ct += aead.encrypt(nonce, chunk, associated_data=ad)
+            chunk_index += 1
+
+        self.ct = new_ct
+        nonce = iv + self.int_to_bytes(chunk_index, 8)
+        self.final_tag += aead.encrypt(nonce, b'', associated_data=ad + self.int_to_bytes(len(data), 8))
+        self.update_hlen()
+
+    def decrypt(self, key: bytes, algo: Optional[SymmetricKeyAlgorithm] = None) -> bytearray:
+        if algo is not None:
+            raise PGPDecryptionError(
+                f"v2 SEIPD knows its own algorithm ({self.cipher!r}), should not be explicitly passed one, but it got {algo!r} (maybe v3 PKESK or v4 SKESK precedes it instead of v6?)")
+        aead, iv = self._get_aead_and_iv(key)
+        ad = self._get_info()
+        cleartext: bytearray = bytearray()
+        chunk_index: int = 0
+        # handle the chunks:
+        for offset in range(0, len(self.ct), self.chunksize + self.aead.tag_len):
+            chunk: bytes = bytes(self.ct[offset:offset + self.chunksize + self.aead.tag_len])
+            nonce: bytes = iv + self.int_to_bytes(chunk_index, 8)
+            cleartext += aead.decrypt(nonce, chunk, associated_data=ad)
+            chunk_index += 1
+
+        nonce = iv + self.int_to_bytes(chunk_index, 8)
+        final_check: bytes = aead.decrypt(nonce, bytes(self.final_tag), associated_data=ad + self.int_to_bytes(len(cleartext), 8))
+        if final_check != b'':
+            raise PGPDecryptionError("AEAD final tag was not made over the empty string")
+        return cleartext
 
 
 class MDC(Packet):
