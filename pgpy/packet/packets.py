@@ -86,6 +86,7 @@ __all__ = ['PKESessionKey',
            'CompressedData',
            'SKEData',
            'Marker',
+           'Padding',
            'LiteralData',
            'Trust',
            'UserID',
@@ -1364,6 +1365,37 @@ class Marker(Packet):
         return _bytes
 
     def parse(self, packet):
+        super().parse(packet)
+        self.data = packet[:self.header.length]
+        del packet[:self.header.length]
+
+
+class Padding(Packet):
+    __typeid__ = PacketType.Padding
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.data: bytes = b''
+
+    @sdproperty
+    def size(self) -> int:
+        'The full size of the packet in its standard form'
+        return self.header.length + 2
+
+    @size.register
+    def size_int(self, val: int) -> None:
+        if val < 2:
+            raise ValueError(f"padding needs to be at least 2 octets, not {val}")
+        self.data = os.urandom(val - 2)
+        self.update_hlen()
+
+    def __bytearray__(self) -> bytearray:
+        _bytes = bytearray()
+        _bytes += super().__bytearray__()
+        _bytes += self.data
+        return _bytes
+
+    def parse(self, packet: bytearray) -> None:
         super().parse(packet)
         self.data = packet[:self.header.length]
         del packet[:self.header.length]

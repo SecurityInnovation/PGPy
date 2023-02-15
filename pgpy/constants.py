@@ -84,6 +84,7 @@ class PacketType(IntEnum):
     UserAttribute = 17
     SymmetricallyEncryptedIntegrityProtectedData = 18
     ModificationDetectionCode = 19
+    Padding = 21
 
     @classmethod
     def _missing_(cls, val: object) -> PacketType:
