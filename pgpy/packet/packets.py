@@ -10,6 +10,8 @@ import warnings
 
 from datetime import datetime, timezone
 
+from typing import ByteString, Optional, Tuple, Union
+
 from cryptography.hazmat.primitives import constant_time
 from cryptography.hazmat.primitives.asymmetric import padding
 
@@ -513,12 +515,15 @@ class SKESessionKey(VersionedPacket):
     __typeid__ = 0x03
     __ver__ = 0
 
+    # FIXME: the type signature for this function is awkward because
+    # the symmetric algorithm used by the following SEIPDv2 packet is
+    # not encoded in the SKESKv6:
     @abc.abstractmethod
-    def decrypt_sk(self, passphrase):
+    def decrypt_sk(self, passphrase:Union[str,bytes]) -> Tuple[Optional[SymmetricKeyAlgorithm],bytes]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def encrypt_sk(self, passphrase, sk):
+    def encrypt_sk(self, passphrase:Union[str,bytes], sk:ByteString):
         raise NotImplementedError()
 
 
@@ -609,7 +614,7 @@ class SKESessionKeyV4(SKESessionKey):
         self.ct = packet[:ctend]
         del packet[:ctend]
 
-    def decrypt_sk(self, passphrase):
+    def decrypt_sk(self, passphrase:Union[str,bytes]) -> Tuple[Optional[SymmetricKeyAlgorithm],bytes]:
         # derive the first session key from our passphrase
         sk = self.s2k.derive_key(passphrase)
         del passphrase
@@ -627,12 +632,17 @@ class SKESessionKeyV4(SKESessionKey):
 
         return symalg, bytes(m)
 
-    def encrypt_sk(self, passphrase, sk):
+
+    def encrypt_sk(self, passphrase:Union[str,bytes], sk:ByteString):
         # generate the salt and derive the key to encrypt sk with from it
         self.s2k.salt = bytearray(os.urandom(8))
         esk = self.s2k.derive_key(passphrase)
         del passphrase
 
+        # note that by default, we assume that we're using same
+        # symmetric algorithm for the following SED or SEIPD packet.
+        # This is a reasonable simplification for generation, but it
+        # won't always be the same when parsing
         self.ct = _cfb_encrypt(self.int_to_bytes(self.symalg) + sk, esk, self.symalg)
 
         # update header length and return sk
