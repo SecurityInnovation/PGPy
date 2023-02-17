@@ -61,6 +61,8 @@ Requirements
 
 - `Cryptography <https://pypi.python.org/pypi/cryptography>`_
 
+- `argon2_cffi <https://pypi.org/project/argon2-cffi/>`_
+
 To use `sopgpy` you'll also need:
 
 - `sop <https://pypi.org/project/sop/>`_ >= 0.5.1

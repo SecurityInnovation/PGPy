@@ -670,6 +670,7 @@ class String2KeyType(IntEnum):
     Salted = 1
     Reserved = 2
     Iterated = 3
+    Argon2 = 4
     GNUExtension = 101
 
     @classmethod
@@ -682,6 +683,7 @@ class String2KeyType(IntEnum):
     def salt_length(self) -> int:
         ks = {String2KeyType.Salted: 8,
               String2KeyType.Iterated: 8,
+              String2KeyType.Argon2: 16,
               }
         return ks.get(self, 0)
 

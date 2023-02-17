@@ -16,6 +16,9 @@ from typing import Optional, Tuple, Union
 
 from warnings import warn
 
+from argon2.low_level import hash_secret_raw  # type: ignore
+from argon2 import Type as ArgonType  # type: ignore
+
 from cryptography.exceptions import InvalidSignature
 
 from cryptography.hazmat.primitives import hashes
@@ -888,6 +891,9 @@ class S2KSpecifier(Field):
                  iteration_count: int = 65011712,  # default to maximum iterations
                  gnupg_extension: S2KGNUExtension = S2KGNUExtension.NoSecret,
                  smartcard_serial: Optional[bytes] = None,
+                 argon2_time: int = 1,
+                 argon2_parallelism: int = 4,
+                 argon2_memory_exp: int = 21,
                  ):
         if salt is not None:
             if s2ktype.salt_length == 0:
@@ -901,6 +907,16 @@ class S2KSpecifier(Field):
                 raise ValueError(f"Smartcard serial number should only be specified with S2KGNUExtension Smartcard, not {gnupg_extension!r}")
             if len(smartcard_serial) > 16:
                 raise ValueError(f"Smartcard serial number should be 16 octets or less, not {len(smartcard_serial)}")
+        if s2ktype is String2KeyType.Argon2:
+            if argon2_time < 1 or argon2_time > 255:
+                raise ValueError(f"Argon2 time parameter must be between 1 and 255, inclusive, not {argon2_time}")
+            if argon2_parallelism < 1 or argon2_parallelism > 255:
+                raise ValueError(f"Argon2 parallelism parameter must be between 1 and 255, inclusive, not {argon2_time}")
+            if argon2_memory_exp > 255:
+                raise ValueError(f"Argon2 memory size exponent (2^m KiB) must be at most 255, not m={argon2_memory_exp}")
+            if (1 << argon2_memory_exp) < 8 * argon2_parallelism:
+                raise ValueError(
+                    f"Argon2 memory size in KiB (m={argon2_memory_exp}, or {1 << argon2_memory_exp}KiB) should be at least parallelism({argon2_parallelism})*8")
         super().__init__()
         self._type: String2KeyType = s2ktype
         self._halg: HashAlgorithm = halg
@@ -910,6 +926,9 @@ class S2KSpecifier(Field):
         self._count = 65011712  # the default!
         if s2ktype is String2KeyType.Iterated:
             self.iteration_count = iteration_count
+        self._a2_t = argon2_time
+        self._a2_p = argon2_parallelism
+        self._a2_m = argon2_memory_exp
         self._gnupg_extension: S2KGNUExtension = gnupg_extension
         self._smartcard_serial: Optional[bytes] = None
         if smartcard_serial is not None:
@@ -926,6 +945,9 @@ class S2KSpecifier(Field):
         s2k._count = self._count
         s2k._gnupg_extension = self._gnupg_extension
         s2k._smartcard_serial = copy.copy(self._smartcard_serial)
+        s2k._a2_t = self._a2_t
+        s2k._a2_p = self._a2_p
+        s2k._a2_m = self._a2_m
         return s2k
 
     @sdproperty
@@ -1031,6 +1053,10 @@ class S2KSpecifier(Field):
         _bytes += self.salt
         if self._type is String2KeyType.Iterated:
             _bytes += self.iteration_octet
+        if self._type is String2KeyType.Argon2:
+            _bytes.append(self._a2_t)
+            _bytes.append(self._a2_p)
+            _bytes.append(self._a2_m)
         return _bytes
 
     def __len__(self) -> int:
@@ -1053,9 +1079,13 @@ class S2KSpecifier(Field):
             self._salt = bytes(packet[:self._type.salt_length])
             del packet[:self._type.salt_length]
 
-        if self._type == String2KeyType.Iterated:
+        if self._type is String2KeyType.Iterated:
             self.iteration_count = packet[:1]
             del packet[:1]
+
+        if self._type is String2KeyType.Argon2:
+            (self._a2_t, self._a2_p, self._a2_m) = packet[:3]
+            del packet[:3]
 
     def _gnu_bytearray(self, _bytes):
         if self._type is not String2KeyType.GNUExtension:
@@ -1109,11 +1139,14 @@ class S2KSpecifier(Field):
             del packet[:slen]
 
     def derive_key(self, passphrase: Union[str, bytes], keylen_bits: int) -> bytes:
-        if self._type not in {String2KeyType.Simple, String2KeyType.Salted, String2KeyType.Iterated}:
+        if self._type not in {String2KeyType.Simple, String2KeyType.Salted, String2KeyType.Iterated, String2KeyType.Argon2}:
             raise NotImplementedError(f"Cannot derive key from S2KSpecifier {self._type!r}")
 
         if not isinstance(passphrase, bytes):
             passphrase = passphrase.encode('utf-8')
+
+        if self._type is String2KeyType.Argon2:
+            return hash_secret_raw(passphrase, self.salt, self._a2_t, 1 << self._a2_m, self._a2_p, keylen_bits // 8, ArgonType.ID, 0x13)
 
         hashlen = self._halg.digest_size * 8
 

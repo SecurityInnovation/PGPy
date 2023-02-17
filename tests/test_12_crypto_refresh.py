@@ -22,7 +22,6 @@ class TestPGP_CryptoRefresh(object):
     def test_v4_skesk_argon2(self, cipher: str) -> None:
         msg = PGPMessage.from_file(f'tests/testdata/crypto-refresh/v4skesk-argon2-{cipher}.pgp')
         assert msg.is_encrypted
-        pytest.xfail('Argon2 is not supported')
         unlocked = msg.decrypt('password')
         assert not unlocked.is_encrypted
         assert unlocked.message == b'Hello, world!'
