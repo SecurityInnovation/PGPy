@@ -239,6 +239,8 @@ class PubKeyAlgorithm(IntEnum):
     FormerlyElGamalEncryptOrSign = 0x14  # deprecated - do not generate
     DiffieHellman = 0x15  # X9.42
     EdDSA = 0x16  # https://tools.ietf.org/html/draft-koch-eddsa-for-openpgp-04
+    Ed25519 = 27
+    Ed448 = 28
 
     @classmethod
     def _missing_(cls, val: object) -> PubKeyAlgorithm:
@@ -252,7 +254,10 @@ class PubKeyAlgorithm(IntEnum):
                         PubKeyAlgorithm.DSA,
                         PubKeyAlgorithm.ECDSA,
                         PubKeyAlgorithm.ECDH,
-                        PubKeyAlgorithm.EdDSA}
+                        PubKeyAlgorithm.EdDSA,
+                        PubKeyAlgorithm.Ed25519,
+                        PubKeyAlgorithm.Ed448,
+                        }
 
     @property
     def can_encrypt(self) -> bool:  # pragma: no cover
@@ -260,7 +265,13 @@ class PubKeyAlgorithm(IntEnum):
 
     @property
     def can_sign(self) -> bool:
-        return self in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.DSA, PubKeyAlgorithm.ECDSA, PubKeyAlgorithm.EdDSA}
+        return self in {PubKeyAlgorithm.RSAEncryptOrSign,
+                        PubKeyAlgorithm.DSA,
+                        PubKeyAlgorithm.ECDSA,
+                        PubKeyAlgorithm.EdDSA,
+                        PubKeyAlgorithm.Ed25519,
+                        PubKeyAlgorithm.Ed448,
+                        }
 
     @property
     def deprecated(self) -> bool:
@@ -279,6 +290,11 @@ class PubKeyAlgorithm(IntEnum):
                     return SecurityIssues.OK
                 else:
                     return SecurityIssues.InsecureCurve
+            elif isinstance(min_size, bool) and min_size:
+                if min_size:
+                    return SecurityIssues.OK
+                else:
+                    return SecurityIssues.BrokenAsymmetricFunc
             else:
                 # not ECC
                 if size >= min_size:
@@ -856,4 +872,7 @@ MINIMUM_ASYMMETRIC_KEY_LENGTHS = {
     PubKeyAlgorithm.ECDSA: SAFE_CURVES,
     PubKeyAlgorithm.EdDSA: SAFE_CURVES,
     PubKeyAlgorithm.ECDH: SAFE_CURVES,
+    # the following algorithms are all known to be acceptable, with no keylength variations, so just return True
+    PubKeyAlgorithm.Ed448: True,
+    PubKeyAlgorithm.Ed25519: True,
 }

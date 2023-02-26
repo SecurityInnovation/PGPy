@@ -13,7 +13,7 @@ import os
 import collections.abc
 from datetime import datetime
 
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple, Type, Union
 
 from warnings import warn
 
@@ -29,6 +29,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric import dsa
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric import ed25519
+from cryptography.hazmat.primitives.asymmetric import ed448
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric import x25519
 from cryptography.hazmat.primitives.asymmetric import utils
@@ -84,6 +85,8 @@ __all__ = ['SubPackets',
            'DSASignature',
            'ECDSASignature',
            'EdDSASignature',
+           'Ed25519Signature',
+           'Ed448Signature',
            'PubKey',
            'OpaquePubKey',
            'RSAPub',
@@ -92,10 +95,15 @@ __all__ = ['SubPackets',
            'ECPoint',
            'ECDSAPub',
            'EdDSAPub',
+           'Ed25519Pub',
+           'Ed448Pub',
            'ECDHPub',
            'S2KSpecifier',
            'String2Key',
            'ECKDF',
+           'NativeEdDSAPub',
+           'NativeEdDSAPriv',
+           'NativeEdDSASignature',
            'PrivKey',
            'OpaquePrivKey',
            'RSAPriv',
@@ -103,6 +111,8 @@ __all__ = ['SubPackets',
            'ElGPriv',
            'ECDSAPriv',
            'EdDSAPriv',
+           'Ed25519Priv',
+           'Ed448Priv',
            'ECDHPriv',
            'CipherText',
            'RSACipherText',
@@ -358,6 +368,44 @@ class EdDSASignature(DSASignature):
         # TODO: change this length when EdDSA can be used with another curve (Ed448)
         siglen = (EllipticCurveOID.Ed25519.key_size + 7) // 8
         return self.int_to_bytes(self.r, siglen) + self.int_to_bytes(self.s, siglen)
+
+
+class NativeEdDSASignature(Signature):
+    @abc.abstractproperty
+    def __siglen__(self) -> int:
+        'the size of this native EdDSA signature object'
+
+    def __bytearray__(self) -> bytearray:
+        return bytearray(self._rawsig)
+
+    def from_signer(self, sig: bytes) -> None:
+        if len(sig) != self.__siglen__:
+            raise ValueError(f'{self!r} must be {self.__siglen__} bytes long, not {len(sig)}')
+        self._rawsig = sig
+
+    def __sig__(self) -> bytes:
+        return self._rawsig
+
+    def __copy__(self) -> NativeEdDSASignature:
+        sig = self.__class__()
+        sig._rawsig = self._rawsig
+        return sig
+
+    def parse(self, packet: bytearray) -> None:
+        self._rawsig = bytes(packet[:self.__siglen__])
+        del packet[:self.__siglen__]
+
+
+class Ed25519Signature(NativeEdDSASignature):
+    @property
+    def __siglen__(self) -> int:
+        return 64
+
+
+class Ed448Signature(NativeEdDSASignature):
+    @property
+    def __siglen__(self) -> int:
+        return 114
 
 
 class PubKey(MPIs):
@@ -645,6 +693,64 @@ class EdDSAPub(PubKey):
                 raise PGPIncompatibleECPointFormatError("Only Native format is valid for EdDSA")
         else:
             self.p = MPI(packet)
+
+
+NativeEdDSAPrivType = Union[ed25519.Ed25519PrivateKey, ed448.Ed448PrivateKey]
+NativeEdDSAPubType = Union[ed25519.Ed25519PublicKey, ed448.Ed448PublicKey]
+
+
+class NativeEdDSAPub(PubKey):
+    @abc.abstractproperty
+    def _public_length(self) -> int:
+        'the size of this native EdDSA public key object'
+    @abc.abstractmethod
+    def pub_from_bytes(self, b: bytes) -> NativeEdDSAPubType:
+        ''''derive a public key from bytes'''
+
+    def __pubkey__(self) -> NativeEdDSAPubType:
+        return self._raw_pubkey
+
+    def __bytearray__(self) -> bytearray:
+        return bytearray(self._raw_pubkey.public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw))
+
+    def parse(self, packet: bytearray) -> None:
+        self._raw_pubkey = self.pub_from_bytes(bytes(packet[:self._public_length]))
+        del packet[:self._public_length]
+
+    def verify(self, subj: bytes, sigbytes: bytes, hash_alg: cryptography_HashAlgorithm) -> bool:
+        hasher = hashes.Hash(hash_alg)
+        hasher.update(subj)
+        subj = hasher.finalize()
+        try:
+            self._raw_pubkey.verify(sigbytes, subj)
+        except InvalidSignature:
+            return False
+        return True
+
+    def __len__(self) -> int:
+        return self._public_length
+
+
+class Ed25519Pub(NativeEdDSAPub):
+    __pubkey_algo__ = PubKeyAlgorithm.Ed25519
+
+    @property
+    def _public_length(self) -> int:
+        return 32
+
+    def pub_from_bytes(self, b: bytes) -> ed25519.Ed25519PublicKey:
+        return ed25519.Ed25519PublicKey.from_public_bytes(b)
+
+
+class Ed448Pub(NativeEdDSAPub):
+    __pubkey_algo__ = PubKeyAlgorithm.Ed448
+
+    @property
+    def _public_length(self) -> int:
+        return 56
+
+    def pub_from_bytes(self, b: bytes) -> ed448.Ed448PublicKey:
+        return ed448.Ed448PublicKey.from_public_bytes(b)
 
 
 class ECDHPub(PubKey):
@@ -1981,6 +2087,96 @@ class EdDSAPriv(PrivKey, EdDSAPub):
         digest.update(sigdata)
         sigdata = digest.finalize()
         return self.__privkey__().sign(sigdata)
+
+
+class NativeEdDSAPriv(PrivKey, NativeEdDSAPub):
+    @abc.abstractproperty
+    def _private_length(self) -> int:
+        'the length in bytes of the native private key object'
+    @abc.abstractmethod
+    def gen_priv(self) -> NativeEdDSAPrivType:
+        'generate a new secret key'
+    @abc.abstractmethod
+    def priv_from_bytes(self, b: bytes) -> NativeEdDSAPrivType:
+        'load a private key from native bytes representation'
+
+    def sign(self, sigdata: bytes, hash_alg: cryptography_HashAlgorithm) -> bytes:
+        hasher = hashes.Hash(hash_alg)
+        hasher.update(sigdata)
+        sigdata = hasher.finalize()
+        return self._raw_privkey.sign(sigdata)
+
+    def _compute_chksum(self):
+        b = bytearray()
+        self._append_private_fields(b)
+        chs = sum(b) % 65536
+        self.chksum = bytearray(self.int_to_bytes(chs, 2))
+
+    def clear(self) -> None:
+        if hasattr(self, '_raw_privkey'):
+            delattr(self, '_raw_privkey')
+
+    def _generate(self, keysize: Optional[Union[int, EllipticCurveOID]] = None) -> None:
+        if keysize is not None:
+            raise ValueError("Native EdDSA keys should always receive a None parameter for the keysize, as they are fixed size")
+        self._raw_privkey = self.gen_priv()
+        self._raw_pubkey = self._raw_privkey.public_key()
+        self._compute_chksum()
+
+    def __privkey__(self):
+        return self._raw_privkey
+
+    def _append_private_fields(self, _bytes: bytearray) -> None:
+        _bytes += self._raw_privkey.private_bytes(encoding=serialization.Encoding.Raw,
+                                                  format=serialization.PrivateFormat.Raw,
+                                                  encryption_algorithm=serialization.NoEncryption())
+
+    def parse(self, packet: bytearray) -> None:
+        NativeEdDSAPub.parse(self, packet)
+        # parse s2k business
+        self.s2k.parse(packet)
+
+        if not self.s2k:
+            self._raw_privkey = self.priv_from_bytes(packet[:self._private_length])
+            del packet[:self._private_length]
+        else:
+            ##TODO: this needs to be bounded to the length of the encrypted key material
+            self.encbytes = packet
+
+    def decrypt_keyblob(self, passphrase: Union[str, bytes]) -> None:
+        kb = super().decrypt_keyblob(passphrase)
+        del passphrase
+
+        self._raw_privkey = self.priv_from_bytes(kb[:self._private_length])
+        del kb[:self._private_length]
+
+        if self.s2k.usage in {S2KUsage.MalleableCFB, S2KUsage.CFB}:
+            self.chksum = kb
+            del kb
+
+
+class Ed25519Priv(NativeEdDSAPriv, Ed25519Pub):
+    @property
+    def _private_length(self) -> int:
+        return 32
+
+    def gen_priv(self) -> ed25519.Ed25519PrivateKey:
+        return ed25519.Ed25519PrivateKey.generate()
+
+    def priv_from_bytes(self, b: bytes) -> ed25519.Ed25519PrivateKey:
+        return ed25519.Ed25519PrivateKey.from_private_bytes(b)
+
+
+class Ed448Priv(NativeEdDSAPriv, Ed448Pub):
+    @property
+    def _private_length(self) -> int:
+        return 57
+
+    def gen_priv(self) -> ed448.Ed448PrivateKey:
+        return ed448.Ed448PrivateKey.generate()
+
+    def priv_from_bytes(self, b: bytes) -> ed448.Ed448PrivateKey:
+        return ed448.Ed448PrivateKey.from_private_bytes(b)
 
 
 class ECDHPriv(ECDSAPriv, ECDHPub):  # type: ignore[misc] # (definition of __copy__ in base classes ECDHPub and ECDSAPub differs)

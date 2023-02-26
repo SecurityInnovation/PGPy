@@ -39,7 +39,6 @@ class TestPGP_CryptoRefresh(object):
     @pytest.mark.parametrize('msg', {'inline-signed-message.pgp', 'cleartext-signed-message.txt'})
     def test_v6_signed_messages(self, msg: str) -> None:
         (cert, _) = PGPKey.from_file('tests/testdata/crypto-refresh/v6-minimal-cert.key')
-        pytest.xfail('v6 keys are not supported')
         assert cert.is_public
         pgpmsg = PGPMessage.from_file(f'tests/testdata/crypto-refresh/{msg}')
         assert not pgpmsg.is_encrypted

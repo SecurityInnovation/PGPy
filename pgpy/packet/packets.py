@@ -27,6 +27,9 @@ from .fields import ECDHPub, ECDHPriv, ECDHCipherText
 from .fields import EdDSAPub, EdDSAPriv, EdDSASignature
 from .fields import ElGCipherText, ElGPriv, ElGPub
 from .fields import CipherText
+from .fields import NativeEdDSAPub
+from .fields import Ed25519Pub, Ed25519Priv, Ed25519Signature
+from .fields import Ed448Pub, Ed448Priv, Ed448Signature
 from .fields import Signature as SignatureField
 from .fields import PubKey as PubKeyField
 from .fields import PrivKey as PrivKeyField
@@ -411,6 +414,10 @@ class Signature(VersionedPacket):
             self.signature = ECDSASignature()
         elif self.pubalg is PubKeyAlgorithm.EdDSA:
             self.signature = EdDSASignature()
+        elif self.pubalg is PubKeyAlgorithm.Ed25519:
+            self.signature = Ed25519Signature()
+        elif self.pubalg is PubKeyAlgorithm.Ed448:
+            self.signature = Ed448Signature()
         else:
             self.signature = OpaqueSignature()
 
@@ -1305,6 +1312,10 @@ class PubKey(VersionedPacket, Primary, Public):
             self.keymaterial = ECDHPub() if self.public else ECDHPriv(self.__ver__)
         elif self.pkalg is PubKeyAlgorithm.EdDSA:
             self.keymaterial = EdDSAPub() if self.public else EdDSAPriv(self.__ver__)
+        elif self.pkalg is PubKeyAlgorithm.Ed25519:
+            self.keymaterial = Ed25519Pub() if self.public else Ed25519Priv(self.__ver__)
+        elif self.pkalg is PubKeyAlgorithm.Ed448:
+            self.keymaterial = Ed448Pub() if self.public else Ed448Priv(self.__ver__)
         else:
             self.keymaterial = OpaquePubKey() if self.public else OpaquePrivKey(self.__ver__)
 
@@ -1488,7 +1499,10 @@ class PrivKey(PubKey, Private):
         if self.keymaterial is None:
             return True
         if self.protected:
-            return 0 not in list(self.keymaterial)
+            if len(list(self.keymaterial)):
+                return 0 not in list(self.keymaterial)
+            else:
+                return hasattr(self.keymaterial, '_raw_privkey')
         return True  # pragma: no cover
 
     def protect(self, passphrase: str,
@@ -1538,6 +1552,11 @@ class PrivKey(PubKey, Private):
                     if not isinstance(pk.keymaterial, ECDHPub):
                         raise TypeError(f"Expected ECDH, got {type(pk.keymaterial)} instead")
                     pk.keymaterial.kdf = copy.copy(self.keymaterial.kdf)
+
+            elif isinstance(self.keymaterial, NativeEdDSAPub):
+                if not isinstance(pk.keymaterial, NativeEdDSAPub):
+                    raise TypeError(f"Expected CFRG public key, got {type(pk.keymaterial)} instead")
+                pk.keymaterial._raw_pubkey = copy.copy(self.keymaterial._raw_pubkey)
 
         pk.update_hlen()
 

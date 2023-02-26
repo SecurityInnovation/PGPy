@@ -86,6 +86,7 @@ from .packet.packets import SKESessionKeyV6
 
 from .packet.fields import ECDSAPub, EdDSAPub, ECDHPub
 from .packet.fields import PrivKey as field_PrivKey
+from .packet.fields import NativeEdDSAPub
 
 from .packet.types import Opaque
 from .packet.types import VersionedHeader
@@ -1666,6 +1667,8 @@ class PGPKey(Armorable, ParentRef):
             else:
                 # this is an unknown elliptic curve
                 return 0
+        if isinstance(self._key.keymaterial, NativeEdDSAPub):
+            return self._key.keymaterial._public_length * 8
         if self._key.keymaterial is None:
             return None
         # check if keymaterial is not an Opaque class containing a bytearray
