@@ -84,9 +84,9 @@ from .packet.packets import SKESessionKey
 from .packet.packets import SKESessionKeyV4
 from .packet.packets import SKESessionKeyV6
 
-from .packet.fields import ECDSAPub, EdDSAPub, ECDHPub
+from .packet.fields import ECDSAPub, EdDSAPub, ECDHPub, Ed25519Pub, Ed448Pub, X25519Pub, X448Pub
 from .packet.fields import PrivKey as field_PrivKey
-from .packet.fields import NativeEdDSAPub
+from .packet.fields import NativeEdDSAPub, NativeCFRGXPub
 
 from .packet.types import Opaque
 from .packet.types import VersionedHeader
@@ -1667,7 +1667,7 @@ class PGPKey(Armorable, ParentRef):
             else:
                 # this is an unknown elliptic curve
                 return 0
-        if isinstance(self._key.keymaterial, NativeEdDSAPub):
+        if isinstance(self._key.keymaterial, (NativeEdDSAPub, NativeCFRGXPub)):
             return self._key.keymaterial._public_length * 8
         if self._key.keymaterial is None:
             return None
@@ -3012,7 +3012,8 @@ class PGPKey(Armorable, ParentRef):
         def _getpkt(d):
             return Packet(d) if d else None
         # some packets are filtered out
-        getpkt = filter(lambda p: p.header.typeid not in {PacketType.Trust, PacketType.Padding, PacketType.Marker}, iter(functools.partial(_getpkt, data), None))
+        getpkt = filter(lambda p: p.header.typeid not in {PacketType.Trust, PacketType.Padding,
+                        PacketType.Marker}, iter(functools.partial(_getpkt, data), None))
 
         def pktgrouper():
             class PktGrouper:

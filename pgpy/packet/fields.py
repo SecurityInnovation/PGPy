@@ -32,9 +32,10 @@ from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.primitives.asymmetric import ed448
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric import x25519
+from cryptography.hazmat.primitives.asymmetric import x448
 from cryptography.hazmat.primitives.asymmetric import utils
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from cryptography.hazmat.primitives.hashes import SHA256
+from cryptography.hazmat.primitives.hashes import SHA256, SHA512, HashAlgorithm as cryptography_HashAlgorithm
 
 from cryptography.hazmat.primitives.kdf.concatkdf import ConcatKDFHash
 
@@ -98,12 +99,17 @@ __all__ = ['SubPackets',
            'Ed25519Pub',
            'Ed448Pub',
            'ECDHPub',
+           'X25519Pub',
+           'X448Pub',
            'S2KSpecifier',
            'String2Key',
            'ECKDF',
            'NativeEdDSAPub',
            'NativeEdDSAPriv',
            'NativeEdDSASignature',
+           'NativeCFRGXPriv',
+           'NativeCFRGXPub',
+           'NativeCFRGXCipherText',
            'PrivKey',
            'OpaquePrivKey',
            'RSAPriv',
@@ -114,10 +120,15 @@ __all__ = ['SubPackets',
            'Ed25519Priv',
            'Ed448Priv',
            'ECDHPriv',
+           'X25519Priv',
+           'X448Priv',
            'CipherText',
            'RSACipherText',
            'ElGCipherText',
-           'ECDHCipherText', ]
+           'ECDHCipherText',
+           'X25519CipherText',
+           'X448CipherText',
+           ]
 
 
 class SubPackets(collections.abc.MutableMapping[str, SubPacket], Field):
@@ -882,6 +893,87 @@ class ECDHPub(PubKey):
         ct.c = bytearray(aes_key_wrap(z, m))
 
         return ct
+
+
+class NativeCFRGXPub(PubKey):
+    @abc.abstractproperty
+    def _public_length(self) -> int:
+        'the size of this native CFRG X* public key object'
+    @abc.abstractproperty
+    def _native_type(self) -> Union[Type[x25519.X25519PublicKey], Type[x448.X448PublicKey]]:
+        'what is the native type to use?'
+
+    def exchange(self,
+                 priv: Union[x25519.X25519PrivateKey, x448.X448PrivateKey],
+                 pub: Union[x25519.X25519PublicKey, x448.X448PublicKey]) -> bytes:
+        if isinstance(pub, x25519.X25519PublicKey) and isinstance(priv, x25519.X25519PrivateKey):
+            return priv.exchange(pub)
+        if isinstance(pub, x448.X448PublicKey) and isinstance(priv, x448.X448PrivateKey):
+            return priv.exchange(pub)
+        raise TypeError(f"{type(self)}: mismatched public key {type(pub)} and private key {type(priv)}")
+
+    def __pubkey__(self) -> Union[x25519.X25519PublicKey, x448.X448PublicKey]:
+        return self._raw_pubkey
+
+    @abc.abstractmethod
+    def new_ciphertext(self) -> NativeCFRGXCipherText:
+        'generate a new ciphertext'
+
+    def __bytearray__(self) -> bytearray:
+        return bytearray(self._raw_pubkey.public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw))
+
+    def parse(self, packet: bytearray) -> None:
+        self._raw_pubkey = self._native_type.from_public_bytes(bytes(packet[:self._public_length]))
+        del packet[:self._public_length]
+
+    def __len__(self) -> int:
+        return self._public_length
+
+    def encrypt(self, symalg: Optional[SymmetricKeyAlgorithm], data: bytes, fpr: Fingerprint) -> NativeCFRGXCipherText:
+        ct = self.new_ciphertext()
+        ephemeral_key = ct.gen_priv()
+        ct._sym_algo = symalg
+
+        shared_secret: bytes = self.exchange(ephemeral_key, self._raw_pubkey)
+        hkdf = HKDF(algorithm=ct.kdf_hash_algo(), length=ct.aes_keywrap_keylen, salt=None, info=ct.hkdf_info)
+        mykey_bytes = self._raw_pubkey.public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+        if ct._ephemeral is None:
+            raise TypeError("CipherText ephemeral value is missing")
+        ephemeral_bytes = ct._ephemeral.public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+        key_wrap_key: bytes = hkdf.derive(ephemeral_bytes + mykey_bytes + shared_secret)
+
+        ct._text = aes_key_wrap(key_wrap_key, data)
+        return ct
+
+
+class X25519Pub(NativeCFRGXPub):
+    __pubkey_algo__ = PubKeyAlgorithm.X25519
+
+    @property
+    def _public_length(self) -> int:
+        return 32
+
+    @property
+    def _native_type(self) -> Union[Type[x25519.X25519PublicKey], Type[x448.X448PublicKey]]:
+        return x25519.X25519PublicKey
+
+    def new_ciphertext(self) -> X25519CipherText:
+        return X25519CipherText()
+
+
+class X448Pub(NativeCFRGXPub):
+    __pubkey_algo__ = PubKeyAlgorithm.X448
+
+    @property
+    def _public_length(self) -> int:
+        return 56
+
+    @property
+    def _native_type(self) -> Union[Type[x25519.X25519PublicKey], Type[x448.X448PublicKey]]:
+        return x448.X448PublicKey
+
+    def new_ciphertext(self) -> X448CipherText:
+        return X448CipherText()
 
 
 class S2KSpecifier(Field):
@@ -2282,6 +2374,104 @@ class ECDHPriv(ECDSAPriv, ECDHPub):  # type: ignore[misc] # (definition of __cop
         return self._decrypt_helper(padder.update(_m) + padder.finalize(), get_symalg)
 
 
+class NativeCFRGXPriv(PrivKey, NativeCFRGXPub):
+    def __privkey__(self) -> Union[x25519.X25519PrivateKey, x448.X448PrivateKey]:
+        return self._raw_privkey
+
+    def clear(self) -> None:
+        if hasattr(self, '_raw_privkey'):
+            delattr(self, '_raw_privkey')
+
+    @abc.abstractproperty
+    def _private_length(self) -> int:
+        'the length in byes of the native private key object'
+    @abc.abstractproperty
+    def _native_private_type(self) -> Union[Type[x25519.X25519PrivateKey], Type[x448.X448PrivateKey]]:
+        'the native object type from the cryptography library'
+
+    def _compute_chksum(self):
+        b = bytearray()
+        self._append_private_fields(b)
+        chs = sum(b) % 65536
+        self.chksum = bytearray(self.int_to_bytes(chs, 2))
+
+    def _generate(self, keysize: Optional[Union[int, EllipticCurveOID]] = None) -> None:
+        if keysize is not None:
+            raise ValueError("Native CFRG key exchange ('X*') keys should always receive a None parameter for keysize, as they are fixed length")
+        self._raw_privkey = self._native_private_type.generate()
+        self._raw_pubkey = self._raw_privkey.public_key()
+        self._compute_chksum()
+
+    def parse(self, packet: bytearray) -> None:
+        NativeCFRGXPub.parse(self, packet)
+        # parse s2k business
+        self.s2k.parse(packet)
+
+        if not self.s2k:
+            self._raw_privkey = self._native_private_type.from_private_bytes(packet[:self._private_length])
+            del packet[:self._private_length]
+        else:
+            ##TODO: this needs to be bounded to the length of the encrypted key material
+            self.encbytes = packet
+
+    def _append_private_fields(self, _bytes: bytearray) -> None:
+        _bytes += self._raw_privkey.private_bytes(encoding=serialization.Encoding.Raw,
+                                                  format=serialization.PrivateFormat.Raw,
+                                                  encryption_algorithm=serialization.NoEncryption())
+
+    def sign(self, sigdata: bytes, hash_alg: HashAlgorithm) -> bytes:
+        raise PGPError("Cannot sign with a CFRG X* key")
+
+    def decrypt_keyblob(self, passphrase):
+        kb = super().decrypt_keyblob(passphrase)
+        del passphrase
+
+        self._raw_privkey = self._native_private_type.from_private_bytes(kb[:self._private_length])
+        del kb[:self._private_length]
+
+        if self.s2k.usage in [254, 255]:
+            self.chksum = kb
+            del kb
+
+    def decrypt(self, ct: CipherText, fpr: Fingerprint, get_symalg: bool) -> Tuple[Optional[SymmetricKeyAlgorithm], bytes]:
+        if not isinstance(ct, NativeCFRGXCipherText):
+            raise TypeError(f"Cannot decrypt {type(ct)}, expected NativeCFRGXCipherText")
+        if ct._ephemeral is None or ct._text is None:
+            raise PGPDecryptionError(f"Cannot decrypt uninitialized {type(ct)}")
+
+        if ct._sym_algo is None and get_symalg:
+            raise TypeError("Asked for symmetric algorithm but none was present")
+
+        shared_secret: bytes = self.exchange(self.__privkey__(), ct._ephemeral)
+        hkdf = HKDF(algorithm=ct.kdf_hash_algo(), length=ct.aes_keywrap_keylen, salt=None, info=ct.hkdf_info)
+        mykey_bytes = self.__privkey__().public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+        ephemeral_bytes = ct._ephemeral.public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+        key_wrap_key: bytes = hkdf.derive(ephemeral_bytes + mykey_bytes + shared_secret)
+        cleartext = aes_key_unwrap(key_wrap_key, ct._text)
+
+        return (ct._sym_algo, cleartext)
+
+
+class X25519Priv(NativeCFRGXPriv, X25519Pub):
+    @property
+    def _private_length(self) -> int:
+        return 32
+
+    @property
+    def _native_private_type(self) -> Union[Type[x25519.X25519PrivateKey], Type[x448.X448PrivateKey]]:
+        return x25519.X25519PrivateKey
+
+
+class X448Priv(NativeCFRGXPriv, X448Pub):
+    @property
+    def _private_length(self) -> int:
+        return 56
+
+    @property
+    def _native_private_type(self) -> Union[Type[x25519.X25519PrivateKey], Type[x448.X448PrivateKey]]:
+        return x448.X448PrivateKey
+
+
 class CipherText(MPIs):
     def __init__(self) -> None:
         super().__init__()
@@ -2335,3 +2525,113 @@ class ECDHCipherText(CipherText):
         del packet[0]
         self.c += packet[:clen]
         del packet[:clen]
+
+
+NativeCFRGXPrivType = Union[x25519.X25519PrivateKey, x448.X448PrivateKey]
+NativeCFRGXPubType = Union[x25519.X25519PublicKey, x448.X448PublicKey]
+
+
+class NativeCFRGXCipherText(CipherText):
+    @abc.abstractproperty
+    def public_bytes(self) -> int:
+        '''size of public key (in bytes)'''
+    @abc.abstractproperty
+    def aes_keywrap_keylen(self) -> int:
+        '''size of AES key (bytes)'''
+    @abc.abstractproperty
+    def hkdf_info(self) -> bytes:
+        '''the prefix string for key derivation'''
+    @abc.abstractmethod
+    def gen_priv(self) -> NativeCFRGXPrivType:
+        '''generate a private key, setting the internal ephemeral'''
+    @abc.abstractmethod
+    def pub_from_bytes(self, b: bytes) -> NativeCFRGXPubType:
+        '''derive a public key from bytes'''
+    @abc.abstractmethod
+    def kdf_hash_algo(self) -> cryptography_HashAlgorithm:
+        '''generate a new hash algorithm for use with HKDF'''
+
+    def __init__(self) -> None:
+        self._text: Optional[bytes] = None
+        self._sym_algo: Optional[SymmetricKeyAlgorithm] = None
+        self._ephemeral: Optional[NativeCFRGXPubType] = None
+
+    def __bytearray__(self) -> bytearray:
+        if self._ephemeral is None:
+            raise ValueError(f"ephemeral value for {type(self)} is not initialized, cannot produce wire format")
+        if self._text is None:
+            raise ValueError(f"ciphertext for {type(self)} is not initialized, cannot produce wire format")
+        _bytes = bytearray()
+        _bytes += self._ephemeral.public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+        trailerlen = len(self._text)
+        if self._sym_algo is not None:
+            trailerlen += 1
+        _bytes.append(trailerlen)
+        if self._sym_algo is not None:
+            _bytes.append(int(self._sym_algo))
+        _bytes += self._text
+        return _bytes
+
+    def parse(self, packet: bytearray) -> None:
+        self._ephemeral = self.pub_from_bytes(bytes(packet[:self.public_bytes]))
+        del packet[:self.public_bytes]
+        sz = packet[0]
+        del packet[0]
+        # for PKESKv3 ciphertexts, the symmetric key algorithm is
+        # stuck in the clear outside of the ciphertext.
+        if sz % 8 == 1:
+            self._sym_algo = SymmetricKeyAlgorithm(packet[0])
+            del packet[0]
+            sz -= 1
+        self._text = bytes(packet[:sz])
+        del packet[:sz]
+
+
+class X25519CipherText(NativeCFRGXCipherText):
+    @property
+    def public_bytes(self) -> int:
+        return 32
+
+    @property
+    def aes_keywrap_keylen(self) -> int:
+        return 16
+
+    @property
+    def hkdf_info(self) -> bytes:
+        return b'OpenPGP X25519'
+
+    def gen_priv(self) -> x25519.X25519PrivateKey:
+        privkey = x25519.X25519PrivateKey.generate()
+        self._ephemeral = privkey.public_key()
+        return privkey
+
+    def pub_from_bytes(self, b: bytes) -> x25519.X25519PublicKey:
+        return x25519.X25519PublicKey.from_public_bytes(b)
+
+    def kdf_hash_algo(self) -> cryptography_HashAlgorithm:
+        return SHA256()
+
+
+class X448CipherText(NativeCFRGXCipherText):
+    @property
+    def public_bytes(self) -> int:
+        return 56
+
+    @property
+    def aes_keywrap_keylen(self) -> int:
+        return 32
+
+    @property
+    def hkdf_info(self) -> bytes:
+        return b'OpenPGP X448'
+
+    def gen_priv(self) -> x448.X448PrivateKey:
+        privkey = x448.X448PrivateKey.generate()
+        self._ephemeral = privkey.public_key()
+        return privkey
+
+    def pub_from_bytes(self, b: bytes) -> x448.X448PublicKey:
+        return x448.X448PublicKey.from_public_bytes(b)
+
+    def kdf_hash_algo(self) -> cryptography_HashAlgorithm:
+        return SHA512()

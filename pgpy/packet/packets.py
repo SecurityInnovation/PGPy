@@ -30,6 +30,10 @@ from .fields import CipherText
 from .fields import NativeEdDSAPub
 from .fields import Ed25519Pub, Ed25519Priv, Ed25519Signature
 from .fields import Ed448Pub, Ed448Priv, Ed448Signature
+from .fields import NativeCFRGXPub
+from .fields import NativeCFRGXCipherText
+from .fields import X25519Pub, X25519Priv, X25519CipherText
+from .fields import X448Pub, X448Priv, X448CipherText
 from .fields import Signature as SignatureField
 from .fields import PubKey as PubKeyField
 from .fields import PrivKey as PrivKeyField
@@ -154,6 +158,10 @@ class PKESessionKey(VersionedPacket):
             self.ct = ElGCipherText()
         elif self._pkalg is PubKeyAlgorithm.ECDH:
             self.ct = ECDHCipherText()
+        elif self._pkalg is PubKeyAlgorithm.X25519:
+            self.ct = X25519CipherText()
+        elif self._pkalg is PubKeyAlgorithm.X448:
+            self.ct = X448CipherText()
 
 
 class PKESessionKeyV3(PKESessionKey):
@@ -237,6 +245,7 @@ class PKESessionKeyV3(PKESessionKey):
     def __init__(self) -> None:
         super().__init__()
         self._encrypter = None
+        self.symalg: Optional[SymmetricKeyAlgorithm] = None
 
     def __bytearray__(self):
         _bytes = bytearray()
@@ -249,6 +258,7 @@ class PKESessionKeyV3(PKESessionKey):
             _bytes.append(self._opaque_pkalg)
         else:
             _bytes.append(self.pkalg)
+
         _bytes += self.ct.__bytearray__() if self.ct is not None else b'\x00' * (self.header.length - 10)
         return _bytes
 
@@ -257,6 +267,7 @@ class PKESessionKeyV3(PKESessionKey):
         sk.header = copy.copy(self.header)
         sk._encrypter = self._encrypter
         sk.pkalg = self.pkalg
+        sk.symalg = self.symalg
         if self.pkalg == PubKeyAlgorithm.Invalid:
             sk._opaque_pkalg = self._opaque_pkalg
         if self.ct is not None:
@@ -333,6 +344,9 @@ class PKESessionKeyV6(PKESessionKey):
     def decrypt_sk(self, pk: PrivKey) -> Tuple[Optional[SymmetricKeyAlgorithm], bytes]:
         algo: Optional[SymmetricKeyAlgorithm]
         symkey: bytes
+        if not isinstance(pk.keymaterial, PrivKeyField):
+            raise TypeError(f"PKESKv6.decrypt_sk() expected private key material, got {type(pk.keymaterial)}")
+
         if self.ct is None:
             raise PGPDecryptionError("PKESKv6: Tried to decrypt session key when ciphertext was not initialized")
         return pk.keymaterial.decrypt(self.ct, pk.fingerprint, False)
@@ -340,6 +354,8 @@ class PKESessionKeyV6(PKESessionKey):
     def encrypt_sk(self, pk: PubKey, symalg: Optional[SymmetricKeyAlgorithm], symkey: bytes, **kwargs) -> None:
         if symalg is not None:
             raise ValueError(f"PKESKv6 does not encrypt the symmetric key algorithm, but {symalg} was supplied (should be None)")
+        if pk.keymaterial is None:
+            raise ValueError('PKESKv6: public key material must be instantiated')
         self._encrypter = pk.fingerprint
         self.pkalg = pk.pkalg
         if self.ct is None:
@@ -1316,6 +1332,10 @@ class PubKey(VersionedPacket, Primary, Public):
             self.keymaterial = Ed25519Pub() if self.public else Ed25519Priv(self.__ver__)
         elif self.pkalg is PubKeyAlgorithm.Ed448:
             self.keymaterial = Ed448Pub() if self.public else Ed448Priv(self.__ver__)
+        elif self.pkalg is PubKeyAlgorithm.X25519:
+            self.keymaterial = X25519Pub() if self.public else X25519Priv(self.__ver__)
+        elif self.pkalg is PubKeyAlgorithm.X448:
+            self.keymaterial = X448Pub() if self.public else X448Priv(self.__ver__)
         else:
             self.keymaterial = OpaquePubKey() if self.public else OpaquePrivKey(self.__ver__)
 
@@ -1553,8 +1573,8 @@ class PrivKey(PubKey, Private):
                         raise TypeError(f"Expected ECDH, got {type(pk.keymaterial)} instead")
                     pk.keymaterial.kdf = copy.copy(self.keymaterial.kdf)
 
-            elif isinstance(self.keymaterial, NativeEdDSAPub):
-                if not isinstance(pk.keymaterial, NativeEdDSAPub):
+            elif isinstance(self.keymaterial, (NativeEdDSAPub, NativeCFRGXPub)):
+                if not isinstance(pk.keymaterial, (NativeEdDSAPub, NativeCFRGXPub)):
                     raise TypeError(f"Expected CFRG public key, got {type(pk.keymaterial)} instead")
                 pk.keymaterial._raw_pubkey = copy.copy(self.keymaterial._raw_pubkey)
 

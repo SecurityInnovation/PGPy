@@ -47,7 +47,6 @@ class TestPGP_CryptoRefresh(object):
 
     def test_v6_key(self):
         (cert, _) = PGPKey.from_file('tests/testdata/crypto-refresh/v6-minimal-cert.key')
-        pytest.xfail('v6 keys are not supported')
         assert cert.is_public
         (key, _) = PGPKey.from_file('tests/testdata/crypto-refresh/v6-minimal-secret.key')
         assert not key.is_public
@@ -64,6 +63,7 @@ class TestPGP_CryptoRefresh(object):
         assert not locked.is_public
         assert locked.is_protected
         assert not locked.is_unlocked
+        pytest.xfail('AEAD-protected secret keys cannot yet be unlocked')
         with locked.unlock("correct horse battery staple"):
             assert locked.is_unlocked
             clearmsg2 = locked.decrypt(msg)

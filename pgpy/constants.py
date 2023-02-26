@@ -239,6 +239,8 @@ class PubKeyAlgorithm(IntEnum):
     FormerlyElGamalEncryptOrSign = 0x14  # deprecated - do not generate
     DiffieHellman = 0x15  # X9.42
     EdDSA = 0x16  # https://tools.ietf.org/html/draft-koch-eddsa-for-openpgp-04
+    X25519 = 25
+    X448 = 26
     Ed25519 = 27
     Ed448 = 28
 
@@ -255,13 +257,20 @@ class PubKeyAlgorithm(IntEnum):
                         PubKeyAlgorithm.ECDSA,
                         PubKeyAlgorithm.ECDH,
                         PubKeyAlgorithm.EdDSA,
+                        PubKeyAlgorithm.X25519,
+                        PubKeyAlgorithm.X448,
                         PubKeyAlgorithm.Ed25519,
                         PubKeyAlgorithm.Ed448,
                         }
 
     @property
     def can_encrypt(self) -> bool:  # pragma: no cover
-        return self in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.ElGamal, PubKeyAlgorithm.ECDH}
+        return self in {PubKeyAlgorithm.RSAEncryptOrSign,
+                        PubKeyAlgorithm.ElGamal,
+                        PubKeyAlgorithm.ECDH,
+                        PubKeyAlgorithm.X25519,
+                        PubKeyAlgorithm.X448,
+                        }
 
     @property
     def can_sign(self) -> bool:
@@ -875,4 +884,6 @@ MINIMUM_ASYMMETRIC_KEY_LENGTHS = {
     # the following algorithms are all known to be acceptable, with no keylength variations, so just return True
     PubKeyAlgorithm.Ed448: True,
     PubKeyAlgorithm.Ed25519: True,
+    PubKeyAlgorithm.X448: True,
+    PubKeyAlgorithm.X25519: True,
 }
