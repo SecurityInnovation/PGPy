@@ -95,7 +95,7 @@ class SubPacket(Dispatchable):
         return (self.header.llen + self.header.length)
 
     def __repr__(self):
-        return "<{} [0x{:02x}] at 0x{:x}>".format(self.__class__.__name__, self.header.typeid, id(self))
+        return "<{} [0x{:02x}] {}at 0x{:x}>".format(self.__class__.__name__, self.header.typeid, 'critical! ' if self.header.critical else '', id(self))
 
     def update_hlen(self):
         self.header.length = (len(self.__bytearray__()) - len(self.header)) + 1
