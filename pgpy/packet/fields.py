@@ -193,6 +193,16 @@ class SubPackets(collections.abc.MutableMapping, Field):
         for sp in self:
             sp.update_hlen()
 
+    def _normalize(self) -> None:
+        '''Order subpackets by subpacket tag number
+
+        This private interface must only be called a Subpackets object
+        before it is signed, otherwise it will break the signature
+
+        '''
+        self._hashed_sp = collections.OrderedDict(sorted(self._hashed_sp.items(), key=lambda x: (x[1].__typeid__, x[0][1])))
+        self._unhashed_sp = collections.OrderedDict(sorted(self._unhashed_sp.items(), key=lambda x: (x[1].__typeid__, x[0][1])))
+
     def parse(self, packet):
         hl = self.bytes_to_int(packet[:2])
         del packet[:2]
