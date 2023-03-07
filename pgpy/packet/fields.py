@@ -174,8 +174,10 @@ class SubPackets(collections.abc.MutableMapping, Field):
 
         return sp
 
-    def addnew(self, spname, hashed=False, **kwargs):
+    def addnew(self, spname: str, hashed: bool = False, critical: bool = False, **kwargs) -> None:
         nsp = getattr(self._spmodule, spname)()
+        if critical:
+            nsp.header.critical = True
         for p, v in kwargs.items():
             if hasattr(nsp, p):
                 setattr(nsp, p, v)
