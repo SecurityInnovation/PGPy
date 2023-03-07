@@ -182,7 +182,10 @@ class SubPackets(collections.abc.MutableMapping, Field):
         nsp.update_hlen()
         if hashed:
             self['h_' + spname] = nsp
-
+            # remove unhashed version of this subpacket -- we do not want a conflict
+            unhashed_subpackets = list(filter(lambda x: x[0] == spname, self._unhashed_sp.keys()))
+            for unhashed_subpacket in unhashed_subpackets:
+                del self._unhashed_sp[unhashed_subpacket]
         else:
             self[spname] = nsp
 
