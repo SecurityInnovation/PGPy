@@ -1643,8 +1643,9 @@ class IntegrityProtectedSKEDataV1(IntegrityProtectedSKEData):
         self.ct = packet[:self.header.length - 1]
         del packet[:self.header.length - 1]
 
-    def encrypt(self, key, alg, data):
-        iv = alg.gen_iv()
+    def encrypt(self, key, alg, data, iv: Optional[bytes] = None):
+        if iv is None:
+            iv = alg.gen_iv()
         data = iv + iv[-2:] + data
 
         mdc = MDC()

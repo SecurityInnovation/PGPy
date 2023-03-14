@@ -1284,7 +1284,8 @@ class PGPMessage(Armorable, PGPObject):
 
         if not self.is_encrypted:
             skedata = IntegrityProtectedSKEDataV1()
-            skedata.encrypt(sessionkey, cipher_algo, self.__bytes__())
+            iv = prefs.pop('iv', None)
+            skedata.encrypt(sessionkey, cipher_algo, self.__bytes__(), iv = iv)
             msg |= skedata
 
         else:
