@@ -10,10 +10,7 @@ import itertools
 import math
 import os
 
-try:
-    import collections.abc as collections_abc
-except ImportError:
-    collections_abc = collections
+import collections.abc
 
 from typing import Union
 
@@ -100,7 +97,7 @@ __all__ = ['SubPackets',
            'ECDHCipherText', ]
 
 
-class SubPackets(collections_abc.MutableMapping, Field):
+class SubPackets(collections.abc.MutableMapping, Field):
     _spmodule = signature
 
     def __init__(self):

@@ -4,10 +4,7 @@ this is where the armorable PGP block objects live
 """
 import binascii
 import collections
-try:
-    import collections.abc as collections_abc
-except ImportError:
-    collections_abc = collections
+import collections.abc
 import contextlib
 import copy
 import functools
@@ -596,7 +593,7 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
             raise ValueError('Expected: Signature. Got: {:s}'.format(pkt.__class__.__name__))
 
 
-class PGPSignatures(collections_abc.Container, collections_abc.Iterable, collections_abc.Sized, Armorable, PGPObject):
+class PGPSignatures(collections.abc.Container, collections.abc.Iterable, collections.abc.Sized, Armorable, PGPObject):
     '''OpenPGP detached signatures can often contain more than one signature in them.'''
 
     def __init__(self, signatures: List[PGPSignature] = []) -> None:
@@ -611,7 +608,7 @@ class PGPSignatures(collections_abc.Container, collections_abc.Iterable, collect
     def __len__(self) -> int:
         return len(self._sigs)
 
-    def __iter__(self) -> collections_abc.Iterator[PGPSignature]:
+    def __iter__(self) -> collections.abc.Iterator[PGPSignature]:
         for sig in self._sigs:
             yield sig
 
@@ -2730,7 +2727,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return keys
 
 
-class PGPKeyring(collections_abc.Container, collections_abc.Iterable, collections_abc.Sized):
+class PGPKeyring(collections.abc.Container, collections.abc.Iterable, collections.abc.Sized):
     def __init__(self, *args):
         """
         PGPKeyring objects represent in-memory keyrings that can contain any combination of supported private and public
