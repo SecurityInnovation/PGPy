@@ -17,7 +17,7 @@ import weakref
 
 from datetime import datetime, timezone
 
-from typing import Any, Deque, List, Mapping, Optional, Set, Tuple, Union
+from typing import Any, Deque, List, Iterator, Mapping, Optional, Set, Tuple, Union
 
 from cryptography.hazmat.primitives import hashes
 
@@ -97,22 +97,22 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         return self._signature.signature.__sig__()
 
     @property
-    def cipherprefs(self):
+    def cipherprefs(self) -> Optional[List[SymmetricKeyAlgorithm]]:
         """
-        A ``list`` of preferred symmetric algorithms specified in this signature, if any. Otherwise, an empty ``list``.
+        A ``list`` of preferred symmetric algorithms specified in this signature, if any. Otherwise, return None.
         """
         if 'PreferredSymmetricAlgorithms' in self._signature.subpackets:
             return next(iter(self._signature.subpackets['h_PreferredSymmetricAlgorithms'])).flags
-        return []
+        return None
 
     @property
-    def compprefs(self):
+    def compprefs(self) -> Optional[List[CompressionAlgorithm]]:
         """
-        A ``list`` of preferred compression algorithms specified in this signature, if any. Otherwise, an empty ``list``.
+        A ``list`` of preferred compression algorithms specified in this signature, if any. Otherwise, return None.
         """
         if 'PreferredCompressionAlgorithms' in self._signature.subpackets:
             return next(iter(self._signature.subpackets['h_PreferredCompressionAlgorithms'])).flags
-        return []
+        return None
 
     @property
     def created(self):
@@ -160,13 +160,13 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         return self._signature.hash2
 
     @property
-    def hashprefs(self):
+    def hashprefs(self) -> Optional[List[HashAlgorithm]]:
         """
-        A ``list`` of preferred hash algorithms specified in this signature, if any. Otherwise, an empty ``list``.
+        A ``list`` of preferred hash algorithms specified in this signature, if any. Otherwise, return None
         """
         if 'PreferredHashAlgorithms' in self._signature.subpackets:
             return next(iter(self._signature.subpackets['h_PreferredHashAlgorithms'])).flags
-        return []
+        return None
 
     @property
     def hash_algorithm(self) -> HashAlgorithm:
@@ -2003,15 +2003,17 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         if user is not None:
             uid = self.get_uid(user)
 
-        else:
-            uid = next(iter(self.userids), None)
-            if uid is None and self.parent is not None:
-                uid = next(iter(self.parent.userids), None)
+        default_halg = HashAlgorithm.SHA256
+        prefsig: Optional[PGPSignature] = None
+        for prefsig in self.search_pref_sigs(uid=user):
+            if prefsig.hashprefs is not None:
+                default_halg = next((h for h in prefsig.hashprefs if h.is_supported), default_halg)
+                break
 
         if sig.hash_algorithm is None:
-            sig._signature.halg = next((h for h in uid.selfsig.hashprefs if h.is_supported), HashAlgorithm.SHA256)
+            sig._signature.halg = default_halg
 
-        if uid is not None and sig.hash_algorithm not in uid.selfsig.hashprefs:
+        if prefsig is not None and prefsig.hashprefs is not None and sig.hash_algorithm not in prefsig.hashprefs:
             warnings.warn("Selected hash algorithm not in key preferences", stacklevel=4)
 
         # signature options that can be applied at any level
@@ -2465,6 +2467,55 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             self._self_verified = None
             raise
 
+    def search_pref_sigs(self, uid: Optional[str] = None) -> Iterator[PGPSignature]:
+        '''Iterate over valid PGPSignature self-sigs where preferences might be found
+
+        If uid is supplied, prefer preferences from self-sigs over the given User ID.
+
+        If this is called on a subkey, the subkey binding signature preferences will be prioritized
+        '''
+        # FIXME: how should we disambiguate?  see https://gitlab.com/openpgp-wg/rfc4880bis/-/issues/103#note_1317448098
+        if self.is_primary:
+            primary = self
+        else:
+            primary = self.parent
+
+        when = datetime.now(timezone.utc)
+
+        # use the most recent self-sig for the preferred uid
+        # FIXME: do not yield if uid is revoked
+        if uid is not None:
+            userid: Optional[PGPUID] = primary.get_uid(uid)
+            if userid is None:
+                raise PGPError(f"No User ID matching {uid}")
+            if userid.selfsig is not None:
+                yield userid.selfsig
+
+        sig: PGPSignature
+        # if we're called on a subkey, use most recent subkey binding signature that is not in the future:
+        # FIXME: do not yield if subkey is revoked
+        if not self.is_primary:
+            for sig in self._signatures:
+                if sig.created <= when and sig.type == SignatureType.Subkey_Binding:
+                    yield sig
+                    break
+
+        # use the most recent direct key signature
+        # FIXME: do not yield if the key is revoked
+        for sig in primary._signatures:
+            if sig.created <= when and sig.type == SignatureType.DirectlyOnKey:
+                yield sig
+                break
+
+        # FIXME: prioritize primary UIDs first
+        # FIXME: do not yield if the userid is revoked
+        for userid in primary.userids:
+            maybesig: Optional[PGPSignature] = userid.selfsig
+            if maybesig is not None:
+                sig = maybesig
+                if sig.created <= when:
+                    yield sig
+
     @property
     def self_verified(self):
         warnings.warn("TODO: Self-sigs verification is not yet working because self-sigs are not parsed!!!")
@@ -2625,20 +2676,34 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                        preference defaults and selection validation.
         :type user: ``str``, ``unicode``
         """
-        uid = None
-        if user is not None:
-            uid = self.get_uid(user)
-        else:
-            uid = next(iter(self.userids), None)
-            if uid is None and self.parent is not None:
-                uid = next(iter(self.parent.userids), None)
-        pref_cipher = next((c for c in uid.selfsig.cipherprefs if c.is_supported), SymmetricKeyAlgorithm.TripleDES)
+        cipherprefs: Optional[List[SymmetricKeyAlgorithm]] = None
+        compprefs: Optional[List[CompressionAlgorithm]] = None
+        sig: PGPSignature
+
+        # line up a list of iterators of self-signatures: walk
+        # through them in order until we have both cipherprefs and
+        # compprefs:
+
+        for sig in self.search_pref_sigs(uid=user):
+            if sig.cipherprefs is not None:
+                cipherprefs = sig.cipherprefs
+            if sig.compprefs is not None:
+                compprefs = sig.compprefs
+            if cipherprefs is not None and compprefs is not None:
+                break
+
+        if cipherprefs is None:
+            cipherprefs = []
+        if compprefs is None:
+            compprefs = []
+
+        pref_cipher = next((c for c in cipherprefs if c.is_supported), SymmetricKeyAlgorithm.TripleDES)
         cipher_algo = cipher if cipher is not None else pref_cipher
 
-        if cipher_algo not in uid.selfsig.cipherprefs:
+        if cipher_algo not in cipherprefs:
             warnings.warn("Selected symmetric algorithm not in key preferences", stacklevel=3)
 
-        if message.is_compressed and message._compression not in uid.selfsig.compprefs:
+        if message.is_compressed and message._compression not in compprefs:
             warnings.warn("Selected compression algorithm not in key preferences", stacklevel=3)
 
         if sessionkey is None:

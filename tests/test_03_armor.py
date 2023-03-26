@@ -187,14 +187,14 @@ block_attrs = {
                    b'\x81\x87\x36\x1a\xa6\x5c\x79\x98\xfe\xdb\xdd\x23\x54\x69\x92\x2f\x0b\xc4\xee\x2a\x61'
                    b'\x77\x35\x59\x6e\xb2\xe2\x1b\x80\x61\xaf\x2d\x7a\x64\x38\xfe\xe3\x95\xcc\xe8\xa4\x05'
                    b'\x55\x5d'),
-         ('cipherprefs',    []),
-         ('compprefs',      []),
+         ('cipherprefs',    None),
+         ('compprefs',      None),
          ('created',        datetime.fromtimestamp(1402615373, timezone.utc)),
          ('embedded',       False),
          ('exportable',     True),
          ('features',       None),
          ('hash2',          b'\xc4\x24'),
-         ('hashprefs',      []),
+         ('hashprefs',      None),
          ('hash_algorithm', HashAlgorithm.SHA512),
          ('is_expired',     False),
          ('key_algorithm',  PubKeyAlgorithm.RSAEncryptOrSign),

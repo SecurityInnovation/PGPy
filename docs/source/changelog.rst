@@ -41,8 +41,11 @@ finalize() instead of digest().
 
 The following properties of PGPSignature now return None if the
 corresponding subpacket is not present (they used to return an empty
-string in that case):
+list or string in that case):
 
+* cipherprefs
+* compprefs
+* hashprefs
 * keyserver
 * policy_uri
 * signer
