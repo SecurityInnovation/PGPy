@@ -58,8 +58,8 @@ from ..errors import PGPDecryptionError
 from ..errors import PGPError
 from ..errors import PGPIncompatibleECPointFormatError
 
-from ..symenc import _decrypt
-from ..symenc import _encrypt
+from ..symenc import _cfb_decrypt
+from ..symenc import _cfb_encrypt
 
 from ..types import Field
 from ..types import Fingerprint
@@ -1172,7 +1172,7 @@ class PrivKey(PubKey):
         pt += hashlib.new('sha1', pt).digest()
 
         # encrypt
-        self.encbytes = bytearray(_encrypt(bytes(pt), bytes(sessionkey), enc_alg, bytes(self.s2k.iv)))
+        self.encbytes = bytearray(_cfb_encrypt(bytes(pt), bytes(sessionkey), enc_alg, bytes(self.s2k.iv)))
 
         # delete pt and clear self
         del pt
@@ -1197,7 +1197,7 @@ class PrivKey(PubKey):
         del passphrase
 
         # attempt to decrypt this key
-        pt = _decrypt(bytes(self.encbytes), bytes(sessionkey), self.s2k.encalg, bytes(self.s2k.iv))
+        pt = _cfb_decrypt(bytes(self.encbytes), bytes(sessionkey), self.s2k.encalg, bytes(self.s2k.iv))
 
         # check the hash to see if we decrypted successfully or not
         if self.s2k.usage == 254 and not pt[-20:] == hashlib.new('sha1', pt[:-20]).digest():
