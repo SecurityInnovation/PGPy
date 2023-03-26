@@ -2551,10 +2551,12 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return sigv
 
     @KeyAction(KeyFlags.EncryptCommunications, KeyFlags.EncryptStorage, is_public=True)
-    def encrypt(self, message, sessionkey=None, **prefs):
-        """encrypt(message[, sessionkey=None], **prefs)
-
-        Encrypt a PGPMessage using this key.
+    def encrypt(self,
+                message:PGPMessage,
+                sessionkey:Optional[bytes]=None,
+                user:Optional[str]=None,
+                cipher:Optional[SymmetricKeyAlgorithm]=None) -> PGPMessage:
+        """Encrypt a PGPMessage using this key.
 
         :param message: The message to encrypt.
         :type message: :py:obj:`PGPMessage`
@@ -2579,7 +2581,6 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                        preference defaults and selection validation.
         :type user: ``str``, ``unicode``
         """
-        user = prefs.pop('user', None)
         uid = None
         if user is not None:
             uid = self.get_uid(user)
@@ -2588,7 +2589,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             if uid is None and self.parent is not None:
                 uid = next(iter(self.parent.userids), None)
         pref_cipher = next((c for c in uid.selfsig.cipherprefs if c.is_supported), SymmetricKeyAlgorithm.TripleDES)
-        cipher_algo = prefs.pop('cipher', pref_cipher)
+        cipher_algo = cipher if cipher is not None else pref_cipher
 
         if cipher_algo not in uid.selfsig.cipherprefs:
             warnings.warn("Selected symmetric algorithm not in key preferences", stacklevel=3)
