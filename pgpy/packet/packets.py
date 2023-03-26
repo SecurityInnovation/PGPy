@@ -28,6 +28,7 @@ from .fields import OpaquePrivKey
 from .fields import OpaqueSignature
 from .fields import RSACipherText, RSAPriv, RSAPub, RSASignature
 from .fields import String2Key
+from .fields import S2KSpecifier
 from .fields import SubPackets
 from .fields import UserAttributeSubPackets
 
@@ -816,6 +817,13 @@ class PrivKey(VersionedPacket, Primary, Private):
     __typeid__ = PacketTag.SecretKey
     __ver__ = 0
 
+    @abc.abstractmethod
+    def protect(self, passphrase: str,
+                enc_alg: Optional[SymmetricKeyAlgorithm] = None,
+                hash_alg: Optional[HashAlgorithm] = None,
+                s2kspec: Optional[S2KSpecifier] = None) -> None:
+        '''Protect the secret key'''
+
 
 class PubKey(VersionedPacket, Primary, Public):
     __typeid__ = PacketTag.PublicKey
@@ -1003,11 +1011,14 @@ class PrivKeyV4(PrivKey, PubKeyV4):
         return True  # pragma: no cover
 
     def protect(self, passphrase: str,
-                enc_alg: SymmetricKeyAlgorithm = SymmetricKeyAlgorithm.AES256,
-                hash_alg: HashAlgorithm = HashAlgorithm.SHA256) -> None:
+                enc_alg: Optional[SymmetricKeyAlgorithm] = None,
+                hash_alg: Optional[HashAlgorithm] = None,
+                s2kspec: Optional[S2KSpecifier] = None) -> None:
+        if enc_alg is None:
+            enc_alg = SymmetricKeyAlgorithm.AES256
         if not isinstance(self.keymaterial, PrivKeyField):
             raise TypeError("Key material is not a private key, cannot protect")
-        self.keymaterial.encrypt_keyblob(passphrase, enc_alg, hash_alg)
+        self.keymaterial.encrypt_keyblob(passphrase, enc_alg=enc_alg, hash_alg=hash_alg, s2kspec=s2kspec)
         del passphrase
         self.update_hlen()
 

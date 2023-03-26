@@ -1313,15 +1313,26 @@ class PrivKey(PubKey):
     def publen(self) -> int:
         return super().__len__()
 
-    def encrypt_keyblob(self, passphrase, enc_alg, hash_alg):
+    def encrypt_keyblob(self, passphrase: str,
+                        enc_alg: SymmetricKeyAlgorithm = SymmetricKeyAlgorithm.AES256,
+                        hash_alg: Optional[HashAlgorithm] = None,
+                        s2kspec: Optional[S2KSpecifier] = None) -> None:
         # PGPy will only ever use iterated and salted S2k mode
         self.s2k.usage = S2KUsage.CFB
         self.s2k.encalg = enc_alg
-        self.s2k.specifier = String2KeyType.Iterated
+        passed_s2kspec: bool
+        if s2kspec is not None:
+            passed_s2kspec = True
+        else:
+            passed_s2kspec = False
+            s2kspec = S2KSpecifier()
+        if hash_alg is not None:
+            if hash_alg != s2kspec.halg:
+                if passed_s2kspec:
+                    warn(f"Passed S2K specifier with hash algorithm {s2kspec.halg!r} but also passed hash algorithm {hash_alg!r}, going with {hash_alg!r}")
+                s2kspec.halg = hash_alg
+        self.s2k._specifier = copy.copy(s2kspec)
         self.s2k.gen_iv()
-        self.s2k.halg = hash_alg
-        self.s2k.salt = bytearray(os.urandom(8))
-        self.s2k.count = 255
 
         # now that String-to-Key is ready to go, derive sessionkey from passphrase
         # and then unreference passphrase
