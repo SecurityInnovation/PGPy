@@ -17,7 +17,7 @@ import weakref
 
 from datetime import datetime, timezone
 
-from typing import Any, List, Optional, Union
+from typing import Any, List, Optional, Tuple, Union
 
 from cryptography.hazmat.primitives import hashes
 
@@ -651,7 +651,7 @@ class PGPUID(ParentRef):
     def __sig__(self):
         return list(self._signatures)
 
-    def _splitstring(self):
+    def _splitstring(self) -> Tuple[str,str,str]:
         '''returns name, comment email from User ID string'''
         if not isinstance(self._uid, UserID):
             return "", "", ""
@@ -674,12 +674,12 @@ class PGPUID(ParentRef):
         return (rfc2822['name'], rfc2822['comment'] or "", rfc2822['email'] or "")
 
     @property
-    def name(self):
+    def name(self) -> str:
         """If this is a User ID, the stored name. If this is not a User ID, this will be an empty string."""
         return self._splitstring()[0]
 
     @property
-    def comment(self):
+    def comment(self) -> str:
         """
         If this is a User ID, this will be the stored comment. If this is not a User ID, or there is no stored comment,
         this will be an empty string.,
@@ -687,7 +687,7 @@ class PGPUID(ParentRef):
         return self._splitstring()[1]
 
     @property
-    def email(self):
+    def email(self) -> str:
         """
         If this is a User ID, this will be the stored email address. If this is not a User ID, or there is no stored
         email address, this will be an empty string.
@@ -695,7 +695,7 @@ class PGPUID(ParentRef):
         return self._splitstring()[2]
 
     @property
-    def userid(self):
+    def userid(self) -> Optional[str]:
         """
         If this is a User ID, this will be the full UTF-8 string. If this is not a User ID, this will be ``None``.
         """
@@ -709,7 +709,7 @@ class PGPUID(ParentRef):
         return self._uid.image.image if isinstance(self._uid, UserAttribute) else None
 
     @property
-    def is_primary(self):
+    def is_primary(self) -> bool:
         """
         If the most recent, valid self-signature specifies this as being primary, this will be True. Otherwise, False.
         """
@@ -718,21 +718,21 @@ class PGPUID(ParentRef):
         return False
 
     @property
-    def is_uid(self):
+    def is_uid(self) -> bool:
         """
         ``True`` if this is a User ID, otherwise False.
         """
         return isinstance(self._uid, UserID)
 
     @property
-    def is_ua(self):
+    def is_ua(self) -> bool:
         """
         ``True`` if this is a User Attribute, otherwise False.
         """
         return isinstance(self._uid, UserAttribute)
 
     @property
-    def selfsig(self):
+    def selfsig(self) -> Optional[PGPSignature]:
         """
         This will be the most recent, self-signature of this User ID or Attribute. If there isn't one, this will be ``None``.
         """

@@ -4,6 +4,8 @@
 import abc
 import copy
 
+from typing import Optional
+
 from ..constants import PacketTag
 
 from ..decorators import sdproperty
@@ -140,7 +142,7 @@ class VersionedHeader(Header):
 
 
 class Packet(Dispatchable):
-    __typeid__ = -1
+    __typeid__:Optional[int] = -1
     __headercls__ = Header
 
     def __init__(self, _=None):

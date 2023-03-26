@@ -2,6 +2,8 @@
 """
 import abc
 
+from typing import Optional
+
 from ..types import VersionedHeader
 
 from ...decorators import sdproperty
@@ -103,11 +105,11 @@ class SubPacket(Dispatchable):
 
 
 class Signature(SubPacket):
-    __typeid__ = -1
+    __typeid__:Optional[int] = -1
 
 
 class UserAttribute(SubPacket):
-    __typeid__ = -1
+    __typeid__:Optional[int] = -1
 
 
 class Opaque(Signature, UserAttribute):
