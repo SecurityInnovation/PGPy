@@ -1825,7 +1825,15 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             prefs['enc_alg'] = posargs[0]
             prefs['hash_alg'] = posargs[1]
 
+        # allow the user to pass in a list of initialization vectors
+        # (this is suitable for trying to create reproducible objects, but should not normally be used)
+        ivs: List[bytes] = prefs.pop('ivs', [])
+
         for sk in itertools.chain([self], self.subkeys.values()):
+            if 'iv' in prefs:
+                del prefs['iv']
+            if ivs:
+                prefs['iv'] = ivs.pop(0)
             if sk._key is not None:
                 sk._key.protect(passphrase, **prefs)
 

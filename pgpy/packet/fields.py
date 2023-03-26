@@ -1316,7 +1316,8 @@ class PrivKey(PubKey):
     def encrypt_keyblob(self, passphrase: str,
                         enc_alg: SymmetricKeyAlgorithm = SymmetricKeyAlgorithm.AES256,
                         hash_alg: Optional[HashAlgorithm] = None,
-                        s2kspec: Optional[S2KSpecifier] = None) -> None:
+                        s2kspec: Optional[S2KSpecifier] = None,
+                        iv: Optional[bytes] = None) -> None:
         # PGPy will only ever use iterated and salted S2k mode
         self.s2k.usage = S2KUsage.CFB
         self.s2k.encalg = enc_alg
@@ -1326,6 +1327,8 @@ class PrivKey(PubKey):
         else:
             passed_s2kspec = False
             s2kspec = S2KSpecifier()
+        if iv is not None:
+            self.s2k.iv = iv
         if hash_alg is not None:
             if hash_alg != s2kspec.halg:
                 if passed_s2kspec:
