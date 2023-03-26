@@ -840,6 +840,7 @@ class String2Key(Field):
         if self._salt is None:
             self._salt: Optional[bytes] = os.urandom(self._specifier.salt_length)
         return self._salt
+
     @salt.register
     def salt_bytes(self, val: Union[bytes, bytearray]) -> None:
         if self._specifier.salt_length == 0:
@@ -847,6 +848,44 @@ class String2Key(Field):
         if len(val) != self._specifier.salt_length:
             raise ValueError(f"salt for String2KeyType {self._specifier!r} should be {self._specifier.salt_length}, not {len(val)}")
         self._salt = bytes(val)
+
+    @property
+    def _iv_length(self) -> int:
+        if self.usage is S2KUsage.Unprotected:
+            return 0
+        elif self.usage in [S2KUsage.MalleableCFB, S2KUsage.CFB]:
+            if not self.specifier.has_iv:
+                # this is likely some sort of weird extension case
+                return 0
+            return self.encalg.block_size // 8
+        else:
+            return SymmetricKeyAlgorithm(self.usage).block_size // 8
+
+    def gen_iv(self) -> None:
+        ivlen = self._iv_length
+        if self._iv is None and ivlen:
+            self._iv: Optional[bytes] = os.urandom(ivlen)
+
+    @sdproperty
+    def iv(self) -> Optional[bytes]:
+        ivlen = self._iv_length
+        if ivlen == 0:
+            return None
+        return self._iv
+
+    @iv.register
+    def iv_bytearray(self, val: Optional[Union[bytearray, bytes]]) -> None:
+        ivlen = self._iv_length
+        if ivlen == 0:
+            if val is not None and len(val) > 0:
+                raise PGPError(f"setting an IV of length {len(val)} when it should be nothing")
+            self._iv = None
+        else:
+            if val is not None:
+                if len(val) != ivlen:
+                    raise PGPError(f"setting an IV of length {len(val)} when it should be {ivlen}")
+                val = bytes(val)
+            self._iv = val
 
     @sdproperty
     def count(self) -> int:
@@ -863,7 +902,7 @@ class String2Key(Field):
         self.usage = S2KUsage.Unprotected
         self._encalg = SymmetricKeyAlgorithm.Plaintext
         self._specifier = String2KeyType.Unknown
-        self.iv: Optional[bytearray] = None
+        self._iv = None
 
         # specifier-specific fields
         # simple, salted, iterated
@@ -961,8 +1000,10 @@ class String2Key(Field):
                 del packet[0]
 
             if iv:
-                self.iv = packet[:(self.encalg.block_size // 8)]
-                del packet[:(self.encalg.block_size // 8)]
+                ivlen = self._iv_length
+                if ivlen:
+                    self.iv = packet[:(ivlen)]
+                    del packet[:(ivlen)]
 
     def _experimental_parse(self, packet: bytearray, iv: bool = True) -> None:
         """
@@ -1199,7 +1240,7 @@ class PrivKey(PubKey):
         self.s2k.usage = S2KUsage.CFB
         self.s2k.encalg = enc_alg
         self.s2k.specifier = String2KeyType.Iterated
-        self.s2k.iv = enc_alg.gen_iv()
+        self.s2k.gen_iv()
         self.s2k.halg = hash_alg
         self.s2k.salt = bytearray(os.urandom(8))
         self.s2k.count = 255
