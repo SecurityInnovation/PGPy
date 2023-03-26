@@ -1789,7 +1789,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
         return key
 
-    def protect(self, passphrase, enc_alg, hash_alg):
+    def protect(self, passphrase: str,
+                *posargs, **prefs) -> None:
         """
         Add a passphrase to a private key. If the key is already passphrase protected, it should be unlocked before
         a new passphrase can be specified.
@@ -1797,13 +1798,14 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         Has no effect on public keys.
 
         :param passphrase: A passphrase to protect the key with
-        :type passphrase: ``str``, ``unicode``
-        :param enc_alg: Symmetric encryption algorithm to use to protect the key
-        :type enc_alg: :py:obj:`~constants.SymmetricKeyAlgorithm`
-        :param hash_alg: Hash algorithm to use in the String-to-Key specifier
-        :type hash_alg: :py:obj:`~constants.HashAlgorithm`
+        :type passphrase: ``str``
+
+        Additional keyword arguments can be passed that will be passed through to the protect()
+        method on the underlying PrivKey objects.  Normal use should not need to supply any
+        additional arguments.
+
+        Positional arguments are accepted for backward compatibility.
         """
-        ##TODO: specify strong defaults for enc_alg and hash_alg
         if self.is_public:
             # we can't protect public keys because only private key material is ever protected
             warnings.warn("Public keys cannot be passphrase-protected", stacklevel=2)
@@ -1815,8 +1817,17 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                           "please unlock it before attempting to specify a new passphrase", stacklevel=2)
             return
 
+        # backward compatibility:
+        # old API had a SymmetricKeyAlgorithm ("enc_alg") followed by a HashAlgorithm ("hash_alg")
+        if len(posargs) not in [0, 2]:
+            raise TypeError(f"PGPKey.protect should take a single argument (passphrase)")
+        if len(posargs) == 2:
+            prefs['enc_alg'] = posargs[0]
+            prefs['hash_alg'] = posargs[1]
+
         for sk in itertools.chain([self], self.subkeys.values()):
-            sk._key.protect(passphrase, enc_alg, hash_alg)
+            if sk._key is not None:
+                sk._key.protect(passphrase, **prefs)
 
         del passphrase
 

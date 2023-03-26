@@ -22,6 +22,7 @@ from .fields import ElGCipherText, ElGPriv, ElGPub
 from .fields import CipherText
 from .fields import Signature as SignatureField
 from .fields import PubKey as PubKeyField
+from .fields import PrivKey as PrivKeyField
 from .fields import OpaquePubKey
 from .fields import OpaquePrivKey
 from .fields import OpaqueSignature
@@ -1001,7 +1002,11 @@ class PrivKeyV4(PrivKey, PubKeyV4):
             return 0 not in list(self.keymaterial)
         return True  # pragma: no cover
 
-    def protect(self, passphrase, enc_alg, hash_alg):
+    def protect(self, passphrase: str,
+                enc_alg: SymmetricKeyAlgorithm = SymmetricKeyAlgorithm.AES256,
+                hash_alg: HashAlgorithm = HashAlgorithm.SHA256) -> None:
+        if not isinstance(self.keymaterial, PrivKeyField):
+            raise TypeError("Key material is not a private key, cannot protect")
         self.keymaterial.encrypt_keyblob(passphrase, enc_alg, hash_alg)
         del passphrase
         self.update_hlen()

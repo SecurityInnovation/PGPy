@@ -67,6 +67,11 @@ only for Secret Key protection, and it now contains an explicit
 S2KSpecifier member, rather than containing all S2K parameters
 directly.
 
+PGPKey.protect() now no longer requires you to specify a choice of
+algorithms.  PGPy will make good decisions by default, and you should
+not indicate specific algorithms unless you have a very clear reason
+to do so.
+
 v0.6.0
 ======
 
