@@ -297,7 +297,7 @@ _s2k_parts = [
     # hash algorithm list
     b'\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B',
     ]
-_iv = b'\xDE\xAD\xBE\xEF\xDE\xAD\xBE\xEF'
+_iv = b'\xB1\x36\x32\x44\x56\x26\x1B\xFD\x54\x7D\xDE\x66\x00\x21\x31\x55'
 _salt = b'\xC0\xDE\xC0\xDE\xC0\xDE\xC0\xDE'
 _count = b'\x10'  # expands from 0x10 to 2048
 _gnu_scserials = [
@@ -308,11 +308,11 @@ _gnu_scserials = [
     ]
 
 # simple S2Ks
-sis2ks = [bytearray(i) + _iv for i in itertools.product(*(_s2k_parts[:2] + [b'\x00'] + _s2k_parts[2:]))]
+sis2ks = [bytearray(i) + _iv[:SymmetricKeyAlgorithm(i[1]).block_size//8] for i in itertools.product(*(_s2k_parts[:2] + [b'\x00'] + _s2k_parts[2:]))]
 # salted S2Ks
-sas2ks = [bytearray(i) + _salt + _iv for i in itertools.product(*(_s2k_parts[:2] + [b'\x01'] + _s2k_parts[2:]))]
+sas2ks = [bytearray(i) + _salt + _iv[:SymmetricKeyAlgorithm(i[1]).block_size//8] for i in itertools.product(*(_s2k_parts[:2] + [b'\x01'] + _s2k_parts[2:]))]
 # iterated S2Ks
-is2ks = [bytearray(i) + _salt + _count + _iv for i in itertools.product(*(_s2k_parts[:2] + [b'\x03'] + _s2k_parts[2:]))]
+is2ks = [bytearray(i) + _salt + _count + _iv[:SymmetricKeyAlgorithm(i[1]).block_size//8] for i in itertools.product(*(_s2k_parts[:2] + [b'\x03'] + _s2k_parts[2:]))]
 # GNU extension S2Ks
 gnus2ks = [bytearray(b'\xff\x00\x65\x00GNU' + i) for i in ([b'\x01'] + [b'\x02' + bytearray([len(s)]) + s for s in _gnu_scserials])]
 
@@ -332,7 +332,7 @@ class TestString2Key:
         assert s.halg in HashAlgorithm
         assert s.encalg in SymmetricKeyAlgorithm
         assert s.specifier == String2KeyType.Simple
-        assert s.iv == _iv
+        assert s.iv == _iv[:s.encalg.block_size//8]
 
     @pytest.mark.parametrize('sas2k', sas2ks)
     def test_salted_string2key(self, sas2k):
@@ -349,7 +349,7 @@ class TestString2Key:
         assert s.encalg in SymmetricKeyAlgorithm
         assert s.specifier == String2KeyType.Salted
         assert s.salt == _salt
-        assert s.iv == _iv
+        assert s.iv == _iv[:s.encalg.block_size//8]
 
     @pytest.mark.parametrize('is2k', is2ks)
     def test_iterated_string2key(self, is2k):
@@ -367,7 +367,7 @@ class TestString2Key:
         assert s.specifier == String2KeyType.Iterated
         assert s.salt == _salt
         assert s.count == 2048
-        assert s.iv == _iv
+        assert s.iv == _iv[:s.encalg.block_size//8]
 
     @pytest.mark.parametrize('gnus2k', gnus2ks)
     def test_gnu_extension_string2key(self, gnus2k):
