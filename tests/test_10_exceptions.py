@@ -172,10 +172,10 @@ class TestPGPKey(object):
     def test_protect_protected_key(self, rsa_enc, recwarn):
         rsa_enc.protect('QwertyUiop', SymmetricKeyAlgorithm.CAST5, HashAlgorithm.SHA1)
 
-        w = recwarn.pop(UserWarning)
-        assert str(w.message) == "This key is already protected with a passphrase - " \
-                                 "please unlock it before attempting to specify a new passphrase"
-        assert w.filename == __file__
+        warning = "This key is already protected with a passphrase - please unlock it before attempting to specify a new passphrase"
+        msgs = list(filter(lambda x: str(x.message) == warning, recwarn))
+        assert len(msgs) == 1
+        assert msgs[0].filename == __file__
 
     def test_unlock_wrong_passphrase(self, rsa_enc):
         with pytest.raises(PGPDecryptionError):
