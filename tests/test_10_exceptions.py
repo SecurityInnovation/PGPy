@@ -165,13 +165,13 @@ class TestPGPKey:
         assert w.filename == __file__
 
     def test_protect_pubkey(self, rsa_pub, recwarn):
-        rsa_pub.protect('QwertyUiop', SymmetricKeyAlgorithm.CAST5, HashAlgorithm.SHA1)
+        rsa_pub.protect('QwertyUiop')
         w = recwarn.pop(UserWarning)
         assert str(w.message) == "Public keys cannot be passphrase-protected"
         assert w.filename == __file__
 
     def test_protect_protected_key(self, rsa_enc, recwarn):
-        rsa_enc.protect('QwertyUiop', SymmetricKeyAlgorithm.CAST5, HashAlgorithm.SHA1)
+        rsa_enc.protect('QwertyUiop')
 
         warning = "This key is already protected with a passphrase - please unlock it before attempting to specify a new passphrase"
         msgs = list(filter(lambda x: str(x.message) == warning, recwarn))

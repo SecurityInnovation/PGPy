@@ -426,8 +426,7 @@ class TestPGPKey_Management:
         key = self.keys[pkspec]
 
         assert key.is_protected is False
-        key.protect('There Are Many Like It, But This Key Is Mine',
-                    SymmetricKeyAlgorithm.AES256, HashAlgorithm.SHA256)
+        key.protect('There Are Many Like It, But This Key Is Mine')
 
         assert key.is_protected
         assert key.is_unlocked is False
