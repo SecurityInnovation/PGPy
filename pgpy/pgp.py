@@ -1830,11 +1830,23 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         # (this is suitable for trying to create reproducible objects, but should not normally be used)
         ivs: List[bytes] = prefs.pop('ivs', [])
 
+        # allow the user to pass in a list of salts for the S2K
+        # (this is suitable for trying to create reproducible objects, but should not normally be used)
+        salts: List[bytes] = prefs.pop('salts', [])
+
         for sk in itertools.chain([self], self.subkeys.values()):
             if 'iv' in prefs:
                 del prefs['iv']
             if ivs:
                 prefs['iv'] = ivs.pop(0)
+
+            if 's2kspec' in prefs:
+                if salts:
+                    prefs['s2kspec'].salt = salts.pop(0)
+                else:
+                    # reset the salt for each key
+                    prefs['s2kspec']._salt = None
+
             if sk._key is not None:
                 sk._key.protect(passphrase, **prefs)
 
