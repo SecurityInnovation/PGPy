@@ -20,7 +20,7 @@ __all__ = ['classproperty',
 
 
 def classproperty(fget):
-    class ClassProperty(object):
+    class ClassProperty:
         def __init__(self, fget):
             self.fget = fget
             self.__doc__ = fget.__doc__
@@ -69,9 +69,9 @@ def sdproperty(fget):
     return SDProperty(fget, sdmethod(defset))
 
 
-class KeyAction(object):
+class KeyAction:
     def __init__(self, *usage, **conditions):
-        super(KeyAction, self).__init__()
+        super().__init__()
         self.flags = set(usage)
         self.conditions = conditions
 
@@ -79,8 +79,7 @@ class KeyAction(object):
     def usage(self, key, user):
         def _preiter(first, iterable):
             yield first
-            for item in iterable:
-                yield item
+            yield from iterable
 
         em = {}
         em['keyid'] = key.fingerprint.keyid

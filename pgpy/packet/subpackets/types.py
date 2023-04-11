@@ -42,7 +42,7 @@ class Header(_Header):
         self.critical = bool(v & 0x80)
 
     def __init__(self):
-        super(Header, self).__init__()
+        super().__init__()
         self._typeid = -1
         self.critical = False
 
@@ -67,14 +67,14 @@ class EmbeddedSignatureHeader(VersionedHeader):
 
     def parse(self, packet):
         self.tag = 2
-        super(EmbeddedSignatureHeader, self).parse(packet)
+        super().parse(packet)
 
 
 class SubPacket(Dispatchable):
     __headercls__ = Header
 
     def __init__(self):
-        super(SubPacket, self).__init__()
+        super().__init__()
         self.header = Header()
 
         if (
@@ -123,15 +123,15 @@ class Opaque(Signature, UserAttribute):
         self._payload = bytearray(val)
 
     def __init__(self):
-        super(Opaque, self).__init__()
+        super().__init__()
         self.payload = b''
 
     def __bytearray__(self):
-        _bytes = super(Opaque, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self.payload
         return _bytes
 
     def parse(self, packet):
-        super(Opaque, self).parse(packet)
+        super().parse(packet)
         self.payload = packet[:(self.header.length - 1)]
         del packet[:(self.header.length - 1)]

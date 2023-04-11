@@ -7,14 +7,14 @@ from pgpy.types import PGPObject
 
 text = {
     # some basic utf-8 test strings - these should all pass
-    'english': u'The quick brown fox jumped over the lazy dog',
+    'english': 'The quick brown fox jumped over the lazy dog',
     # this hiragana pangram comes from http://www.columbia.edu/~fdc/utf8/
-    'hiragana': u'いろはにほへど　ちりぬるを\n'
-                u'わがよたれぞ　つねならむ\n'
-                u'うゐのおくやま　けふこえて\n'
-                u'あさきゆめみじ　ゑひもせず',
+    'hiragana': 'いろはにほへど　ちりぬるを\n'
+                'わがよたれぞ　つねならむ\n'
+                'うゐのおくやま　けふこえて\n'
+                'あさきゆめみじ　ゑひもせず',
 
-    'poo': u'Hello, \U0001F4A9!',
+    'poo': 'Hello, \U0001F4A9!',
 }
 
 # some alternate encodings to try
@@ -22,9 +22,9 @@ text = {
 encoded_text = {
     # try some alternate encodings as well
     #          'crunch the granite of science'
-    'cyrillic': u'грызть гранит науки'.encode('iso8859_5'),
+    'cyrillic': 'грызть гранит науки'.encode('iso8859_5'),
     #          'My hovercraft is full of eels'
-    'cp865': u'Mit luftpudefartøj er fyldt med ål'.encode('cp865'),
+    'cp865': 'Mit luftpudefartøj er fyldt med ål'.encode('cp865'),
 }
 
 
@@ -46,7 +46,7 @@ class FakePGPObject(PGPObject):
         self.data = packet
 
 
-class TestPGPObject(object):
+class TestPGPObject:
     @pytest.mark.regression(issue=154)
     @pytest.mark.parametrize('text', [v for _, v in sorted(text.items())], ids=sorted(text.keys()))
     def test_text_to_bytes(self, text):

@@ -1,6 +1,5 @@
 """ types.py
 """
-from __future__ import division
 
 import abc
 import copy
@@ -47,7 +46,7 @@ class Header(_Header):
         return self.tag
 
     def __init__(self):
-        super(Header, self).__init__()
+        super().__init__()
         self.tag = 0x00
 
     def __bytearray__(self):
@@ -123,17 +122,17 @@ class VersionedHeader(Header):
         self._version = val
 
     def __init__(self):
-        super(VersionedHeader, self).__init__()
+        super().__init__()
         self.version = 0
 
     def __bytearray__(self):
-        _bytes = bytearray(super(VersionedHeader, self).__bytearray__())
+        _bytes = bytearray(super().__bytearray__())
         _bytes += bytearray([self.version])
         return _bytes
 
     def parse(self, packet):  # pragma: no cover
         if self.tag == 0:
-            super(VersionedHeader, self).parse(packet)
+            super().parse(packet)
 
         if self.version == 0:
             self.version = packet[0]
@@ -145,7 +144,7 @@ class Packet(Dispatchable):
     __headercls__ = Header
 
     def __init__(self, _=None):
-        super(Packet, self).__init__()
+        super().__init__()
         self.header = self.__headercls__()
         if isinstance(self.__typeid__, int):
             self.header.tag = self.__typeid__
@@ -173,7 +172,7 @@ class VersionedPacket(Packet):
     __headercls__ = VersionedHeader
 
     def __init__(self):
-        super(VersionedPacket, self).__init__()
+        super().__init__()
         if isinstance(self.__ver__, int):
             self.header.version = self.__ver__
 
@@ -195,16 +194,16 @@ class Opaque(Packet):
         self._payload = val
 
     def __init__(self):
-        super(Opaque, self).__init__()
+        super().__init__()
         self.payload = b''
 
     def __bytearray__(self):
-        _bytes = super(Opaque, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self.payload
         return _bytes
 
     def parse(self, packet):  # pragma: no cover
-        super(Opaque, self).parse(packet)
+        super().parse(packet)
         pend = self.header.length
         if hasattr(self.header, 'version'):
             pend -= 1
@@ -214,7 +213,7 @@ class Opaque(Packet):
 
 
 # key marker classes for convenience
-class Key(object):
+class Key:
     pass
 
 
@@ -252,7 +251,7 @@ class MPI(long):
             mpi = MPIs.bytes_to_int(num[:fl])
             del num[:fl]
 
-        return super(MPI, cls).__new__(cls, mpi)
+        return super().__new__(cls, mpi)
 
     def byte_length(self):
         return ((self.bit_length() + 7) // 8)

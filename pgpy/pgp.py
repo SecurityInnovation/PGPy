@@ -237,7 +237,7 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         """
         A ``dict`` of notation data in this signature, if any. Otherwise, an empty ``dict``.
         """
-        return dict((nd.name, nd.value) for nd in self._signature.subpackets['NotationData'])
+        return {nd.name: nd.value for nd in self._signature.subpackets['NotationData']}
 
     @property
     def policy_uri(self):
@@ -352,7 +352,7 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         PGPSignature implements the ``__bytes__`` method, the output of which will be the signature object in
         OpenPGP-compliant binary format.
         """
-        super(PGPSignature, self).__init__()
+        super().__init__()
         self._signature = None
 
     def __bytearray__(self):
@@ -380,7 +380,7 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
     def __copy__(self):
         # because the default shallow copy isn't actually all that useful,
         # and deepcopy does too much work
-        sig = super(PGPSignature, self).__copy__()
+        sig = super().__copy__()
         # sig = PGPSignature()
         # sig.ascii_headers = self.ascii_headers.copy()
         sig |= copy.copy(self._signature)
@@ -696,7 +696,7 @@ class PGPUID(ParentRef):
         """
         This will be a set of all of the key ids which have signed this User ID or Attribute.
         """
-        return set(s.signer for s in self.__sig__)
+        return {s.signer for s in self.__sig__}
 
     @property
     def hashdata(self):
@@ -793,7 +793,7 @@ class PGPUID(ParentRef):
         PGPUID implements the ``__format__`` method for User IDs, returning a string in the format
         'name (comment) <email>', leaving out any comment or email fields that are not present.
         """
-        super(PGPUID, self).__init__()
+        super().__init__()
         self._uid = None
         self._signatures = SorteDeque()
 
@@ -873,7 +873,7 @@ class PGPMessage(Armorable, PGPObject):
     @property
     def encrypters(self):
         """A ``set`` containing all key ids (if any) to which this message was encrypted."""
-        return set(m.encrypter for m in self._sessionkeys if isinstance(m, PKESessionKey))
+        return {m.encrypter for m in self._sessionkeys if isinstance(m, PKESessionKey)}
 
     @property
     def filename(self):
@@ -936,7 +936,7 @@ class PGPMessage(Armorable, PGPObject):
     @property
     def signers(self):
         """A ``set`` containing all key ids (if any) which have signed this message."""
-        return set(m.signer for m in self._signatures)
+        return {m.signer for m in self._signatures}
 
     @property
     def type(self):
@@ -965,7 +965,7 @@ class PGPMessage(Armorable, PGPObject):
         Any signatures within the PGPMessage that are marked as being non-exportable will not be included in the output
         of either of those methods.
         """
-        super(PGPMessage, self).__init__()
+        super().__init__()
         self._compression = CompressionAlgorithm.Uncompressed
         self._message = None
         self._mdc = None
@@ -987,20 +987,20 @@ class PGPMessage(Armorable, PGPObject):
 
     def __str__(self):
         if self.type == 'cleartext':
-            tmpl = u"-----BEGIN PGP SIGNED MESSAGE-----\n" \
-                   u"{hhdr:s}\n" \
-                   u"{cleartext:s}\n" \
-                   u"{signature:s}"
+            tmpl = "-----BEGIN PGP SIGNED MESSAGE-----\n" \
+                   "{hhdr:s}\n" \
+                   "{cleartext:s}\n" \
+                   "{signature:s}"
 
             # only add a Hash: header if we actually have at least one signature
-            hashes = set(s.hash_algorithm.name for s in self.signatures)
+            hashes = {s.hash_algorithm.name for s in self.signatures}
             hhdr = 'Hash: {hashes:s}\n'.format(hashes=','.join(sorted(hashes))) if hashes else ''
 
             return tmpl.format(hhdr=hhdr,
                                cleartext=self.dash_escape(self.bytes_to_text(self._message)),
-                               signature=super(PGPMessage, self).__str__())
+                               signature=super().__str__())
 
-        return super(PGPMessage, self).__str__()
+        return super().__str__()
 
     def __iter__(self):
         if self.type == 'cleartext':
@@ -1010,8 +1010,7 @@ class PGPMessage(Armorable, PGPObject):
         elif self.is_encrypted:
             for sig in self._signatures:
                 yield sig
-            for pkt in self._sessionkeys:
-                yield pkt
+            yield from self._sessionkeys
             yield self.message
 
         else:
@@ -1080,7 +1079,7 @@ class PGPMessage(Armorable, PGPObject):
         raise NotImplementedError(str(type(other)))
 
     def __copy__(self):
-        msg = super(PGPMessage, self).__copy__()
+        msg = super().__copy__()
         msg._compression = self._compression
         msg._message = copy.copy(self._message)
         msg._mdc = copy.copy(self._mdc)
@@ -1541,9 +1540,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             else (self.parent.fingerprint.keyid, SignatureType.Subkey_Binding)
 
         ##TODO: filter out revoked signatures as well
-        for sig in iter(sig for sig in self._signatures
-                        if all([sig.type == keytype, sig.signer == keyid, not sig.is_expired])):
-            yield sig
+        yield from iter(sig for sig in self._signatures
+                        if all([sig.type == keytype, sig.signer == keyid, not sig.is_expired]))
 
     @property
     def signers(self):
@@ -1555,9 +1553,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         keyid, keytype = (self.fingerprint.keyid, SignatureType.KeyRevocation) if self.is_primary \
             else (self.parent.fingerprint.keyid, SignatureType.SubkeyRevocation)
 
-        for sig in iter(sig for sig in self._signatures
-                        if all([sig.type == keytype, sig.signer == keyid, not sig.is_expired])):
-            yield sig
+        yield from iter(sig for sig in self._signatures
+                        if all([sig.type == keytype, sig.signer == keyid, not sig.is_expired]))
 
     @property
     def subkeys(self):
@@ -1624,7 +1621,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         Any signatures within the PGPKey that are marked as being non-exportable will not be included in the output
         of either of those methods.
         """
-        super(PGPKey, self).__init__()
+        super().__init__()
         self._key = None
         self._children = collections.OrderedDict()
         self._signatures = SorteDeque()
@@ -1713,7 +1710,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return self
 
     def __copy__(self):
-        key = super(PGPKey, self).__copy__()
+        key = super().__copy__()
         key._key = copy.copy(self._key)
 
         for uid in self._uids:
@@ -2619,7 +2616,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         getpkt = filter(lambda p: p.header.tag != PacketTag.Trust, iter(functools.partial(_getpkt, data), None))
 
         def pktgrouper():
-            class PktGrouper(object):
+            class PktGrouper:
                 def __init__(self):
                     self.last = None
 
@@ -2682,7 +2679,7 @@ class PGPKeyring(collections_abc.Container, collections_abc.Iterable, collection
         PGPKeyring objects represent in-memory keyrings that can contain any combination of supported private and public
         keys. It can not currently be conveniently exported to a format that can be understood by GnuPG.
         """
-        super(PGPKeyring, self).__init__()
+        super().__init__()
         self._keys = {}
         self._pubkeys = collections.deque()
         self._privkeys = collections.deque()
@@ -2701,8 +2698,7 @@ class PGPKeyring(collections_abc.Container, collections_abc.Iterable, collection
         return len(self._keys)
 
     def __iter__(self):  # pragma: no cover
-        for pgpkey in itertools.chain(self._pubkeys, self._privkeys):
-            yield pgpkey
+        yield from itertools.chain(self._pubkeys, self._privkeys)
 
     def _get_key(self, alias):
         for m in self._aliases:
@@ -2742,7 +2738,7 @@ class PGPKeyring(collections_abc.Container, collections_abc.Iterable, collection
             self._aliases[-1][alias] = pkid
 
         # this is a duplicate alias->key link; ignore it
-        elif alias in self and pkid in set(m[alias] for m in self._aliases if alias in m):
+        elif alias in self and pkid in {m[alias] for m in self._aliases if alias in m}:
             pass  # pragma: no cover
 
         # this is an alias that already exists, but points to a key that is not already referenced by it
@@ -2796,8 +2792,7 @@ class PGPKeyring(collections_abc.Container, collections_abc.Iterable, collection
         """
         def _preiter(first, iterable):
             yield first
-            for item in iterable:
-                yield item
+            yield from iterable
 
         loaded = set()
         for key in iter(item for ilist in iter(ilist if isinstance(ilist, (tuple, list)) else [ilist] for ilist in args)
