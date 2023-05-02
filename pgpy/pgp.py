@@ -74,6 +74,7 @@ from .packet.types import Opaque
 from .types import Armorable
 from .types import Fingerprint
 from .types import KeyID
+from .types import FingerprintDict
 from .types import ParentRef
 from .types import PGPObject
 from .types import SignatureVerification
@@ -1553,7 +1554,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             pub._key = self._key.pubkey()
 
             # get the public half of each subkey
-            for skid, subkey in self.subkeys.items():
+            for subkey in self._children.values():
                 pub |= subkey.pubkey
 
             # copy user ids and user attributes
@@ -1616,9 +1617,9 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                         if all([sig.type == keytype, sig.signer == keyid, not sig.is_expired]))
 
     @property
-    def subkeys(self):
+    def subkeys(self) -> FingerprintDict["PGPKey"]:
         """An :py:obj:`~collections.OrderedDict` of subkeys bound to this primary key, if applicable,
-        selected by 16-character keyid."""
+        indexd by keyid and fingerprint."""
         return self._children
 
     @property
@@ -1682,7 +1683,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         """
         super().__init__()
         self._key = None
-        self._children: Mapping[bytes, PGPKey] = collections.OrderedDict()
+        self._children = FingerprintDict["PGPKey"]()
         self._signatures = SorteDeque()
         self._uids: Deque[PGPUID] = SorteDeque()
         self._sibling = None
@@ -1717,10 +1718,10 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
     def __contains__(self, item):
         if isinstance(item, PGPKey):  # pragma: no cover
-            return item.fingerprint.keyid in self.subkeys
+            return item.fingerprint in self._children
 
         if isinstance(item, Fingerprint):  # pragma: no cover
-            return item.keyid in self.subkeys
+            return item in self._children
 
         if isinstance(item, PGPUID):
             return item in self._uids
@@ -1736,7 +1737,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
         elif isinstance(other, PGPKey) and not other.is_primary and other.is_public == self.is_public:
             other._parent = self
-            self._children[other.fingerprint.keyid] = other
+            self._children[other.fingerprint] = other
 
         elif isinstance(other, PGPSignature):
             self._signatures.insort(other)
@@ -1947,7 +1948,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             key._key = npk
             key._key.update_hlen()
 
-        self._children[key.fingerprint.keyid] = key
+        self._children[key.fingerprint] = key
         key._parent = self
 
         ##TODO: skip this step if the key already has a subkey binding signature
@@ -2400,13 +2401,13 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             crosssig = None
             # if possible, have the subkey create a primary key binding signature
             if key.key_algorithm.can_sign and prefs.pop('crosssign', True):
-                subkeyid = key.fingerprint.keyid
+                subkey_fpr = key.fingerprint
 
                 if not key.is_public:
                     crosssig = key.bind(self)
 
-                elif subkeyid in self.subkeys:  # pragma: no cover
-                    crosssig = self.subkeys[subkeyid].bind(self)
+                elif subkey_fpr in self._children:  # pragma: no cover
+                    crosssig = self._children[subkey_fpr].bind(self)
 
             if crosssig is None:
                 if usage is None:
@@ -2471,6 +2472,24 @@ class PGPKey(Armorable, ParentRef, PGPObject):
     def check_soundness(self, self_verifying=False):
         return self.check_management(self_verifying) | self.check_primitives()
 
+    def issuer_matches(self, sig: PGPSignature) -> bool:
+        '''Returns true if the signature indicates that it was made by this key or one of its subkeys'''
+        if sig.signer_fingerprint is not None and (sig.signer_fingerprint == self.fingerprint or sig.signer_fingerprint in self._children):
+            return True
+        if sig.signer is not None and sig.signer == self.fingerprint.keyid or sig.signer in self._children:
+            return True
+        return False
+
+    def signing_subkey(self, sig: PGPSignature) -> Optional["PGPKey"]:
+        '''returns None if this was not issued by a subkey; otherwise, returns the subkey that issued it.
+
+        note that this does *not* return the primary key'''
+        if sig.signer_fingerprint is not None:
+            return self._children.get(sig.signer_fingerprint)
+        if sig.signer is not None and sig.signer in self._children:
+            return self._children[sig.signer]
+        return None
+
     def verify(self, subject, signature=None):
         """
         Verify a subject with a signature using this key.
@@ -2490,9 +2509,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             raise TypeError("Unexpected signature value: {:s}".format(str(type(signature))))
 
         def _filter_sigs(sigs):
-            _ids = {self.fingerprint.keyid} | set(self.subkeys)
             for sig in sigs:
-                if sig.signer in _ids:
+                if self.issuer_matches(sig):
                     yield sig
 
         # collect signature(s)
@@ -2519,7 +2537,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                     for sig in _filter_sigs(subkey.__sig__):
                         sspairs.append((sig, subkey))
 
-        elif signature.signer in {self.fingerprint.keyid} | set(self.subkeys):
+        elif self.issuer_matches(signature):
             sspairs += [(signature, subject)]
 
         if len(sspairs) == 0:
@@ -2528,8 +2546,9 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         # finally, start verifying signatures
         sigv = SignatureVerification()
         for sig, subj in sspairs:
-            if self.fingerprint.keyid != sig.signer and sig.signer in self.subkeys:
-                sigv &= self.subkeys[sig.signer].verify(subj, sig)
+            signing_subkey = self.signing_subkey(sig)
+            if signing_subkey is not None:
+                sigv &= signing_subkey.verify(subj, sig)
 
             else:
                 if isinstance(subj, PGPKey):
@@ -2638,12 +2657,14 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             warnings.warn("This message is not encrypted", stacklevel=3)
             return message
 
-        if self.fingerprint.keyid not in message.encrypters:
-            sks = set(self.subkeys)
+        if self.fingerprint not in message.encrypters and self.fingerprint.keyid not in message.encrypters:
+            subkey_fprs = set(self.subkeys)
+            subkey_keyids = set(fpr.keyid for fpr in subkey_fprs)
+            subkeys = subkey_fprs | subkey_keyids
             mis = set(message.encrypters)
-            if sks & mis:
-                skid = list(sks & mis)[0]
-                return self.subkeys[skid].decrypt(message)
+            if subkeys & mis:
+                subkey = list(subkeys & mis)[0]
+                return self.subkeys[subkey].decrypt(message)
 
             raise PGPError("Cannot decrypt the provided message with this key")
 

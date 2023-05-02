@@ -46,6 +46,11 @@ string in that case):
 * signer
 * signer_fingerprint
 
+PGPKey.subkeys now returns an OrderedDict indexed by Fingerprint
+instead of KeyID.  When accessing this property via subscript (i.e.,
+key.subkeys[x]), you can *also* index it by KeyID, but using a full
+Fingerprint is recommended.
+
 v0.6.0
 ======
 

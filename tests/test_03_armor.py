@@ -206,7 +206,7 @@ block_attrs = {
          ('policy_uri',     ''),
          ('revocable',      True),
          ('revocation_key', None),
-         ('signer',         'FCAE54F74BA27CF7'),
+         ('signer',         KeyID('FCAE54F74BA27CF7')),
          ('type',           SignatureType.BinaryDocument)],
 
     'tests/testdata/blocks/eccpubkey.asc':
