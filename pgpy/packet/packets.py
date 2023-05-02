@@ -84,12 +84,14 @@ class PKESessionKey(VersionedPacket):
     __typeid__ = 0x01
     __ver__ = 0
 
+    # note that we don't have a good type signature for pk: it should be PrivKey, but from .fields, not the PrivKey in this file.
     @abc.abstractmethod
-    def decrypt_sk(self, pk):
+    def decrypt_sk(self, pk) -> Tuple[Optional[SymmetricKeyAlgorithm],bytes]:
         raise NotImplementedError()
 
+    # note that we don't have a good type signature for pk: it should be PubKey, but from .fields, not the PubKey in this file.
     @abc.abstractmethod
-    def encrypt_sk(self, pk, symalg, symkey):
+    def encrypt_sk(self, pk, symalg:Optional[SymmetricKeyAlgorithm], symkey:bytes) -> None:
         raise NotImplementedError()
 
 
@@ -217,7 +219,7 @@ class PKESessionKeyV3(PKESessionKey):
 
         return sk
 
-    def decrypt_sk(self, pk):
+    def decrypt_sk(self, pk) -> Tuple[Optional[SymmetricKeyAlgorithm],bytes]:
         if self.pkalg == PubKeyAlgorithm.RSAEncryptOrSign:
             # pad up ct with null bytes if necessary
             ct = self.ct.me_mod_n.to_mpibytes()[2:]
@@ -262,7 +264,7 @@ class PKESessionKeyV3(PKESessionKey):
 
         return (symalg, symkey)
 
-    def encrypt_sk(self, pk, symalg, symkey):
+    def encrypt_sk(self, pk, symalg:Optional[SymmetricKeyAlgorithm], symkey:bytes) -> None:
         m = bytearray(self.int_to_bytes(symalg) + symkey)
         m += self.int_to_bytes(sum(bytearray(symkey)) % 65536, 2)
 
