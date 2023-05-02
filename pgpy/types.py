@@ -33,7 +33,6 @@ __all__ = ['Armorable',
            'MetaDispatchable',
            'Dispatchable',
            'SignatureVerification',
-           'Fingerprint',
            'SorteDeque']
 
 
