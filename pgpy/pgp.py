@@ -657,7 +657,7 @@ class PGPUID(ParentRef):
             return "", "", ""
         if self._uid.uid == "":
             return "", "", ""
-        rfc2822 = re.match(r"""^
+        output = re.match(r"""^
                            # name should always match something
                            (?P<name>.+?)
                            # comment *optionally* matches text in parens following name
@@ -669,7 +669,10 @@ class PGPUID(ParentRef):
                            # but can immediately follow name if comment does not exist
                            (\ <(?P<email>.+)>)?
                            $
-                           """, self._uid.uid, flags=re.VERBOSE).groupdict()
+                           """, self._uid.uid, flags=re.VERBOSE)
+        if output is None:
+            raise ValueError("the standard User ID regex should have always matched something!")
+        rfc2822 = output.groupdict()
 
         return (rfc2822['name'], rfc2822['comment'] or "", rfc2822['email'] or "")
 
