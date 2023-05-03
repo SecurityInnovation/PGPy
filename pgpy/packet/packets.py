@@ -226,11 +226,11 @@ class PKESessionKeyV3(PKESessionKey):
             ct = b'\x00' * ((pk.keymaterial.__privkey__().key_size // 8) - len(ct)) + ct
 
             decrypter = pk.keymaterial.__privkey__().decrypt
-            decargs = (ct, padding.PKCS1v15(),)
+            decargs = [ct, padding.PKCS1v15()]
 
         elif self.pkalg == PubKeyAlgorithm.ECDH:
             decrypter = pk
-            decargs = ()
+            decargs = []
 
         else:
             raise NotImplementedError(self.pkalg)
@@ -270,11 +270,11 @@ class PKESessionKeyV3(PKESessionKey):
 
         if self.pkalg == PubKeyAlgorithm.RSAEncryptOrSign:
             encrypter = pk.keymaterial.__pubkey__().encrypt
-            encargs = (bytes(m), padding.PKCS1v15(),)
+            encargs = [bytes(m), padding.PKCS1v15()]
 
         elif self.pkalg == PubKeyAlgorithm.ECDH:
             encrypter = pk
-            encargs = (bytes(m),)
+            encargs = [bytes(m)]
 
         else:
             raise NotImplementedError(self.pkalg)
