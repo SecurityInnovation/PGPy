@@ -1076,8 +1076,13 @@ class PGPMessage(Armorable, PGPObject):
             self._sessionkeys += other._sessionkeys
             self._signatures += other._signatures
             return self
+        
+        if isinstance(other, (Opaque, SKEData, pgpy.packet.packets.Trust, pgpy.packet.packets.UserID, pgpy.packet.packets.UserAttribute)):
+            # XXX: fix some other time for 'real'
+            return self  # basically ignore packet for now
 
         raise NotImplementedError(str(type(other)))
+        
 
     def __copy__(self):
         msg = super(PGPMessage, self).__copy__()
@@ -2648,7 +2653,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
                 # and file away pgpobj
                 if isinstance(pgpobj, PGPKey):
-                    if pgpobj.is_primary:
+                    if pgpobj.is_primary or not keys:  # avoid erroring the else below if next(reversed(keys)) isn't available yet
                         keys[(pgpobj.fingerprint.keyid, pgpobj.is_public)] = pgpobj
 
                     else:
