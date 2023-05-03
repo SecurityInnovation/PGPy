@@ -79,7 +79,6 @@ __all__ = ['PKESessionKey',
            'IntegrityProtectedSKEDataV1',
            'MDC']
 
-
 class PKESessionKey(VersionedPacket):
     __typeid__ = 0x01
     __ver__ = 0
@@ -792,7 +791,7 @@ class PubKey(VersionedPacket, Primary, Public):
     __ver__ = 0
 
     @abc.abstractproperty
-    def fingerprint(self):
+    def fingerprint(self) -> Fingerprint:
         """compute and return the fingerprint of the key"""
 
 
