@@ -4,11 +4,7 @@ import contextlib
 import functools
 import logging
 
-try:
-    from singledispatch import singledispatch
-
-except ImportError:  # pragma: no cover
-    from functools import singledispatch
+from functools import singledispatch
 
 
 from .errors import PGPError
