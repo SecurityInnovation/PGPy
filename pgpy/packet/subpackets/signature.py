@@ -67,7 +67,6 @@ class URI(Signature):
         return self._uri
 
     @uri.register(str)
-    @uri.register(str)
     def uri_str(self, val):
         self._uri = val
 
@@ -418,7 +417,6 @@ class RegularExpression(Signature):
         return self._regex
 
     @regex.register(str)
-    @regex.register(str)
     def regex_str(self, val):
         self._regex = val
 
@@ -548,7 +546,6 @@ class RevocationKey(Signature):
         return self._fingerprint
 
     @fingerprint.register(str)
-    @fingerprint.register(str)
     @fingerprint.register(Fingerprint)
     def fingerprint_str(self, val):
         self._fingerprint = Fingerprint(val)
@@ -631,7 +628,6 @@ class NotationData(Signature):
         return self._name
 
     @name.register(str)
-    @name.register(str)
     def name_str(self, val):
         self._name = val
 
@@ -643,7 +639,6 @@ class NotationData(Signature):
     def value(self):
         return self._value
 
-    @value.register(str)
     @value.register(str)
     def value_str(self, val):
         self._value = val
@@ -761,7 +756,6 @@ class SignersUserID(Signature):
         return self._userid
 
     @userid.register(str)
-    @userid.register(str)
     def userid_str(self, val):
         self._userid = val
 
@@ -804,7 +798,6 @@ class ReasonForRevocation(Signature):
     def string(self):
         return self._string
 
-    @string.register(str)
     @string.register(str)
     def string_str(self, val):
         self._string = val
@@ -932,7 +925,6 @@ class IssuerFingerprint(Signature):
         return self._issuer_fpr
 
     @issuer_fingerprint.register(str)
-    @issuer_fingerprint.register(str)
     @issuer_fingerprint.register(Fingerprint)
     def issuer_fingerprint_str(self, val):
         self._issuer_fpr = Fingerprint(val)
@@ -1003,7 +995,6 @@ class IntendedRecipient(Signature):
     def intended_recipient(self):
         return self._intended_recipient
 
-    @intended_recipient.register(str)
     @intended_recipient.register(str)
     @intended_recipient.register(Fingerprint)
     def intended_recipient_str(self, val):
