@@ -572,7 +572,7 @@ class Dispatchable(PGPObject, metaclass=MetaDispatchable):
     def __typeid__(self):  # pragma: no cover
         return False
 
-    __ver__ = None
+    __ver__:Optional[int] = None
 
 
 class SignatureVerification:
