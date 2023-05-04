@@ -16,7 +16,7 @@ import weakref
 from enum import EnumMeta
 from enum import IntEnum
 
-from typing import Union, Optional, Dict
+from typing import Optional, Dict, Set, Tuple, Type, Union
 
 from .decorators import sdproperty
 
@@ -441,7 +441,7 @@ class MetaDispatchable(abc.ABCMeta):
     MetaDispatchable is a metaclass for objects that subclass Dispatchable
     """
 
-    _roots = set()
+    _roots:Set[Type] = set()
     """
     _roots is a set of all currently registered RootClass class objects
 
@@ -449,7 +449,7 @@ class MetaDispatchable(abc.ABCMeta):
      - it inherits (directly or indirectly) from Dispatchable
      - __typeid__ == -1
     """
-    _registry = {}
+    _registry:Dict[Union[Tuple[Type,int],Tuple[Type,int,int]],Type] = {}
     """
     _registry is the Dispatchable class registry. It uses the following format:
 
@@ -577,7 +577,7 @@ class Dispatchable(PGPObject, metaclass=MetaDispatchable):
 
 class SignatureVerification:
     __slots__ = ("_subjects",)
-    _sigsubj = collections.namedtuple('sigsubj', ['issues', 'by', 'signature', 'subject'])
+    sigsubj = collections.namedtuple('sigsubj', ['issues', 'by', 'signature', 'subject'])
 
     @property
     def good_signatures(self):
@@ -660,7 +660,7 @@ class SignatureVerification:
         if issues is None:
             from .constants import SecurityIssues
             issues = SecurityIssues(0xFF)
-        self._subjects.append(self._sigsubj(issues, by, signature, subject))
+        self._subjects.append(self.sigsubj(issues, by, signature, subject))
 
 
 class FlagEnumMeta(EnumMeta):

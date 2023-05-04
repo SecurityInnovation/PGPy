@@ -365,7 +365,7 @@ class SOPGPy(sop.StatelessOpenPGP):
                 for signer, cert in certs.items():
                     try:
                         verif: pgpy.types.SignatureVerification = cert.verify(msg, signature=sig)
-                        goodsig: pgpy.types.SignatureVerification._sigsubj
+                        goodsig: pgpy.types.SignatureVerification.sigsubj
                         for goodsig in verif.good_signatures:
                             sigtime = goodsig.signature.created
                             # some versions of pgpy return tz-naive objects, even though all timestamps are in UTC:
