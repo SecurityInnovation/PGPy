@@ -30,6 +30,7 @@ __all__ = ['Armorable',
            'FlagEnum',
            'FlagEnumMeta',
            'Header',
+           'KeyID',
            'MetaDispatchable',
            'Dispatchable',
            'DispatchGuidance',
@@ -674,6 +675,63 @@ class FlagEnumMeta(EnumMeta):
 
 namespace = FlagEnumMeta.__prepare__('FlagEnum', (IntEnum,))
 FlagEnum = FlagEnumMeta('FlagEnum', (IntEnum,), namespace)
+
+
+class KeyID(str):
+    '''
+    This class represents an 8-octet key ID, which is used on the wire in a v3 PKESK packet.
+
+    If a uint64 basic type existed in the stdlib, it would have been beter to use that instead.
+    '''
+    def __new__(cls, content: Union[str, bytes, bytearray]) -> "KeyID":
+        if isinstance(content, str):
+            if not re.match(r'^[0-9A-F]{16}$', content):
+                raise ValueError(f'Initializing a KeyID from a string requires it to be 16 uppercase hex digits, not "{content}"')
+            return str.__new__(cls, content)
+        elif isinstance(content, (bytes, bytearray)):
+            if len(content) != 8:
+                raise ValueError(f'Initializing a KeyID from a bytes or bytearray requires exactly 8 bytes, not {content!r}')
+            return str.__new__(cls, binascii.b2a_hex(content).decode('latin1').upper())
+        else:
+            raise TypeError(f'cannot initialize a KeyID from {type(content)}')
+
+    @classmethod
+    def from_bytes(cls, b: bytes) -> "KeyID":
+        return cls(binascii.b2a_hex(b).decode('latin-1').upper())
+
+    @classmethod
+    def parse(cls, b: bytearray) -> "KeyID":
+        'read a Key ID off the wire and consume the series of bytes that represent the Key ID.  Produces a new KeyID object'
+        ret = cls.from_bytes(b[:8])
+        del b[:8]
+        return ret
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, KeyID):
+            return str(self) == str(other)
+        if isinstance(other, Fingerprint):
+            return str(self) == str(other.keyid)
+        if isinstance(other, str):
+            if re.match(r'^[0-9A-F]{16}$', other):
+                return str(self) == other
+        if isinstance(other, bytes):
+            return bytes(self) == other
+        return False
+
+    def __ne__(self, other: object) -> bool:
+        return not (self == other)
+
+    def __int__(self) -> int:
+        return int.from_bytes(bytes(self), byteorder='big', signed=False)
+
+    def __hash__(self) -> int:
+        return hash(str(self))
+
+    def __bytes__(self) -> bytes:
+        return binascii.a2b_hex(self)
+
+    def __repr__(self) -> str:
+        return f"KeyID({self})"
 
 
 class Fingerprint(str):
