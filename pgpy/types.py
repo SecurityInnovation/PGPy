@@ -741,8 +741,8 @@ class Fingerprint(str):
     Primarily used as a key for internal dictionaries, so it ignores spaces when comparing and hashing
     """
     @property
-    def keyid(self):
-        return self[-16:]
+    def keyid(self) -> KeyID:
+        return KeyID(self[-16:])
 
     @property
     def shortid(self) -> str:
@@ -775,7 +775,7 @@ class Fingerprint(str):
         ret._version = 4 if version is None else version
         return ret
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, Fingerprint):
             return str(self) == str(other) and self._version == other._version
 
@@ -790,10 +790,10 @@ class Fingerprint(str):
 
         return False  # pragma: no cover
 
-    def __ne__(self, other):
+    def __ne__(self, other: object) -> bool:
         return not (self == other)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(str(self))
 
     def __bytes__(self) -> bytes:
@@ -802,7 +802,7 @@ class Fingerprint(str):
     def __wireformat__(self) -> bytes:
         return bytes([self._version]) + bytes(self)
 
-    def __pretty__(self):
+    def __pretty__(self) -> str:
         content = self
         if not bool(re.match(r'^[A-F0-9]{40}$', content)):
             raise ValueError("Expected: String of 40 hex digits")
