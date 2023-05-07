@@ -778,6 +778,8 @@ class Fingerprint(str):
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Fingerprint):
             return str(self) == str(other) and self._version == other._version
+        if isinstance(other, KeyID):
+            return self.keyid == other
 
         if isinstance(other, (str, bytes, bytearray)):
             if isinstance(other, (bytes, bytearray)):  # pragma: no cover
