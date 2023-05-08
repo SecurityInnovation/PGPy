@@ -54,6 +54,7 @@ from ..symenc import _cfb_decrypt
 from ..symenc import _cfb_encrypt
 
 from ..types import Fingerprint
+from ..types import KeyID
 
 __all__ = ['PKESessionKey',
            'PKESessionKeyV3',
@@ -95,6 +96,11 @@ class PKESessionKey(VersionedPacket):
     # note that we don't have a good type signature for pk: it should be PubKey, but from .fields, not the PubKey in this file.
     @abc.abstractmethod
     def encrypt_sk(self, pk, symalg: Optional[SymmetricKeyAlgorithm], symkey: bytes) -> None:
+        raise NotImplementedError()
+
+    # a PKESK should return a pointer to the recipient, or None
+    @abc.abstractproperty
+    def encrypter(self) -> Optional[Union[KeyID, Fingerprint]]:
         raise NotImplementedError()
 
 
@@ -164,12 +170,17 @@ class PKESessionKeyV3(PKESessionKey):
     __ver__ = 3
 
     @sdproperty
-    def encrypter(self):
+    def encrypter(self) -> Optional[KeyID]:
         return self._encrypter
 
-    @encrypter.register(bytearray)
-    def encrypter_bin(self, val):
-        self._encrypter = binascii.hexlify(val).upper().decode('latin-1')
+    @encrypter.register
+    def encrypter_bin(self, val: Union[bytearray,KeyID]) -> None:
+        if isinstance(val, KeyID):
+            self._encrypter: Optional[KeyID]
+        elif val == b'\x00' * 8:
+            self._encrypter = None
+        else:
+            self._encrypter = KeyID(val)
 
     @sdproperty
     def pkalg(self):
@@ -192,16 +203,19 @@ class PKESessionKeyV3(PKESessionKey):
         elif self._pkalg is PubKeyAlgorithm.ECDH:
             self.ct = ECDHCipherText()
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
-        self.encrypter = bytearray(8)
+        self._encrypter = None
         self.pkalg = 0
         self.ct = None
 
     def __bytearray__(self):
         _bytes = bytearray()
         _bytes += super().__bytearray__()
-        _bytes += binascii.unhexlify(self.encrypter.encode())
+        if self._encrypter is None:
+            _bytes += b'\x00' * 8
+        else:
+            _bytes += bytes(self._encrypter)
         if self.pkalg == PubKeyAlgorithm.Invalid:
             _bytes.append(self._opaque_pkalg)
         else:
