@@ -16,7 +16,7 @@ import weakref
 from enum import EnumMeta
 from enum import IntEnum
 
-from typing import Optional, Dict, List, Set, Tuple, Type, Union
+from typing import Optional, Dict, List, Set, Tuple, Type, Union, OrderedDict, TypeVar, Generic
 
 from .decorators import sdproperty
 
@@ -27,6 +27,8 @@ __all__ = ['Armorable',
            'PGPObject',
            'Field',
            'Fingerprint',
+           'FingerprintDict',
+           'FingerprintValue',
            'FlagEnum',
            'FlagEnumMeta',
            'Header',
@@ -845,3 +847,59 @@ class SorteDeque(collections.deque):
         """re-sort any items in self that are not sorted"""
         for unsorted in iter(self[i] for i in range(len(self) - 2) if not operator.le(self[i], self[i + 1])):
             self.resort(unsorted)
+
+
+FingerprintValue = TypeVar('FingerprintValue')
+
+
+class FingerprintDict(Generic[FingerprintValue], OrderedDict[Union[Fingerprint, KeyID, str], FingerprintValue]):
+    '''An ordered collection of PGPKey objects indexable by either KeyID or fingerprint.
+
+    Internally, they are all indexed by Fingerprint, but they can also
+    be reached by KeyID, or by string representations of either Key
+    ID or Fingerprint.
+
+    '''
+    @staticmethod
+    def _normalize_input(k: Union[Fingerprint, KeyID, str]) -> Union[Fingerprint, KeyID]:
+        if isinstance(k, (KeyID, Fingerprint)):
+            return k
+        if len(k) == 16:
+            return KeyID(k)
+        else:
+            return Fingerprint(k)
+
+    def _get_fpr_for_keyid(self, k: KeyID) -> Optional[Fingerprint]:
+        # FIXME: if more than one fingerprint matches the key ID, what do we do?
+        for fpr in super().keys():
+            if not isinstance(fpr, Fingerprint):
+                raise TypeError(f"keys should only be Fingerprint, somehow FingerprintDict got a key of type {type(fpr)}")
+            if fpr.keyid == k:
+                return fpr
+        return None
+
+    def __setitem__(self, k: Union[Fingerprint, KeyID, str], v: FingerprintValue) -> None:
+        if not isinstance(k, Fingerprint):
+            raise TypeError(f"items can only be added to a FingerprintDict by Fingerprint, not {type(k)}")
+        return super().__setitem__(k, v)
+
+    def __getitem__(self, k: Union[Fingerprint, KeyID, str]) -> FingerprintValue:
+        k = FingerprintDict._normalize_input(k)
+        if isinstance(k, Fingerprint):
+            return super().__getitem__(k)
+        fpr = self._get_fpr_for_keyid(k)
+        if fpr is None:
+            raise KeyError(k)
+        return super().__getitem__(fpr)
+
+    # FIXME: __getitem__ only replaces how the [] operator works.  The
+    # "get" method only works by using Fingerprints.  Trying to
+    # override get causes complaints from the typechecker.
+
+    def __contains__(self, k: object):
+        if not isinstance(k, (str, KeyID, Fingerprint)):
+            raise TypeError(k)
+        k = FingerprintDict._normalize_input(k)
+        if isinstance(k, Fingerprint):
+            return super().__contains__(k)
+        return self._get_fpr_for_keyid(k) is not None
