@@ -14,6 +14,7 @@ import functools
 import itertools
 import operator
 import os
+from mmap import mmap
 import re
 import warnings
 import weakref
@@ -2424,7 +2425,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         sspairs = []
 
         # some type checking
-        if not isinstance(subject, (type(None), PGPMessage, PGPKey, PGPUID, PGPSignature, str, bytes, bytearray)):
+        if not isinstance(subject, (type(None), PGPMessage, PGPKey, PGPUID, PGPSignature, str, bytes, bytearray, mmap)):
             raise TypeError("Unexpected subject value: {:s}".format(str(type(subject))))
         if not isinstance(signature, (type(None), PGPSignature)):
             raise TypeError("Unexpected signature value: {:s}".format(str(type(signature))))
