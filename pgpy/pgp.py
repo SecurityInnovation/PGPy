@@ -289,7 +289,7 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         return ret
 
     @property
-    def signer(self):
+    def signer(self) -> Optional[KeyID]:
         """
         The 16-character Key ID of the key that generated this signature.
         """
@@ -959,8 +959,8 @@ class PGPMessage(Armorable, PGPObject):
         return len(self._signatures) > 0
 
     @property
-    def issuers(self):
-        """A ``set`` containing all key ids (if any) which have signed or encrypted this message."""
+    def issuers(self) -> Set[Union[KeyID, Fingerprint]]:
+        """A ``set`` containing all key ids and Fingerprint (if any) which are indicated to have signed or encrypted this message."""
         return self.encrypters | self.signers
 
     @property
@@ -987,7 +987,7 @@ class PGPMessage(Armorable, PGPObject):
         return list(self._signatures)
 
     @property
-    def signers(self):
+    def signers(self) -> Set[Union[KeyID, Fingerprint]]:
         """A ``set`` containing all key ids (if any) which have signed this message."""
         return {m.signer for m in self._signatures}
 

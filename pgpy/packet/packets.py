@@ -413,7 +413,7 @@ class SignatureV4(Signature):
         self._signature = val
 
     @property
-    def signer(self):
+    def signer(self) -> KeyID:
         return self.subpackets['Issuer'][-1].issuer
 
     def __init__(self):
@@ -751,23 +751,19 @@ class OnePassSignatureV3(OnePassSignature):
                 self._opaque_halg: int = val
 
     @sdproperty
-    def signer(self):
+    def signer(self) -> KeyID:
         return self._signer
 
-    @signer.register(str)
-    def signer_str(self, val):
-        self._signer = val
-
-    @signer.register(bytearray)
-    def signer_bin(self, val):
-        self._signer = binascii.hexlify(val).upper().decode('latin-1')
+    @signer.register
+    def signer_bin(self, val: Union[bytearray, bytes, str, KeyID, Fingerprint]):
+        self._signer = KeyID(val)
 
     def __init__(self):
         super().__init__()
         self._sigtype = None
         self._halg = None
         self._pubalg = None
-        self._signer = b'\x00' * 8
+        self._signer = KeyID(b'\x00' * 8)
         self.nested = False
 
     def __bytearray__(self):
@@ -779,7 +775,7 @@ class OnePassSignatureV3(OnePassSignature):
         else:
             _bytes.append(self.halg)
         _bytes += bytearray([self.pubalg])
-        _bytes += binascii.unhexlify(self.signer.encode("latin-1"))
+        _bytes += bytes(self.signer)
         _bytes += bytearray([int(not self.nested)])
         return _bytes
 
