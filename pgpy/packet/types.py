@@ -4,7 +4,7 @@
 import abc
 import copy
 
-from typing import Optional
+from typing import Optional, Tuple
 
 from ..constants import PacketTag
 
@@ -268,7 +268,7 @@ class MPI(long):
 class MPIs(Field):
     # this differs from MPI in that it's subclasses hold/parse several MPI fields
     # and, in the case of v4 private keys, also a String2Key specifier/information.
-    __mpis__ = ()
+    __mpis__:Tuple = ()
 
     def __len__(self):
         return sum(len(i) for i in self)

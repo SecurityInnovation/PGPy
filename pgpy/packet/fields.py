@@ -12,7 +12,7 @@ import os
 
 import collections.abc
 
-from typing import Union
+from typing import Tuple, Union
 
 from cryptography.exceptions import InvalidSignature
 
@@ -327,7 +327,7 @@ class EdDSASignature(DSASignature):
 
 
 class PubKey(MPIs):
-    __pubfields__ = ()
+    __pubfields__:Tuple = ()
 
     @property
     def __mpis__(self):
@@ -1084,7 +1084,7 @@ class ECKDF(Field):
 
 
 class PrivKey(PubKey):
-    __privfields__ = ()
+    __privfields__:Tuple = ()
 
     @property
     def __mpis__(self):
