@@ -296,13 +296,13 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         return self._signature.signer
 
     @property
-    def signer_fingerprint(self):
+    def signer_fingerprint(self) -> Optional[Fingerprint]:
         """
-        The fingerprint of the key that generated this signature, if it contained. Otherwise, an empty ``str``.
+        The fingerprint of the key that generated this signature, if it contained. Otherwise, None.
         """
         if 'IssuerFingerprint' in self._signature.subpackets:
             return next(iter(self._signature.subpackets['IssuerFingerprint'])).issuer_fingerprint
-        return ''
+        return None
 
     @property
     def intended_recipients(self):

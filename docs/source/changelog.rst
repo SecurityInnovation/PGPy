@@ -39,6 +39,12 @@ cryptography.hazmat.primitives.hashes.Hash object, not a hashlib.HASH
 object.  The main difference between these interfaces is the use of
 finalize() instead of digest().
 
+The following property of PGPSignature now returns None if the
+corresponding subpacket is not present (it used to return an empty
+string in that case):
+
+* signer_fingerprint
+
 v0.6.0
 ======
 
