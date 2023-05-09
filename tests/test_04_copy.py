@@ -36,6 +36,10 @@ def walk_obj(obj, prefix=""):
         if hasattr(obj.__class__, name):
             continue
 
+        # avoid descending into members of a derived generic class:
+        if name == '__orig_class__':
+            continue
+
         yield '{}{}'.format(prefix, name), val
 
         if not isinstance(val, Enum):
