@@ -3,6 +3,7 @@
 """
 
 from typing import Dict, Optional, Tuple
+from types import ModuleType
 
 import pytest
 
@@ -10,6 +11,12 @@ from warnings import warn
 
 from pgpy import PGPKey, PGPSignature, PGPMessage
 from pgpy.errors import PGPDecryptionError
+
+Cryptodome:Optional[ModuleType]
+try:
+    import Cryptodome
+except ModuleNotFoundError:
+    Cryptodome = None
 
 class TestPGP_CryptoRefresh(object):
     def test_v4_sigs(self) -> None:
@@ -30,8 +37,8 @@ class TestPGP_CryptoRefresh(object):
     def test_v6_skesk(self, aead: str) -> None:
         msg = PGPMessage.from_file(f'tests/testdata/crypto-refresh/v6skesk-aes128-{aead}.pgp')
         assert msg.is_encrypted
-        if aead == 'eax':
-            pytest.xfail('AEAD Mode EAX not supported')
+        if aead == 'eax' and Cryptodome is None:
+            pytest.xfail('AEAD Mode EAX is not supported unless the Cryptodome module is available')
         unlocked = msg.decrypt('password')
         assert not unlocked.is_encrypted
         assert unlocked.message == b'Hello, world!'

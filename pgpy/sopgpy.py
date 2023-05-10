@@ -38,6 +38,7 @@ import codecs
 import logging
 import packaging.version
 from importlib import metadata
+from types import ModuleType
 
 from datetime import datetime, timezone
 from typing import List, Literal, Union, Optional, Set, Tuple, MutableMapping, Dict, Callable
@@ -48,14 +49,24 @@ from cryptography.hazmat.backends import openssl
 import sop
 import pgpy
 
+Maybe_Cryptodome: Optional[ModuleType]
+try:
+    import Cryptodome as Maybe_Cryptodome
+except ModuleNotFoundError:
+    Maybe_Cryptodome = None
+
 
 class SOPGPy(sop.StatelessOpenPGP):
     def __init__(self) -> None:
         self.pgpy_version = packaging.version.Version(metadata.version('pgpy'))
         self.cryptography_version = packaging.version.Version(metadata.version('cryptography'))
+        self.cryptodome_version = ''
+        if Maybe_Cryptodome is not None:
+            cdv: Tuple[int, int, str] = Maybe_Cryptodome.version_info
+            self.cryptodome_version = f'\nCryptodome (for EAX): {cdv[0]}.{cdv[1]}.{cdv[2]}'
         super().__init__(name='sopgpy', version=f'{self.pgpy_version}',
                          backend=f'PGPy {self.pgpy_version}',
-                         extended=f'python-cryptography {self.cryptography_version}\n{openssl.backend.openssl_version_text()}',
+                         extended=f'python-cryptography {self.cryptography_version}\n{openssl.backend.openssl_version_text()}{self.cryptodome_version}',
                          description=f'Stateless OpenPGP using PGPy {self.pgpy_version}')
 
     @property

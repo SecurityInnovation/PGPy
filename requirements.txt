@@ -1,3 +1,4 @@
 argon2_cffi
 cryptography>=3.3.2
 sop>=0.5.1[sopgpy]
+pycryptodomex[eax]

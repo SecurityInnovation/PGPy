@@ -67,6 +67,10 @@ To use `sopgpy` you'll also need:
 
 - `sop <https://pypi.org/project/sop/>`_ >= 0.5.1
 
+To use EAX as an AEAD mode, you'll also need:
+
+- `Cryptodome <https://pypi.org/project/pycryptodomex/>`_
+  
 License
 -------
 
