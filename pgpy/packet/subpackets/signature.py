@@ -102,17 +102,12 @@ class FlagList(Signature):
     def flags(self):
         return self._flags
 
-    @flags.register(list)
-    @flags.register(tuple)
-    def flags_list(self, val):
+    @flags.register
+    def flags_list(self, val: Union[list, tuple]):
         self._flags = list(val)
 
-    @flags.register(int)
-    @flags.register(CompressionAlgorithm)
-    @flags.register(HashAlgorithm)
-    @flags.register(PubKeyAlgorithm)
-    @flags.register(SymmetricKeyAlgorithm)
-    def flags_int(self, val):
+    @flags.register
+    def flags_int(self, val: int):
         if self.__flags__ is None:  # pragma: no cover
             raise AttributeError("Error: __flags__ not set!")
 
