@@ -17,7 +17,7 @@ import weakref
 
 from datetime import datetime, timezone
 
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Deque, List, Mapping, Optional, Tuple, Union
 
 from cryptography.hazmat.primitives import hashes
 
@@ -1621,7 +1621,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return self._children
 
     @property
-    def userids(self):
+    def userids(self) -> List[PGPUID]:
         """A ``list`` of :py:obj:`PGPUID` objects containing User ID information about this key"""
         return [ u for u in self._uids if u.is_uid ]
 
@@ -1666,7 +1666,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
         return key
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         PGPKey objects represent OpenPGP compliant keys along with all of their associated data.
 
@@ -1681,9 +1681,9 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         """
         super().__init__()
         self._key = None
-        self._children = collections.OrderedDict()
+        self._children: Mapping[bytes, PGPKey] = collections.OrderedDict()
         self._signatures = SorteDeque()
-        self._uids = SorteDeque()
+        self._uids: Deque[PGPUID] = SorteDeque()
         self._sibling = None
         self._self_verified = None
         self._require_usage_flags = True
