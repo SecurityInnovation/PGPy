@@ -57,6 +57,7 @@ from ..constants import String2KeyType
 from ..constants import S2KGNUExtension
 from ..constants import SymmetricKeyAlgorithm
 from ..constants import S2KUsage
+from ..constants import AEADMode
 
 from ..decorators import sdproperty
 
@@ -1173,7 +1174,7 @@ class S2KSpecifier(Field):
 class String2Key(Field):
     """
     Used for secret key protection.
-    This contains an S2KUsage flag.  Depending on the S2KUsage flag, it can also contain an S2KSpecifier, an encryption algorithm, and an IV.
+    This contains an S2KUsage flag.  Depending on the S2KUsage flag, it can also contain an S2KSpecifier, an encryption algorithm, an AEAD mode, and an IV.
     """
 
     @sdproperty
@@ -1191,11 +1192,15 @@ class String2Key(Field):
     def _iv_length(self) -> int:
         if self.usage is S2KUsage.Unprotected:
             return 0
-        elif self.usage in [S2KUsage.MalleableCFB, S2KUsage.CFB]:
+        elif self.usage in {S2KUsage.MalleableCFB, S2KUsage.CFB}:
             if not self._specifier._type.has_iv:
                 # this is likely some sort of weird extension case
                 return 0
             return self.encalg.block_size // 8
+        elif self.usage is S2KUsage.AEAD:
+            if self._aead_mode is None:
+                raise TypeError("missing AEAD mode for String2Key with AEAD usage")
+            return self._aead_mode.iv_len
         else:
             return SymmetricKeyAlgorithm(self.usage).block_size // 8
 
@@ -1230,6 +1235,7 @@ class String2Key(Field):
         self.key_version = key_version
         self.usage = S2KUsage.Unprotected
         self._encalg = SymmetricKeyAlgorithm.AES256
+        self._aead_mode: Optional[AEADMode] = None
         self._specifier = S2KSpecifier()
         self._iv = None
 
@@ -1238,6 +1244,8 @@ class String2Key(Field):
         _bytes.append(self.usage)
         if bool(self):
             _bytes.append(self.encalg)
+            if self.usage == S2KUsage.AEAD:
+                _bytes.append(self._specifier.aead_mode)
             _bytes += self._specifier.__bytearray__()
             if self.iv is not None:
                 _bytes += self.iv
@@ -1247,7 +1255,10 @@ class String2Key(Field):
         return len(self.__bytearray__())
 
     def __bool__(self) -> bool:
-        return self.usage in [S2KUsage.CFB, S2KUsage.MalleableCFB]
+        # FIXME: what if usage octet is a cipher algorithm?  This is
+        # deprecated enough that it must not be generated, but we
+        # might want to handle it properly on decryption
+        return self.usage in {S2KUsage.AEAD, S2KUsage.CFB, S2KUsage.MalleableCFB}
 
     def __copy__(self) -> String2Key:
         s2k = String2Key(self.key_version)
@@ -1266,6 +1277,10 @@ class String2Key(Field):
             self.encalg = SymmetricKeyAlgorithm(packet[0])
             del packet[0]
 
+            if self.usage is S2KUsage.AEAD:
+                self._aead_mode = AEADMode(packet[0])
+                del packet[0]
+
             self._specifier.parse(packet)
             if self.encalg is not SymmetricKeyAlgorithm.Plaintext:
                 ivlen = self._iv_length
@@ -1274,9 +1289,11 @@ class String2Key(Field):
                     del packet[:(ivlen)]
 
     def derive_key(self, passphrase) -> bytes:
-        derivable = {S2KUsage.MalleableCFB, S2KUsage.CFB}
+        derivable = {S2KUsage.MalleableCFB, S2KUsage.CFB, S2KUsage.AEAD}
         if self.usage not in derivable:
             raise ValueError(f"can only derive key from String2Key object when usage octet is {derivable}, not {self.usage}")
+        if self.encalg is None:
+            raise ValueError("cannot derive key from String2Key object when encalg is unset")
         return self._specifier.derive_key(passphrase, self.encalg.key_size)
 
 

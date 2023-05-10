@@ -305,6 +305,8 @@ class S2KUsage(IntEnum):
     Camellia192 = 12
     Camellia256 = 13
 
+    # modern AEAD protection:
+    AEAD = 253
     # sensible use of tamper-resistant CFB:
     CFB = 254
     # legacy use of CFB:
