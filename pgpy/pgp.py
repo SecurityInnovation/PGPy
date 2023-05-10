@@ -123,7 +123,7 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         return self.parent is not None
 
     @property
-    def expires_at(self):
+    def expires_at(self) -> Optional[datetime]:
         """
         A :py:obj:`~datetime.datetime` of when this signature expires, if a signature expiration date is specified.
         Otherwise, ``None``
@@ -134,7 +134,7 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         return None
 
     @property
-    def exportable(self):
+    def exportable(self) -> bool:
         """
         ``False`` if this signature is marked as being not exportable. Otherwise, ``True``.
         """
@@ -166,7 +166,7 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         return []
 
     @property
-    def hash_algorithm(self):
+    def hash_algorithm(self) -> HashAlgorithm:
         """
         The :py:obj:`~constants.HashAlgorithm` used when computing this signature.
         """
@@ -250,7 +250,7 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         return ''
 
     @property
-    def revocable(self):
+    def revocable(self) -> bool:
         """
         ``False`` if this signature is marked as being not revocable. Otherwise, ``True``.
         """
@@ -265,7 +265,7 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         return None
 
     @property
-    def revocation_reason(self):
+    def revocation_reason(self) -> Optional[ReasonForRevocation]:
         if 'ReasonForRevocation' in self._signature.subpackets:
             subpacket = next(iter(self._signature.subpackets['ReasonForRevocation']))
             return self.ReasonForRevocation(subpacket.code, subpacket.string)
