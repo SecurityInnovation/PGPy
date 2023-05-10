@@ -737,7 +737,7 @@ class Features(IntFlag):
     ModificationDetection = 0x01
     UnknownFeature02 = 0x02
     UnknownFeature04 = 0x04
-    UnknownFeature08 = 0x08
+    SEIPDv2 = 0x08
     UnknownFeature10 = 0x10
     UnknownFeature20 = 0x20
     UnknownFeature40 = 0x40
