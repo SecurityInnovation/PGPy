@@ -10,7 +10,7 @@ from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 
-from typing import Optional, Type
+from typing import Optional, Type, Union
 
 from .types import EmbeddedSignatureHeader
 from .types import Signature
@@ -882,43 +882,39 @@ class EmbeddedSignature(Signature):
 
 
 class IssuerFingerprint(Signature):
-    '''
-    (from RFC4880bis-07)
-    5.2.3.28.  Issuer Fingerprint
+    '''(from crypto-refresh-07)
+    5.2.3.35. Issuer Fingerprint
 
     (1 octet key version number, N octets of fingerprint)
 
-    The OpenPGP Key fingerprint of the key issuing the signature.  This
-    subpacket SHOULD be included in all signatures.  If the version of
-    the issuing key is 4 and an Issuer subpacket is also included in the
-    signature, the key ID of the Issuer subpacket MUST match the low 64
-    bits of the fingerprint.
+    The OpenPGP Key fingerprint of the key issuing the signature. This
+    subpacket SHOULD be included in all signatures. If the version of
+    the issuing key is 4 and an Issuer Key ID subpacket (Section
+    5.2.3.12) is also included in the signature, the key ID of the
+    Issuer Key ID subpacket MUST match the low 64 bits of the
+    fingerprint.
 
-    Note that the length N of the fingerprint for a version 4 key is 20
-    octets; for a version 5 key N is 32.
+    Note that the length N of the fingerprint for a version 4 key is
+    20 octets; for a version 6 key N is 32. Since the version of the
+    signature is bound to the version of the key, the version octet
+    here MUST match the version of the signature. If the version octet
+    does not match the signature version, the receiving implementation
+    MUST treat it as a malformed signature (see Section 5.2.5).
     '''
     __typeid__ = 0x21
 
-    @sdproperty
-    def version(self):
-        return self._version
-
-    @version.register(int)
-    def version_int(self, val):
-        self._version = val
-
-    @version.register(bytearray)
-    def version_bytearray(self, val):
-        self.version = self.bytes_to_int(val)
+    def __init__(self) -> None:
+        super(IssuerFingerprint, self).__init__()
+        self._issuer_fpr: Optional[Fingerprint] = None
 
     @sdproperty
     def issuer_fingerprint(self) -> Optional[Fingerprint]:
         return self._issuer_fpr
 
     @issuer_fingerprint.register
-    def issuer_fingerprint_str(self, val: str) -> None:
+    def issuer_fingerprint_set(self, val: Union[str, bytearray, bytes, Fingerprint]) -> None:
         if isinstance(val, Fingerprint):
-            self._issuer_fpr: Optional[Fingerprint] = val
+            self._issuer_fpr = val
         else:
             self._issuer_fpr = Fingerprint(val)
 
@@ -926,101 +922,73 @@ class IssuerFingerprint(Signature):
     def issuer_fingerprint_bytearray(self, val: bytearray) -> None:
         self.issuer_fingerprint = Fingerprint(''.join('{:02x}'.format(c) for c in val).upper())
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.version = 4
-        self._issuer_fpr = None
-
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super().__bytearray__()
-        _bytes += self.int_to_bytes(self.version)
-        _bytes += self.issuer_fingerprint.__bytes__()
+        _bytes += self.issuer_fingerprint.__wireformat__()
         return _bytes
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         super().parse(packet)
-        self.version = packet[:1]
-        del packet[:1]
+        version = packet[0]
+        del packet[0]
 
-        if self.version == 4:
-            fpr_len = 20
-        elif self.version == 5:  # pragma: no cover
-            fpr_len = 32
-        else:  # pragma: no cover
-            fpr_len = self.header.length - 1
+        fpr_len = self.header.length - 2
 
-        self.issuer_fingerprint = packet[:fpr_len]
+        self.issuer_fingerprint = Fingerprint(packet[:fpr_len], version)
         del packet[:fpr_len]
 
 
 class IntendedRecipient(Signature):
-    '''
-    (from RFC4880bis-08)
-    5.2.3.29. Intended Recipient
+    '''(from crypto-refresh-08)
+    5.2.3.36. Intended Recipient Fingerprint
 
     (1 octet key version number, N octets of fingerprint)
 
-    The OpenPGP Key fingerprint of the intended recipient primary key.
-    If one or more subpackets of this type are included in a signature,
-    it SHOULD be considered valid only in an encrypted context, where the
-    key it was encrypted to is one of the indicated primary keys, or one
-    of their subkeys.  This can be used to prevent forwarding a signature
-    outside of its intended, encrypted context.
+    The OpenPGP Key fingerprint of the intended recipient primary
+    key. If one or more subpackets of this type are included in a
+    signature, it SHOULD be considered valid only in an encrypted
+    context, where the key it was encrypted to is one of the indicated
+    primary keys, or one of their subkeys. This can be used to prevent
+    forwarding a signature outside of its intended, encrypted context
+    (see Section 14.11).
 
-    Note that the length N of the fingerprint for a version 4 key is 20
-    octets; for a version 5 key N is 32.
+    Note that the length N of the fingerprint for a version 4 key is
+    20 octets; for a version 6 key N is 32.
+
+    An implementation SHOULD generate this subpacket when creating a
+    signed and encrypted message.
     '''
     __typeid__ = 0x23
 
-    @sdproperty
-    def version(self):
-        return self._version
-
-    @version.register(int)
-    def version_int(self, val):
-        self._version = val
-
-    @version.register(bytearray)
-    def version_bytearray(self, val):
-        self.version = self.bytes_to_int(val)
+    def __init__(self) -> None:
+        super(IntendedRecipient, self).__init__()
+        self._intended_recipient: Optional[Fingerprint] = None
 
     @sdproperty
-    def intended_recipient(self):
+    def intended_recipient(self) -> Fingerprint:
+        if self._intended_recipient is None:
+            raise ValueError("tried to access the intended recipient fingerprint before it was set")
         return self._intended_recipient
 
-    @intended_recipient.register(str)
-    @intended_recipient.register(Fingerprint)
-    def intended_recipient_str(self, val):
-        self._intended_recipient = Fingerprint(val)
+    @intended_recipient.register
+    def intended_recipient_set(self, val: Union[str, bytearray, bytes, Fingerprint]) -> None:
+        if not isinstance(val, Fingerprint):
+            val = Fingerprint(val)
+        self._intended_recipient = val
 
-    @intended_recipient.register(bytearray)
-    def intended_recipient_bytearray(self, val):
-        self.intended_recipient = ''.join('{:02x}'.format(c) for c in val).upper()
-
-    def __init__(self):
-        super().__init__()
-        self.version = 4
-        self._intended_recipient = ""
-
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super().__bytearray__()
-        _bytes += self.int_to_bytes(self.version)
-        _bytes += self.intended_recipient.__bytes__()
+        _bytes += self.intended_recipient.__wireformat__()
         return _bytes
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         super().parse(packet)
-        self.version = packet[:1]
-        del packet[:1]
+        version: int = packet[0]
+        del packet[0]
 
-        if self.version == 4:
-            fpr_len = 20
-        elif self.version == 5:  # pragma: no cover
-            fpr_len = 32
-        else:  # pragma: no cover
-            fpr_len = self.header.length - 1
+        fpr_len = self.header.length - 2
 
-        self.intended_recipient = packet[:fpr_len]
+        self.intended_recipient = Fingerprint(packet[:fpr_len], version=version)
         del packet[:fpr_len]
 
 
