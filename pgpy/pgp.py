@@ -1276,7 +1276,7 @@ class PGPMessage(Armorable, PGPObject):
         skesk.s2k.specifier = 3
         skesk.s2k.halg = hash_algo
         skesk.s2k.encalg = cipher_algo
-        skesk.s2k.count = skesk.s2k.halg.tuned_count
+        skesk.s2k.count = 255
 
         if sessionkey is None:
             sessionkey = cipher_algo.gen_key()
