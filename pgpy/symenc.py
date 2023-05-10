@@ -1,21 +1,23 @@
 """ symenc.py
 """
 
-from typing import Optional
+from typing import Optional, Union
 
 from cryptography.exceptions import UnsupportedAlgorithm
 
 from cryptography.hazmat.primitives.ciphers import Cipher
 from cryptography.hazmat.primitives.ciphers import modes
+from cryptography.hazmat.primitives.ciphers.aead import AESOCB3, AESGCM
 
-from .constants import SymmetricKeyAlgorithm
+from .constants import AEADMode, SymmetricKeyAlgorithm
 
 from .errors import PGPDecryptionError
 from .errors import PGPEncryptionError
 from .errors import PGPInsecureCipherError
 
 __all__ = ['_cfb_encrypt',
-           '_cfb_decrypt']
+           '_cfb_decrypt',
+           'AEAD']
 
 
 def _cfb_encrypt(pt: bytes, key: bytes, alg: SymmetricKeyAlgorithm, iv: Optional[bytes] = None) -> bytearray:
@@ -57,3 +59,22 @@ def _cfb_decrypt(ct: bytes, key: bytes, alg: SymmetricKeyAlgorithm, iv: Optional
 
     else:
         return bytearray(decryptor.update(ct) + decryptor.finalize())
+
+
+class AEAD:
+    def __init__(self, cipher: SymmetricKeyAlgorithm, mode: AEADMode, key: bytes) -> None:
+        self._aead: Union[AESOCB3, AESGCM]
+        if cipher not in [SymmetricKeyAlgorithm.AES128, SymmetricKeyAlgorithm.AES192, SymmetricKeyAlgorithm.AES256]:
+            raise NotImplementedError(f"Cannot do AEAD with non-AES cipher (requested cipher: {cipher!r})")
+        if mode == AEADMode.OCB:
+            self._aead = AESOCB3(key)
+        elif mode == AEADMode.GCM:
+            self._aead = AESGCM(key)
+        else:
+            raise NotImplementedError(f"Cannot do AEAD mode other than OCB, and GCM (requested mode: {mode!r})")
+
+    def encrypt(self, nonce: bytes, data: bytes, associated_data: Optional[bytes] = None) -> bytes:
+        return self._aead.encrypt(nonce, data, associated_data)
+
+    def decrypt(self, nonce: bytes, data: bytes, associated_data: Optional[bytes] = None) -> bytes:
+        return self._aead.decrypt(nonce, data, associated_data)
