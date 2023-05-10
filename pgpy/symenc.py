@@ -5,8 +5,6 @@ from typing import Optional
 
 from cryptography.exceptions import UnsupportedAlgorithm
 
-from cryptography.hazmat.backends import default_backend
-
 from cryptography.hazmat.primitives.ciphers import Cipher
 from cryptography.hazmat.primitives.ciphers import modes
 
@@ -31,7 +29,7 @@ def _cfb_encrypt(pt: bytes, key: bytes, alg: SymmetricKeyAlgorithm, iv: Optional
         raise PGPEncryptionError("Cipher {:s} not supported".format(alg.name))
 
     try:
-        encryptor = Cipher(alg.cipher(key), modes.CFB(iv), default_backend()).encryptor()
+        encryptor = Cipher(alg.cipher(key), modes.CFB(iv)).encryptor()
 
     except UnsupportedAlgorithm as ex:  # pragma: no cover
         raise PGPEncryptionError from ex
@@ -52,7 +50,7 @@ def _cfb_decrypt(ct: bytes, key: bytes, alg: SymmetricKeyAlgorithm, iv: Optional
         iv = b'\x00' * (alg.block_size // 8)
 
     try:
-        decryptor = Cipher(alg.cipher(key), modes.CFB(iv), default_backend()).decryptor()
+        decryptor = Cipher(alg.cipher(key), modes.CFB(iv)).decryptor()
 
     except UnsupportedAlgorithm as ex:  # pragma: no cover
         raise PGPDecryptionError from ex

@@ -22,7 +22,6 @@ from .types import FlagEnum
 from .decorators import classproperty
 
 __all__ = [
-    'Backend',
     'ECFields',
     'EllipticCurveOID',
     'ECPointFormat',
@@ -51,10 +50,6 @@ __all__ = [
 
 # this is 50 KiB
 _hashtunedata = bytearray([10, 11, 12, 13, 14, 15, 16, 17] * 128 * 50)
-
-
-class Backend(Enum):
-    OpenSSL = openssl.backend
 
 
 class ECPointFormat(IntEnum):

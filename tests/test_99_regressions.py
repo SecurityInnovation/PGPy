@@ -27,7 +27,6 @@ def test_reg_bug_56():
     from pgpy.constants import PubKeyAlgorithm
     from pgpy.constants import SignatureType
 
-    from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.primitives.asymmetric import padding
 
