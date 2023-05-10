@@ -48,6 +48,14 @@ string in that case):
 * signer
 * signer_fingerprint
 
+And the following properties of PGPSignature now return an
+enum.IntFlag object instead of a set of custom FlagEnum objects.  When
+the corresponding subpacket is not present at all, they return None:
+
+* key_flags
+* keyserverprefs
+* features
+
 PGPKey.subkeys now returns an OrderedDict indexed by Fingerprint
 instead of KeyID.  When accessing this property via subscript (i.e.,
 key.subkeys[x]), you can *also* index it by KeyID, but using a full

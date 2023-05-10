@@ -27,6 +27,7 @@ from .constants import Features
 from .constants import HashAlgorithm
 from .constants import ImageEncoding
 from .constants import KeyFlags
+from .constants import KeyServerPreferences
 from .constants import NotationDataFlags
 from .constants import PacketTag
 from .constants import PubKeyAlgorithm
@@ -146,13 +147,13 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         return True
 
     @property
-    def features(self):
+    def features(self) -> Optional[Features]:
         """
-        A ``set`` of implementation features specified in this signature, if any. Otherwise, an empty ``set``.
+        The implementation Features specified in this signature, if any. Otherwise, None
         """
         if 'Features' in self._signature.subpackets:
             return next(iter(self._signature.subpackets['Features'])).flags
-        return set()
+        return None
 
     @property
     def hash2(self):
@@ -205,13 +206,13 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         return None
 
     @property
-    def key_flags(self):
+    def key_flags(self) -> Optional[KeyFlags]:
         """
-        A ``set`` of :py:obj:`~constants.KeyFlags` specified in this signature, if any. Otherwise, an empty ``set``.
+        The KeyFlags specified in this signature, if any. Otherwise, None.
         """
         if 'KeyFlags' in self._signature.subpackets:
             return next(iter(self._signature.subpackets['h_KeyFlags'])).flags
-        return set()
+        return None
 
     @property
     def keyserver(self) -> Optional[str]:
@@ -223,13 +224,13 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         return None
 
     @property
-    def keyserverprefs(self):
+    def keyserverprefs(self) -> Optional[KeyServerPreferences]:
         """
-        A ``list`` of :py:obj:`~constants.KeyServerPreferences` in this signature, if any. Otherwise, an empty ``list``.
+        The KeyServerPreferences` in this signature, if any. Otherwise, None.
         """
         if 'KeyServerPreferences' in self._signature.subpackets:
             return next(iter(self._signature.subpackets['h_KeyServerPreferences'])).flags
-        return []
+        return None
 
     @property
     def magic(self):
@@ -1967,7 +1968,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                 user = next(iter(self.userids))
 
             # RFC 4880 says that primary keys *must* be capable of certification
-            return {KeyFlags.Certify} | (user.selfsig.key_flags if user.selfsig else set())
+            return KeyFlags.Certify | (user.selfsig.key_flags if user.selfsig and user.selfsig.key_flags is not None else KeyFlags(0))
 
         return next(self.self_signatures).key_flags
 
@@ -2027,7 +2028,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                 # mark all notations as human readable unless value is a bytearray
                 flags = NotationDataFlags.HumanReadable
                 if isinstance(value, bytearray):
-                    flags = 0x00
+                    flags = NotationDataFlags(0)
 
                 sig._signature.subpackets.addnew('NotationData', hashed=True, flags=flags, name=name, value=value)
 

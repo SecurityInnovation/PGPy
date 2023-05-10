@@ -18,7 +18,6 @@ from cryptography.hazmat.primitives.ciphers import algorithms
 from cryptography.hazmat.primitives._cipheralgorithm import CipherAlgorithm
 from cryptography.hazmat.primitives import hashes
 
-from .types import FlagEnum
 from .decorators import classproperty
 
 __all__ = [
@@ -644,7 +643,7 @@ class SignatureType(IntEnum):
     ThirdParty_Confirmation = 0x50
 
 
-class KeyServerPreferences(FlagEnum):
+class KeyServerPreferences(IntFlag):
     NoModify = 0x80
 
 
@@ -693,7 +692,7 @@ class TrustLevel(IntEnum):
     Ultimate = 6
 
 
-class KeyFlags(FlagEnum):
+class KeyFlags(IntFlag):
     """Flags that determine a key's capabilities."""
     #: Signifies that a key may be used to certify keys and user ids. Primary keys always have this, even if it is not specified.
     Certify = 0x01
@@ -712,7 +711,7 @@ class KeyFlags(FlagEnum):
     MultiPerson = 0x80
 
 
-class Features(FlagEnum):
+class Features(IntFlag):
     ModificationDetection = 0x01
     UnknownFeature02 = 0x02
     UnknownFeature04 = 0x04
@@ -727,16 +726,16 @@ class Features(FlagEnum):
         return Features.ModificationDetection
 
 
-class RevocationKeyClass(FlagEnum):
+class RevocationKeyClass(IntFlag):
     Sensitive = 0x40
     Normal = 0x80
 
 
-class NotationDataFlags(FlagEnum):
+class NotationDataFlags(IntFlag):
     HumanReadable = 0x80
 
 
-class TrustFlags(FlagEnum):
+class TrustFlags(IntFlag):
     Revoked = 0x20
     SubRevoked = 0x40
     Disabled = 0x80

@@ -345,10 +345,10 @@ class TestPGPKey_Management:
         assert sig.cipherprefs == [SymmetricKeyAlgorithm.AES256, SymmetricKeyAlgorithm.Camellia256]
         assert sig.hashprefs == [HashAlgorithm.SHA384]
         assert sig.compprefs == [CompressionAlgorithm.ZLIB]
-        assert sig.features == {Features.ModificationDetection}
+        assert sig.features == Features.ModificationDetection
         assert sig.key_expiration == expiration - key.created
         assert sig.keyserver == 'about:none'
-        assert sig.keyserverprefs == {KeyServerPreferences.NoModify}
+        assert sig.keyserverprefs == KeyServerPreferences.NoModify
 
         assert uid.is_primary is False
 

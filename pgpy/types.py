@@ -13,7 +13,6 @@ import re
 import warnings
 import weakref
 
-from enum import EnumMeta
 from enum import IntEnum
 
 from typing import Optional, Dict, List, Set, Tuple, Type, Union, OrderedDict, TypeVar, Generic
@@ -29,8 +28,6 @@ __all__ = ['Armorable',
            'Fingerprint',
            'FingerprintDict',
            'FingerprintValue',
-           'FlagEnum',
-           'FlagEnumMeta',
            'Header',
            'KeyID',
            'MetaDispatchable',
@@ -665,18 +662,6 @@ class SignatureVerification:
             from .constants import SecurityIssues
             issues = SecurityIssues(0xFF)
         self._subjects.append(self.sigsubj(issues, by, signature, subject))
-
-
-class FlagEnumMeta(EnumMeta):
-    def __and__(self, other):
-        return { f for f in iter(self) if f.value & other }
-
-    def __rand__(self, other):  # pragma: no cover
-        return self & other
-
-
-namespace = FlagEnumMeta.__prepare__('FlagEnum', (IntEnum,))
-FlagEnum = FlagEnumMeta('FlagEnum', (IntEnum,), namespace)
 
 
 class KeyID(str):

@@ -10,7 +10,9 @@ from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 
-from typing import Optional, Type, Union
+from enum import IntFlag
+
+from typing import Optional, Type, Union, List, Set
 
 from .types import EmbeddedSignatureHeader
 from .types import Signature
@@ -143,19 +145,17 @@ class ByteFlag(Signature):
     def flags(self):
         return self._flags
 
-    @flags.register(set)
-    @flags.register(list)
-    def flags_seq(self, val):
-        self._flags = set(val)
-
-    @flags.register(int)
-    @flags.register(_KeyFlags)
-    @flags.register(_Features)
-    def flags_int(self, val):
+    @flags.register
+    def flags_seq(self, val: Union[set, list]):
         if self.__flags__ is None:  # pragma: no cover
             raise AttributeError("Error: __flags__ not set!")
+        self._flags = self.__flags__(sum(val))
 
-        self._flags |= (self.__flags__ & val)
+    @flags.register
+    def flags_int(self, val: int):
+        if self.__flags__ is None:  # pragma: no cover
+            raise AttributeError("Error: __flags__ not set!")
+        self._flags |= self.__flags__(val)
 
     @flags.register(bytearray)
     def flags_bytearray(self, val):
@@ -552,14 +552,15 @@ class RevocationKey(Signature):
     def keyclass(self):
         return self._keyclass
 
-    @keyclass.register(list)
-    def keyclass_list(self, val):
-        self._keyclass = val
+    @keyclass.register
+    def keyclass_list(self, val: Union[list, set]):
+        self._keyclass = RevocationKeyClass(sum(val))
 
-    @keyclass.register(int)
-    @keyclass.register(RevocationKeyClass)
-    def keyclass_int(self, val):
-        self._keyclass += RevocationKeyClass & val
+    @keyclass.register
+    def keyclass_int(self, val: int):
+        if not isinstance(val, RevocationKeyClass):
+            val = RevocationKeyClass(val)
+        self._keyclass |= val
 
     @keyclass.register(bytearray)
     def keyclass_bytearray(self, val):
@@ -647,14 +648,15 @@ class NotationData(Signature):
     def flags(self):
         return self._flags
 
-    @flags.register(list)
-    def flags_list(self, val):
-        self._flags = val
+    @flags.register
+    def flags_list(self, val: Union[set, list]):
+        self._flags = NotationDataFlags(sum(val))
 
-    @flags.register(int)
-    @flags.register(NotationDataFlags)
-    def flags_int(self, val):
-        self.flags += NotationDataFlags & val
+    @flags.register
+    def flags_int(self, val: int):
+        if not isinstance(val, NotationDataFlags):
+            val = NotationDataFlags(val)
+        self._flags |= val
 
     @flags.register(bytearray)
     def flags_bytearray(self, val):

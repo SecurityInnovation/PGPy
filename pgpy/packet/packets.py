@@ -1353,11 +1353,13 @@ class Trust(Packet):
 
     @trustflags.register(list)
     def trustflags_list(self, val):
-        self._trustflags = val
+        self._trustflags = TrustFlags(sum(val))
 
-    @trustflags.register(int)
-    def trustflags_int(self, val):
-        self._trustflags = TrustFlags & val
+    @trustflags.register
+    def trustflags_int(self, val: Union[int, TrustFlags]):
+        if not isinstance(val, TrustFlags):
+            val = TrustFlags(val)
+        self._trustflags = val
 
     def __init__(self):
         super().__init__()
