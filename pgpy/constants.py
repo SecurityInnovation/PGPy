@@ -37,6 +37,7 @@ __all__ = [
     'SignatureType',
     'KeyServerPreferences',
     'S2KGNUExtension',
+    'S2KUsage',
     'SecurityIssues',
     'String2KeyType',
     'TrustLevel',
@@ -243,6 +244,29 @@ class PubKeyAlgorithm(IntEnum):
                     return SecurityIssues.AsymmetricKeyLengthIsTooShort
         # min_size is None
         return SecurityIssues.BrokenAsymmetricFunc
+
+
+class S2KUsage(IntEnum):
+    '''S2KUsage octet for secret key protection.'''
+    Unprotected = 0
+
+    # Legacy keys might be protected directly with a SymmetricKeyAlgorithm (this is a bad idea):
+    IDEA = 1
+    TripleDES = 2
+    CAST5 = 3
+    Blowfish = 4
+    AES128 = 7
+    AES192 = 8
+    AES256 = 9
+    Twofish256 = 10
+    Camellia128 = 11
+    Camellia192 = 12
+    Camellia256 = 13
+
+    # sensible use of tamper-resistant CFB:
+    CFB = 254
+    # legacy use of CFB:
+    MalleableCFB = 255
 
 
 class CompressionAlgorithm(IntEnum):
