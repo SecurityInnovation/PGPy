@@ -214,13 +214,13 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         return set()
 
     @property
-    def keyserver(self):
+    def keyserver(self) -> Optional[str]:
         """
-        The preferred key server specified in this signature, if any. Otherwise, an empty ``str``.
+        The preferred key server specified in this signature, if any. Otherwise, None.
         """
         if 'PreferredKeyServer' in self._signature.subpackets:
             return next(iter(self._signature.subpackets['h_PreferredKeyServer'])).uri
-        return ''
+        return None
 
     @property
     def keyserverprefs(self):
@@ -243,13 +243,13 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         return {nd.name: nd.value for nd in self._signature.subpackets['NotationData']}
 
     @property
-    def policy_uri(self):
+    def policy_uri(self) -> Optional[str]:
         """
-        The policy URI specified in this signature, if any. Otherwise, an empty ``str``.
+        The policy URI specified in this signature, if any. Otherwise, None.
         """
         if 'Policy' in self._signature.subpackets:
             return next(iter(self._signature.subpackets['Policy'])).uri
-        return ''
+        return None
 
     @property
     def revocable(self) -> bool:
