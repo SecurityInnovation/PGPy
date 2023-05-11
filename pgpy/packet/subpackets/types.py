@@ -84,7 +84,6 @@ class SubPacket(Dispatchable):
 
         if (
             self.header.typeid == -1
-            and (not hasattr(self.__typeid__, '__abstractmethod__'))
             and (self.__typeid__ is not None)
         ):
             self.header.typeid = self.__typeid__
