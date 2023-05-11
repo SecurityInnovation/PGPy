@@ -52,7 +52,6 @@ __all__ = ['URI',
            'Policy',
            'KeyFlags',
            'SignersUserID',
-           'SubkeyBindingSignature',
            'ReasonForRevocation',
            'Features',
            'EmbeddedSignature',
@@ -704,11 +703,7 @@ class PreferredKeyServer(URI):
     __typeid__ = 0x18
 
 
-class SubkeyBindingSignature(Signature):
-    __typeid__ = 0x18
-
-
-class PrimaryUserID(SubkeyBindingSignature):
+class PrimaryUserID(Signature):
     __typeid__ = 0x19
 
     @sdproperty
