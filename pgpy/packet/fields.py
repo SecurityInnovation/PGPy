@@ -18,9 +18,6 @@ except ImportError:
 
 from pyasn1.codec.der import decoder
 from pyasn1.codec.der import encoder
-from pyasn1.type.univ import Integer
-from pyasn1.type.univ import Sequence
-from pyasn1.type.namedtype import NamedTypes, NamedType
 
 from cryptography.exceptions import InvalidSignature
 
@@ -35,6 +32,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric import x25519
+from cryptography.hazmat.primitives.asymmetric import utils
 
 from cryptography.hazmat.primitives.kdf.concatkdf import ConcatKDFHash
 
@@ -299,65 +297,23 @@ class RSASignature(Signature):
 class DSASignature(Signature):
     __mpis__ = ('r', 's')
 
-    def __sig__(self):
-        # return the signature data into an ASN.1 sequence of integers in DER format
-        seq = Sequence(componentType=NamedTypes(*[NamedType(n, Integer()) for n in self.__mpis__]))
-        for n in self.__mpis__:
-            seq.setComponentByName(n, getattr(self, n))
+    def __sig__(self) -> bytes:
+        # return the RFC 3279 encoding:
+        return utils.encode_dss_signature(self.r, self.s)
 
-        return encoder.encode(seq)
+    def from_signer(self, sig: bytes) -> None:
+        # set up from the RFC 3279 encoding:
+        (r, s) = utils.decode_dss_signature(sig)
+        self.r = MPI(r)
+        self.s = MPI(s)
 
-    def from_signer(self, sig):
-        ##TODO: just use pyasn1 for this
-        def _der_intf(_asn):
-            if _asn[0] != 0x02:  # pragma: no cover
-                raise ValueError("Expected: Integer (0x02). Got: 0x{:02X}".format(_asn[0]))
-            del _asn[0]
-
-            if _asn[0] & 0x80:  # pragma: no cover
-                llen = _asn[0] & 0x7F
-                del _asn[0]
-
-                flen = self.bytes_to_int(_asn[:llen])
-                del _asn[:llen]
-
-            else:
-                flen = _asn[0] & 0x7F
-                del _asn[0]
-
-            i = self.bytes_to_int(_asn[:flen])
-            del _asn[:flen]
-            return i
-
-        if isinstance(sig, bytes):
-            sig = bytearray(sig)
-
-        # this is a very limited asn1 decoder - it is only intended to decode a DER encoded sequence of integers
-        if not sig[0] == 0x30:
-            raise NotImplementedError("Expected: Sequence (0x30). Got: 0x{:02X}".format(sig[0]))
-        del sig[0]
-
-        # skip the sequence length field
-        if sig[0] & 0x80:  # pragma: no cover
-            llen = sig[0] & 0x7F
-            del sig[:llen + 1]
-
-        else:
-            del sig[0]
-
-        self.r = MPI(_der_intf(sig))
-        self.s = MPI(_der_intf(sig))
-
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         self.r = MPI(packet)
         self.s = MPI(packet)
 
 
 class ECDSASignature(DSASignature):
-    def from_signer(self, sig):
-        seq, _ = decoder.decode(sig)
-        self.r = MPI(seq[0])
-        self.s = MPI(seq[1])
+    pass
 
 
 class EdDSASignature(DSASignature):
