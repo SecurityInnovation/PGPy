@@ -32,6 +32,7 @@ __all__ = ['Armorable',
            'Header',
            'MetaDispatchable',
            'Dispatchable',
+           'DispatchGuidance',
            'SignatureVerification',
            'SorteDeque']
 
@@ -434,6 +435,11 @@ class Header(Field):
         self._partial = False
 
 
+class DispatchGuidance(IntEnum):
+    "Identify classes that should be left alone by PGPy's internal dispatch mechanism"
+    NoDispatch = -1
+
+
 class MetaDispatchable(abc.ABCMeta):
     """
     MetaDispatchable is a metaclass for objects that subclass Dispatchable
@@ -445,9 +451,9 @@ class MetaDispatchable(abc.ABCMeta):
 
     A RootClass is successfully registered if the following things are true:
      - it inherits (directly or indirectly) from Dispatchable
-     - __typeid__ == -1
+     - __typeid__ is None
     """
-    _registry: Dict[Union[Tuple[Type, int], Tuple[Type, int, int]], Type] = {}
+    _registry: Dict[Union[Tuple[Type, Optional[IntEnum]], Tuple[Type, IntEnum, int]], Type] = {}
     """
     _registry is the Dispatchable class registry. It uses the following format:
 
@@ -482,12 +488,12 @@ class MetaDispatchable(abc.ABCMeta):
     def __new__(mcs, name, bases, attrs):  # NOQA
         ncls = super().__new__(mcs, name, bases, attrs)
 
-        if not hasattr(ncls.__typeid__, '__isabstractmethod__'):
-            if ncls.__typeid__ == -1 and not issubclass(ncls, tuple(MetaDispatchable._roots)):
+        if ncls.__typeid__ is not DispatchGuidance.NoDispatch:
+            if ncls.__typeid__ is None and not issubclass(ncls, tuple(MetaDispatchable._roots)):
                 # this is a root class
                 MetaDispatchable._roots.add(ncls)
 
-            elif issubclass(ncls, tuple(MetaDispatchable._roots)) and ncls.__typeid__ != -1:
+            elif issubclass(ncls, tuple(MetaDispatchable._roots)):
                 for rcls in (root for root in MetaDispatchable._roots if issubclass(ncls, root)):
                     if (rcls, ncls.__typeid__) not in MetaDispatchable._registry:
                         MetaDispatchable._registry[(rcls, ncls.__typeid__)] = ncls
@@ -561,13 +567,10 @@ class MetaDispatchable(abc.ABCMeta):
 
 
 class Dispatchable(PGPObject, metaclass=MetaDispatchable):
+    __typeid__: Optional[IntEnum] = DispatchGuidance.NoDispatch
 
     @abc.abstractproperty
     def __headercls__(self):  # pragma: no cover
-        return False
-
-    @abc.abstractproperty
-    def __typeid__(self):  # pragma: no cover
         return False
 
     __ver__: Optional[int] = None

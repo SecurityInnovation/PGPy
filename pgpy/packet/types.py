@@ -4,12 +4,13 @@
 import abc
 import copy
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 from ..constants import PacketTag
 
 from ..decorators import sdproperty
 
+from ..types import DispatchGuidance
 from ..types import Dispatchable
 from ..types import Field
 from ..types import Header as _Header
@@ -144,7 +145,7 @@ class VersionedHeader(Header):
 
 
 class Packet(Dispatchable):
-    __typeid__: Optional[int] = -1
+    __typeid__: Optional[Union[PacketTag, DispatchGuidance]] = None
     __headercls__ = Header
 
     def __init__(self, _=None):
@@ -173,6 +174,7 @@ class Packet(Dispatchable):
 
 
 class VersionedPacket(Packet):
+    __typeid__: Union[PacketTag, DispatchGuidance] = DispatchGuidance.NoDispatch
     __headercls__ = VersionedHeader
 
     def __init__(self):

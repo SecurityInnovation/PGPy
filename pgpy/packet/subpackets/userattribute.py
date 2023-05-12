@@ -4,6 +4,7 @@ import struct
 
 from .types import UserAttribute
 
+from ...constants import AttributeType
 from ...constants import ImageEncoding
 
 from ...decorators import sdproperty
@@ -46,7 +47,7 @@ class Image(UserAttribute):
     version of the image header or if a specified encoding format value
     is not recognized.
     """
-    __typeid__ = 0x01
+    __typeid__ = AttributeType.Image
 
     @sdproperty
     def version(self):

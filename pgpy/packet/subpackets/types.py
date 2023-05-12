@@ -2,7 +2,10 @@
 """
 import abc
 
-from typing import Optional
+from typing import Optional, Union
+
+from ...constants import SigSubpacketType
+from ...constants import AttributeType
 
 from ..types import VersionedHeader
 
@@ -82,7 +85,7 @@ class SubPacket(Dispatchable):
         if (
             self.header.typeid == -1
             and (not hasattr(self.__typeid__, '__abstractmethod__'))
-            and (self.__typeid__ not in {-1, None})
+            and (self.__typeid__ is not None)
         ):
             self.header.typeid = self.__typeid__
 
@@ -105,11 +108,11 @@ class SubPacket(Dispatchable):
 
 
 class Signature(SubPacket):
-    __typeid__: Optional[int] = -1
+    __typeid__: Optional[SigSubpacketType] = None
 
 
 class UserAttribute(SubPacket):
-    __typeid__: Optional[int] = -1
+    __typeid__: Optional[AttributeType] = None
 
 
 class Opaque(Signature, UserAttribute):
