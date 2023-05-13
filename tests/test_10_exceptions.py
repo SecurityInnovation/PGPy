@@ -81,6 +81,7 @@ key_algs_badsizes = {
     PubKeyAlgorithm.DSA: [512],
     PubKeyAlgorithm.ECDSA: [curve for curve in EllipticCurveOID if not curve.can_gen],
     PubKeyAlgorithm.ECDH: [curve for curve in EllipticCurveOID if not curve.can_gen],
+    PubKeyAlgorithm.EdDSA: [curve for curve in EllipticCurveOID if curve != EllipticCurveOID.Ed25519],
 }
 badkeyspec = [ (alg, size) for alg in key_algs_badsizes.keys() for size in key_algs_badsizes[alg] ]
 
