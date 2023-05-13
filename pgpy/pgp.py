@@ -1475,7 +1475,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return pub.__bytearray__()[len(pub.header):]
 
     @property
-    def is_expired(self):
+    def is_expired(self) -> bool:
         """``True`` if this key is expired, otherwise ``False``"""
         expires = self.expires_at
         if expires is not None:
@@ -1484,27 +1484,27 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return False
 
     @property
-    def is_primary(self):
+    def is_primary(self) -> bool:
         """``True`` if this is a primary key; ``False`` if this is a subkey"""
         return isinstance(self._key, Primary) and not isinstance(self._key, Sub)
 
     @property
-    def is_protected(self):
+    def is_protected(self) -> bool:
         """``True`` if this is a private key that is protected with a passphrase, otherwise ``False``"""
-        if self.is_public:
+        if self._key is None or not isinstance(self._key, Private):
             return False
 
         return self._key.protected
 
     @property
-    def is_public(self):
+    def is_public(self) -> bool:
         """``True`` if this is a public key, otherwise ``False``"""
         return isinstance(self._key, Public) and not isinstance(self._key, Private)
 
     @property
-    def is_unlocked(self):
+    def is_unlocked(self) -> bool:
         """``False`` if this is a private key that is protected with a passphrase and has not yet been unlocked, otherwise ``True``"""
-        if self.is_public:
+        if self._key is None or not isinstance(self._key, Private):
             return True
 
         if not self.is_protected:
@@ -1513,8 +1513,10 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return self._key.unlocked
 
     @property
-    def key_algorithm(self):
+    def key_algorithm(self) -> Optional[PubKeyAlgorithm]:
         """The :py:obj:`constants.PubKeyAlgorithm` pertaining to this key"""
+        if self._key is None:
+            return None
         return self._key.pkalg
 
     @property
@@ -1535,7 +1537,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return param.bit_length()
 
     @property
-    def magic(self):
+    def magic(self) -> str:
         return '{:s} KEY BLOCK'.format('PUBLIC' if (isinstance(self._key, Public) and not isinstance(self._key, Private)) else
                                        'PRIVATE' if isinstance(self._key, Private) else '')
 
