@@ -1170,7 +1170,7 @@ class PrivKey(PubKey):
         """return the requisite *PrivateKey class from the cryptography library"""
 
     @abc.abstractmethod
-    def _generate(self, key_size_or_oid: Union[int, EllipticCurveOID]) -> None:
+    def _generate(self, key_size_or_oid: Optional[Union[int, EllipticCurveOID]]) -> None:
         """Generate a new PrivKey"""
 
     def _compute_chksum(self):
@@ -1255,7 +1255,7 @@ class OpaquePrivKey(PrivKey, OpaquePubKey):  # pragma: no cover
     def __privkey__(self):
         return NotImplemented
 
-    def _generate(self, key_size):
+    def _generate(self, key_size_or_oid: Optional[Union[int, EllipticCurveOID]]) -> None:
         # return NotImplemented
         raise NotImplementedError()
 
@@ -1277,9 +1277,15 @@ class RSAPriv(PrivKey, RSAPub):
         chs = sum(sum(bytearray(c.to_mpibytes())) for c in (self.d, self.p, self.q, self.u)) % 65536
         self.chksum = bytearray(self.int_to_bytes(chs, 2))
 
-    def _generate(self, key_size):
+    def _generate(self, key_size: Optional[Union[int, EllipticCurveOID]]) -> None:
         if any(c != 0 for c in self):  # pragma: no cover
             raise PGPError("key is already populated")
+
+        if key_size is None:  # choose a default RSA key size for the user
+            key_size = 3072
+
+        if not isinstance(key_size, int):
+            raise PGPError(f"Did not understand RSA key size {key_size}")
 
         # generate some big numbers!
         pk = rsa.generate_private_key(65537, key_size)
@@ -1349,9 +1355,15 @@ class DSAPriv(PrivKey, DSAPub):
         chs = sum(bytearray(self.x.to_mpibytes())) % 65536
         self.chksum = bytearray(self.int_to_bytes(chs, 2))
 
-    def _generate(self, key_size):
+    def _generate(self, key_size: Optional[Union[int, EllipticCurveOID]]) -> None:
         if any(c != 0 for c in self):  # pragma: no cover
             raise PGPError("key is already populated")
+
+        if key_size is None:  # choose a default DSA key size for the user
+            key_size = 3072
+
+        if not isinstance(key_size, int):
+            raise PGPError(f"Did not understand DSA key size {key_size}")
 
         # generate some big numbers!
         pk = dsa.generate_private_key(key_size)
@@ -1406,7 +1418,7 @@ class ElGPriv(PrivKey, ElGPub):
         chs = sum(bytearray(self.x.to_mpibytes())) % 65536
         self.chksum = bytearray(self.int_to_bytes(chs, 2))
 
-    def _generate(self, key_size):
+    def _generate(self, key_size_or_oid: Optional[Union[int, EllipticCurveOID]]) -> None:
         raise NotImplementedError(PubKeyAlgorithm.ElGamal)
 
     def parse(self, packet):
@@ -1445,11 +1457,14 @@ class ECDSAPriv(PrivKey, ECDSAPub):
         chs = sum(bytearray(self.s.to_mpibytes())) % 65536
         self.chksum = bytearray(self.int_to_bytes(chs, 2))
 
-    def _generate(self, params: Union[int, EllipticCurveOID]) -> None:
+    def _generate(self, params: Optional[Union[int, EllipticCurveOID]]) -> None:
         if any(c != 0 for c in self):  # pragma: no cover
             raise PGPError("Key is already populated!")
 
-        if isinstance(params, int):
+        if params is None:
+            # select a default ECDSA elliptic curve for the user:
+            self.oid = EllipticCurveOID.NIST_P256
+        elif isinstance(params, int):
             oid = EllipticCurveOID.from_key_size(params)
             if oid is None:
                 raise ValueError("No supported Elliptic Curve of size {params}")
@@ -1497,11 +1512,13 @@ class EdDSAPriv(PrivKey, EdDSAPub):
         chs = sum(bytearray(self.s.to_mpibytes())) % 65536
         self.chksum = bytearray(self.int_to_bytes(chs, 2))
 
-    def _generate(self, params: Union[int, EllipticCurveOID]) -> None:
+    def _generate(self, params: Optional[Union[int, EllipticCurveOID]]) -> None:
         if any(c != 0 for c in self):  # pragma: no cover
             raise PGPError("Key is already populated!")
 
-        if isinstance(params, int):
+        if params is None:
+            self.oid = EllipticCurveOID.Ed25519
+        elif isinstance(params, int):
             oid = EllipticCurveOID.from_key_size(params)
             if oid is None:
                 raise ValueError("No supported Elliptic Curve of size {params}")
@@ -1577,8 +1594,10 @@ class ECDHPriv(ECDSAPriv, ECDHPub):
         else:
             return ECDSAPriv.__privkey__(self)
 
-    def _generate(self, params: Union[int, EllipticCurveOID]) -> None:
-        if isinstance(params, int):
+    def _generate(self, params: Optional[Union[int, EllipticCurveOID]]) -> None:
+        if params is None:  # choose a default curve for the ECDH user
+            _oid: Optional[EllipticCurveOID] = EllipticCurveOID.Curve25519
+        elif isinstance(params, int):
             _oid = EllipticCurveOID.from_key_size(params)
             if _oid is None:
                 raise ValueError("No supported Elliptic Curve of size {params}")
