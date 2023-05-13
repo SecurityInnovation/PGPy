@@ -16,8 +16,7 @@ try:
 except ImportError:
     collections_abc = collections
 
-from pyasn1.codec.der import decoder
-from pyasn1.codec.der import encoder
+from typing import Union
 
 from cryptography.exceptions import InvalidSignature
 
@@ -67,6 +66,7 @@ from ..symenc import _decrypt
 from ..symenc import _encrypt
 
 from ..types import Field
+from ..types import Fingerprint
 
 __all__ = ['SubPackets',
            'UserAttributeSubPackets',
@@ -513,14 +513,14 @@ class ECDSAPub(PubKey):
         self.oid = None
 
     def __len__(self):
-        return len(self.p) + len(encoder.encode(self.oid.value)) - 1
+        return len(self.p) + len(self.oid)
 
     def __pubkey__(self):
         return ec.EllipticCurvePublicNumbers(self.p.x, self.p.y, self.oid.curve()).public_key(default_backend())
 
     def __bytearray__(self):
         _b = bytearray()
-        _b += encoder.encode(self.oid.value)[1:]
+        _b += bytes(self.oid)
         _b += self.p.to_mpibytes()
         return _b
 
@@ -537,14 +537,7 @@ class ECDSAPub(PubKey):
         return True
 
     def parse(self, packet):
-        oidlen = packet[0]
-        del packet[0]
-        _oid = bytearray(b'\x06')
-        _oid.append(oidlen)
-        _oid += bytearray(packet[:oidlen])
-        oid, _  = decoder.decode(bytes(_oid))
-        self.oid = EllipticCurveOID(oid)
-        del packet[:oidlen]
+        self.oid = EllipticCurveOID.parse(packet)
 
         self.p = ECPoint(packet)
         if self.p.format != ECPointFormat.Standard:
@@ -559,11 +552,11 @@ class EdDSAPub(PubKey):
         self.oid = None
 
     def __len__(self):
-        return len(self.p) + len(encoder.encode(self.oid.value)) - 1
+        return len(self.p) + len(self.oid)
 
     def __bytearray__(self):
         _b = bytearray()
-        _b += encoder.encode(self.oid.value)[1:]
+        _b += bytes(self.oid)
         _b += self.p.to_mpibytes()
         return _b
 
@@ -588,14 +581,7 @@ class EdDSAPub(PubKey):
         return True
 
     def parse(self, packet):
-        oidlen = packet[0]
-        del packet[0]
-        _oid = bytearray(b'\x06')
-        _oid.append(oidlen)
-        _oid += bytearray(packet[:oidlen])
-        oid, _  = decoder.decode(bytes(_oid))
-        self.oid = EllipticCurveOID(oid)
-        del packet[:oidlen]
+        self.oid = EllipticCurveOID.parse(packet)
 
         self.p = ECPoint(packet)
         if self.p.format != ECPointFormat.Native:
@@ -611,7 +597,7 @@ class ECDHPub(PubKey):
         self.kdf = ECKDF()
 
     def __len__(self):
-        return len(self.p) + len(self.kdf) + len(encoder.encode(self.oid.value)) - 1
+        return len(self.p) + len(self.kdf) + len(self.oid)
 
     def __pubkey__(self):
         if self.oid == EllipticCurveOID.Curve25519:
@@ -619,9 +605,9 @@ class ECDHPub(PubKey):
         else:
             return ec.EllipticCurvePublicNumbers(self.p.x, self.p.y, self.oid.curve()).public_key(default_backend())
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _b = bytearray()
-        _b += encoder.encode(self.oid.value)[1:]
+        _b += bytes(self.oid)
         _b += self.p.to_mpibytes()
         _b += self.kdf.__bytearray__()
         return _b
@@ -661,15 +647,7 @@ class ECDHPub(PubKey):
                 used to wrap the symmetric key used for the message
                 encryption; see Section 8 for details
         """
-        oidlen = packet[0]
-        del packet[0]
-        _oid = bytearray(b'\x06')
-        _oid.append(oidlen)
-        _oid += bytearray(packet[:oidlen])
-        oid, _  = decoder.decode(bytes(_oid))
-
-        self.oid = EllipticCurveOID(oid)
-        del packet[:oidlen]
+        self.oid = EllipticCurveOID.parse(packet)
 
         self.p = ECPoint(packet)
         if self.oid == EllipticCurveOID.Curve25519:
@@ -1087,12 +1065,12 @@ class ECKDF(Field):
         self.encalg = packet[0]
         del packet[0]
 
-    def derive_key(self, s, curve, pkalg, fingerprint):
+    def derive_key(self, s: bytes, curve: EllipticCurveOID, pkalg: PubKeyAlgorithm, fingerprint: Fingerprint) -> bytes:
         # wrapper around the Concatenation KDF method provided by cryptography
         # assemble the additional data as defined in RFC 6637:
         #  Param = curve_OID_len || curve_OID || public_key_alg_ID || 03 || 01 || KDF_hash_ID || KEK_alg_ID for AESKeyWrap || "Anonymous
         data = bytearray()
-        data += encoder.encode(curve.value)[1:]
+        data += bytes(curve)
         data.append(pkalg)
         data += b'\x03\x01'
         data.append(self.halg)
@@ -1440,14 +1418,17 @@ class ECDSAPriv(PrivKey, ECDSAPub):
         chs = sum(bytearray(self.s.to_mpibytes())) % 65536
         self.chksum = bytearray(self.int_to_bytes(chs, 2))
 
-    def _generate(self, oid):
+    def _generate(self, params: Union[int, EllipticCurveOID]) -> None:
         if any(c != 0 for c in self):  # pragma: no cover
             raise PGPError("Key is already populated!")
 
-        self.oid = EllipticCurveOID(oid)
-
-        if not self.oid.can_gen:
-            raise ValueError("Curve not currently supported: {}".format(oid.name))
+        if isinstance(params, int):
+            oid = EllipticCurveOID.from_key_size(params)
+            if oid is None:
+                raise ValueError("No supported Elliptic Curve of size {params}")
+            self.oid = oid
+        else:
+            self.oid = params
 
         pk = ec.generate_private_key(self.oid.curve(), default_backend())
         pubn = pk.public_key().public_numbers()
@@ -1489,14 +1470,20 @@ class EdDSAPriv(PrivKey, EdDSAPub):
         chs = sum(bytearray(self.s.to_mpibytes())) % 65536
         self.chksum = bytearray(self.int_to_bytes(chs, 2))
 
-    def _generate(self, oid):
+    def _generate(self, params: Union[int, EllipticCurveOID]) -> None:
         if any(c != 0 for c in self):  # pragma: no cover
             raise PGPError("Key is already populated!")
 
-        self.oid = EllipticCurveOID(oid)
+        if isinstance(params, int):
+            oid = EllipticCurveOID.from_key_size(params)
+            if oid is None:
+                raise ValueError("No supported Elliptic Curve of size {params}")
+            self.oid = oid
+        else:
+            self.oid = params
 
         if self.oid != EllipticCurveOID.Ed25519:
-            raise ValueError("EdDSA only supported with {}".format(EllipticCurveOID.Ed25519))
+            raise ValueError(f"EdDSA only supported with {EllipticCurveOID.Ed25519}, not {self.oid}")
 
         pk = ed25519.Ed25519PrivateKey.generate()
         x = pk.public_key().public_bytes(encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw)
@@ -1563,8 +1550,14 @@ class ECDHPriv(ECDSAPriv, ECDHPub):
         else:
             return ECDSAPriv.__privkey__(self)
 
-    def _generate(self, oid):
-        _oid = EllipticCurveOID(oid)
+    def _generate(self, params: Union[int, EllipticCurveOID]) -> None:
+        if isinstance(params, int):
+            _oid = EllipticCurveOID.from_key_size(params)
+            if _oid is None:
+                raise ValueError("No supported Elliptic Curve of size {params}")
+        else:
+            _oid = params
+
         if _oid == EllipticCurveOID.Curve25519:
             if any(c != 0 for c in self):  # pragma: no cover
                 raise PGPError("Key is already populated!")
@@ -1580,7 +1573,7 @@ class ECDHPriv(ECDSAPriv, ECDHPub):
             ), 'little'))
             self._compute_chksum()
         else:
-            ECDSAPriv._generate(self, oid)
+            ECDSAPriv._generate(self, _oid)
         self.kdf.halg = self.oid.kdf_halg
         self.kdf.encalg = self.oid.kek_alg
 

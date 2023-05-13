@@ -20,11 +20,12 @@ import weakref
 
 from datetime import datetime, timezone
 
-from typing import Any, List
+from typing import Any, List, Optional, Union
 
 from cryptography.hazmat.primitives import hashes
 
 from .constants import CompressionAlgorithm
+from .constants import EllipticCurveOID
 from .constants import Features
 from .constants import HashAlgorithm
 from .constants import ImageEncoding
@@ -1516,12 +1517,14 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return self._key.pkalg
 
     @property
-    def key_size(self):
+    def key_size(self) -> Optional[Union[int, EllipticCurveOID]]:
         """
         The size pertaining to this key. ``int`` for non-EC key algorithms; :py:obj:`constants.EllipticCurveOID` for EC keys.
 
         .. versionadded:: 0.4.1
         """
+        if self._key is None:
+            return None
         if self.key_algorithm in {PubKeyAlgorithm.ECDSA, PubKeyAlgorithm.ECDH, PubKeyAlgorithm.EdDSA}:
             return self._key.keymaterial.oid
         # check if keymaterial is not an Opaque class containing a bytearray

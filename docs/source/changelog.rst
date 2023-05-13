@@ -9,6 +9,14 @@ v0.7.0
 
 (not yet released)
 
+Dependency changes
+------------------
+
+pyasn1 is no longer needed
+
+Now depends transitively (via the cryptography module) on OpenSSL
+1.1.1 or later for Brainpool, X25519, Ed25519.
+
 API additions
 -------------
 
@@ -23,6 +31,9 @@ Armorable.is_ascii() is deprecated.  You probably want
 Armorable.is_utf8() instead, since OpenPGP assumes that all text is
 UTF-8.
 
+
+EllipticCurveOID.Invalid was removed -- EllipticCurveOID only
+enumerates supported curves now.
 
 v0.6.0
 ======
