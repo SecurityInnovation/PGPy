@@ -36,6 +36,7 @@ __all__ = ['URI',
            'FlagList',
            'ByteFlag',
            'Boolean',
+           'FingerprintSubpacket',
            'CreationTime',
            'SignatureExpirationTime',
            'ExportableCertification',
@@ -207,6 +208,42 @@ class Boolean(Signature):
         super().parse(packet)
         self.bflag = packet[:1]
         del packet[:1]
+
+
+class FingerprintSubpacket(Signature):
+    def __init__(self) -> None:
+        super().__init__()
+        self._fpr: Optional[Fingerprint] = None
+
+    @sdproperty
+    def fingerprint(self) -> Fingerprint:
+        if self._fpr is None:
+            # if we raise an exception here, then hasattr(fingerprint) will raise an exception as well.
+            return Fingerprint(b'\x00' * 20, version=4)
+        return self._fpr
+
+    @fingerprint.register
+    def fingerprint_set(self, val: Union[str, bytes, bytearray]) -> None:
+        if not isinstance(val, Fingerprint):
+            val = Fingerprint(val)
+        self._fpr = val
+
+    def __bytearray__(self) -> bytearray:
+        if self._fpr is None:
+            raise ValueError(f"Tried to write out the fingerprint from {self.__class__.__name__} before it was set")
+        _bytes = super().__bytearray__()
+        _bytes += self.fingerprint.__wireformat__()
+        return _bytes
+
+    def parse(self, packet: bytearray) -> None:
+        super().parse(packet)
+        version: int = packet[0]
+        del packet[0]
+
+        fpr_len = self.header.length - 2
+
+        self.fingerprint = Fingerprint(bytes(packet[:fpr_len]), version)
+        del packet[:fpr_len]
 
 
 class CreationTime(Signature):
@@ -882,7 +919,7 @@ class EmbeddedSignature(Signature):
         self._sig.parse(packet)
 
 
-class IssuerFingerprint(Signature):
+class IssuerFingerprint(FingerprintSubpacket):
     '''(from crypto-refresh-07)
     5.2.3.35. Issuer Fingerprint
 
@@ -904,42 +941,16 @@ class IssuerFingerprint(Signature):
     '''
     __typeid__ = SigSubpacketType.IssuerFingerprint
 
-    def __init__(self) -> None:
-        super(IssuerFingerprint, self).__init__()
-        self._issuer_fpr: Optional[Fingerprint] = None
-
     @sdproperty
-    def issuer_fingerprint(self) -> Optional[Fingerprint]:
-        return self._issuer_fpr
+    def issuer_fingerprint(self) -> Fingerprint:
+        return self.fingerprint
 
     @issuer_fingerprint.register
-    def issuer_fingerprint_set(self, val: Union[str, bytearray, bytes, Fingerprint]) -> None:
-        if isinstance(val, Fingerprint):
-            self._issuer_fpr = val
-        else:
-            self._issuer_fpr = Fingerprint(val)
-
-    @issuer_fingerprint.register
-    def issuer_fingerprint_bytearray(self, val: bytearray) -> None:
-        self.issuer_fingerprint = Fingerprint(''.join('{:02x}'.format(c) for c in val).upper())
-
-    def __bytearray__(self) -> bytearray:
-        _bytes = super().__bytearray__()
-        _bytes += self.issuer_fingerprint.__wireformat__()
-        return _bytes
-
-    def parse(self, packet: bytearray) -> None:
-        super().parse(packet)
-        version = packet[0]
-        del packet[0]
-
-        fpr_len = self.header.length - 2
-
-        self.issuer_fingerprint = Fingerprint(packet[:fpr_len], version)
-        del packet[:fpr_len]
+    def issuer_fingerprint_set(self, val: Union[str, bytes, bytearray]) -> None:
+        self.fingerprint = val
 
 
-class IntendedRecipient(Signature):
+class IntendedRecipient(IssuerFingerprint):
     '''(from crypto-refresh-08)
     5.2.3.36. Intended Recipient Fingerprint
 
@@ -961,36 +972,13 @@ class IntendedRecipient(Signature):
     '''
     __typeid__ = SigSubpacketType.IntendedRecipientFingerprint
 
-    def __init__(self) -> None:
-        super(IntendedRecipient, self).__init__()
-        self._intended_recipient: Optional[Fingerprint] = None
-
     @sdproperty
     def intended_recipient(self) -> Fingerprint:
-        if self._intended_recipient is None:
-            raise ValueError("tried to access the intended recipient fingerprint before it was set")
-        return self._intended_recipient
+        return self.fingerprint
 
     @intended_recipient.register
-    def intended_recipient_set(self, val: Union[str, bytearray, bytes, Fingerprint]) -> None:
-        if not isinstance(val, Fingerprint):
-            val = Fingerprint(val)
-        self._intended_recipient = val
-
-    def __bytearray__(self) -> bytearray:
-        _bytes = super().__bytearray__()
-        _bytes += self.intended_recipient.__wireformat__()
-        return _bytes
-
-    def parse(self, packet: bytearray) -> None:
-        super().parse(packet)
-        version: int = packet[0]
-        del packet[0]
-
-        fpr_len = self.header.length - 2
-
-        self.intended_recipient = Fingerprint(packet[:fpr_len], version=version)
-        del packet[:fpr_len]
+    def intended_recipient_set(self, val: Union[str, bytes, bytearray]) -> None:
+        self.fingerprint = val
 
 
 class AttestedCertifications(Signature):
