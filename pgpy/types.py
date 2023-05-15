@@ -687,7 +687,9 @@ class Fingerprint(str):
         return self[-16:]
 
     @property
-    def shortid(self):
+    def shortid(self) -> str:
+        if self._version != 4:
+            raise ValueError("shortid can only ever be used on version 4 keys")
         return self[-8:]
 
     @sdproperty
@@ -726,7 +728,7 @@ class Fingerprint(str):
             other = other.replace(' ', '')
             return any([str(self) == other,
                         self.keyid == other,
-                        self.shortid == other])
+                        self._version == 4 and self.shortid == other])
 
         return False  # pragma: no cover
 

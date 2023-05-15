@@ -2828,7 +2828,8 @@ class PGPKeyring(collections.abc.Container, collections.abc.Iterable, collection
             # aliases
             self._add_alias(pgpkey.fingerprint, pkid)
             self._add_alias(pgpkey.fingerprint.keyid, pkid)
-            self._add_alias(pgpkey.fingerprint.shortid, pkid)
+            if pgpkey.fingerprint.version == 4:
+                self._add_alias(pgpkey.fingerprint.shortid, pkid)
             for uid in pgpkey.userids:
                 self._add_alias(uid.name, pkid)
                 if uid.comment:
