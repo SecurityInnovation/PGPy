@@ -17,6 +17,7 @@ from cryptography.hazmat.backends import openssl
 from cryptography.hazmat.primitives.asymmetric import ec, x25519, ed25519
 from cryptography.hazmat.primitives.ciphers import algorithms
 from cryptography.hazmat.primitives._cipheralgorithm import CipherAlgorithm
+from cryptography.hazmat.primitives import hashes
 
 from .types import FlagEnum
 from .decorators import classproperty
@@ -368,6 +369,12 @@ class HashAlgorithm(IntEnum):
             issues |= SecurityIssues.HashFunctionNotSecondPreimageResistant
 
         return issues
+
+    def digest(self, data: bytes) -> bytes:
+        'shortcut for computing a quick one-off digest'
+        ctx = hashes.Hash(getattr(hashes, self.name)())
+        ctx.update(data)
+        return ctx.finalize()
 
 
 class ECFields(NamedTuple):

@@ -1599,7 +1599,7 @@ class IntegrityProtectedSKEDataV1(IntegrityProtectedSKEData):
         data = iv + iv[-2:] + data
 
         mdc = MDC()
-        mdc.mdc = binascii.hexlify(hashlib.new('SHA1', data + b'\xd3\x14').digest())
+        mdc.mdc = binascii.hexlify(HashAlgorithm.SHA1.digest(data + b'\xd3\x14'))
         mdc.update_hlen()
 
         data += mdc.__bytes__()
@@ -1611,7 +1611,7 @@ class IntegrityProtectedSKEDataV1(IntegrityProtectedSKEData):
         pt = _cfb_decrypt(bytes(self.ct), bytes(key), alg)
 
         # do the MDC checks
-        _expected_mdcbytes = b'\xd3\x14' + hashlib.new('SHA1', pt[:-20]).digest()
+        _expected_mdcbytes = b'\xd3\x14' + HashAlgorithm.SHA1.digest(pt[:-20])
         if not constant_time.bytes_eq(bytes(pt[-22:]), _expected_mdcbytes):
             raise PGPDecryptionError("Decryption failed")  # pragma: no cover
 
