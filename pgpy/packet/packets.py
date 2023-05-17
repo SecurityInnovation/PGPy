@@ -429,8 +429,12 @@ class SignatureV4(Signature):
         self._signature = val
 
     @property
-    def signer(self) -> KeyID:
-        return self.subpackets['Issuer'][-1].issuer
+    def signer(self) -> Optional[Union[KeyID, Fingerprint]]:
+        if 'IssuerFingerprint' in self.subpackets:
+            return self.subpackets['IssuerFingerprint'][-1].issuer_fingerprint
+        elif 'Issuer' in self.subpackets:
+            return self.subpackets['Issuer'][-1].issuer
+        return None
 
     def __init__(self):
         super(Signature, self).__init__()

@@ -850,7 +850,7 @@ class TestPGPKey_Actions:
 
         assert sig.type == SignatureType.Casual_Cert
         assert sig.exportable
-        assert ({sec.fingerprint.keyid} | set(sec.subkeys)) & userid.signers
+        assert ({sec.fingerprint.keyid, sec.fingerprint} | set(sec.subkeys)) & userid.signers
 
     @pytest.mark.order(after='test_certify_uid')
     @pytest.mark.parametrize('pub', pubkeys,
