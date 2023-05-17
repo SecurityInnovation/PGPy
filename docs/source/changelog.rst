@@ -75,6 +75,11 @@ algorithms.  PGPy will make good decisions by default, and you should
 not indicate specific algorithms unless you have a very clear reason
 to do so.
 
+PGPSignature.new's "signer" argument should be a Fingerprint object
+(it used to accept an Key ID-length string).  This is generally not
+used externally anyway (most users will use e.g. PGPKey.sign to
+produce a PGPSignature object).
+
 v0.6.0
 ======
 

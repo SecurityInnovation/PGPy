@@ -133,7 +133,7 @@ def test_reg_bug_56():
     sigsubject = bytearray(b"Hello!I'm a test document.I'm going to get signed a bunch of times.KBYE!")
 
     sig = PGPSignature.new(SignatureType.BinaryDocument, PubKeyAlgorithm.RSAEncryptOrSign, HashAlgorithm.SHA512,
-                           sk.fingerprint.keyid)
+                           sk.fingerprint)
     sig._signature.subpackets['h_CreationTime'][-1].created = datetime(2014, 8, 6, 23, 28, 51, tzinfo=timezone.utc)
     sig._signature.subpackets.update_hlen()
     hdata = sig.hashdata(sigsubject)
