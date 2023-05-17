@@ -1600,13 +1600,16 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         pubkey._sibling = weakref.ref(self)
 
     @property
-    def self_signatures(self):
-        keyid, keytype = (self.fingerprint.keyid, SignatureType.DirectlyOnKey) if self.is_primary \
-            else (self.parent.fingerprint.keyid, SignatureType.Subkey_Binding)
+    def self_signatures(self) -> Iterator[PGPSignature]:
+        fpr, keytype = (self.fingerprint, SignatureType.DirectlyOnKey) if self.is_primary \
+            else (self.parent.fingerprint, SignatureType.Subkey_Binding)
 
         ##TODO: filter out revoked signatures as well
-        yield from iter(sig for sig in self._signatures
-                        if all([sig.type == keytype, sig.signer == keyid, not sig.is_expired]))
+        for sig in self._signatures:
+            if all([sig.type == keytype,
+                    (sig.signer is not None and fpr == sig.signer) or (sig.signer_fingerprint is not None and fpr == sig.signer_fingerprint),
+                    not sig.is_expired]):
+                yield sig
 
     @property
     def signers(self) -> Set[Union[KeyID, Fingerprint]]:
