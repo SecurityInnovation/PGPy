@@ -80,6 +80,9 @@ PGPSignature.new's "signer" argument should be a Fingerprint object
 used externally anyway (most users will use e.g. PGPKey.sign to
 produce a PGPSignature object).
 
+PGPUID.signers, PGPKey.signers, and PGPMessage.signers will now return
+Fingerprints, not just Key IDs.
+
 v0.6.0
 ======
 
