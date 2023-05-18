@@ -997,7 +997,7 @@ class String2Key(Field):
         del hashdata
 
         # and return the key!
-        return b''.join(hc.digest() for hc in h)[:(keylen // 8)]
+        return b''.join(hc.finalize() for hc in h)[:(keylen // 8)]
 
 
 class ECKDF(Field):
@@ -1155,7 +1155,7 @@ class PrivKey(PubKey):
         self.s2k.iv = enc_alg.gen_iv()
         self.s2k.halg = hash_alg
         self.s2k.salt = bytearray(os.urandom(8))
-        self.s2k.count = hash_alg.tuned_count
+        self.s2k.count = 255
 
         # now that String-to-Key is ready to go, derive sessionkey from passphrase
         # and then unreference passphrase
@@ -1302,7 +1302,7 @@ class RSAPriv(PrivKey, RSAPub):
             self.chksum = kb
             del kb
 
-    def sign(self, sigdata:bytes, hash_alg:HashAlgorithm) -> bytes:
+    def sign(self, sigdata: bytes, hash_alg: HashAlgorithm) -> bytes:
         return self.__privkey__().sign(sigdata, padding.PKCS1v15(), hash_alg)
 
 

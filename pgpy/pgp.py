@@ -393,7 +393,7 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
             raise TypeError
         h = self.hash_algorithm.hasher
         h.update(othersig._signature.canonical_bytes())
-        return h.digest() in self.attested_certifications
+        return h.finalize() in self.attested_certifications
 
     def hashdata(self, subject):
         _data = bytearray()
@@ -2053,7 +2053,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         sigdata = sig.hashdata(subject)
         h2 = sig.hash_algorithm.hasher
         h2.update(sigdata)
-        sig._signature.hash2 = bytearray(h2.digest()[:2])
+        sig._signature.hash2 = bytearray(h2.finalize()[:2])
 
         _sig = self._key.sign(sigdata, getattr(hashes, sig.hash_algorithm.name)())
         if _sig is NotImplemented:
@@ -2259,7 +2259,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                     if isinstance(attestation, PGPSignature) and attestation.type in cert_sigtypes:
                         h = sig.hash_algorithm.hasher
                         h.update(attestation._signature.canonical_bytes())
-                        attestations.add(h.digest())
+                        attestations.add(h.finalize())
                     elif isinstance(attestation, (bytes, bytearray)) and len(attestation) == sig.hash_algorithm.digest_size:
                         attestations.add(attestation)
                     else:

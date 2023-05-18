@@ -4,7 +4,6 @@ import abc
 import binascii
 import calendar
 import copy
-import hashlib
 import os
 import warnings
 
@@ -855,7 +854,7 @@ class PubKeyV4(PubKey):
         # A V4 fingerprint is the 160-bit SHA-1 hash of the octet 0x99, followed by the two-octet packet length,
         # followed by the entire Public-Key packet starting with the version field.  The Key ID is the
         # low-order 64 bits of the fingerprint.
-        fp = hashlib.new('sha1')
+        fp = HashAlgorithm.SHA1.hasher
 
         plen = self.keymaterial.publen()
         bcde_len = self.int_to_bytes(6 + plen, 2)
@@ -877,7 +876,7 @@ class PubKeyV4(PubKey):
         fp.update(self.keymaterial.__bytearray__()[:plen])
 
         # and return the digest
-        return Fingerprint(fp.hexdigest().upper())
+        return Fingerprint(fp.finalize())
 
     def __init__(self):
         super().__init__()
