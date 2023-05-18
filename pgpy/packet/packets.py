@@ -302,6 +302,10 @@ class Signature(VersionedPacket):
     __typeid__ = 0x02
     __ver__ = 0
 
+    @abc.abstractmethod
+    def make_onepass(self) -> 'OnePassSignature':
+        raise NotImplementedError()
+
 
 class SignatureV4(Signature):
     """
@@ -511,6 +515,22 @@ class SignatureV4(Signature):
         del packet[:2]
 
         self.signature.parse(packet)
+
+    def make_onepass(self) -> 'OnePassSignatureV3':
+        signer = self.signer
+        if signer is None:
+            raise ValueError("Cannot make a one-pass signature without knowledge of who the signer is")
+        if isinstance(signer, Fingerprint):
+            signer = signer.keyid
+
+        onepass = OnePassSignatureV3()
+        onepass.sigtype = self.sigtype
+        onepass.halg = self.halg
+        onepass.pubalg = self.pubalg
+
+        onepass._signer = signer
+        onepass.update_hlen()
+        return onepass
 
 
 class SKESessionKey(VersionedPacket):

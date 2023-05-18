@@ -562,14 +562,8 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         _data += self.int_to_bytes(hlen, 4)
         return bytes(_data)
 
-    def make_onepass(self):
-        onepass = OnePassSignatureV3()
-        onepass.sigtype = self.type
-        onepass.halg = self.hash_algorithm
-        onepass.pubalg = self.key_algorithm
-        onepass.signer = self.signer
-        onepass.update_hlen()
-        return onepass
+    def make_onepass(self) -> OnePassSignature:
+        return self._signature.make_onepass()
 
     def parse(self, packet):
         unarmored = self.ascii_unarmor(packet)
