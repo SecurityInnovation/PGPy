@@ -2410,7 +2410,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return self._sign(self, sig, **prefs)
 
     @KeyAction(is_unlocked=True, is_public=False)
-    def bind(self, key, **prefs):
+    def bind(self, key: 'PGPKey', **prefs) -> PGPSignature:
         """
         Bind a subkey to this key.
 
@@ -2434,7 +2434,13 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         else:  # pragma: no cover
             raise PGPError
 
-        sig = PGPSignature.new(sig_type, self.key_algorithm, hash_algo, self.fingerprint, created=prefs.pop('created', None))
+        created: Optional[datetime] = prefs.pop('created', None)
+
+        key_algo = self.key_algorithm
+        if key_algo is None:
+            raise PGPError('Uninitialized or unknown PGPKey cannot bind subkeys')
+
+        sig = PGPSignature.new(sig_type, key_algo, hash_algo, self.fingerprint, created=created)
 
         if sig_type == SignatureType.Subkey_Binding:
             # signature options that only make sense in subkey binding signatures
@@ -2445,14 +2451,14 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
             crosssig = None
             # if possible, have the subkey create a primary key binding signature
-            if key.key_algorithm.can_sign and prefs.pop('crosssign', True):
+            if key.key_algorithm is not None and key.key_algorithm.can_sign and prefs.pop('crosssign', True):
                 subkey_fpr = key.fingerprint
 
                 if not key.is_public:
-                    crosssig = key.bind(self)
+                    crosssig = key.bind(self, created=created)
 
                 elif subkey_fpr in self._children:  # pragma: no cover
-                    crosssig = self._children[subkey_fpr].bind(self)
+                    crosssig = self._children[subkey_fpr].bind(self, created=created)
 
             if crosssig is None:
                 if usage is None:
