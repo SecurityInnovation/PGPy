@@ -828,48 +828,36 @@ class OnePassSignatureV3(OnePassSignature):
         del packet[0]
 
 
-class PrivKey(VersionedPacket, Primary, Private):
-    __typeid__ = PacketTag.SecretKey
-    __ver__ = 0
-
-    @abc.abstractmethod
-    def protect(self, passphrase: str,
-                enc_alg: Optional[SymmetricKeyAlgorithm] = None,
-                hash_alg: Optional[HashAlgorithm] = None,
-                s2kspec: Optional[S2KSpecifier] = None,
-                iv: Optional[bytes] = None) -> None:
-        '''Protect the secret key'''
-
-
 class PubKey(VersionedPacket, Primary, Public):
     __typeid__ = PacketTag.PublicKey
     __ver__ = 0
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.created = datetime.now(timezone.utc)
+        self.pkalg = 0
+        self.keymaterial: Optional[PubKeyField] = None
 
     @abc.abstractproperty
     def fingerprint(self) -> Fingerprint:
         """compute and return the fingerprint of the key"""
 
-
-class PubKeyV4(PubKey):
-    __ver__ = 4
-
     @sdproperty
-    def created(self):
+    def created(self) -> datetime:
         return self._created
 
-    @created.register(datetime)
-    def created_datetime(self, val):
+    @created.register
+    def created_datetime(self, val: datetime) -> None:
         if val.tzinfo is None:
             warnings.warn("Passing TZ-naive datetime object to PubKeyV4 packet")
         self._created = val
 
-    @created.register(int)
-    def created_int(self, val):
+    @created.register
+    def created_int(self, val: int) -> None:
         self.created = datetime.fromtimestamp(val, timezone.utc)
 
-    @created.register(bytes)
-    @created.register(bytearray)
-    def created_bin(self, val):
+    @created.register
+    def created_bin(self, val: Union[bytes, bytearray]) -> None:
         self.created = self.bytes_to_int(val)
 
     @sdproperty
@@ -886,7 +874,7 @@ class PubKeyV4(PubKey):
                 self._opaque_pkalg: int = val
 
         if self.pkalg in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.RSAEncrypt, PubKeyAlgorithm.RSASign}:
-            self.keymaterial: PubKeyField = (RSAPub if self.public else RSAPriv)()
+            self.keymaterial = (RSAPub if self.public else RSAPriv)()
         elif self.pkalg is PubKeyAlgorithm.DSA:
             self.keymaterial = (DSAPub if self.public else DSAPriv)()
         elif self.pkalg in {PubKeyAlgorithm.ElGamal, PubKeyAlgorithm.FormerlyElGamalEncryptOrSign}:
@@ -901,8 +889,27 @@ class PubKeyV4(PubKey):
             self.keymaterial = (OpaquePubKey if self.public else OpaquePrivKey)()
 
     @property
-    def public(self):
+    def public(self) -> bool:
         return isinstance(self, PubKey) and not isinstance(self, PrivKey)
+
+    def __copy__(self) -> 'PubKey':
+        pk = self.__class__()
+        pk.header = copy.copy(self.header)
+        pk.created = self.created
+        if self.pkalg is PubKeyAlgorithm.Unknown:
+            pk.pkalg = self._opaque_pkalg
+        else:
+            pk.pkalg = self.pkalg
+        pk.keymaterial = copy.copy(self.keymaterial)
+
+        return pk
+
+    def verify(self, subj, sigbytes, hash_alg):
+        return self.keymaterial.verify(subj, sigbytes, hash_alg)
+
+
+class PubKeyV4(PubKey):
+    __ver__ = 4
 
     @property
     def fingerprint(self):
@@ -950,21 +957,6 @@ class PubKeyV4(PubKey):
         _bytes += self.keymaterial.__bytearray__()
         return _bytes
 
-    def __copy__(self):
-        pk = self.__class__()
-        pk.header = copy.copy(self.header)
-        pk.created = self.created
-        if self.pkalg is PubKeyAlgorithm.Unknown:
-            pk.pkalg = self._opaque_pkalg
-        else:
-            pk.pkalg = self.pkalg
-        pk.keymaterial = copy.copy(self.keymaterial)
-
-        return pk
-
-    def verify(self, subj, sigbytes, hash_alg):
-        return self.keymaterial.verify(subj, sigbytes, hash_alg)
-
     def parse(self, packet):
         super().parse(packet)
 
@@ -980,16 +972,61 @@ class PubKeyV4(PubKey):
         del packet[:pend]
 
 
+class PrivKey(PubKey, Private):
+    __typeid__ = PacketTag.SecretKey
+    __ver__ = 0
+
+    @property
+    def protected(self) -> bool:
+        if not isinstance(self.keymaterial, PrivKeyField):
+            return False
+        return bool(self.keymaterial.s2k)
+
+    @property
+    def unlocked(self) -> bool:
+        if self.keymaterial is None:
+            return True
+        if self.protected:
+            return 0 not in list(self.keymaterial)
+        return True  # pragma: no cover
+
+    def protect(self, passphrase: str,
+                enc_alg: Optional[SymmetricKeyAlgorithm] = None,
+                hash_alg: Optional[HashAlgorithm] = None,
+                s2kspec: Optional[S2KSpecifier] = None,
+                iv: Optional[bytes] = None) -> None:
+        if enc_alg is None:
+            enc_alg = SymmetricKeyAlgorithm.AES256
+        if not isinstance(self.keymaterial, PrivKeyField):
+            raise TypeError("Key material is not a private key, cannot protect")
+        self.keymaterial.encrypt_keyblob(passphrase, enc_alg=enc_alg, hash_alg=hash_alg, s2kspec=s2kspec, iv=iv)
+        del passphrase
+        self.update_hlen()
+
+    def unprotect(self, passphrase: str) -> None:
+        if not isinstance(self.keymaterial, PrivKeyField):
+            raise TypeError("Key material is not a private key, cannot unprotect")
+        self.keymaterial.decrypt_keyblob(passphrase)
+        del passphrase
+
+    def sign(self, sigdata: bytes, hash_alg: HashAlgorithm) -> bytes:
+        if not isinstance(self.keymaterial, PrivKeyField):
+            raise TypeError("Key material is not a private key, cannot sign")
+        return self.keymaterial.sign(sigdata, hash_alg)
+
+
 class PrivKeyV4(PrivKey, PubKeyV4):
     __ver__ = 4
 
     @classmethod
-    def new(cls, key_algorithm, key_size, created=None):
+    def new(cls, key_algorithm, key_size, created=None) -> 'PrivKeyV4':
         # build a key packet
         pk = PrivKeyV4()
         pk.pkalg = key_algorithm
         if pk.keymaterial is None:
             raise NotImplementedError(key_algorithm)
+        if not isinstance(pk.keymaterial, PrivKeyField):
+            raise TypeError("Key material is not a private key")
         pk.keymaterial._generate(key_size)
         if created is not None:
             pk.created = created
@@ -1016,38 +1053,8 @@ class PrivKeyV4(PrivKey, PubKeyV4):
         pk.update_hlen()
         return pk
 
-    @property
-    def protected(self):
-        return bool(self.keymaterial.s2k)
 
-    @property
-    def unlocked(self):
-        if self.protected:
-            return 0 not in list(self.keymaterial)
-        return True  # pragma: no cover
-
-    def protect(self, passphrase: str,
-                enc_alg: Optional[SymmetricKeyAlgorithm] = None,
-                hash_alg: Optional[HashAlgorithm] = None,
-                s2kspec: Optional[S2KSpecifier] = None,
-                iv: Optional[bytes] = None) -> None:
-        if enc_alg is None:
-            enc_alg = SymmetricKeyAlgorithm.AES256
-        if not isinstance(self.keymaterial, PrivKeyField):
-            raise TypeError("Key material is not a private key, cannot protect")
-        self.keymaterial.encrypt_keyblob(passphrase, enc_alg=enc_alg, hash_alg=hash_alg, s2kspec=s2kspec, iv=iv)
-        del passphrase
-        self.update_hlen()
-
-    def unprotect(self, passphrase):
-        self.keymaterial.decrypt_keyblob(passphrase)
-        del passphrase
-
-    def sign(self, sigdata, hash_alg):
-        return self.keymaterial.sign(sigdata, hash_alg)
-
-
-class PrivSubKey(VersionedPacket, Sub, Private):
+class PrivSubKey(PrivKey, Sub):
     __typeid__ = PacketTag.SecretSubKey
     __ver__ = 0
 

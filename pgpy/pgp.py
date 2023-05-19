@@ -47,7 +47,10 @@ from .packet import MDC
 from .packet import Packet
 from .packet import Primary
 from .packet import Private
+from .packet import PubKey
 from .packet import PubKeyV4
+from .packet import PrivKey
+from .packet import PrivSubKey
 from .packet import PrivKeyV4
 from .packet import PrivSubKeyV4
 from .packet import Public
@@ -69,6 +72,8 @@ from .packet.packets import SKEData
 from .packet.packets import Marker
 from .packet.packets import SKESessionKey
 from .packet.packets import SKESessionKeyV4
+
+from .packet.fields import ECDSAPub, EdDSAPub, ECDHPub
 
 from .packet.types import Opaque
 
@@ -1530,8 +1535,10 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         """
         if self._key is None:
             return None
-        if self.key_algorithm in {PubKeyAlgorithm.ECDSA, PubKeyAlgorithm.ECDH, PubKeyAlgorithm.EdDSA}:
+        if isinstance(self._key.keymaterial, (ECDSAPub, EdDSAPub, ECDHPub)):
             return self._key.keymaterial.oid
+        if self._key.keymaterial is None:
+            return None
         # check if keymaterial is not an Opaque class containing a bytearray
         param = next(iter(self._key.keymaterial))
         if isinstance(param, bytearray):
@@ -1691,7 +1698,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         of either of those methods.
         """
         super().__init__()
-        self._key = None
+        self._key: Optional[PubKey] = None
         self._children = FingerprintDict["PGPKey"]()
         self._signatures = SorteDeque()
         self._uids: Deque[PGPUID] = SorteDeque()
@@ -1854,7 +1861,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                     # reset the salt for each key
                     prefs['s2kspec']._salt = None
 
-            if sk._key is not None:
+            if isinstance(sk._key, PrivKey):
                 sk._key.protect(passphrase, **prefs)
 
         del passphrase
@@ -1981,7 +1988,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                 raise PGPError("Cannot add a key that already has subkeys as a subkey!")
 
             # convert key into a subkey
-            npk = PrivSubKeyV4()
+            npk: PrivSubKey = PrivSubKeyV4()
             npk.pkalg = key._key.pkalg
             npk.created = key._key.created
             npk.keymaterial = key._key.keymaterial
@@ -2018,8 +2025,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         :param sig: The :py:obj:`PGPSignature` object the new signature is to be encapsulated within
         :returns: ``sig``, after the signature is added to it.
         """
-        if self._key is None:
-            raise PGPError('Internal implementation error: PGPKey._key should not be None')
+        if not isinstance(self._key, PrivKey):
+            raise PGPError('Internal implementation error: PGPKey._key must be a private key to be able to sign')
 
         user = prefs.pop('user', None)
         uid = None
