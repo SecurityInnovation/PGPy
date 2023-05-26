@@ -58,8 +58,6 @@ Requirements
 
 - `pyasn1 <https://pypi.python.org/pypi/pyasn1/>`_
 
-- `six <https://pypi.python.org/pypi/six>`_
-
 License
 -------
 
