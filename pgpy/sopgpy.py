@@ -34,8 +34,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import io
 import os
-import sop
-import pgpy #type: ignore
 import codecs
 import logging
 import packaging.version
@@ -45,7 +43,8 @@ from datetime import datetime, timezone
 from typing import List, Union, Optional, Set, Tuple, MutableMapping, Dict, Callable
 from argparse import Namespace, _SubParsersAction, ArgumentParser
 
-__version__ = '0.3.0'
+import sop
+import pgpy
 
 # hack to assemble multiple signature packets! reported to PGPy at
 # https://github.com/SecurityInnovation/PGPy/issues/197#issuecomment-1027582415
@@ -69,7 +68,7 @@ class _multisig(pgpy.types.Armorable): #type: ignore
 class SOPGPy(sop.StatelessOpenPGP):
     def __init__(self) -> None:
         self.pgpy_version = packaging.version.Version(metadata.version('pgpy'))
-        super().__init__(name='SOPGPy', version=f'{__version__}',
+        super().__init__(name='SOPGPy', version=f'{self.pgpy_version}',
                          backend=f'PGPy {self.pgpy_version}',
                          description=f'Stateless OpenPGP using PGPy {self.pgpy_version}')
 
