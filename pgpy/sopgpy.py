@@ -267,7 +267,7 @@ class SOPGPy(sop.StatelessOpenPGP):
             raise sop.SOPMissingRequiredArgument('needs at least one OpenPGP certificate')
         signature = self._get_pgp_signature(sig)
         certs:MutableMapping[str,pgpy.PGPKey] = self._get_certs(signers)
-        
+
         ret:List[sop.SOPSigResult] = self._check_sigs(certs, data, signature, start, end)
         if not ret:
             raise sop.SOPNoSignature("No good signature found")
@@ -348,7 +348,7 @@ class SOPGPy(sop.StatelessOpenPGP):
             else:
                 sig = key.sign(msg)
             msg |= sig
-        
+
         for handle, cert in certs.items():
             msg = cert.encrypt(msg, cipher=cipher, sessionkey=sessionkey)
         for p, pw in pws.items():
@@ -398,9 +398,9 @@ class SOPGPy(sop.StatelessOpenPGP):
         # FIXME!!!
         if wantsessionkey:
             raise sop.SOPUnsupportedOption('sopgpy does not support --session-key-out yet')
-        if sessionkeys: 
+        if sessionkeys:
             raise sop.SOPUnsupportedOption('sopgpy does not support --with-session-key yet')
-        
+
         if signers:
             certs = self._get_certs(signers)
         if not secretkeys and not passwords and not sessionkeys:
@@ -592,12 +592,12 @@ class SOPGPy(sop.StatelessOpenPGP):
             return str(msg).encode('utf-8')
         else:
             return bytes(msg)
-        
-    def inline_verify(self, data:bytes,
-                      start:Optional[datetime]=None,
-                      end:Optional[datetime]=None,
-                      signers:MutableMapping[str,bytes]={},
-                      **kwargs:Namespace) -> Tuple[bytes, List[sop.SOPSigResult]]:
+
+    def inline_verify(self, data: bytes,
+                      start: Optional[datetime] = None,
+                      end: Optional[datetime] = None,
+                      signers: MutableMapping[str, bytes] = {},
+                      **kwargs: Namespace) -> Tuple[bytes, List[sop.SOPSigResult]]:
         self.raise_on_unknown_options(**kwargs)
         if not signers:
             raise sop.SOPMissingRequiredArgument('needs at least one OpenPGP certificate')
