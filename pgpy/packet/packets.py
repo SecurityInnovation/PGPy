@@ -255,7 +255,7 @@ class PKESessionKeyV3(PKESessionKey):
         m = bytearray(self.int_to_bytes(symalg) + symkey)
         m += self.int_to_bytes(sum(bytearray(symkey)) % 65536, 2)
 
-        if self.pkalg == PubKeyAlgorithm.RSAEncryptOrSign:
+        if self.pkalg == PubKeyAlgorithm.RSAEncryptOrSign or self.pkalg == PubKeyAlgorithm.RSAEncrypt:
             encrypter = pk.keymaterial.__pubkey__().encrypt
             encargs = (bytes(m), padding.PKCS1v15(),)
 
