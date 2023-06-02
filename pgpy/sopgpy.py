@@ -617,5 +617,11 @@ def main() -> None:
     sop = SOPGPy()
     sop.dispatch()
 
+
+def get_parser() -> ArgumentParser:
+    'Return an ArgumentParser object for the sake of tools like argparse-manpage'
+    return SOPGPy()._parser
+
+
 if __name__ == '__main__':
     main()
