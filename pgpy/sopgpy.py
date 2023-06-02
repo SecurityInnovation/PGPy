@@ -43,6 +43,8 @@ from datetime import datetime, timezone
 from typing import List, Union, Optional, Set, Tuple, MutableMapping, Dict, Callable
 from argparse import Namespace, _SubParsersAction, ArgumentParser
 
+from cryptography.hazmat.backends import openssl
+
 import sop
 import pgpy
 
@@ -68,8 +70,10 @@ class _multisig(pgpy.types.Armorable): #type: ignore
 class SOPGPy(sop.StatelessOpenPGP):
     def __init__(self) -> None:
         self.pgpy_version = packaging.version.Version(metadata.version('pgpy'))
+        self.cryptography_version = packaging.version.Version(metadata.version('cryptography'))
         super().__init__(name='SOPGPy', version=f'{self.pgpy_version}',
                          backend=f'PGPy {self.pgpy_version}',
+                         extended=f'python-cryptography {self.cryptography_version}\n{openssl.backend.openssl_version_text()}',
                          description=f'Stateless OpenPGP using PGPy {self.pgpy_version}')
 
     # implemented ciphers that we are willing to use to encrypt, in
