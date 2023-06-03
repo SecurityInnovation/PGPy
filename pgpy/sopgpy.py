@@ -71,7 +71,7 @@ class SOPGPy(sop.StatelessOpenPGP):
     def __init__(self) -> None:
         self.pgpy_version = packaging.version.Version(metadata.version('pgpy'))
         self.cryptography_version = packaging.version.Version(metadata.version('cryptography'))
-        super().__init__(name='SOPGPy', version=f'{self.pgpy_version}',
+        super().__init__(name='sopgpy', version=f'{self.pgpy_version}',
                          backend=f'PGPy {self.pgpy_version}',
                          extended=f'python-cryptography {self.cryptography_version}\n{openssl.backend.openssl_version_text()}',
                          description=f'Stateless OpenPGP using PGPy {self.pgpy_version}')
