@@ -377,7 +377,7 @@ class SOPGPy(sop.StatelessOpenPGP):
                     if ('issues' in goodsig._fields and goodsig.issues == 0) or ('verified' in goodsig._fields and goodsig.verified):
                         if start is None or sigtime >= start:
                             if end is None or sigtime <= end:
-                                sigs += [sop.SOPSigResult(goodsig.signature.created, goodsig.by.fingerprint, cert.fingerprint, goodsig.signature.__repr__())]
+                                sigs += [sop.SOPSigResult(when=goodsig.signature.created, signing_fpr=goodsig.by.fingerprint, primary_fpr=cert.fingerprint, moreinfo=goodsig.signature.__repr__())]
             except:
                 pass
         return sigs
