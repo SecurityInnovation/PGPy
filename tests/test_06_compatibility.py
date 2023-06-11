@@ -18,7 +18,6 @@ class TestPGP_Compatibility(object):
     def test_import_unicode_armored_cert(self) -> None:
         k:PGPKey
         (k, _) = PGPKey.from_file('tests/testdata/compatibility/ricarda.pgp')
-        pytest.xfail('Cannot handle UTF-8 (non-ASCII) comments in armored certificate')
         assert k.check_soundness() == SecurityIssues.OK
 
     @pytest.mark.parametrize('sig', glob.glob('*.sig', root_dir='tests/testdata/compatibility'))

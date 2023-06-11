@@ -4,6 +4,19 @@
 Changelog
 *********
 
+v0.7.0
+======
+
+(not yet released)
+
+API changes
+-----------
+
+Armorable.is_ascii() is deprecated.  You probably want
+Armorable.is_utf8() instead, since OpenPGP assumes that all text is
+UTF-8.
+
+
 v0.6.0
 ======
 

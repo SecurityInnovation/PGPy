@@ -1153,9 +1153,9 @@ class PGPMessage(Armorable, PGPObject):
                 # message is definitely UTF-8 already
                 format = 'u'
 
-            elif cls.is_ascii(message):
+            elif cls.is_utf8(message):
                 # message is probably text
-                format = 't'
+                format = 'u'
 
             else:
                 # message is probably binary
@@ -1175,9 +1175,6 @@ class PGPMessage(Armorable, PGPObject):
             lit.filename = '_CONSOLE' if sensitive else os.path.basename(filename)
             lit.mtime = mtime
             lit.format = format
-
-            # if cls.is_ascii(message):
-            #     lit.format = 't'
 
             lit.update_hlen()
 
