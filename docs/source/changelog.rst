@@ -4,6 +4,18 @@
 Changelog
 *********
 
+v0.7.0
+======
+
+(not yet released)
+
+API additions
+-------------
+
+PGPSignatures represents a detached signature, which can contain more
+than a single signature.  It is a simple sequence of individual
+PGPSignature objects.
+
 v0.6.0
 ======
 

@@ -48,24 +48,6 @@ from cryptography.hazmat.backends import openssl
 import sop
 import pgpy
 
-# hack to assemble multiple signature packets! reported to PGPy at
-# https://github.com/SecurityInnovation/PGPy/issues/197#issuecomment-1027582415
-class _multisig(pgpy.types.Armorable): #type: ignore
-    @property
-    def magic(self) -> str:
-        return 'SIGNATURE'
-    def parse(self, x:bytes) -> None:
-        self._bytes:bytes = x
-    def __bytes__(self) -> bytes:
-        return self._bytes
-    @classmethod
-    def from_signatures(cls, signatures:List[pgpy.PGPSignature]) -> pgpy.types.Armorable:
-        obj = cls()
-        sigdata:bytes = b''
-        for signature in signatures:
-            sigdata += bytes(signature)
-        obj.parse(sigdata)
-        return obj
 
 class SOPGPy(sop.StatelessOpenPGP):
     def __init__(self) -> None:
@@ -95,10 +77,10 @@ class SOPGPy(sop.StatelessOpenPGP):
         else:
             return bytes(data)
 
-    def _get_pgp_signature(self, data:bytes) -> Optional[pgpy.PGPSignature]:
-        sig:Optional[pgpy.PGPSignature] = None
-        sig = pgpy.PGPSignature.from_blob(data)
-        return sig
+    def _get_pgp_signatures(self, data: bytes) -> Optional[pgpy.PGPSignatures]:
+        sigs: Optional[pgpy.PGPSignatures] = None
+        sigs = pgpy.PGPSignatures.from_blob(data)
+        return sigs
 
     def _get_certs(self, vals:MutableMapping[str,bytes]) -> MutableMapping[str,pgpy.PGPKey]:
         certs:Dict[str,pgpy.PGPKey] = {}
@@ -252,7 +234,7 @@ class SOPGPy(sop.StatelessOpenPGP):
             else:
                 micalg = f'pgp-{hashalgs.pop().lower()}'
 
-        return (self._maybe_armor(armor, _multisig.from_signatures(signatures)), micalg)
+        return (self._maybe_armor(armor, pgpy.PGPSignatures(signatures)), micalg)
 
 
     def verify(self,
@@ -265,10 +247,10 @@ class SOPGPy(sop.StatelessOpenPGP):
         self.raise_on_unknown_options(**kwargs)
         if not signers:
             raise sop.SOPMissingRequiredArgument('needs at least one OpenPGP certificate')
-        signature = self._get_pgp_signature(sig)
-        certs:MutableMapping[str,pgpy.PGPKey] = self._get_certs(signers)
+        signatures = self._get_pgp_signatures(sig)
+        certs: MutableMapping[str, pgpy.PGPKey] = self._get_certs(signers)
 
-        ret:List[sop.SOPSigResult] = self._check_sigs(certs, data, signature, start, end)
+        ret: List[sop.SOPSigResult] = self._check_sigs(certs, data, signatures, start, end)
         if not ret:
             raise sop.SOPNoSignature("No good signature found")
         return ret
@@ -360,27 +342,30 @@ class SOPGPy(sop.StatelessOpenPGP):
     def _check_sigs(self,
                     certs:MutableMapping[str,pgpy.PGPKey],
                     msg:pgpy.PGPMessage,
-                    sig:Optional[pgpy.PGPSignature]=None,
+                    sigs:Optional[pgpy.PGPSignatures]=None,
                     start:Optional[datetime]=None,
                     end:Optional[datetime]=None) -> List[sop.SOPSigResult]:
-        sigs:List[sop.SOPSigResult] = []
-        for signer, cert in certs.items():
-            try:
-                verif:pgpy.types.SignatureVerification = cert.verify(msg, signature=sig)
-                goodsig:pgpy.types.sigsubj
-                for goodsig in verif.good_signatures:
-                    sigtime = goodsig.signature.created
-                    # some versions of pgpy return tz-naive objects, even though all timestamps are in UTC:
-                    # see https://docs.python.org/3/library/datetime.html#aware-and-naive-objects
-                    if sigtime.tzinfo is None:
-                        sigtime = sigtime.replace(tzinfo=timezone.utc)
-                    if ('issues' in goodsig._fields and goodsig.issues == 0) or ('verified' in goodsig._fields and goodsig.verified):
-                        if start is None or sigtime >= start:
-                            if end is None or sigtime <= end:
-                                sigs += [sop.SOPSigResult(when=goodsig.signature.created, signing_fpr=goodsig.by.fingerprint, primary_fpr=cert.fingerprint, moreinfo=goodsig.signature.__repr__())]
-            except:
-                pass
-        return sigs
+        results:List[sop.SOPSigResult] = []
+        if sigs is not None:
+            for sig in sigs:
+                for signer, cert in certs.items():
+                    try:
+                        verif:pgpy.types.SignatureVerification = cert.verify(msg, signature=sig)
+                        goodsig:pgpy.types.sigsubj
+                        for goodsig in verif.good_signatures:
+                            sigtime = goodsig.signature.created
+                            # some versions of pgpy return tz-naive objects, even though all timestamps are in UTC:
+                            # see https://docs.python.org/3/library/datetime.html#aware-and-naive-objects
+                            if sigtime.tzinfo is None:
+                                sigtime = sigtime.replace(tzinfo=timezone.utc)
+                            if ('issues' in goodsig._fields and goodsig.issues == 0) or ('verified' in goodsig._fields and goodsig.verified):
+                                if start is None or sigtime >= start:
+                                    if end is None or sigtime <= end:
+                                        results += [sop.SOPSigResult(when=goodsig.signature.created, signing_fpr=goodsig.by.fingerprint,
+                                                                     primary_fpr=cert.fingerprint, moreinfo=goodsig.signature.__repr__())]
+                    except:
+                        pass
+        return results
 
     def decrypt(self,
                 data:bytes,
@@ -481,7 +466,7 @@ class SOPGPy(sop.StatelessOpenPGP):
               label:sop.SOPArmorLabel=sop.SOPArmorLabel.auto,
               **kwargs:Namespace) -> bytes:
         self.raise_on_unknown_options(**kwargs)
-        obj:Union[None,pgpy.PGPMessage,pgpy.PGPKey,pgpy.PGPSignature] = None
+        obj: Union[None, pgpy.PGPMessage, pgpy.PGPKey, pgpy.PGPSignatures] = None
         try:
             if label is sop.SOPArmorLabel.message:
                 obj = pgpy.PGPMessage.from_blob(data)
@@ -494,15 +479,15 @@ class SOPGPy(sop.StatelessOpenPGP):
                 if not obj.is_public:
                     raise sop.SOPInvalidDataType('not an OpenPGP certificate')
             elif label is sop.SOPArmorLabel.sig:
-                obj = pgpy.PGPSignature.from_blob(data)
-            elif label is sop.SOPArmorLabel.auto: # try to guess
+                obj = pgpy.PGPSignatures.from_blob(data)
+            elif label is sop.SOPArmorLabel.auto:  # try to guess
                 try:
                     obj, _ = pgpy.PGPKey.from_blob(data)
                     len(str(obj)) # try to get a string out of the supposed PGPKey, triggering an error if unset
                 except:
                     try:
-                        obj = pgpy.PGPSignature.from_blob(data)
-                        len(str(obj)) # try to get a string out of the supposed PGPKey, triggering an error if unset
+                        obj = pgpy.PGPSignatures.from_blob(data)
+                        len(str(obj))  # try to get a string out of the supposed PGPKey, triggering an error if unset
                     except:
                         try:
                             obj = pgpy.PGPMessage.from_blob(data)
@@ -524,7 +509,7 @@ class SOPGPy(sop.StatelessOpenPGP):
         except:
             pass
         try:
-            sig:pgpy.PGPSignature = pgpy.PGPSignature.from_blob(data)
+            sig: pgpy.PGPSignatures = pgpy.PGPSignatures.from_blob(data)
             return bytes(sig)
         except:
             pass
@@ -545,7 +530,7 @@ class SOPGPy(sop.StatelessOpenPGP):
         body:Union[bytes,bytearray,str] = msg.message
         if isinstance(body, str):
             body = body.encode('utf-8')
-        return (bytes(body), self._maybe_armor(armor, _multisig.from_signatures(msg.signatures)))
+        return (bytes(body), self._maybe_armor(armor, pgpy.PGPSignatures(msg.signatures)))
 
     def inline_sign(self,
                     data:bytes,

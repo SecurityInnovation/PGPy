@@ -20,6 +20,8 @@ import weakref
 
 from datetime import datetime, timezone
 
+from typing import Any, List
+
 from cryptography.hazmat.primitives import hashes
 
 from .constants import CompressionAlgorithm
@@ -79,6 +81,7 @@ from .types import SignatureVerification
 from .types import SorteDeque
 
 __all__ = ['PGPSignature',
+           'PGPSignatures',
            'PGPUID',
            'PGPMessage',
            'PGPKey',
@@ -591,6 +594,58 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         else:
             raise ValueError('Expected: Signature. Got: {:s}'.format(pkt.__class__.__name__))
 
+
+class PGPSignatures(collections_abc.Container, collections_abc.Iterable, collections_abc.Sized, Armorable, PGPObject):
+    '''OpenPGP detached signatures can often contain more than one signature in them.'''
+
+    def __init__(self, signatures: List[PGPSignature] = []) -> None:
+        super().__init__()
+        self._sigs: List[PGPSignature] = signatures
+
+    def __contains__(self, thing: Any) -> bool:
+        if not isinstance(thing, PGPSignature):
+            raise TypeError(f'PGPSignatures only contains a PGPSignature, not {type(thing)}')
+        return thing in self._sigs
+
+    def __len__(self) -> int:
+        return len(self._sigs)
+
+    def __iter__(self) -> collections_abc.Iterator[PGPSignature]:
+        for sig in self._sigs:
+            yield sig
+
+    @property
+    def magic(self) -> str:
+        return "SIGNATURE"
+
+    def __bytearray__(self) -> bytearray:
+        b = bytearray()
+        for sig in self._sigs:
+            b += sig.__bytearray__()
+        return b
+
+    def parse(self, packet: bytes) -> None:
+        unarmored = self.ascii_unarmor(packet)
+        data = unarmored['body']
+
+        if unarmored['magic'] is not None and unarmored['magic'] != 'SIGNATURE':
+            raise ValueError(f"Expected: SIGNATURE. Got: {format(str(unarmored['magic']))}")
+
+        if unarmored['headers'] is not None:
+            self.ascii_headers = unarmored['headers']
+
+        while data:
+            pkt = Packet(data)
+            if pkt.header.tag == PacketTag.Signature:
+                if isinstance(pkt, Opaque):
+                    # skip unrecognized version.
+                    pass
+                else:
+                    sig = PGPSignature()
+                    sig._signature = pkt
+                    self._sigs.append(sig)
+            else:
+                raise ValueError(f"Expected: Signature. Got: {format(pkt.__class__.__name__)}")
 
 class PGPUID(ParentRef):
     @property
