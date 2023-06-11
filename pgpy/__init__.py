@@ -5,6 +5,7 @@ from .pgp import PGPKey
 from .pgp import PGPKeyring
 from .pgp import PGPMessage
 from .pgp import PGPSignature
+from .pgp import PGPSignatures
 from .pgp import PGPUID
 
 __all__ = ['constants',
@@ -13,4 +14,5 @@ __all__ = ['constants',
            'PGPKeyring',
            'PGPMessage',
            'PGPSignature',
+           'PGPSignatures',
            'PGPUID', ]
