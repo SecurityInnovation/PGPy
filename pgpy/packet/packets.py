@@ -350,13 +350,17 @@ class SignatureV4(Signature):
         self._sigtype = SignatureType(val)
 
     @sdproperty
-    def pubalg(self):
+    def pubalg(self) -> PubKeyAlgorithm:
         return self._pubalg
 
-    @pubalg.register(int)
-    @pubalg.register(PubKeyAlgorithm)
-    def pubalg_int(self, val):
-        self._pubalg = PubKeyAlgorithm(val)
+    @pubalg.register
+    def pubalg_int(self, val: int) -> None:
+        if isinstance(val, PubKeyAlgorithm):
+            self._pubalg: PubKeyAlgorithm = val
+        else:
+            self._pubalg = PubKeyAlgorithm(val)
+            if self._pubalg is PubKeyAlgorithm.Unknown:
+                self._opaque_pubalg: int = val
 
         sigs = {
             PubKeyAlgorithm.RSAEncryptOrSign: RSASignature,
@@ -407,7 +411,10 @@ class SignatureV4(Signature):
         _bytes = bytearray()
         _bytes += super(Signature, self).__bytearray__()
         _bytes += self.int_to_bytes(self.sigtype)
-        _bytes += self.int_to_bytes(self.pubalg)
+        if self.pubalg is PubKeyAlgorithm.Unknown:
+            _bytes.append(self._opaque_pubalg)
+        else:
+            _bytes.append(self.pubalg)
         _bytes += self.int_to_bytes(self.halg)
         _bytes += self.subpackets.__bytearray__()
         _bytes += self.hash2
@@ -432,7 +439,10 @@ class SignatureV4(Signature):
         _body = bytearray()
         _body += self.int_to_bytes(self.header.version)
         _body += self.int_to_bytes(self.sigtype)
-        _body += self.int_to_bytes(self.pubalg)
+        if self.pubalg is PubKeyAlgorithm.Unknown:
+            _body.append(self._opaque_pubalg)
+        else:
+            _body.append(self.pubalg)
         _body += self.int_to_bytes(self.halg)
         _body += self.subpackets.__hashbytearray__()
         _body += self.int_to_bytes(0, minlen=2)  # empty unhashed subpackets
@@ -449,6 +459,8 @@ class SignatureV4(Signature):
         spkt.header = copy.copy(self.header)
         spkt._sigtype = self._sigtype
         spkt._pubalg = self._pubalg
+        if self._pubalg is PubKeyAlgorithm.Unknown:
+            spkt._opaque_pubalg = self._opaque_pubalg
         spkt._halg = self._halg
 
         spkt.subpackets = copy.copy(self.subpackets)

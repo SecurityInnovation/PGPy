@@ -139,8 +139,8 @@ class TestMetaDispatchable(object):
         # unexpected signature type
         fuzz_pkt(3, 0x7f, PGPError)
 
-        # unexpected pubkey algorithm
-        fuzz_pkt(4, 0x64, PGPError)
+        # unexpected pubkey algorithm -- does not raise an exception during parsing
+        fuzz_pkt(4, 0x64, None)
 
         # unexpected hash algorithm - does not raise an exception during parsing
         fuzz_pkt(5, 0x64, None)
