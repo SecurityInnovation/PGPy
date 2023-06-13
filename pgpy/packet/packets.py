@@ -281,7 +281,7 @@ class PKESessionKeyV3(PKESessionKey):
             self.ct.parse(packet)
 
         else:  # pragma: no cover
-            del packet[:(self.header.length - 18)]
+            del packet[:(self.header.length - 10)]
 
 
 class Signature(VersionedPacket):
