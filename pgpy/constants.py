@@ -247,6 +247,7 @@ class SymmetricKeyAlgorithm(IntEnum):
 
 class PubKeyAlgorithm(IntEnum):
     """Supported public key algorithms."""
+    Unknown = -1
     Invalid = 0x00
     #: Signifies that a key is an RSA key.
     RSAEncryptOrSign = 0x01
@@ -263,6 +264,12 @@ class PubKeyAlgorithm(IntEnum):
     FormerlyElGamalEncryptOrSign = 0x14  # deprecated - do not generate
     DiffieHellman = 0x15  # X9.42
     EdDSA = 0x16  # https://tools.ietf.org/html/draft-koch-eddsa-for-openpgp-04
+
+    @classmethod
+    def _missing_(cls, val: object) -> 'PubKeyAlgorithm':
+        if not isinstance(val, int):
+            raise TypeError(f"cannot look up PubKeyAlgorithm by non-int {type(val)}")
+        return cls.Unknown
 
     @property
     def can_gen(self):
