@@ -168,10 +168,14 @@ class PKESessionKeyV3(PKESessionKey):
     def pkalg(self):
         return self._pkalg
 
-    @pkalg.register(int)
-    @pkalg.register(PubKeyAlgorithm)
-    def pkalg_int(self, val):
-        self._pkalg = PubKeyAlgorithm(val)
+    @pkalg.register
+    def pkalg_int(self, val: int) -> None:
+        if isinstance(val, PubKeyAlgorithm):
+            self._pkalg = val
+        else:
+            self._pkalg = PubKeyAlgorithm(val)
+            if self._pkalg is PubKeyAlgorithm.Invalid:
+                self._opaque_pkalg: int = val
 
         _c = {PubKeyAlgorithm.RSAEncryptOrSign: RSACipherText,
               PubKeyAlgorithm.RSAEncrypt: RSACipherText,
@@ -192,7 +196,10 @@ class PKESessionKeyV3(PKESessionKey):
         _bytes = bytearray()
         _bytes += super(PKESessionKeyV3, self).__bytearray__()
         _bytes += binascii.unhexlify(self.encrypter.encode())
-        _bytes += bytearray([self.pkalg])
+        if self.pkalg == PubKeyAlgorithm.Invalid:
+            _bytes.append(self._opaque_pkalg)
+        else:
+            _bytes.append(self.pkalg)
         _bytes += self.ct.__bytearray__() if self.ct is not None else b'\x00' * (self.header.length - 10)
         return _bytes
 
@@ -201,6 +208,8 @@ class PKESessionKeyV3(PKESessionKey):
         sk.header = copy.copy(self.header)
         sk._encrypter = self._encrypter
         sk.pkalg = self.pkalg
+        if self.pkalg == PubKeyAlgorithm.Invalid:
+            sk._opaque_pkalg = self._opaque_pkalg
         if self.ct is not None:
             sk.ct = copy.copy(self.ct)
 
