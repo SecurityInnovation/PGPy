@@ -53,7 +53,8 @@ class TestPGP_Compatibility(object):
     def test_unknown_message(self, msg:str)-> None:
         k:PGPKey
         (k, _) = PGPKey.from_file('tests/testdata/compatibility/bob-key.pgp')
-        pytest.xfail('cannot handle unknowns in message formats')
+        if msg in {'pkesk_unknown_pkalg.msg', 'skesk_unknown_s2k_algo.msg'}:
+            pytest.xfail('cannot handle unknown algorithms in encrypted messages')
         msg:PGPMessage = PGPMessage.from_file(f'tests/testdata/compatibility/{msg}')
         cleartext:PGPMessage = k.decrypt(msg)
         assert not cleartext.is_encrypted

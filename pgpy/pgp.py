@@ -1132,6 +1132,10 @@ class PGPMessage(Armorable, PGPObject):
             self._signatures += other._signatures
             return self
 
+        if isinstance(other, Opaque):
+            # ignore opaque packets
+            return self
+
         raise NotImplementedError(str(type(other)))
 
     def __copy__(self):
