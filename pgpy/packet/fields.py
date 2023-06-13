@@ -839,13 +839,17 @@ class String2Key(Field):
         self._encalg = SymmetricKeyAlgorithm(val)
 
     @sdproperty
-    def specifier(self):
+    def specifier(self) -> String2KeyType:
         return self._specifier
 
-    @specifier.register(int)
-    @specifier.register(String2KeyType)
-    def specifier_int(self, val):
-        self._specifier = String2KeyType(val)
+    @specifier.register
+    def specifier_int(self, val: int) -> None:
+        if isinstance(val, String2KeyType):
+            self._specifier = val
+        else:
+            self._specifier = String2KeyType(val)
+            if self._specifier is String2KeyType.Unknown:
+                self._opaque_specifier: int = val
 
     @sdproperty
     def gnuext(self):
@@ -903,7 +907,10 @@ class String2Key(Field):
         _bytes.append(self.usage)
         if bool(self):
             _bytes.append(self.encalg)
-            _bytes.append(self.specifier)
+            if self.specifier is String2KeyType.Unknown:
+                _bytes.append(self._opaque_specifier)
+            else:
+                _bytes.append(self.specifier)
             if self.specifier == String2KeyType.GNUExtension:
                 return self._experimental_bytearray(_bytes)
             if self.specifier >= String2KeyType.Simple:
@@ -938,7 +945,10 @@ class String2Key(Field):
         s2k = String2Key()
         s2k.usage = self.usage
         s2k.encalg = self.encalg
-        s2k.specifier = self.specifier
+        if bool(self) and self.specifier is String2KeyType.Unknown:
+            s2k.specifier = self._opaque_specifier
+        else:
+            s2k.specifier = self.specifier
         s2k.gnuext = self.gnuext
         s2k.iv = self.iv
         s2k.halg = self.halg

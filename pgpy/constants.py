@@ -528,12 +528,18 @@ class KeyServerPreferences(FlagEnum):
 
 
 class String2KeyType(IntEnum):
+    Unknown = -1
     Simple = 0
     Salted = 1
     Reserved = 2
     Iterated = 3
     GNUExtension = 101
 
+    @classmethod
+    def _missing_(cls, val: object) -> 'String2KeyType':
+        if not isinstance(val, int):
+            raise TypeError(f"cannot look up String2KeyType by non-int {type(val)}")
+        return cls.Unknown
 
 class S2KGNUExtension(IntEnum):
     NoSecret = 1
