@@ -281,6 +281,7 @@ class CompressionAlgorithm(IntEnum):
 
 class HashAlgorithm(IntEnum):
     """Supported hash algorithms."""
+    Unknown = -1
     Invalid = 0x00
     MD5 = 0x01
     SHA1 = 0x02
@@ -296,6 +297,12 @@ class HashAlgorithm(IntEnum):
     #SHA3_256 = 13
     #SHA3_384 = 14
     #SHA3_512 = 15
+
+    @classmethod
+    def _missing_(cls, val: object) -> 'HashAlgorithm':
+        if not isinstance(val, int):
+            raise TypeError(f"cannot look up HashAlgorithm by non-int {type(val)}")
+        return cls.Unknown
 
     def __init__(self, *args):
         super(self.__class__, self).__init__()

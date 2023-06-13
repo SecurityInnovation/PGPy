@@ -383,17 +383,17 @@ class SignatureV4(Signature):
         self.signature = sigs.get(self.pubalg, OpaqueSignature)()
 
     @sdproperty
-    def halg(self):
+    def halg(self) -> HashAlgorithm:
         return self._halg
 
-    @halg.register(int)
-    @halg.register(HashAlgorithm)
-    def halg_int(self, val):
-        try:
-            self._halg = HashAlgorithm(val)
-
-        except ValueError:  # pragma: no cover
+    @halg.register
+    def halg_int(self, val: int) -> None:
+        if isinstance(val, HashAlgorithm):
             self._halg = val
+        else:
+            self._halg = HashAlgorithm(val)
+            if self._halg is HashAlgorithm.Unknown:
+                self._opaque_halg = val
 
     @property
     def signature(self):
@@ -424,7 +424,10 @@ class SignatureV4(Signature):
             _bytes.append(self._opaque_pubalg)
         else:
             _bytes.append(self.pubalg)
-        _bytes += self.int_to_bytes(self.halg)
+        if self.halg is HashAlgorithm.Unknown:
+            _bytes.append(self._opaque_halg)
+        else:
+            _bytes.append(self.halg)
         _bytes += self.subpackets.__bytearray__()
         _bytes += self.hash2
         _bytes += self.signature.__bytearray__()
@@ -452,7 +455,10 @@ class SignatureV4(Signature):
             _body.append(self._opaque_pubalg)
         else:
             _body.append(self.pubalg)
-        _body += self.int_to_bytes(self.halg)
+        if self.halg is HashAlgorithm.Unknown:
+            _body.append(self._opaque_halg)
+        else:
+            _body.append(self.halg)
         _body += self.subpackets.__hashbytearray__()
         _body += self.int_to_bytes(0, minlen=2)  # empty unhashed subpackets
         _body += self.hash2
@@ -471,6 +477,8 @@ class SignatureV4(Signature):
         if self._pubalg is PubKeyAlgorithm.Unknown:
             spkt._opaque_pubalg = self._opaque_pubalg
         spkt._halg = self._halg
+        if self._halg is HashAlgorithm.Unknown:
+            spkt._opaque_halg = self._opaque_halg
 
         spkt.subpackets = copy.copy(self.subpackets)
         spkt.hash2 = copy.copy(self.hash2)
@@ -699,17 +707,17 @@ class OnePassSignatureV3(OnePassSignature):
             self.signature = DSASignature()
 
     @sdproperty
-    def halg(self):
+    def halg(self) -> HashAlgorithm:
         return self._halg
 
-    @halg.register(int)
-    @halg.register(HashAlgorithm)
-    def halg_int(self, val):
-        try:
-            self._halg = HashAlgorithm(val)
-
-        except ValueError:  # pragma: no cover
+    @halg.register
+    def halg_int(self, val: int) -> None:
+        if isinstance(val, HashAlgorithm):
             self._halg = val
+        else:
+            self._halg = HashAlgorithm(val)
+            if self._halg is HashAlgorithm.Unknown:
+                self._opaque_halg: int = val
 
     @sdproperty
     def signer(self):
@@ -736,7 +744,10 @@ class OnePassSignatureV3(OnePassSignature):
         _bytes = bytearray()
         _bytes += super(OnePassSignatureV3, self).__bytearray__()
         _bytes += bytearray([self.sigtype])
-        _bytes += bytearray([self.halg])
+        if self.halg is HashAlgorithm.Unknown:
+            _bytes.append(self._opaque_halg)
+        else:
+            _bytes.append(self.halg)
         _bytes += bytearray([self.pubalg])
         _bytes += binascii.unhexlify(self.signer.encode("latin-1"))
         _bytes += bytearray([int(self.nested)])
