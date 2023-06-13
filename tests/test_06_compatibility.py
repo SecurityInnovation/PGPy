@@ -3,7 +3,7 @@
 """
 import pytest
 
-from pgpy import PGPKey, PGPMessage
+from pgpy import PGPKey, PGPMessage, PGPSignatures
 from pgpy.constants import SecurityIssues
 import glob
 
@@ -25,7 +25,12 @@ class TestPGP_Compatibility(object):
         k:PGPKey
         (k, _) = PGPKey.from_file('tests/testdata/compatibility/bob.pgp')
         msg = 'Hello World :)'
-        pytest.xfail(f'Cannot handle detached signature objects with more than one signature present (see https://github.com/SecurityInnovation/PGPy/issues/197)')
+        sigs = PGPSignatures.from_file(f'tests/testdata/compatibility/{sig}')
+        verif:Optional[pgpy.SignatureVerification] = None
+        for sig in sigs:
+            if sig.signer == k.fingerprint.keyid:
+                verif = k.verify(msg, sig)
+        assert verif is not None
 
     def test_cert_unknown_algo(self) -> None:
         k:PGPKey
