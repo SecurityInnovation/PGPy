@@ -34,7 +34,6 @@ class TestPGP_Compatibility(object):
 
     def test_cert_unknown_subkey_algo(self) -> None:
         k:PGPKey
-        pytest.xfail('cannot handle certificates containing subkeys with unknown pubkey algorithms')
         (k, _) = PGPKey.from_file('tests/testdata/compatibility/bob_with_unknown_subkey_algorithm.pgp')
         assert k.check_soundness() == SecurityIssues.OK
 

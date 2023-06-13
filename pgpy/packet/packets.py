@@ -788,13 +788,17 @@ class PubKeyV4(PubKey):
         self.created = self.bytes_to_int(val)
 
     @sdproperty
-    def pkalg(self):
+    def pkalg(self) -> PubKeyAlgorithm:
         return self._pkalg
 
-    @pkalg.register(int)
-    @pkalg.register(PubKeyAlgorithm)
-    def pkalg_int(self, val):
-        self._pkalg = PubKeyAlgorithm(val)
+    @pkalg.register
+    def pkalg_int(self, val: int) -> None:
+        if isinstance(val, PubKeyAlgorithm):
+            self._pkalg: PubKeyAlgorithm = val
+        else:
+            self._pkalg = PubKeyAlgorithm(val)
+            if self._pkalg is PubKeyAlgorithm.Unknown:
+                self._opaque_pkalg: int = val
 
         _c = {
             # True means public
@@ -850,7 +854,10 @@ class PubKeyV4(PubKey):
         # c) timestamp of key creation (4 octets);
         fp.update(self.int_to_bytes(calendar.timegm(self.created.timetuple()), 4))
         # d) algorithm (1 octet): 17 = DSA (example);
-        fp.update(self.int_to_bytes(self.pkalg))
+        if self.pkalg is PubKeyAlgorithm.Unknown:
+            fp.update(bytes([self._opaque_pkalg]))
+        else:
+            fp.update(self.int_to_bytes(self.pkalg))
         # e) Algorithm-specific fields.
         fp.update(self.keymaterial.__bytearray__()[:plen])
 
@@ -867,7 +874,10 @@ class PubKeyV4(PubKey):
         _bytes = bytearray()
         _bytes += super(PubKeyV4, self).__bytearray__()
         _bytes += self.int_to_bytes(calendar.timegm(self.created.timetuple()), 4)
-        _bytes += self.int_to_bytes(self.pkalg)
+        if self.pkalg is PubKeyAlgorithm.Unknown:
+            _bytes.append(self._opaque_pkalg)
+        else:
+            _bytes.append(self.pkalg)
         _bytes += self.keymaterial.__bytearray__()
         return _bytes
 
@@ -875,7 +885,10 @@ class PubKeyV4(PubKey):
         pk = self.__class__()
         pk.header = copy.copy(self.header)
         pk.created = self.created
-        pk.pkalg = self.pkalg
+        if self.pkalg is PubKeyAlgorithm.Unknown:
+            pk.pkalg = self._opaque_pkalg
+        else:
+            pk.pkalg = self.pkalg
         pk.keymaterial = copy.copy(self.keymaterial)
 
         return pk
