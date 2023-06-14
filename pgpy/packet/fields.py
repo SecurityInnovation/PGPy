@@ -539,9 +539,12 @@ class ECDSAPub(PubKey):
     def parse(self, packet):
         self.oid = EllipticCurveOID.parse(packet)
 
-        self.p = ECPoint(packet)
-        if self.p.format != ECPointFormat.Standard:
-            raise PGPIncompatibleECPointFormatError("Only Standard format is valid for ECDSA")
+        if isinstance(self.oid, EllipticCurveOID):
+            self.p = ECPoint(packet)
+            if self.p.format != ECPointFormat.Standard:
+                raise PGPIncompatibleECPointFormatError("Only Standard format is valid for ECDSA")
+        else:
+            self.p = MPI(packet)
 
 
 class EdDSAPub(PubKey):
@@ -583,9 +586,12 @@ class EdDSAPub(PubKey):
     def parse(self, packet):
         self.oid = EllipticCurveOID.parse(packet)
 
-        self.p = ECPoint(packet)
-        if self.p.format != ECPointFormat.Native:
-            raise PGPIncompatibleECPointFormatError("Only Native format is valid for EdDSA")
+        if isinstance(self.oid, EllipticCurveOID):
+            self.p = ECPoint(packet)
+            if self.p.format != ECPointFormat.Native:
+                raise PGPIncompatibleECPointFormatError("Only Native format is valid for EdDSA")
+        else:
+            self.p = MPI(packet)
 
 
 class ECDHPub(PubKey):
@@ -649,12 +655,16 @@ class ECDHPub(PubKey):
         """
         self.oid = EllipticCurveOID.parse(packet)
 
-        self.p = ECPoint(packet)
-        if self.oid == EllipticCurveOID.Curve25519:
-            if self.p.format != ECPointFormat.Native:
-                raise PGPIncompatibleECPointFormatError("Only Native format is valid for Curve25519")
-        elif self.p.format != ECPointFormat.Standard:
-            raise PGPIncompatibleECPointFormatError("Only Standard format is valid for this curve")
+        if isinstance(self.oid, EllipticCurveOID):
+            self.p = ECPoint(packet)
+            if self.oid == EllipticCurveOID.Curve25519:
+                if self.p.format != ECPointFormat.Native:
+                    raise PGPIncompatibleECPointFormatError("Only Native format is valid for Curve25519")
+            elif self.p.format != ECPointFormat.Standard:
+                raise PGPIncompatibleECPointFormatError("Only Standard format is valid for this curve")
+        else:
+            self.p = MPI(packet)
+
         self.kdf.parse(packet)
 
 

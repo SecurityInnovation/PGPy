@@ -45,7 +45,6 @@ class TestPGP_Compatibility(object):
     @pytest.mark.parametrize('flavor', ['ecdsa', 'eddsa', 'ecdh'])
     def test_cert_unknown_curve(self, flavor:str) -> None:
         k:PGPKey
-        pytest.xfail(f'cannot handle certificates containing subkeys with unknown OIDs for {flavor}')
         (k, _) = PGPKey.from_file(f'tests/testdata/compatibility/bob_with_unknown_{flavor}_curve.pgp')
         assert k.check_soundness() == SecurityIssues.OK
 
