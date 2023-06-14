@@ -621,6 +621,7 @@ def targette_sec():
 seckeys = [ PGPKey.from_file(f)[0] for f in sorted(glob.glob('tests/testdata/keys/*.sec.asc')) ]
 pubkeys = [ PGPKey.from_file(f)[0] for f in sorted(glob.glob('tests/testdata/keys/*.pub.asc')) ]
 
+symalgos = sorted(filter(lambda x: x is not SymmetricKeyAlgorithm.Plaintext, sorted(SymmetricKeyAlgorithm)))
 
 class TestPGPKey_Actions(object):
     sigs = {}
@@ -906,14 +907,14 @@ class TestPGPKey_Actions(object):
         self.gpg_verify(abe)
 
     @pytest.mark.parametrize('pub,cipher',
-                             itertools.product(pubkeys, sorted(SymmetricKeyAlgorithm)),
-                             ids=['{}:{}-{}'.format(pk.key_algorithm.name, pk.key_size, c.name) for pk, c in itertools.product(pubkeys, sorted(SymmetricKeyAlgorithm))])
+                             itertools.product(pubkeys, symalgos),
+                             ids=['{}:{}-{}'.format(pk.key_algorithm.name, pk.key_size, c.name) for pk, c in itertools.product(pubkeys, symalgos)])
     def test_encrypt_message(self, pub, cipher):
         if pub.key_algorithm in {PubKeyAlgorithm.DSA}:
             pytest.skip('Asymmetric encryption only implemented for RSA/ECDH currently')
 
-        if cipher in {SymmetricKeyAlgorithm.Plaintext, SymmetricKeyAlgorithm.Twofish256, SymmetricKeyAlgorithm.IDEA}:
-            pytest.xfail('Symmetric cipher {} not supported for encryption'.format(cipher))
+        if cipher in {SymmetricKeyAlgorithm.Twofish256, SymmetricKeyAlgorithm.IDEA}:
+            pytest.xfail(f'{cipher!r} not supported for encryption')
 
         # test encrypting a message
         mtxt = "This message will have been encrypted"
@@ -925,7 +926,7 @@ class TestPGPKey_Actions(object):
 
     @pytest.mark.order(after='test_encrypt_message')
     @pytest.mark.parametrize('sf,cipher',
-                             itertools.product(sorted(glob.glob('tests/testdata/keys/*.sec.asc')), sorted(SymmetricKeyAlgorithm)))
+                             itertools.product(sorted(glob.glob('tests/testdata/keys/*.sec.asc')), symalgos))
     def test_decrypt_message(self, sf, cipher):
         # test decrypting a message
         sec, _ = PGPKey.from_file(sf)
@@ -949,7 +950,7 @@ class TestPGPKey_Actions(object):
 
     @pytest.mark.order(after='test_encrypt_message')
     @pytest.mark.parametrize('sf,cipher',
-                             itertools.product(sorted(glob.glob('tests/testdata/keys/*.sec.asc')), sorted(SymmetricKeyAlgorithm)))
+                             itertools.product(sorted(glob.glob('tests/testdata/keys/*.sec.asc')), symalgos))
     def test_sign_encrypted_message(self, sf, cipher):
         # test decrypting a message
         sec, _ = PGPKey.from_file(sf)
