@@ -16,7 +16,7 @@ import weakref
 from enum import EnumMeta
 from enum import IntEnum
 
-from typing import Optional, Dict, Set, Tuple, Type, Union
+from typing import Optional, Dict, List, Set, Tuple, Type, Union
 
 from .decorators import sdproperty
 
@@ -115,7 +115,7 @@ class Armorable(metaclass=abc.ABCMeta):
         return Armorable.__armor_regex.search(text) is not None
 
     @staticmethod
-    def ascii_unarmor(text: Union[str, bytes, bytearray]) -> Dict[str, Optional[Union[str, bytes, bytearray]]]:
+    def ascii_unarmor(text: Union[str, bytes, bytearray]) -> Dict[str, Optional[Union[str, bytes, bytearray, List[str]]]]:
         """
         Takes an ASCII-armored PGP block and returns the decoded byte value.
 
@@ -125,20 +125,18 @@ class Armorable(metaclass=abc.ABCMeta):
         :returns: A ``dict`` containing information from ``text``, including the de-armored data.
         It can contain the following keys: ``magic``, ``headers``, ``hashes``, ``cleartext``, ``body``, ``crc``.
         """
-        m = {'magic': None, 'headers': None, 'body': bytearray(), 'crc': None}
-        if not Armorable.is_utf8(text):
-            m['body'] = bytearray(text)
-            return m
+        if not isinstance(text, str) and not Armorable.is_utf8(text):
+            return {'magic': None, 'headers': None, 'body': bytearray(text), 'crc': None}
 
         if isinstance(text, (bytes, bytearray)):  # pragma: no cover
             text = text.decode('latin-1')
 
-        m = Armorable.__armor_regex.search(text)
+        matcher = Armorable.__armor_regex.search(text)
 
-        if m is None:  # pragma: no cover
+        if matcher is None:  # pragma: no cover
             raise ValueError("Expected: ASCII-armored PGP data")
 
-        m = m.groupdict()
+        m = matcher.groupdict()
 
         if m['hashes'] is not None:
             m['hashes'] = m['hashes'].split(',')
