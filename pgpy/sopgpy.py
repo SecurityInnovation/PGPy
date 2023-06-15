@@ -60,7 +60,8 @@ class SOPGPy(sop.StatelessOpenPGP):
 
     @property
     def generate_key_profiles(self) -> List[sop.SOPProfile]:
-        return [sop.SOPProfile('draft-koch-eddsa-for-openpgp-00', 'EdDSA/ECDH with Curve25519 ')]
+        return [sop.SOPProfile('draft-koch-eddsa-for-openpgp-00', 'EdDSA/ECDH with Curve25519 '),
+                sop.SOPProfile('rfc4880', '3072-bit RSA'),]
 
     @property
     def encrypt_profiles(self) -> List[sop.SOPProfile]:
@@ -148,8 +149,11 @@ class SOPGPy(sop.StatelessOpenPGP):
                      profile: Optional[sop.SOPProfile] = None,
                      **kwargs: Namespace) -> bytes:
         self.raise_on_unknown_options(**kwargs)
-        primary = pgpy.PGPKey.new(pgpy.constants.PubKeyAlgorithm.EdDSA,
-                                  pgpy.constants.EllipticCurveOID.Ed25519)
+        if profile is not None and profile.name == 'rfc4880':
+            primary = pgpy.PGPKey.new(pgpy.constants.PubKeyAlgorithm.RSAEncryptOrSign, 3072)
+        else:
+            primary = pgpy.PGPKey.new(pgpy.constants.PubKeyAlgorithm.EdDSA,
+                                      pgpy.constants.EllipticCurveOID.Ed25519)
         primaryflags: Set[int] = set()
         primaryflags.add(pgpy.constants.KeyFlags.Certify)
         primaryflags.add(pgpy.constants.KeyFlags.Sign)
@@ -173,8 +177,11 @@ class SOPGPy(sop.StatelessOpenPGP):
             if 'primary' in uidoptions: # only first User ID is Primary
                 del uidoptions['primary']
 
-        subkey = pgpy.PGPKey.new(pgpy.constants.PubKeyAlgorithm.ECDH,
-                                 pgpy.constants.EllipticCurveOID.Curve25519)
+        if profile is not None and profile.name == 'rfc4880':
+            subkey = pgpy.PGPKey.new(pgpy.constants.PubKeyAlgorithm.RSAEncryptOrSign, 3072)
+        else:
+            subkey = pgpy.PGPKey.new(pgpy.constants.PubKeyAlgorithm.ECDH,
+                                     pgpy.constants.EllipticCurveOID.Curve25519)
         subflags: Set[int] = set()
         subflags.add(pgpy.constants.KeyFlags.EncryptCommunications)
         subflags.add(pgpy.constants.KeyFlags.EncryptStorage)
