@@ -20,6 +20,7 @@ from .fields import ECDSAPub, ECDSAPriv, ECDSASignature
 from .fields import ECDHPub, ECDHPriv, ECDHCipherText
 from .fields import EdDSAPub, EdDSAPriv, EdDSASignature
 from .fields import ElGCipherText, ElGPriv, ElGPub
+from .fields import CipherText
 from .fields import OpaquePubKey
 from .fields import OpaquePrivKey
 from .fields import OpaqueSignature
@@ -181,14 +182,13 @@ class PKESessionKeyV3(PKESessionKey):
             if self._pkalg is PubKeyAlgorithm.Invalid:
                 self._opaque_pkalg: int = val
 
-        _c = {PubKeyAlgorithm.RSAEncryptOrSign: RSACipherText,
-              PubKeyAlgorithm.RSAEncrypt: RSACipherText,
-              PubKeyAlgorithm.ElGamal: ElGCipherText,
-              PubKeyAlgorithm.FormerlyElGamalEncryptOrSign: ElGCipherText,
-              PubKeyAlgorithm.ECDH: ECDHCipherText}
-
-        ct = _c.get(self._pkalg, None)
-        self.ct = ct() if ct is not None else ct
+        self.ct: Optional[CipherText] = None
+        if self._pkalg in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.RSAEncrypt}:
+            self.ct = RSACipherText()
+        elif self._pkalg in {PubKeyAlgorithm.ElGamal, PubKeyAlgorithm.FormerlyElGamalEncryptOrSign}:
+            self.ct = ElGCipherText()
+        elif self._pkalg is PubKeyAlgorithm.ECDH:
+            self.ct = ECDHCipherText()
 
     def __init__(self):
         super().__init__()
@@ -220,7 +220,7 @@ class PKESessionKeyV3(PKESessionKey):
         return sk
 
     def decrypt_sk(self, pk) -> Tuple[Optional[SymmetricKeyAlgorithm], bytes]:
-        if self.pkalg == PubKeyAlgorithm.RSAEncryptOrSign:
+        if isinstance(self.ct, RSACipherText):
             # pad up ct with null bytes if necessary
             ct = self.ct.me_mod_n.to_mpibytes()[2:]
             ct = b'\x00' * ((pk.keymaterial.__privkey__().key_size // 8) - len(ct)) + ct
@@ -228,7 +228,7 @@ class PKESessionKeyV3(PKESessionKey):
             decrypter = pk.keymaterial.__privkey__().decrypt
             decargs = [ct, padding.PKCS1v15()]
 
-        elif self.pkalg == PubKeyAlgorithm.ECDH:
+        elif isinstance(self.ct, ECDHCipherText):
             decrypter = pk
             decargs = []
 
@@ -268,11 +268,11 @@ class PKESessionKeyV3(PKESessionKey):
         m = bytearray(self.int_to_bytes(symalg) + symkey)
         m += self.int_to_bytes(sum(bytearray(symkey)) % 65536, 2)
 
-        if self.pkalg == PubKeyAlgorithm.RSAEncryptOrSign:
+        if isinstance(self.ct, RSACipherText):
             encrypter = pk.keymaterial.__pubkey__().encrypt
             encargs = [bytes(m), padding.PKCS1v15()]
 
-        elif self.pkalg == PubKeyAlgorithm.ECDH:
+        elif isinstance(self.ct, ECDHCipherText):
             encrypter = pk
             encargs = [bytes(m)]
 
