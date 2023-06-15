@@ -633,7 +633,8 @@ class PGPSignatures(collections.abc.Container, collections.abc.Iterable, collect
             self.ascii_headers = unarmored['headers']
 
         while data:
-            pkt = Packet(data)
+            # this is safe to do because of how MetaDispatchable works:
+            pkt = Packet(data)  # type: ignore[abstract]
             if pkt.header.tag == PacketTag.Signature:
                 if isinstance(pkt, Opaque):
                     # skip unrecognized version.
