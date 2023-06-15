@@ -79,18 +79,19 @@ __all__ = ['PKESessionKey',
            'IntegrityProtectedSKEDataV1',
            'MDC']
 
+
 class PKESessionKey(VersionedPacket):
     __typeid__ = 0x01
     __ver__ = 0
 
     # note that we don't have a good type signature for pk: it should be PrivKey, but from .fields, not the PrivKey in this file.
     @abc.abstractmethod
-    def decrypt_sk(self, pk) -> Tuple[Optional[SymmetricKeyAlgorithm],bytes]:
+    def decrypt_sk(self, pk) -> Tuple[Optional[SymmetricKeyAlgorithm], bytes]:
         raise NotImplementedError()
 
     # note that we don't have a good type signature for pk: it should be PubKey, but from .fields, not the PubKey in this file.
     @abc.abstractmethod
-    def encrypt_sk(self, pk, symalg:Optional[SymmetricKeyAlgorithm], symkey:bytes) -> None:
+    def encrypt_sk(self, pk, symalg: Optional[SymmetricKeyAlgorithm], symkey: bytes) -> None:
         raise NotImplementedError()
 
 
@@ -218,7 +219,7 @@ class PKESessionKeyV3(PKESessionKey):
 
         return sk
 
-    def decrypt_sk(self, pk) -> Tuple[Optional[SymmetricKeyAlgorithm],bytes]:
+    def decrypt_sk(self, pk) -> Tuple[Optional[SymmetricKeyAlgorithm], bytes]:
         if self.pkalg == PubKeyAlgorithm.RSAEncryptOrSign:
             # pad up ct with null bytes if necessary
             ct = self.ct.me_mod_n.to_mpibytes()[2:]
@@ -263,7 +264,7 @@ class PKESessionKeyV3(PKESessionKey):
 
         return (symalg, symkey)
 
-    def encrypt_sk(self, pk, symalg:Optional[SymmetricKeyAlgorithm], symkey:bytes) -> None:
+    def encrypt_sk(self, pk, symalg: Optional[SymmetricKeyAlgorithm], symkey: bytes) -> None:
         m = bytearray(self.int_to_bytes(symalg) + symkey)
         m += self.int_to_bytes(sum(bytearray(symkey)) % 65536, 2)
 
@@ -520,11 +521,11 @@ class SKESessionKey(VersionedPacket):
     # the symmetric algorithm used by the following SEIPDv2 packet is
     # not encoded in the SKESKv6:
     @abc.abstractmethod
-    def decrypt_sk(self, passphrase:Union[str,bytes]) -> Tuple[Optional[SymmetricKeyAlgorithm],bytes]:
+    def decrypt_sk(self, passphrase: Union[str, bytes]) -> Tuple[Optional[SymmetricKeyAlgorithm], bytes]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def encrypt_sk(self, passphrase:Union[str,bytes], sk:ByteString):
+    def encrypt_sk(self, passphrase: Union[str, bytes], sk: ByteString):
         raise NotImplementedError()
 
 
@@ -615,7 +616,7 @@ class SKESessionKeyV4(SKESessionKey):
         self.ct = packet[:ctend]
         del packet[:ctend]
 
-    def decrypt_sk(self, passphrase:Union[str,bytes]) -> Tuple[Optional[SymmetricKeyAlgorithm],bytes]:
+    def decrypt_sk(self, passphrase: Union[str, bytes]) -> Tuple[Optional[SymmetricKeyAlgorithm], bytes]:
         # derive the first session key from our passphrase
         sk = self.s2k.derive_key(passphrase)
         del passphrase
@@ -633,8 +634,7 @@ class SKESessionKeyV4(SKESessionKey):
 
         return symalg, bytes(m)
 
-
-    def encrypt_sk(self, passphrase:Union[str,bytes], sk:ByteString):
+    def encrypt_sk(self, passphrase: Union[str, bytes], sk: ByteString):
         # generate the salt and derive the key to encrypt sk with from it
         self.s2k.salt = bytearray(os.urandom(8))
         esk = self.s2k.derive_key(passphrase)

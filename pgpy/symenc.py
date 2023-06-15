@@ -20,7 +20,7 @@ __all__ = ['_cfb_encrypt',
            '_cfb_decrypt']
 
 
-def _cfb_encrypt(pt:bytes, key:bytes, alg:SymmetricKeyAlgorithm, iv:Optional[bytes]=None) -> bytearray:
+def _cfb_encrypt(pt: bytes, key: bytes, alg: SymmetricKeyAlgorithm, iv: Optional[bytes] = None) -> bytearray:
     if iv is None:
         iv = b'\x00' * (alg.block_size // 8)
 
@@ -40,7 +40,7 @@ def _cfb_encrypt(pt:bytes, key:bytes, alg:SymmetricKeyAlgorithm, iv:Optional[byt
         return bytearray(encryptor.update(pt) + encryptor.finalize())
 
 
-def _cfb_decrypt(ct:bytes, key:bytes, alg:SymmetricKeyAlgorithm, iv:Optional[bytes]=None) -> bytearray:
+def _cfb_decrypt(ct: bytes, key: bytes, alg: SymmetricKeyAlgorithm, iv: Optional[bytes] = None) -> bytearray:
     if iv is None:
         """
         Instead of using an IV, OpenPGP prefixes a string of length

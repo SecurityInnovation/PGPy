@@ -327,7 +327,7 @@ class EdDSASignature(DSASignature):
 
 
 class PubKey(MPIs):
-    __pubfields__:Tuple = ()
+    __pubfields__: Tuple = ()
 
     @property
     def __mpis__(self):
@@ -1084,7 +1084,7 @@ class ECKDF(Field):
 
 
 class PrivKey(PubKey):
-    __privfields__:Tuple = ()
+    __privfields__: Tuple = ()
 
     @property
     def __mpis__(self):
@@ -1140,7 +1140,7 @@ class PrivKey(PubKey):
         """return the requisite *PrivateKey class from the cryptography library"""
 
     @abc.abstractmethod
-    def _generate(self, key_size_or_oid:Union[int,EllipticCurveOID]) -> None:
+    def _generate(self, key_size_or_oid: Union[int, EllipticCurveOID]) -> None:
         """Generate a new PrivKey"""
 
     def _compute_chksum(self):

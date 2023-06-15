@@ -651,7 +651,7 @@ class PGPUID(ParentRef):
     def __sig__(self):
         return list(self._signatures)
 
-    def _splitstring(self) -> Tuple[str,str,str]:
+    def _splitstring(self) -> Tuple[str, str, str]:
         '''returns name, comment email from User ID string'''
         if not isinstance(self._uid, UserID):
             return "", "", ""
@@ -2557,10 +2557,10 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
     @KeyAction(KeyFlags.EncryptCommunications, KeyFlags.EncryptStorage, is_public=True)
     def encrypt(self,
-                message:PGPMessage,
-                sessionkey:Optional[bytes]=None,
-                user:Optional[str]=None,
-                cipher:Optional[SymmetricKeyAlgorithm]=None) -> PGPMessage:
+                message: PGPMessage,
+                sessionkey: Optional[bytes] = None,
+                user: Optional[str] = None,
+                cipher: Optional[SymmetricKeyAlgorithm] = None) -> PGPMessage:
         """Encrypt a PGPMessage using this key.
 
         :param message: The message to encrypt.

@@ -144,7 +144,7 @@ class VersionedHeader(Header):
 
 
 class Packet(Dispatchable):
-    __typeid__:Optional[int] = -1
+    __typeid__: Optional[int] = -1
     __headercls__ = Header
 
     def __init__(self, _=None):
@@ -222,6 +222,7 @@ class Key:
     def pkalg(self) -> PubKeyAlgorithm:
         """The public key algorithm of the key"""
 
+
 class Public(Key):
     pass
 
@@ -281,7 +282,7 @@ class MPI(long):
 class MPIs(Field):
     # this differs from MPI in that it's subclasses hold/parse several MPI fields
     # and, in the case of v4 private keys, also a String2Key specifier/information.
-    __mpis__:Tuple = ()
+    __mpis__: Tuple = ()
 
     def __len__(self):
         return sum(len(i) for i in self)

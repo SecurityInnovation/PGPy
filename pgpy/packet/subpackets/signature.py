@@ -10,7 +10,7 @@ from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 
-from typing import Optional,Type
+from typing import Optional, Type
 
 from .types import EmbeddedSignatureHeader
 from .types import Signature
@@ -91,7 +91,7 @@ class URI(Signature):
 
 
 class FlagList(Signature):
-    __flags__:Optional[Type] = None
+    __flags__: Optional[Type] = None
 
     @sdproperty
     def flags(self):
@@ -134,7 +134,7 @@ class FlagList(Signature):
 
 
 class ByteFlag(Signature):
-    __flags__:Optional[Type] = None
+    __flags__: Optional[Type] = None
 
     @sdproperty
     def flags(self):

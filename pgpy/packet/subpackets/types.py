@@ -105,11 +105,11 @@ class SubPacket(Dispatchable):
 
 
 class Signature(SubPacket):
-    __typeid__:Optional[int] = -1
+    __typeid__: Optional[int] = -1
 
 
 class UserAttribute(SubPacket):
-    __typeid__:Optional[int] = -1
+    __typeid__: Optional[int] = -1
 
 
 class Opaque(Signature, UserAttribute):

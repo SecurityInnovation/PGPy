@@ -441,7 +441,7 @@ class MetaDispatchable(abc.ABCMeta):
     MetaDispatchable is a metaclass for objects that subclass Dispatchable
     """
 
-    _roots:Set[Type] = set()
+    _roots: Set[Type] = set()
     """
     _roots is a set of all currently registered RootClass class objects
 
@@ -449,7 +449,7 @@ class MetaDispatchable(abc.ABCMeta):
      - it inherits (directly or indirectly) from Dispatchable
      - __typeid__ == -1
     """
-    _registry:Dict[Union[Tuple[Type,int],Tuple[Type,int,int]],Type] = {}
+    _registry: Dict[Union[Tuple[Type, int], Tuple[Type, int, int]], Type] = {}
     """
     _registry is the Dispatchable class registry. It uses the following format:
 
@@ -572,7 +572,7 @@ class Dispatchable(PGPObject, metaclass=MetaDispatchable):
     def __typeid__(self):  # pragma: no cover
         return False
 
-    __ver__:Optional[int] = None
+    __ver__: Optional[int] = None
 
 
 class SignatureVerification:

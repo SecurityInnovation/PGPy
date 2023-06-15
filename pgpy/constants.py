@@ -501,6 +501,7 @@ class RevocationReason(IntEnum):
     #: User ID information is no longer valid. Only meaningful when revoking a certification of a user id.
     UserID = 0x20
 
+
 class SigSubpacketType(IntEnum):
     CreationTime = 2
     SigExpirationTime = 3
@@ -509,14 +510,14 @@ class SigSubpacketType(IntEnum):
     RegularExpression = 6
     Revocable = 7
     KeyExpirationTime = 9
-    PreferredSymmetricAlgorithms =  11
+    PreferredSymmetricAlgorithms = 11
     RevocationKey = 12
     IssuerKeyID = 16
-    NotationData =  20
+    NotationData = 20
     PreferredHashAlgorithms = 21
     PreferredCompressionAlgorithms = 22
     KeyServerPreferences = 23
-    PreferredKeyServer=24
+    PreferredKeyServer = 24
     PrimaryUserID = 25
     PolicyURI = 26
     KeyFlags = 27
@@ -525,12 +526,14 @@ class SigSubpacketType(IntEnum):
     Features = 30
     SignatureTarget = 31
     EmbeddedSignature = 32
-    IssuerFingerprint =  33
+    IssuerFingerprint = 33
     IntendedRecipientFingerprint = 35
     AttestedCertifications = 37
 
+
 class AttributeType(IntEnum):
     Image = 1
+
 
 class ImageEncoding(IntEnum):
     Unknown = 0x00
