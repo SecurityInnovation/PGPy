@@ -75,7 +75,10 @@ class SOPGPy(sop.StatelessOpenPGP):
         if (armor):
             return str(data).encode('ascii')
         else:
-            return bytes(data)
+            if isinstance(data, pgpy.types.PGPObject):
+                return bytes(data)
+            else:
+                raise TypeError(f"got an object of type {type(data)} which is not a PGPObject")
 
     def _get_pgp_signatures(self, data: bytes) -> Optional[pgpy.PGPSignatures]:
         sigs: Optional[pgpy.PGPSignatures] = None
@@ -232,7 +235,7 @@ class SOPGPy(sop.StatelessOpenPGP):
             if len(hashalgs) != 1:
                 micalg = ''
             else:
-                micalg = f'pgp-{hashalgs.pop().lower()}'
+                micalg = f'pgp-{hashalgs.pop().name.lower()}'
 
         return (self._maybe_armor(armor, pgpy.PGPSignatures(signatures)), micalg)
 
@@ -340,25 +343,27 @@ class SOPGPy(sop.StatelessOpenPGP):
 
 
     def _check_sigs(self,
-                    certs:MutableMapping[str,pgpy.PGPKey],
-                    msg:pgpy.PGPMessage,
-                    sigs:Optional[pgpy.PGPSignatures]=None,
-                    start:Optional[datetime]=None,
-                    end:Optional[datetime]=None) -> List[sop.SOPSigResult]:
-        results:List[sop.SOPSigResult] = []
+                    certs: MutableMapping[str, pgpy.PGPKey],
+                    msg: Union[pgpy.PGPMessage, bytes],
+                    sigs: Optional[pgpy.PGPSignatures] = None,
+                    start: Optional[datetime] = None,
+                    end: Optional[datetime] = None) -> List[sop.SOPSigResult]:
+        results: List[sop.SOPSigResult] = []
         if sigs is not None:
             for sig in sigs:
                 for signer, cert in certs.items():
                     try:
-                        verif:pgpy.types.SignatureVerification = cert.verify(msg, signature=sig)
-                        goodsig:pgpy.types.sigsubj
+                        verif: pgpy.types.SignatureVerification = cert.verify(msg, signature=sig)
+                        goodsig: pgpy.types.SignatureVerification._sigsubj
                         for goodsig in verif.good_signatures:
                             sigtime = goodsig.signature.created
                             # some versions of pgpy return tz-naive objects, even though all timestamps are in UTC:
                             # see https://docs.python.org/3/library/datetime.html#aware-and-naive-objects
                             if sigtime.tzinfo is None:
                                 sigtime = sigtime.replace(tzinfo=timezone.utc)
-                            if ('issues' in goodsig._fields and goodsig.issues == 0) or ('verified' in goodsig._fields and goodsig.verified):
+                            # PGPy before 0.6.0 included a "verified" boolean in sigsubj:
+                            if ('issues' in goodsig._fields and goodsig.issues == 0) or \
+                               ('verified' in goodsig._fields and goodsig.verified):  # type: ignore[attr-defined]
                                 if start is None or sigtime >= start:
                                     if end is None or sigtime <= end:
                                         results += [sop.SOPSigResult(when=goodsig.signature.created, signing_fpr=goodsig.by.fingerprint,
@@ -472,11 +477,11 @@ class SOPGPy(sop.StatelessOpenPGP):
                 obj = pgpy.PGPMessage.from_blob(data)
             elif label is sop.SOPArmorLabel.key:
                 obj, _ = pgpy.PGPKey.from_blob(data)
-                if obj.is_public or not obj.is_primary:
+                if not isinstance(obj, pgpy.PGPKey) or obj.is_public or not obj.is_primary:
                     raise sop.SOPInvalidDataType('not an OpenPGP secret key')
             elif label is sop.SOPArmorLabel.cert:
                 obj, _ = pgpy.PGPKey.from_blob(data)
-                if not obj.is_public:
+                if not isinstance(obj, pgpy.PGPKey) or not obj.is_public:
                     raise sop.SOPInvalidDataType('not an OpenPGP certificate')
             elif label is sop.SOPArmorLabel.sig:
                 obj = pgpy.PGPSignatures.from_blob(data)
