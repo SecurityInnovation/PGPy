@@ -22,6 +22,7 @@ from .fields import EdDSAPub, EdDSAPriv, EdDSASignature
 from .fields import ElGCipherText, ElGPriv, ElGPub
 from .fields import CipherText
 from .fields import Signature as SignatureField
+from .fields import PubKey as PubKeyField
 from .fields import OpaquePubKey
 from .fields import OpaquePrivKey
 from .fields import OpaqueSignature
@@ -830,36 +831,20 @@ class PubKeyV4(PubKey):
             if self._pkalg is PubKeyAlgorithm.Unknown:
                 self._opaque_pkalg: int = val
 
-        _c = {
-            # True means public
-            (True, PubKeyAlgorithm.RSAEncryptOrSign): RSAPub,
-            (True, PubKeyAlgorithm.RSAEncrypt): RSAPub,
-            (True, PubKeyAlgorithm.RSASign): RSAPub,
-            (True, PubKeyAlgorithm.DSA): DSAPub,
-            (True, PubKeyAlgorithm.ElGamal): ElGPub,
-            (True, PubKeyAlgorithm.FormerlyElGamalEncryptOrSign): ElGPub,
-            (True, PubKeyAlgorithm.ECDSA): ECDSAPub,
-            (True, PubKeyAlgorithm.ECDH): ECDHPub,
-            (True, PubKeyAlgorithm.EdDSA): EdDSAPub,
-            # False means private
-            (False, PubKeyAlgorithm.RSAEncryptOrSign): RSAPriv,
-            (False, PubKeyAlgorithm.RSAEncrypt): RSAPriv,
-            (False, PubKeyAlgorithm.RSASign): RSAPriv,
-            (False, PubKeyAlgorithm.DSA): DSAPriv,
-            (False, PubKeyAlgorithm.ElGamal): ElGPriv,
-            (False, PubKeyAlgorithm.FormerlyElGamalEncryptOrSign): ElGPriv,
-            (False, PubKeyAlgorithm.ECDSA): ECDSAPriv,
-            (False, PubKeyAlgorithm.ECDH): ECDHPriv,
-            (False, PubKeyAlgorithm.EdDSA): EdDSAPriv,
-        }
-
-        k = (self.public, self.pkalg)
-        km = _c.get(k, None)
-
-        self.keymaterial = (km or (OpaquePubKey if self.public else OpaquePrivKey))()
-
-        # km = _c.get(k, None)
-        # self.keymaterial = km() if km is not None else km
+        if self.pkalg in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.RSAEncrypt, PubKeyAlgorithm.RSASign}:
+            self.keymaterial: PubKeyField = (RSAPub if self.public else RSAPriv)()
+        elif self.pkalg is PubKeyAlgorithm.DSA:
+            self.keymaterial = (DSAPub if self.public else DSAPriv)()
+        elif self.pkalg in {PubKeyAlgorithm.ElGamal, PubKeyAlgorithm.FormerlyElGamalEncryptOrSign}:
+            self.keymaterial = (ElGPub if self.public else ElGPriv)()
+        elif self.pkalg is PubKeyAlgorithm.ECDSA:
+            self.keymaterial = (ECDSAPub if self.public else ECDSAPriv)()
+        elif self.pkalg is PubKeyAlgorithm.ECDH:
+            self.keymaterial = (ECDHPub if self.public else ECDHPriv)()
+        elif self.pkalg is PubKeyAlgorithm.EdDSA:
+            self.keymaterial = (EdDSAPub if self.public else EdDSAPriv)()
+        else:
+            self.keymaterial = (OpaquePubKey if self.public else OpaquePrivKey)()
 
     @property
     def public(self):
