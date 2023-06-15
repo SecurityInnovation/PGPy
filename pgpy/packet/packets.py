@@ -21,6 +21,7 @@ from .fields import ECDHPub, ECDHPriv, ECDHCipherText
 from .fields import EdDSAPub, EdDSAPriv, EdDSASignature
 from .fields import ElGCipherText, ElGPriv, ElGPub
 from .fields import CipherText
+from .fields import Signature as SignatureField
 from .fields import OpaquePubKey
 from .fields import OpaquePrivKey
 from .fields import OpaqueSignature
@@ -354,12 +355,11 @@ class SignatureV4(Signature):
     __ver__ = 4
 
     @sdproperty
-    def sigtype(self):
+    def sigtype(self) -> SignatureType:
         return self._sigtype
 
-    @sigtype.register(int)
-    @sigtype.register(SignatureType)
-    def sigtype_int(self, val):
+    @sigtype.register
+    def sigtype_int(self, val: int) -> None:
         self._sigtype = SignatureType(val)
 
     @sdproperty
@@ -375,16 +375,16 @@ class SignatureV4(Signature):
             if self._pubalg is PubKeyAlgorithm.Unknown:
                 self._opaque_pubalg: int = val
 
-        sigs = {
-            PubKeyAlgorithm.RSAEncryptOrSign: RSASignature,
-            PubKeyAlgorithm.RSAEncrypt: RSASignature,
-            PubKeyAlgorithm.RSASign: RSASignature,
-            PubKeyAlgorithm.DSA: DSASignature,
-            PubKeyAlgorithm.ECDSA: ECDSASignature,
-            PubKeyAlgorithm.EdDSA: EdDSASignature,
-        }
-
-        self.signature = sigs.get(self.pubalg, OpaqueSignature)()
+        if self.pubalg in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.RSASign}:
+            self.signature: SignatureField = RSASignature()
+        elif self.pubalg is PubKeyAlgorithm.DSA:
+            self.signature = DSASignature()
+        elif self.pubalg is PubKeyAlgorithm.ECDSA:
+            self.signature = ECDSASignature()
+        elif self.pubalg is PubKeyAlgorithm.EdDSA:
+            self.signature = EdDSASignature()
+        else:
+            self.signature = OpaqueSignature()
 
     @sdproperty
     def halg(self) -> HashAlgorithm:
