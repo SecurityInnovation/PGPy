@@ -58,6 +58,15 @@ class SOPGPy(sop.StatelessOpenPGP):
                          extended=f'python-cryptography {self.cryptography_version}\n{openssl.backend.openssl_version_text()}',
                          description=f'Stateless OpenPGP using PGPy {self.pgpy_version}')
 
+    @property
+    def generate_key_profiles(self) -> List[sop.SOPProfile]:
+        return [sop.SOPProfile('draft-koch-eddsa-for-openpgp-00', 'EdDSA/ECDH with Curve25519 ')]
+
+    @property
+    def encrypt_profiles(self) -> List[sop.SOPProfile]:
+        '''Override this to offer multiple encryption profiles'''
+        return [sop.SOPProfile('rfc4880', 'Algorithms from RFC 4880')]
+
     # implemented ciphers that we are willing to use to encrypt, in
     # the order we prefer them:
     _cipherprefs:List[pgpy.constants.SymmetricKeyAlgorithm] = \
@@ -134,10 +143,10 @@ class SOPGPy(sop.StatelessOpenPGP):
             err = f"by any of the {len(keypasswords)} passwords provided"
         raise sop.SOPKeyIsProtected(f"Key found at {keyhandle} could not be unlocked {err}.")
 
-
-    def generate_key(self, armor:bool=True, uids:List[str]=[],
-                     keypassword:Optional[bytes]=None,
-                     **kwargs:Namespace) -> bytes:
+    def generate_key(self, armor: bool = True, uids: List[str] = [],
+                     keypassword: Optional[bytes] = None,
+                     profile: Optional[sop.SOPProfile] = None,
+                     **kwargs: Namespace) -> bytes:
         self.raise_on_unknown_options(**kwargs)
         primary = pgpy.PGPKey.new(pgpy.constants.PubKeyAlgorithm.EdDSA,
                                   pgpy.constants.EllipticCurveOID.Ed25519)
@@ -260,14 +269,15 @@ class SOPGPy(sop.StatelessOpenPGP):
 
 
     def encrypt(self,
-                data:bytes,
-                literaltype:sop.SOPLiteralDataType=sop.SOPLiteralDataType.binary,
-                armor:bool=True,
-                passwords:MutableMapping[str,bytes]={},
-                signers:MutableMapping[str,bytes]={},
-                keypasswords:MutableMapping[str,bytes]={},
-                recipients:MutableMapping[str,bytes]={},
-                **kwargs:Namespace) -> bytes:
+                data: bytes,
+                literaltype: sop.SOPLiteralDataType = sop.SOPLiteralDataType.binary,
+                armor: bool = True,
+                passwords: MutableMapping[str, bytes] = {},
+                signers: MutableMapping[str, bytes] = {},
+                keypasswords: MutableMapping[str, bytes] = {},
+                recipients: MutableMapping[str, bytes] = {},
+                profile: Optional[sop.SOPProfile] = None,
+                **kwargs: Namespace) -> bytes:
         self.raise_on_unknown_options(**kwargs)
         handle:str
         keys:MutableMapping[str,pgpy.PGPKey] = {}
