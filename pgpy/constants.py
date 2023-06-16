@@ -137,7 +137,7 @@ class SymmetricKeyAlgorithm(IntEnum):
                         SymmetricKeyAlgorithm.Camellia256}
 
     @property
-    def is_insecure(self):
+    def is_insecure(self) -> bool:
         insecure_ciphers = {SymmetricKeyAlgorithm.IDEA}
         return self in insecure_ciphers
 
@@ -152,7 +152,7 @@ class SymmetricKeyAlgorithm(IntEnum):
             return 128
 
     @property
-    def key_size(self):
+    def key_size(self) -> int:
         ks = {SymmetricKeyAlgorithm.IDEA: 128,
               SymmetricKeyAlgorithm.TripleDES: 192,
               SymmetricKeyAlgorithm.CAST5: 128,
@@ -170,10 +170,10 @@ class SymmetricKeyAlgorithm(IntEnum):
 
         raise NotImplementedError(repr(self))
 
-    def gen_iv(self):
+    def gen_iv(self) -> bytes:
         return os.urandom(self.block_size // 8)
 
-    def gen_key(self):
+    def gen_key(self) -> bytes:
         return os.urandom(self.key_size // 8)
 
 
@@ -204,7 +204,7 @@ class PubKeyAlgorithm(IntEnum):
         return cls.Unknown
 
     @property
-    def can_gen(self):
+    def can_gen(self) -> bool:
         return self in {PubKeyAlgorithm.RSAEncryptOrSign,
                         PubKeyAlgorithm.DSA,
                         PubKeyAlgorithm.ECDSA,
@@ -212,20 +212,20 @@ class PubKeyAlgorithm(IntEnum):
                         PubKeyAlgorithm.EdDSA}
 
     @property
-    def can_encrypt(self):  # pragma: no cover
+    def can_encrypt(self) -> bool:  # pragma: no cover
         return self in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.ElGamal, PubKeyAlgorithm.ECDH}
 
     @property
-    def can_sign(self):
+    def can_sign(self) -> bool:
         return self in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.DSA, PubKeyAlgorithm.ECDSA, PubKeyAlgorithm.EdDSA}
 
     @property
-    def deprecated(self):
+    def deprecated(self) -> bool:
         return self in {PubKeyAlgorithm.RSAEncrypt,
                         PubKeyAlgorithm.RSASign,
                         PubKeyAlgorithm.FormerlyElGamalEncryptOrSign}
 
-    def validate_params(self, size):
+    def validate_params(self, size) -> 'SecurityIssues':
         min_size = MINIMUM_ASYMMETRIC_KEY_LENGTHS.get(self)
         if min_size is not None:
             if isinstance(min_size, set):
@@ -280,7 +280,7 @@ class CompressionAlgorithm(IntEnum):
     #: Bzip2
     BZ2 = 0x03
 
-    def compress(self, data):
+    def compress(self, data: bytes) -> bytes:
         if self is CompressionAlgorithm.Uncompressed:
             return data
 
@@ -295,7 +295,7 @@ class CompressionAlgorithm(IntEnum):
 
         raise NotImplementedError(self)
 
-    def decompress(self, data):
+    def decompress(self, data: bytes) -> bytes:
         if self is CompressionAlgorithm.Uncompressed:
             return data
 
@@ -345,19 +345,19 @@ class HashAlgorithm(IntEnum):
         return getattr(hashes, self.name).digest_size
 
     @property
-    def is_supported(self):
+    def is_supported(self) -> bool:
         return True
 
     @property
-    def is_second_preimage_resistant(self):
+    def is_second_preimage_resistant(self) -> bool:
         return self in {HashAlgorithm.SHA1}
 
     @property
-    def is_collision_resistant(self):
+    def is_collision_resistant(self) -> bool:
         return self in {HashAlgorithm.SHA256, HashAlgorithm.SHA384, HashAlgorithm.SHA512}
 
     @property
-    def is_considered_secure(self):
+    def is_considered_secure(self) -> 'SecurityIssues':
         if self.is_collision_resistant:
             return SecurityIssues.OK
 
@@ -557,7 +557,7 @@ class ImageEncoding(IntEnum):
     JPEG = 0x01
 
     @classmethod
-    def encodingof(cls, imagebytes):
+    def encodingof(cls, imagebytes: bytes) -> 'ImageEncoding':
         if imagebytes[6:10] in (b'JFIF', b'Exif') or imagebytes[:4] == b'\xff\xd8\xff\xdb':
             return ImageEncoding.JPEG
         return ImageEncoding.Unknown  # pragma: no cover
@@ -708,7 +708,7 @@ class Features(FlagEnum):
     UnknownFeature80 = 0x80
 
     @classproperty
-    def pgpy_features(cls):
+    def pgpy_features(cls) -> 'Features':
         return Features.ModificationDetection
 
 
@@ -743,7 +743,7 @@ class SecurityIssues(IntFlag):
     NoSelfSignature = (1 << 10)
 
     @property
-    def causes_signature_verify_to_fail(self):
+    def causes_signature_verify_to_fail(self) -> bool:
         return self in {
             SecurityIssues.WrongSig,
             SecurityIssues.Expired,
