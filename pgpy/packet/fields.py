@@ -11,7 +11,7 @@ import os
 
 import collections.abc
 
-from typing import Tuple, Union
+from typing import Optional, Tuple, Union
 
 from cryptography.exceptions import InvalidSignature
 
@@ -766,13 +766,15 @@ class String2Key(Field):
     context(s) as with the other S2K algorithms.
     """
     @sdproperty
-    def encalg(self):
+    def encalg(self) -> SymmetricKeyAlgorithm:
         return self._encalg
 
-    @encalg.register(int)
-    @encalg.register(SymmetricKeyAlgorithm)
-    def encalg_int(self, val):
-        self._encalg = SymmetricKeyAlgorithm(val)
+    @encalg.register
+    def encalg_int(self, val: int) -> None:
+        if isinstance(val, SymmetricKeyAlgorithm):
+            self._encalg: SymmetricKeyAlgorithm = val
+        else:
+            self._encalg = SymmetricKeyAlgorithm(val)
 
     @sdproperty
     def specifier(self) -> String2KeyType:
@@ -781,50 +783,54 @@ class String2Key(Field):
     @specifier.register
     def specifier_int(self, val: int) -> None:
         if isinstance(val, String2KeyType):
-            self._specifier = val
+            self._specifier: String2KeyType = val
         else:
             self._specifier = String2KeyType(val)
             if self._specifier is String2KeyType.Unknown:
                 self._opaque_specifier: int = val
 
     @sdproperty
-    def gnuext(self):
+    def gnuext(self) -> S2KGNUExtension:
         return self._gnuext
 
-    @gnuext.register(int)
-    @gnuext.register(S2KGNUExtension)
-    def gnuext_int(self, val):
-        self._gnuext = S2KGNUExtension(val)
+    @gnuext.register
+    def gnuext_int(self, val: int) -> None:
+        if isinstance(val, S2KGNUExtension):
+            self._gnuext: S2KGNUExtension = val
+        else:
+            self._gnuext = S2KGNUExtension(val)
 
     @sdproperty
-    def halg(self):
+    def halg(self) -> HashAlgorithm:
         return self._halg
 
-    @halg.register(int)
-    @halg.register(HashAlgorithm)
-    def halg_int(self, val):
-        self._halg = HashAlgorithm(val)
+    @halg.register
+    def halg_int(self, val: int) -> None:
+        if isinstance(val, HashAlgorithm):
+            self._halg = val
+        else:
+            self._halg = HashAlgorithm(val)
 
     @sdproperty
-    def count(self):
+    def count(self) -> int:
         return (16 + (self._count & 15)) << ((self._count >> 4) + 6)
 
-    @count.register(int)
-    def count_int(self, val):
+    @count.register
+    def count_int(self, val: int) -> None:
         if val < 0 or val > 255:  # pragma: no cover
             raise ValueError("count must be between 0 and 256")
         self._count = val
 
     def __init__(self) -> None:
         super().__init__()
-        self.usage: S2KUsage = S2KUsage.Unprotected
-        self.encalg = 0
-        self.specifier = 0
-        self.iv = None
+        self.usage = S2KUsage.Unprotected
+        self._encalg = SymmetricKeyAlgorithm.Plaintext
+        self._specifier = String2KeyType.Unknown
+        self.iv: Optional[bytearray] = None
 
         # specifier-specific fields
         # simple, salted, iterated
-        self.halg = 0
+        self._halg = HashAlgorithm.Unknown
 
         # salted, iterated
         self.salt = bytearray()
@@ -836,9 +842,9 @@ class String2Key(Field):
         self.gnuext = 1
 
         # GNU extension smartcard
-        self.scserial = None
+        self.scserial: Optional[bytearray] = None
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = bytearray()
         _bytes.append(self.usage)
         if bool(self):
@@ -859,7 +865,7 @@ class String2Key(Field):
                 _bytes += self.iv
         return _bytes
 
-    def _experimental_bytearray(self, _bytes):
+    def _experimental_bytearray(self, _bytes: bytearray) -> bytearray:
         if self.specifier == String2KeyType.GNUExtension:
             _bytes += b'\x00GNU'
             _bytes.append(self.gnuext)
@@ -895,13 +901,13 @@ class String2Key(Field):
         del packet[0]
 
         if bool(self):
-            self.encalg = packet[0]
+            self.encalg = SymmetricKeyAlgorithm(packet[0])
             del packet[0]
 
             self.specifier = packet[0]
             del packet[0]
 
-            if self.specifier == String2KeyType.GNUExtension:
+            if self.specifier is String2KeyType.GNUExtension:
                 return self._experimental_parse(packet, iv)
 
             if self.specifier >= String2KeyType.Simple:
@@ -913,7 +919,7 @@ class String2Key(Field):
                 self.salt = packet[:8]
                 del packet[:8]
 
-            if self.specifier == String2KeyType.Iterated:
+            if self.specifier is String2KeyType.Iterated:
                 self.count = packet[0]
                 del packet[0]
 
@@ -921,7 +927,7 @@ class String2Key(Field):
                 self.iv = packet[:(self.encalg.block_size // 8)]
                 del packet[:(self.encalg.block_size // 8)]
 
-    def _experimental_parse(self, packet, iv=True):
+    def _experimental_parse(self, packet: bytearray, iv: bool = True) -> None:
         """
         https://git.gnupg.org/cgi-bin/gitweb.cgi?p=gnupg.git;a=blob;f=doc/DETAILS;h=3046523da62c576cf6a765a8b0829876cfdc6b3b;hb=b0f0791e4ade845b2a0e2a94dbda4f3bf1ceb039#l1346
 
@@ -957,7 +963,7 @@ class String2Key(Field):
                 self.scserial = packet[:slen]
                 del packet[:slen]
 
-    def derive_key(self, passphrase):
+    def derive_key(self, passphrase: Union[str, bytes]) -> bytes:
         ##TODO: raise an exception if self.usage is not 254 or 255
         keylen = self.encalg.key_size
         hashlen = self.halg.digest_size * 8
