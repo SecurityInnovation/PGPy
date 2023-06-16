@@ -174,7 +174,7 @@ class PKESessionKeyV3(PKESessionKey):
         return self._encrypter
 
     @encrypter.register
-    def encrypter_bin(self, val: Union[bytearray,KeyID]) -> None:
+    def encrypter_bin(self, val: Union[bytearray, KeyID]) -> None:
         if isinstance(val, KeyID):
             self._encrypter: Optional[KeyID]
         elif val == b'\x00' * 8:
