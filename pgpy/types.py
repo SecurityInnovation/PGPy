@@ -748,6 +748,7 @@ class Fingerprint(str):
 
 class SorteDeque(collections.deque):
     """A deque subclass that tries to maintain sorted ordering using bisect"""
+
     def insort(self, item):
         i = bisect.bisect_left(self, item)
         self.rotate(- i)

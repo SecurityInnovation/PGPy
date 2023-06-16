@@ -600,6 +600,7 @@ class String2KeyType(IntEnum):
             raise TypeError(f"cannot look up String2KeyType by non-int {type(val)}")
         return cls.Unknown
 
+
 class S2KGNUExtension(IntEnum):
     NoSecret = 1
     Smartcard = 2

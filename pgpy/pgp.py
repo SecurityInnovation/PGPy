@@ -648,6 +648,7 @@ class PGPSignatures(collections_abc.Container, collections_abc.Iterable, collect
             else:
                 raise ValueError(f"Expected: Signature. Got: {format(pkt.__class__.__name__)}")
 
+
 class PGPUID(ParentRef):
     @property
     def __sig__(self):
