@@ -662,6 +662,13 @@ class String2KeyType(IntEnum):
             raise TypeError(f"cannot look up String2KeyType by non-int {type(val)}")
         return cls.Unknown
 
+    @property
+    def salt_length(self) -> int:
+        ks = {String2KeyType.Salted: 8,
+              String2KeyType.Iterated: 8,
+              }
+        return ks.get(self, 0)   
+
 
 class S2KGNUExtension(IntEnum):
     NoSecret = 1

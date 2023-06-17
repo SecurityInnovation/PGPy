@@ -834,6 +834,21 @@ class String2Key(Field):
             self._halg = HashAlgorithm(val)
 
     @sdproperty
+    def salt(self) -> bytes:
+        if self._specifier.salt_length == 0:
+            return b''
+        if self._salt is None:
+            self._salt: Optional[bytes] = os.urandom(self._specifier.salt_length)
+        return self._salt
+    @salt.register
+    def salt_bytes(self, val: Union[bytes, bytearray]) -> None:
+        if self._specifier.salt_length == 0:
+            raise ValueError(f"salt cannnot be set for String2KeyType {self._specifier!r}")
+        if len(val) != self._specifier.salt_length:
+            raise ValueError(f"salt for String2KeyType {self._specifier!r} should be {self._specifier.salt_length}, not {len(val)}")
+        self._salt = bytes(val)
+
+    @sdproperty
     def count(self) -> int:
         return (16 + (self._count & 15)) << ((self._count >> 4) + 6)
 
@@ -855,7 +870,7 @@ class String2Key(Field):
         self._halg = HashAlgorithm.Unknown
 
         # salted, iterated
-        self.salt = bytearray()
+        self._salt = None
 
         # iterated
         self.count = 0

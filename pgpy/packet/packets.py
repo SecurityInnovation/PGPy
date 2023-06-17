@@ -655,9 +655,8 @@ class SKESessionKeyV4(SKESessionKey):
 
         return symalg, bytes(m)
 
-    def encrypt_sk(self, passphrase: Union[str, bytes], sk: ByteString):
-        # generate the salt and derive the key to encrypt sk with from it
-        self.s2k.salt = bytearray(os.urandom(8))
+    def encrypt_sk(self, passphrase: Union[str, bytes], sk: ByteString) -> None:
+        # derive the key to encrypt sk with from it (salt will be generated automatically if it is not yet set)
         esk = self.s2k.derive_key(passphrase)
         del passphrase
 
