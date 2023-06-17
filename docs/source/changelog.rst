@@ -61,6 +61,12 @@ instead of KeyID.  When accessing this property via subscript (i.e.,
 key.subkeys[x]), you can *also* index it by KeyID, but using a full
 Fingerprint is recommended.
 
+S2KSpecifier is usable wherever any String2Key object appears (i.e.,
+bothSKESK and Secret Key protection).  The String2Key object itself is
+only for Secret Key protection, and it now contains an explicit
+S2KSpecifier member, rather than containing all S2K parameters
+directly.
+
 v0.6.0
 ======
 

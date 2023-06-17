@@ -461,7 +461,7 @@ class TestPGPKey_Management:
         key = self.keys[pkspec]
 
         with key.unlock('There Are Many Like It, But This Key Is Mine') as ukey:
-            ukey.protect('This Password Has Been Changed', ukey._key.keymaterial.s2k.encalg, ukey._key.keymaterial.s2k.halg)
+            ukey.protect('This Password Has Been Changed', ukey._key.keymaterial.s2k.encalg, ukey._key.keymaterial.s2k._specifier.halg)
 
     @pytest.mark.order(after='test_change_passphrase')
     @pytest.mark.parametrize('pkspec', pkeyspecs, ids=[str(a) for a, s in pkeyspecs])

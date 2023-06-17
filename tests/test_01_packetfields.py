@@ -329,9 +329,9 @@ class TestString2Key:
         assert s.__bytes__() == b
 
         assert bool(s)
-        assert s.halg in HashAlgorithm
+        assert s._specifier.halg in HashAlgorithm
         assert s.encalg in SymmetricKeyAlgorithm
-        assert s.specifier == String2KeyType.Simple
+        assert s._specifier._type is String2KeyType.Simple
         assert s.iv == _iv[:s.encalg.block_size//8]
 
     @pytest.mark.parametrize('sas2k', sas2ks)
@@ -345,10 +345,10 @@ class TestString2Key:
         assert s.__bytes__() == b
 
         assert bool(s)
-        assert s.halg in HashAlgorithm
+        assert s._specifier.halg in HashAlgorithm
         assert s.encalg in SymmetricKeyAlgorithm
-        assert s.specifier == String2KeyType.Salted
-        assert s.salt == _salt
+        assert s._specifier._type is String2KeyType.Salted
+        assert s._specifier.salt == _salt
         assert s.iv == _iv[:s.encalg.block_size//8]
 
     @pytest.mark.parametrize('is2k', is2ks)
@@ -362,11 +362,11 @@ class TestString2Key:
         assert s.__bytes__() == b
 
         assert bool(s)
-        assert s.halg in HashAlgorithm
+        assert s._specifier.halg in HashAlgorithm
         assert s.encalg in SymmetricKeyAlgorithm
-        assert s.specifier == String2KeyType.Iterated
-        assert s.salt == _salt
-        assert s.count == 2048
+        assert s._specifier._type is String2KeyType.Iterated
+        assert s._specifier.salt == _salt
+        assert s._specifier.iteration_count == 2048
         assert s.iv == _iv[:s.encalg.block_size//8]
 
     @pytest.mark.parametrize('gnus2k', gnus2ks)
@@ -381,7 +381,7 @@ class TestString2Key:
 
         assert bool(s)
         assert s.encalg == SymmetricKeyAlgorithm.Plaintext
-        assert s.specifier == String2KeyType.GNUExtension
-        assert s.gnuext in S2KGNUExtension
-        if s.gnuext == S2KGNUExtension.Smartcard:
-            assert s.scserial is not None and len(s.scserial) <= 16
+        assert s._specifier._type is String2KeyType.GNUExtension
+        assert s._specifier.gnuext in S2KGNUExtension
+        if s._specifier.gnuext is S2KGNUExtension.Smartcard:
+            assert s._specifier.smartcard_serial is not None and len(s._specifier.smartcard_serial) <= 16
