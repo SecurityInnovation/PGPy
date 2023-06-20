@@ -193,7 +193,7 @@ class SOPGPy(sop.StatelessOpenPGP):
                 raise sop.SOPPasswordNotHumanReadable(f'Key password was not UTF-8')
             keypassword = pstring.strip().encode(encoding='utf-8')
 
-            primary.protect(keypassword,
+            primary.protect(keypassword.decode('utf-8'),
                             pgpy.constants.SymmetricKeyAlgorithm.AES256,
                             pgpy.constants.HashAlgorithm.SHA512)
         return self._maybe_armor(armor, primary)

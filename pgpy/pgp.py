@@ -1643,7 +1643,7 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                 yield sig.revocation_key
 
     @classmethod
-    def new(cls, key_algorithm, key_size, created=None):
+    def new(cls, key_algorithm: PubKeyAlgorithm, key_size: Union[int, EllipticCurveOID], created: Optional[datetime] = None) -> 'PGPKey':
         """
         Generate a new PGP key
 
@@ -1991,13 +1991,16 @@ class PGPKey(Armorable, ParentRef, PGPObject):
 
         return next(self.self_signatures).key_flags
 
-    def _sign(self, subject, sig, **prefs):
+    def _sign(self, subject, sig: PGPSignature, **prefs) -> PGPSignature:
         """
         The actual signing magic happens here.
         :param subject: The subject to sign
         :param sig: The :py:obj:`PGPSignature` object the new signature is to be encapsulated within
         :returns: ``sig``, after the signature is added to it.
         """
+        if self._key is None:
+            raise PGPError('Internal implementation error: PGPKey._key should not be None')
+
         user = prefs.pop('user', None)
         uid = None
         if user is not None:
