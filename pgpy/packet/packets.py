@@ -800,14 +800,14 @@ class OnePassSignatureV3(OnePassSignature):
     def __bytearray__(self) -> bytearray:
         _bytes = bytearray()
         _bytes += super().__bytearray__()
-        _bytes += bytearray([self.sigtype])
+        _bytes.append(self.sigtype)
         if self.halg is HashAlgorithm.Unknown:
             _bytes.append(self._opaque_halg)
         else:
             _bytes.append(self.halg)
-        _bytes += bytearray([self.pubalg])
+        _bytes.append(self.pubalg)
         _bytes += bytes(self.signer)
-        _bytes += bytearray([int(not self.nested)])
+        _bytes.append(int(not self.nested))
         return _bytes
 
     def parse(self, packet: bytearray) -> None:
