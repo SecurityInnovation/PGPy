@@ -3,7 +3,7 @@ import pytest
 
 import glob
 try:
-    import gpg
+    import gpg # type: ignore
 except ImportError:
     gpg = None
     gpg_ver = 'unknown'

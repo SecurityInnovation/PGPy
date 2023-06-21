@@ -1,6 +1,8 @@
 # coding=utf-8
 """ ensure that we don't crash on surprising messages
 """
+from typing import Optional
+
 import pytest
 
 from pgpy import PGPKey, PGPMessage, PGPSignatures

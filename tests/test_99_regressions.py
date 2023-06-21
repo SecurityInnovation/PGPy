@@ -3,7 +3,7 @@
 from conftest import gpg_ver, gnupghome
 
 try:
-    import gpg
+    import gpg # type: ignore
 except ImportError:
     gpg = None
 import os
