@@ -319,6 +319,72 @@ class Signature(VersionedPacket):
     __typeid__ = PacketTag.Signature
     __ver__ = 0
 
+    def __init__(self) -> None:
+        super().__init__()
+        self._sigtype: Optional[SignatureType] = None
+        self._pubalg: Optional[PubKeyAlgorithm] = None
+        self._halg: Optional[HashAlgorithm] = None
+        self.subpackets = SubPackets()
+        self.hash2 = bytearray(2)
+        self._signature: SignatureField = OpaqueSignature()
+
+    @sdproperty
+    def sigtype(self) -> Optional[SignatureType]:
+        return self._sigtype
+
+    @sigtype.register
+    def sigtype_int(self, val: int) -> None:
+        self._sigtype = SignatureType(val)
+
+    @sdproperty
+    def pubalg(self) -> Optional[PubKeyAlgorithm]:
+        return self._pubalg
+
+    @pubalg.register
+    def pubalg_int(self, val: int) -> None:
+        if isinstance(val, PubKeyAlgorithm):
+            self._pubalg = val
+        else:
+            self._pubalg = PubKeyAlgorithm(val)
+            if self._pubalg is PubKeyAlgorithm.Unknown:
+                self._opaque_pubalg: int = val
+
+        if self.pubalg in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.RSASign}:
+            self.signature = RSASignature()
+        elif self.pubalg is PubKeyAlgorithm.DSA:
+            self.signature = DSASignature()
+        elif self.pubalg is PubKeyAlgorithm.ECDSA:
+            self.signature = ECDSASignature()
+        elif self.pubalg is PubKeyAlgorithm.EdDSA:
+            self.signature = EdDSASignature()
+        else:
+            self.signature = OpaqueSignature()
+
+    @sdproperty
+    def halg(self) -> Optional[HashAlgorithm]:
+        return self._halg
+
+    @halg.register
+    def halg_int(self, val: int) -> None:
+        if isinstance(val, HashAlgorithm):
+            self._halg = val
+        else:
+            self._halg = HashAlgorithm(val)
+            if self._halg is HashAlgorithm.Unknown:
+                self._opaque_halg = val
+
+    @property
+    def signature(self) -> SignatureField:
+        return self._signature
+
+    @signature.setter
+    def signature(self, val: SignatureField) -> None:
+        self._signature = val
+
+    def update_hlen(self):
+        self.subpackets.update_hlen()
+        super().update_hlen()
+
     @abc.abstractmethod
     def make_onepass(self) -> 'OnePassSignature':
         raise NotImplementedError()
@@ -375,59 +441,6 @@ class SignatureV4(Signature):
     """
     __ver__ = 4
 
-    @sdproperty
-    def sigtype(self) -> SignatureType:
-        return self._sigtype
-
-    @sigtype.register
-    def sigtype_int(self, val: int) -> None:
-        self._sigtype = SignatureType(val)
-
-    @sdproperty
-    def pubalg(self) -> PubKeyAlgorithm:
-        return self._pubalg
-
-    @pubalg.register
-    def pubalg_int(self, val: int) -> None:
-        if isinstance(val, PubKeyAlgorithm):
-            self._pubalg: PubKeyAlgorithm = val
-        else:
-            self._pubalg = PubKeyAlgorithm(val)
-            if self._pubalg is PubKeyAlgorithm.Unknown:
-                self._opaque_pubalg: int = val
-
-        if self.pubalg in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.RSASign}:
-            self.signature: SignatureField = RSASignature()
-        elif self.pubalg is PubKeyAlgorithm.DSA:
-            self.signature = DSASignature()
-        elif self.pubalg is PubKeyAlgorithm.ECDSA:
-            self.signature = ECDSASignature()
-        elif self.pubalg is PubKeyAlgorithm.EdDSA:
-            self.signature = EdDSASignature()
-        else:
-            self.signature = OpaqueSignature()
-
-    @sdproperty
-    def halg(self) -> HashAlgorithm:
-        return self._halg
-
-    @halg.register
-    def halg_int(self, val: int) -> None:
-        if isinstance(val, HashAlgorithm):
-            self._halg = val
-        else:
-            self._halg = HashAlgorithm(val)
-            if self._halg is HashAlgorithm.Unknown:
-                self._opaque_halg = val
-
-    @property
-    def signature(self):
-        return self._signature
-
-    @signature.setter
-    def signature(self, val):
-        self._signature = val
-
     @property
     def signer(self) -> Optional[Union[KeyID, Fingerprint]]:
         if 'IssuerFingerprint' in self.subpackets:
@@ -436,18 +449,9 @@ class SignatureV4(Signature):
             return self.subpackets['Issuer'][-1].issuer
         return None
 
-    def __init__(self):
-        super(Signature, self).__init__()
-        self._sigtype = None
-        self._pubalg = None
-        self._halg = None
-        self.subpackets = SubPackets()
-        self.hash2 = bytearray(2)
-        self.signature = None
-
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = bytearray()
-        _bytes += super(Signature, self).__bytearray__()
+        _bytes += super().__bytearray__()
         _bytes += self.int_to_bytes(self.sigtype)
         if self.pubalg is PubKeyAlgorithm.Unknown:
             _bytes.append(self._opaque_pubalg)
@@ -463,7 +467,7 @@ class SignatureV4(Signature):
 
         return _bytes
 
-    def canonical_bytes(self):
+    def canonical_bytes(self) -> bytearray:
         '''Returns a bytearray that is the way the signature packet
         should be represented if it is itself being signed.
 
@@ -498,7 +502,7 @@ class SignatureV4(Signature):
         _hdr += self.int_to_bytes(len(_body), minlen=4)
         return _hdr + _body
 
-    def __copy__(self):
+    def __copy__(self) -> 'SignatureV4':
         spkt = SignatureV4()
         spkt.header = copy.copy(self.header)
         spkt._sigtype = self._sigtype
@@ -515,12 +519,8 @@ class SignatureV4(Signature):
 
         return spkt
 
-    def update_hlen(self):
-        self.subpackets.update_hlen()
-        super().update_hlen()
-
-    def parse(self, packet):
-        super(Signature, self).parse(packet)
+    def parse(self, packet: bytearray) -> None:
+        super().parse(packet)
         self.sigtype = packet[0]
         del packet[0]
 
