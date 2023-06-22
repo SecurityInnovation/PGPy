@@ -1199,7 +1199,9 @@ class SKEData(Packet):
         self.ct = packet[:self.header.length]
         del packet[:self.header.length]
 
-    def decrypt(self, key, alg):  # pragma: no cover
+    def decrypt(self, key: bytes, alg: Optional[SymmetricKeyAlgorithm]) -> bytearray:  # pragma: no cover
+        if alg is None:
+            raise TypeError("SED cannot decrypt without knowing the symmetric algorithm")
         block_size_bytes = alg.block_size // 8
         pt_prefix = _cfb_decrypt(bytes(self.ct[:block_size_bytes + 2]), bytes(key), alg)
 
@@ -1542,6 +1544,10 @@ class IntegrityProtectedSKEData(VersionedPacket):
     __typeid__ = PacketTag.SymmetricallyEncryptedIntegrityProtectedData
     __ver__ = 0
 
+    @abc.abstractmethod
+    def decrypt(self, key: bytes, alg: Optional[SymmetricKeyAlgorithm]) -> bytearray:
+        raise NotImplementedError()
+
 
 class IntegrityProtectedSKEDataV1(IntegrityProtectedSKEData):
     """
@@ -1678,7 +1684,9 @@ class IntegrityProtectedSKEDataV1(IntegrityProtectedSKEData):
         self.ct = _cfb_encrypt(data, key, alg)
         self.update_hlen()
 
-    def decrypt(self, key, alg):
+    def decrypt(self, key: bytes, alg: Optional[SymmetricKeyAlgorithm]) -> bytearray:
+        if alg is None:
+            raise TypeError("SEIPDv1 cannot decrypt without knowing the symmetric algorithm")
         # iv, ivl2, pt = super(IntegrityProtectedSKEDataV1, self).decrypt(key, alg)
         pt = _cfb_decrypt(bytes(self.ct), bytes(key), alg)
 
