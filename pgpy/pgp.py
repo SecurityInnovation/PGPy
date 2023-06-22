@@ -712,7 +712,7 @@ class PGPUID(ParentRef):
         return self._uid.uid if isinstance(self._uid, UserID) else None
 
     @property
-    def image(self):
+    def image(self) -> Optional[bytearray]:
         """
         If this is a User Attribute, this will be the stored image. If this is not a User Attribute, this will be ``None``.
         """
@@ -764,15 +764,16 @@ class PGPUID(ParentRef):
         return {s.signer for s in self.__sig__} | {s.signer_fingerprint for s in self.__sig__ if s.signer_fingerprint is not None}
 
     @property
-    def hashdata(self):
+    def hashdata(self) -> bytearray:
         if self.is_uid:
             return self._uid.__bytearray__()[len(self._uid.header):]
 
-        if self.is_ua:
+        if isinstance(self._uid, UserAttribute):
             return self._uid.subpackets.__bytearray__()
+        return bytearray(b'')
 
     @property
-    def third_party_certifications(self):
+    def third_party_certifications(self) -> Iterator[PGPSignature]:
         '''
         A generator returning all third-party certifications
         '''
@@ -784,7 +785,7 @@ class PGPUID(ParentRef):
             if (sig.signer_fingerprint != '' and fpr != sig.signer_fingerprint) or (sig.signer != keyid):
                 yield sig
 
-    def attested_to(self, certifications):
+    def attested_to(self, certifications: Iterator[PGPSignature]) -> Iterator[PGPSignature]:
         '''filter certifications, only returning those that have been attested to by the first party'''
         # first find the set of the most recent valid Attestation Key Signatures:
         if self.parent is None:
@@ -811,7 +812,7 @@ class PGPUID(ParentRef):
                     yield certification
 
     @property
-    def attested_third_party_certifications(self):
+    def attested_third_party_certifications(self) -> Iterator[PGPSignature]:
         '''
         A generator that provides a list of all third-party certifications attested to
         by the primary key.
@@ -819,7 +820,7 @@ class PGPUID(ParentRef):
         return self.attested_to(self.third_party_certifications)
 
     @classmethod
-    def new(cls, pn, comment="", email=""):
+    def new(cls, pn: Union[bytearray, str], comment: Optional[str] = None, email: Optional[str] = None) -> 'PGPUID':
         """
         Create a new User ID or photo.
 
@@ -851,7 +852,7 @@ class PGPUID(ParentRef):
 
         return uid
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         PGPUID objects represent User IDs and User Attributes for keys.
 
@@ -859,15 +860,15 @@ class PGPUID(ParentRef):
         'name (comment) <email>', leaving out any comment or email fields that are not present.
         """
         super().__init__()
-        self._uid = None
+        self._uid: Union[UserID, UserAttribute]
         self._signatures = SorteDeque()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if self.selfsig is not None:
             return "<PGPUID [{:s}][{}] at 0x{:02X}>".format(self._uid.__class__.__name__, self.selfsig.created, id(self))
         return "<PGPUID [{:s}] at 0x{:02X}>".format(self._uid.__class__.__name__, id(self))
 
-    def __lt__(self, other):  # pragma: no cover
+    def __lt__(self, other: 'PGPUID') -> bool:  # pragma: no cover
         if self.is_uid == other.is_uid:
             if self.is_primary == other.is_primary:
                 mysig = self.selfsig
@@ -889,7 +890,9 @@ class PGPUID(ParentRef):
         if self.is_ua and other.is_uid:
             return False
 
-    def __or__(self, other):
+        raise ValueError("should not have reached here!")
+
+    def __or__(self, other: Union[PGPSignature, UserID, UserAttribute]) -> 'PGPUID':
         if isinstance(other, PGPSignature):
             self._signatures.insort(other)
             if self.parent is not None and self in self.parent._uids:
@@ -897,18 +900,18 @@ class PGPUID(ParentRef):
 
             return self
 
-        if isinstance(other, UserID) and self._uid is None:
+        if isinstance(other, UserID):
             self._uid = other
             return self
 
-        if isinstance(other, UserAttribute) and self._uid is None:
+        if isinstance(other, UserAttribute):
             self._uid = other
             return self
 
         raise TypeError("unsupported operand type(s) for |: '{:s}' and '{:s}'"
                         "".format(self.__class__.__name__, other.__class__.__name__))
 
-    def __copy__(self):
+    def __copy__(self) -> 'PGPUID':
         # because the default shallow copy isn't actually all that useful,
         # and deepcopy does too much work
         uid = PGPUID()
@@ -917,7 +920,7 @@ class PGPUID(ParentRef):
             uid |= copy.copy(sig)
         return uid
 
-    def __format__(self, format_spec):
+    def __format__(self, format_spec: str) -> str:
         if self.is_uid:
             comment = "" if self.comment == "" else " ({:s})".format(self.comment)
             email = "" if self.email == "" else " <{:s}>".format(self.email)
