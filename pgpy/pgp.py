@@ -17,7 +17,7 @@ import weakref
 
 from datetime import datetime, timezone
 
-from typing import Any, Deque, List, Iterator, Mapping, Optional, Set, Tuple, Union
+from typing import Any, ByteString, Deque, Literal, List, Iterator, Mapping, Optional, Set, Tuple, Union
 
 from cryptography.hazmat.primitives import hashes
 
@@ -927,11 +927,11 @@ class PGPUID(ParentRef):
 
 class PGPMessage(Armorable, PGPObject):
     @staticmethod
-    def dash_unescape(text):
+    def dash_unescape(text: str) -> str:
         return re.subn(r'^- ', '', text, flags=re.MULTILINE)[0]
 
     @staticmethod
-    def dash_escape(text):
+    def dash_escape(text: str) -> str:
         return re.subn(r'^-', '- -', text, flags=re.MULTILINE)[0]
 
     @property
@@ -940,29 +940,29 @@ class PGPMessage(Armorable, PGPObject):
         return {m.encrypter for m in self._sessionkeys if isinstance(m, PKESessionKey) and m.encrypter is not None}
 
     @property
-    def filename(self):
-        """If applicable, returns the original filename of the message. Otherwise, returns an empty string."""
-        if self.type == 'literal':
+    def filename(self) -> Optional[str]:
+        """If applicable, returns the original filename of the message. Otherwise, returns None."""
+        if self.type == 'literal' and isinstance(self._message, LiteralData):
             return self._message.filename
-        return ''
+        return None
 
     @property
-    def is_compressed(self):
+    def is_compressed(self) -> bool:
         """``True`` if this message will be compressed when exported"""
         return self._compression != CompressionAlgorithm.Uncompressed
 
     @property
-    def is_encrypted(self):
+    def is_encrypted(self) -> bool:
         """``True`` if this message is encrypted; otherwise, ``False``"""
         return isinstance(self._message, (SKEData, IntegrityProtectedSKEData))
 
     @property
-    def is_sensitive(self):
+    def is_sensitive(self) -> bool:
         """``True`` if this message is marked sensitive; otherwise ``False``"""
-        return self.type == 'literal' and self._message.filename == '_CONSOLE'
+        return self.type == 'literal' and isinstance(self._message, LiteralData) and self._message.filename == '_CONSOLE'
 
     @property
-    def is_signed(self):
+    def is_signed(self) -> bool:
         """
         ``True`` if this message is signed; otherwise, ``False``.
         Should always be ``False`` if the message is encrypted.
@@ -975,25 +975,26 @@ class PGPMessage(Armorable, PGPObject):
         return self.encrypters | self.signers
 
     @property
-    def magic(self):
+    def magic(self) -> str:
         if self.type == 'cleartext':
             return "SIGNATURE"
         return "MESSAGE"
 
     @property
-    def message(self):
+    def message(self) -> Union[str, bytes, SKEData, IntegrityProtectedSKEData]:
         """The message contents"""
         if self.type == 'cleartext':
             return self.bytes_to_text(self._message)
 
-        if self.type == 'literal':
+        if isinstance(self._message, LiteralData):
             return self._message.contents
 
-        if self.type == 'encrypted':
+        if isinstance(self._message, (SKEData, IntegrityProtectedSKEData)):
             return self._message
+        raise ValueError(f'PGPMessage had unexpected type {self.type}')
 
     @property
-    def signatures(self):
+    def signatures(self) -> List[PGPSignature]:
         """A ``set`` containing all key ids (if any) which have signed this message."""
         return list(self._signatures)
 
@@ -1003,7 +1004,7 @@ class PGPMessage(Armorable, PGPObject):
         return {m.signer for m in self._signatures} | {m.signer_fingerprint for m in self._signatures if m.signer_fingerprint is not None}
 
     @property
-    def type(self):
+    def type(self) -> Literal['cleartext', 'literal', 'encrypted']:
         ##TODO: it might be better to use an Enum for the output of this
         if isinstance(self._message, (str, bytes, bytearray)):
             return 'cleartext'
@@ -1016,7 +1017,7 @@ class PGPMessage(Armorable, PGPObject):
 
         raise NotImplementedError
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         PGPMessage objects represent OpenPGP message compositions.
 
@@ -1030,13 +1031,13 @@ class PGPMessage(Armorable, PGPObject):
         of either of those methods.
         """
         super().__init__()
-        self._compression = CompressionAlgorithm.Uncompressed
-        self._message = None
-        self._mdc = None
-        self._signatures = SorteDeque()
-        self._sessionkeys = []
+        self._compression: CompressionAlgorithm = CompressionAlgorithm.Uncompressed
+        self._message: Optional[Union[str, bytes, bytearray, LiteralData, SKEData, IntegrityProtectedSKEData]] = None
+        self._mdc: Optional[MDC] = None
+        self._signatures: SorteDeque = SorteDeque()
+        self._sessionkeys: List[Union[PKESessionKey, SKESessionKey]] = []
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         if self.is_compressed:
             comp = CompressedData()
             comp.calg = self._compression
@@ -1049,7 +1050,7 @@ class PGPMessage(Armorable, PGPObject):
             _bytes += pkt.__bytearray__()
         return _bytes
 
-    def __str__(self):
+    def __str__(self) -> str:
         if self.type == 'cleartext':
             tmpl = "-----BEGIN PGP SIGNED MESSAGE-----\n" \
                    "{hhdr:s}\n" \
@@ -1092,7 +1093,7 @@ class PGPMessage(Armorable, PGPObject):
             for sig in self._signatures:
                 yield sig
 
-    def __or__(self, other):
+    def __or__(self, other) -> 'PGPMessage':
         if isinstance(other, Marker):
             return self
 
@@ -1146,7 +1147,7 @@ class PGPMessage(Armorable, PGPObject):
 
         raise NotImplementedError(str(type(other)))
 
-    def __copy__(self):
+    def __copy__(self) -> 'PGPMessage':
         msg = super().__copy__()
         msg._compression = self._compression
         msg._message = copy.copy(self._message)
@@ -1161,7 +1162,13 @@ class PGPMessage(Armorable, PGPObject):
         return msg
 
     @classmethod
-    def new(cls, message, **kwargs):
+    def new(cls, message: Union[str, bytes, bytearray],
+            cleartext: bool = False,
+            format: Optional[str] = None,
+            sensitive: bool = False,
+            compression: CompressionAlgorithm = CompressionAlgorithm.ZIP,
+            file: bool = False,
+            encoding: Optional[str] = None) -> 'PGPMessage':
         """
         Create a new PGPMessage object.
 
@@ -1187,27 +1194,24 @@ class PGPMessage(Armorable, PGPObject):
         :type encoding: ``str`` representing a valid codec in codecs
         """
         # TODO: have 'codecs' above (in :type encoding:) link to python documentation page on codecs
-        cleartext = kwargs.pop('cleartext', False)
-        format = kwargs.pop('format', None)
-        sensitive = kwargs.pop('sensitive', False)
-        compression = kwargs.pop('compression', CompressionAlgorithm.ZIP)
-        file = kwargs.pop('file', False)
-        charset = kwargs.pop('encoding', None)
 
         filename = ''
         mtime = datetime.now(timezone.utc)
 
         msg = PGPMessage()
 
-        if charset:
-            msg.charset = charset
+        if encoding:
+            msg.charset = encoding
 
         # if format in 'tu' and isinstance(message, (bytes, bytearray)):
         #     # if message format is text or unicode and we got binary data, we'll need to transcode it to UTF-8
         #     message =
 
         if file and os.path.isfile(message):
-            filename = message
+            if not isinstance(message, str):
+                filename = message.decode()
+            else:
+                filename = message
             message = bytearray(os.path.getsize(filename))
             mtime = datetime.fromtimestamp(os.path.getmtime(filename), timezone.utc)
 
@@ -1230,7 +1234,7 @@ class PGPMessage(Armorable, PGPObject):
 
         # if message is a binary type and we're building a textual message, we need to transcode the bytes to UTF-8
         if isinstance(message, (bytes, bytearray)) and (cleartext or format in 'tu'):
-            message = message.decode(charset or 'utf-8')
+            message = message.decode(encoding or 'utf-8')
 
         if cleartext:
             msg |= message
@@ -1250,7 +1254,11 @@ class PGPMessage(Armorable, PGPObject):
 
         return msg
 
-    def encrypt(self, passphrase, sessionkey=None, **prefs):
+    def encrypt(self, passphrase: Union[str, bytes],
+                sessionkey: Optional[Union[int, ByteString]] = None,
+                cipher: SymmetricKeyAlgorithm = SymmetricKeyAlgorithm.AES256,
+                hash: HashAlgorithm = HashAlgorithm.SHA256,
+                iv: Optional[bytes] = None) -> 'PGPMessage':
         """
         encrypt(passphrase, [sessionkey=None,] **prefs)
 
@@ -1272,19 +1280,18 @@ class PGPMessage(Armorable, PGPObject):
         :raises: :py:exc:`~errors.PGPEncryptionError`
         :returns: A new :py:obj:`PGPMessage` containing the encrypted contents of this message.
         """
-        cipher_algo = prefs.pop('cipher', SymmetricKeyAlgorithm.AES256)
-        hash_algo = prefs.pop('hash', HashAlgorithm.SHA256)
-
         # set up a new SKESessionKeyV4
         skesk = SKESessionKeyV4()
         skesk.s2k.usage = 255
         skesk.s2k.specifier = 3
-        skesk.s2k.halg = hash_algo
-        skesk.s2k.encalg = cipher_algo
+        skesk.s2k.halg = hash
+        skesk.s2k.encalg = cipher
         skesk.s2k.count = 255
 
         if sessionkey is None:
-            sessionkey = cipher_algo.gen_key()
+            sessionkey = cipher.gen_key()
+        elif isinstance(sessionkey, int):
+            sessionkey = self.int_to_bytes(sessionkey)
         skesk.encrypt_sk(passphrase, sessionkey)
         del passphrase
 
@@ -1292,8 +1299,7 @@ class PGPMessage(Armorable, PGPObject):
 
         if not self.is_encrypted:
             skedata = IntegrityProtectedSKEDataV1()
-            iv = prefs.pop('iv', None)
-            skedata.encrypt(sessionkey, cipher_algo, self.__bytes__(), iv = iv)
+            skedata.encrypt(sessionkey, cipher, self.__bytes__(), iv = iv)
             msg |= skedata
 
         else:
@@ -1301,7 +1307,7 @@ class PGPMessage(Armorable, PGPObject):
 
         return msg
 
-    def decrypt(self, passphrase):
+    def decrypt(self, passphrase: Union[str, bytes]) -> 'PGPMessage':
         """
         Attempt to decrypt this message using a passphrase.
 
@@ -1310,14 +1316,14 @@ class PGPMessage(Armorable, PGPObject):
         :raises: :py:exc:`~errors.PGPDecryptionError` if decryption failed for any reason.
         :returns: A new :py:obj:`PGPMessage` containing the decrypted contents of this message
         """
-        if not self.is_encrypted:
+        if not isinstance(self._message, (SKEData, IntegrityProtectedSKEData)):
             raise PGPError("This message is not encrypted!")
 
         for skesk in iter(sk for sk in self._sessionkeys if isinstance(sk, SKESessionKey)):
             try:
                 symalg, key = skesk.decrypt_sk(passphrase)
                 decmsg = PGPMessage()
-                decmsg.parse(self.message.decrypt(key, symalg))
+                decmsg.parse(self._message.decrypt(key, symalg))
 
             except (TypeError, ValueError, NotImplementedError, PGPDecryptionError):
                 continue
@@ -1331,9 +1337,11 @@ class PGPMessage(Armorable, PGPObject):
 
         return decmsg
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         unarmored = self.ascii_unarmor(packet)
         data = unarmored['body']
+        if not isinstance(data, bytearray):
+            raise TypeError(f"Expected data to be a bytearray, not {type(data)}")
 
         if unarmored['magic'] is not None and unarmored['magic'] not in ['MESSAGE', 'SIGNATURE']:
             raise ValueError('Expected: MESSAGE. Got: {}'.format(str(unarmored['magic'])))
@@ -1345,9 +1353,12 @@ class PGPMessage(Armorable, PGPObject):
         if unarmored['magic'] == 'SIGNATURE':
             # the composition for this will be the 'cleartext' as a str,
             # followed by one or more signatures (each one loaded into a PGPSignature)
-            self |= self.dash_unescape(unarmored['cleartext'])
+            cleartext = unarmored['cleartext']
+            if not isinstance(cleartext, str):
+                raise TypeError(f"Expected cleartext to be str, not {type(cleartext)}")
+            self |= self.dash_unescape(cleartext)
             while len(data) > 0:
-                pkt = Packet(data)
+                pkt = Packet(data)  # type: ignore[abstract]
                 if not isinstance(pkt, Signature):  # pragma: no cover
                     warnings.warn("Discarded unexpected packet: {:s}".format(pkt.__class__.__name__), stacklevel=2)
                     continue
@@ -1355,7 +1366,7 @@ class PGPMessage(Armorable, PGPObject):
 
         else:
             while len(data) > 0:
-                self |= Packet(data)
+                self |= Packet(data)  # type: ignore[abstract]
 
 
 class PGPKey(Armorable, ParentRef, PGPObject):
