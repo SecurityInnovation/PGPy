@@ -83,6 +83,9 @@ produce a PGPSignature object).
 PGPUID.signers, PGPKey.signers, and PGPMessage.signers will now return
 Fingerprints, not just Key IDs.
 
+Passing None to PGPObject.text_to_bytes or PGPObject.bytes_to_text is
+now an error.
+
 v0.6.0
 ======
 

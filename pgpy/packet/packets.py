@@ -283,6 +283,8 @@ class PKESessionKeyV3(PKESessionKey):
         return (symalg, symkey)
 
     def encrypt_sk(self, pk, symalg: Optional[SymmetricKeyAlgorithm], symkey: bytes) -> None:
+        if symalg is None:
+            raise ValueError('PKESKv3: must pass a symmetric key algorithm explicitly when encrypting')
         m = bytearray(self.int_to_bytes(symalg) + symkey)
         m += self.int_to_bytes(sum(bytearray(symkey)) % 65536, 2)
 
@@ -684,7 +686,7 @@ class SKESessionKeyV4(SKESessionKey):
         # symmetric algorithm for the following SED or SEIPD packet.
         # This is a reasonable simplification for generation, but it
         # won't always be the same when parsing
-        self.ct = _cfb_encrypt(self.int_to_bytes(self.symalg) + sk, esk, self.symalg)
+        self.ct = _cfb_encrypt(self.int_to_bytes(self.symalg) + bytes(sk), esk, self.symalg)
 
         # update header length and return sk
         self.update_hlen()

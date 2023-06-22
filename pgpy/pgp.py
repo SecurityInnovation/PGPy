@@ -983,7 +983,7 @@ class PGPMessage(Armorable, PGPObject):
     @property
     def message(self) -> Union[str, bytes, SKEData, IntegrityProtectedSKEData]:
         """The message contents"""
-        if self.type == 'cleartext':
+        if isinstance(self._message, (str, bytes, bytearray)):
             return self.bytes_to_text(self._message)
 
         if isinstance(self._message, LiteralData):
@@ -1051,7 +1051,7 @@ class PGPMessage(Armorable, PGPObject):
         return _bytes
 
     def __str__(self) -> str:
-        if self.type == 'cleartext':
+        if isinstance(self._message, (bytes, bytearray, str)):
             tmpl = "-----BEGIN PGP SIGNED MESSAGE-----\n" \
                    "{hhdr:s}\n" \
                    "{cleartext:s}\n" \
