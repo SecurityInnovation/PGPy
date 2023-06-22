@@ -39,7 +39,7 @@ class Header(_Header):
     @tag.register(int)
     @tag.register(PacketTag)
     def tag_int(self, val):
-        _tag = (val & 0x3F) if self._lenfmt else ((val & 0x3C) >> 2)
+        _tag = (val & 0x3F) if self._openpgp_format else ((val & 0x3C) >> 2)
         try:
             self._tag = PacketTag(_tag)
 
@@ -55,11 +55,11 @@ class Header(_Header):
         self.tag = 0x00
 
     def __bytearray__(self):
-        tag = 0x80 | (self._lenfmt << 6)
-        tag |= (self.tag) if self._lenfmt else ((self.tag << 2) | {1: 0, 2: 1, 4: 2, 0: 3}[self.llen])
+        tag = 0x80 | (0x40 if self._openpgp_format else 0x00)
+        tag |= (self.tag) if self._openpgp_format else ((self.tag << 2) | {1: 0, 2: 1, 4: 2, 0: 3}[self.llen])
 
         _bytes = bytearray(self.int_to_bytes(tag))
-        _bytes += self.encode_length(self.length, self._lenfmt, self.llen)
+        _bytes += self.encode_length(self.length, self._openpgp_format, self.llen)
         return _bytes
 
     def __len__(self):
@@ -103,13 +103,13 @@ class Header(_Header):
 
         :param packet: raw packet bytes
         """
-        self._lenfmt = ((packet[0] & 0x40) >> 6)
+        self._openpgp_format = bool(packet[0] & 0x40)
         self.tag = packet[0]
-        if self._lenfmt == 0:
+        if not self._openpgp_format:
             self.llen = (packet[0] & 0x03)
         del packet[0]
 
-        if (self._lenfmt == 0 and self.llen > 0) or self._lenfmt == 1:
+        if (not self._openpgp_format and self.llen > 0) or self._openpgp_format:
             self.length = packet
 
         else:

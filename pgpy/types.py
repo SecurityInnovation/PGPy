@@ -15,7 +15,7 @@ import weakref
 
 from enum import IntEnum
 
-from typing import Optional, Dict, List, Literal, Set, Tuple, Type, Union, OrderedDict, TypeVar, Generic
+from typing import ByteString, Optional, Dict, List, Literal, Set, Tuple, Type, Union, OrderedDict, TypeVar, Generic
 
 from .decorators import sdproperty
 
@@ -154,13 +154,15 @@ class Armorable(metaclass=abc.ABCMeta):
 
         if m['crc'] is not None:
             m['crc'] = Header.bytes_to_int(base64.b64decode(m['crc'].encode()))
-            if Armorable.crc24(m['body']) != m['crc']:
+            if not isinstance(m['body'], ByteString):
+                warnings.warn(f"Armored body was not a ByteString ({type(m['body'])})")
+            elif Armorable.crc24(m['body']) != m['crc']:
                 warnings.warn('Incorrect crc24', stacklevel=3)
 
         return m
 
     @staticmethod
-    def crc24(data):
+    def crc24(data: ByteString) -> int:
         # CRC24 computation, as described in the RFC 4880 section on Radix-64 Conversions
         #
         # The checksum is a 24-bit Cyclic Redundancy Check (CRC) converted to
@@ -170,9 +172,6 @@ class Armorable(metaclass=abc.ABCMeta):
         # The accumulation is done on the data before it is converted to
         # radix-64, rather than on the converted data.
         crc = Armorable.__crc24_init
-
-        if not isinstance(data, bytearray):
-            data = iter(data)
 
         for b in data:
             crc ^= b << 16
@@ -220,7 +219,7 @@ class Armorable(metaclass=abc.ABCMeta):
         super().__init__()
         self.ascii_headers = collections.OrderedDict()
 
-    def __str__(self):
+    def __str__(self) -> str:
         payload = base64.b64encode(self.__bytes__()).decode('latin-1')
         payload = '\n'.join(payload[i:(i + 64)] for i in range(0, len(payload), 64))
 
@@ -321,14 +320,14 @@ class PGPObject(metaclass=abc.ABCMeta):
 
 class Field(PGPObject):
     @abc.abstractmethod
-    def __len__(self):
+    def __len__(self) -> int:
         """Return the length of the output of __bytes__"""
 
 
 class Header(Field):
     @staticmethod
-    def encode_length(length, nhf=True, llen=1):
-        def _new_length(nl):
+    def encode_length(length: int, nhf: bool = True, llen: int = 1) -> bytes:
+        def _new_length(nl: int) -> bytes:
             if 192 > nl:
                 return Header.int_to_bytes(nl)
 
@@ -338,24 +337,23 @@ class Header(Field):
 
             return b'\xFF' + Header.int_to_bytes(nl, 4)
 
-        def _old_length(nl, llen):
+        def _old_length(nl: int, llen: int):
             return Header.int_to_bytes(nl, llen) if llen > 0 else b''
 
         return _new_length(length) if nhf else _old_length(length, llen)
 
     @sdproperty
-    def length(self):
+    def length(self) -> int:
         return self._len
 
-    @length.register(int)
-    def length_int(self, val):
-        self._len = val
+    @length.register
+    def length_int(self, val: int) -> None:
+        self._len: int = val
 
-    @length.register(bytes)
-    @length.register(bytearray)
-    def length_bin(self, val):
-        def _new_len(b):
-            def _parse_len(a, offset=0):
+    @length.register
+    def length_bin(self, val: bytearray) -> None:
+        def _new_len(b: bytearray):
+            def _parse_len(a: Union[bytes, bytearray], offset: int = 0):
                 # returns (the parsed length, size of length field, whether the length was of partial type)
                 fo = a[offset]
 
@@ -389,7 +387,7 @@ class Header(Field):
             else:
                 self._len = part_len
 
-        def _old_len(b):
+        def _old_len(b: bytearray) -> None:
             if self.llen > 0:
                 self._len = self.bytes_to_int(b[:self.llen])
                 del b[:self.llen]
@@ -397,13 +395,11 @@ class Header(Field):
             else:  # pragma: no cover
                 self._len = 0
 
-        _new_len(val) if self._lenfmt == 1 else _old_len(val)
+        _new_len(val) if self._openpgp_format else _old_len(val)
 
     @sdproperty
-    def llen(self):
-        lf = self._lenfmt
-
-        if lf == 1:
+    def llen(self) -> int:
+        if self._openpgp_format:
             # new-format length
             if 192 > self.length:
                 return 1
@@ -419,17 +415,17 @@ class Header(Field):
             ##TODO: what if _llen needs to be (re)computed?
             return self._llen
 
-    @llen.register(int)
-    def llen_int(self, val):
-        if self._lenfmt == 0:
+    @llen.register
+    def llen_int(self, val: int) -> None:
+        if not self._openpgp_format:
             self._llen = {0: 1, 1: 2, 2: 4, 3: 0}[val]
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self._len = 1
         self._llen = 1
-        self._lenfmt = 1
-        self._partial = False
+        self._openpgp_format: bool = True
+        self._partial: bool = False
 
 
 class DispatchGuidance(IntEnum):
