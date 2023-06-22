@@ -40,7 +40,7 @@ import packaging.version
 from importlib import metadata
 
 from datetime import datetime, timezone
-from typing import List, Union, Optional, Set, Tuple, MutableMapping, Dict, Callable
+from typing import List, Literal, Union, Optional, Set, Tuple, MutableMapping, Dict, Callable
 from argparse import Namespace, _SubParsersAction, ArgumentParser
 
 from cryptography.hazmat.backends import openssl
@@ -285,7 +285,7 @@ class SOPGPy(sop.StatelessOpenPGP):
         handle: str
         keys: MutableMapping[str, pgpy.PGPKey] = {}
         pws: MutableMapping[str, str] = {}
-        format_octet: str
+        format_octet: Literal['t', 'u', 'b', 'm']
 
         if literaltype is sop.SOPLiteralDataType.text:
             format_octet = 'u'

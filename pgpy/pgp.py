@@ -1036,6 +1036,7 @@ class PGPMessage(Armorable, PGPObject):
         self._mdc: Optional[MDC] = None
         self._signatures: SorteDeque = SorteDeque()
         self._sessionkeys: List[Union[PKESessionKey, SKESessionKey]] = []
+        self.format: Literal['t', 'u', 'b', 'm'] = 'b'
 
     def __bytearray__(self) -> bytearray:
         if self.is_compressed:
@@ -1164,7 +1165,7 @@ class PGPMessage(Armorable, PGPObject):
     @classmethod
     def new(cls, message: Union[str, bytes, bytearray],
             cleartext: bool = False,
-            format: Optional[str] = None,
+            format: Optional[Literal['t', 'u', 'b', 'm']] = None,
             sensitive: bool = False,
             compression: CompressionAlgorithm = CompressionAlgorithm.ZIP,
             file: bool = False,
