@@ -7,7 +7,7 @@ from conftest import gpg_ver, gnupghome
 import copy
 import glob
 try:
-    import gpg
+    import gpg  # type: ignore
 except ImportError:
     gpg = None
 import itertools
@@ -15,6 +15,8 @@ import os
 import time
 import warnings
 from datetime import datetime, timedelta, timezone
+
+from typing import Dict, Tuple, Union
 
 from pgpy import PGPKey
 from pgpy import PGPMessage
@@ -34,7 +36,7 @@ from pgpy.errors import PGPError
 from pgpy.packet import Packet
 from pgpy.packet.packets import PrivKeyV4
 from pgpy.packet.packets import PrivSubKeyV4
-
+from pgpy.types import KeyID, Fingerprint
 
 enc_msgs = [ PGPMessage.from_file(f) for f in sorted(glob.glob('tests/testdata/messages/message*.pass*.asc')) ]
 
@@ -242,7 +244,7 @@ class TestPGPKey_Management:
     # - adding/removing UIDs
     # - adding/removing signatures
     # - protecting/unlocking
-    keys = {}
+    keys: Dict[Tuple[PubKeyAlgorithm, Union[int, EllipticCurveOID]], PGPKey] = {}
 
     def gpg_verify_key(self, key):
         with gpg.Context(offline=True) as c:
@@ -622,8 +624,8 @@ pubkeys = [ PGPKey.from_file(f)[0] for f in sorted(glob.glob('tests/testdata/key
 symalgos = sorted(filter(lambda x: x is not SymmetricKeyAlgorithm.Plaintext, sorted(SymmetricKeyAlgorithm)))
 
 class TestPGPKey_Actions:
-    sigs = {}
-    msgs = {}
+    sigs: Dict[Union[str, Tuple[KeyID, str]], PGPSignature] = {}
+    msgs: Dict[Tuple[Fingerprint, SymmetricKeyAlgorithm], PGPMessage] = {}
 
     def gpg_verify(self, subject, sig=None, pubkey=None):
         # verify with GnuPG

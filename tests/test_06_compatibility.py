@@ -6,6 +6,7 @@ from typing import Optional
 import pytest
 
 from pgpy import PGPKey, PGPMessage, PGPSignatures
+from pgpy.types import SignatureVerification
 from pgpy.constants import SecurityIssues
 import glob
 
@@ -28,10 +29,10 @@ class TestPGP_Compatibility(object):
         (k, _) = PGPKey.from_file('tests/testdata/compatibility/bob.pgp')
         msg = 'Hello World :)'
         sigs = PGPSignatures.from_file(f'tests/testdata/compatibility/{sig}')
-        verif:Optional[pgpy.SignatureVerification] = None
-        for sig in sigs:
-            if sig.signer == k.fingerprint.keyid:
-                verif = k.verify(msg, sig)
+        verif:Optional[SignatureVerification] = None
+        for asig in sigs:
+            if asig.signer == k.fingerprint.keyid:
+                verif = k.verify(msg, asig)
         assert verif is not None
 
     def test_cert_unknown_algo(self) -> None:
@@ -54,7 +55,8 @@ class TestPGP_Compatibility(object):
     def test_unknown_message(self, msg:str)-> None:
         k:PGPKey
         (k, _) = PGPKey.from_file('tests/testdata/compatibility/bob-key.pgp')
-        msg:PGPMessage = PGPMessage.from_file(f'tests/testdata/compatibility/{msg}')
-        cleartext:PGPMessage = k.decrypt(msg)
+        msgobj:PGPMessage = PGPMessage.from_file(f'tests/testdata/compatibility/{msg}')
+        cleartext:PGPMessage = k.decrypt(msgobj)
         assert not cleartext.is_encrypted
+        assert isinstance(cleartext.message, (bytes, bytearray))
         assert cleartext.message.startswith(b'Encrypted')

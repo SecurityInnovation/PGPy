@@ -5,6 +5,8 @@ import pytest
 import glob
 import warnings
 
+from typing import Dict, List, Union
+
 from pgpy import PGPKey
 from pgpy import PGPKeyring
 from pgpy import PGPMessage
@@ -76,7 +78,7 @@ key_algs = [ pka for pka in PubKeyAlgorithm if pka.can_gen and not pka.deprecate
 key_algs_unim = [ pka for pka in PubKeyAlgorithm if not pka.can_gen and not pka.deprecated ]
 key_algs_rsa_depr = [ pka for pka in PubKeyAlgorithm if pka.deprecated and pka is not PubKeyAlgorithm.FormerlyElGamalEncryptOrSign ]
 
-key_algs_badsizes = {
+key_algs_badsizes: Dict[PubKeyAlgorithm, List[Union[int, EllipticCurveOID]]] = {
     PubKeyAlgorithm.RSAEncryptOrSign: [256],
     PubKeyAlgorithm.DSA: [512],
     PubKeyAlgorithm.ECDSA: [curve for curve in EllipticCurveOID if not curve.can_gen],
