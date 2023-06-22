@@ -39,7 +39,63 @@ __all__ = ['Armorable',
 PGPMagicClass = Literal['SIGNATURE', 'MESSAGE', 'PUBLIC KEY BLOCK', 'PRIVATE KEY BLOCK']
 
 
-class Armorable(metaclass=abc.ABCMeta):
+class PGPObject(metaclass=abc.ABCMeta):
+
+    @staticmethod
+    def int_byte_len(i: int) -> int:
+        return (i.bit_length() + 7) // 8
+
+    @staticmethod
+    def bytes_to_int(b: bytes, order: Literal['little', 'big'] = 'big') -> int:  # pragma: no cover
+        """convert bytes to integer"""
+
+        return int.from_bytes(b, order)
+
+    @staticmethod
+    def int_to_bytes(i: int, minlen: int = 1, order: Literal['little', 'big'] = 'big') -> bytes:  # pragma: no cover
+        """convert integer to bytes"""
+        blen = max(minlen, PGPObject.int_byte_len(i), 1)
+
+        return i.to_bytes(blen, order)
+
+    @staticmethod
+    def text_to_bytes(text: Union[str, bytes, bytearray]) -> Union[bytes, bytearray]:
+        # if we got bytes, just return it
+        if isinstance(text, (bytearray, bytes)):
+            return text
+
+        # if we were given a unicode string, or if we translated the string into utf-8,
+        # we know that Python already has it in utf-8 encoding, so we can now just encode it to bytes
+        return text.encode('utf-8')
+
+    @staticmethod
+    def bytes_to_text(text: Union[str, bytes, bytearray]) -> str:
+        if isinstance(text, str):
+            return text
+
+        return text.decode('utf-8')
+
+    @abc.abstractmethod
+    def parse(self, packet: bytearray) -> None:
+        """this method is too abstract to understand"""
+
+    @abc.abstractmethod
+    def __bytearray__(self) -> bytearray:
+        """
+        Returns the contents of concrete subclasses in a binary format that can be understood by other OpenPGP
+        implementations
+        """
+
+    def __bytes__(self) -> bytes:
+        """
+        Return the contents of concrete subclasses in a binary format that can be understood by other OpenPGP
+        implementations
+        """
+        # this is what all subclasses will do anyway, so doing this here we can reduce code duplication significantly
+        return bytes(self.__bytearray__())
+
+
+class Armorable(PGPObject, metaclass=abc.ABCMeta):
     __crc24_init = 0x0B704CE
     __crc24_poly = 0x1864CFB
 
@@ -262,62 +318,6 @@ class ParentRef:
     def __init__(self):
         super().__init__()
         self._parent = None
-
-
-class PGPObject(metaclass=abc.ABCMeta):
-
-    @staticmethod
-    def int_byte_len(i: int) -> int:
-        return (i.bit_length() + 7) // 8
-
-    @staticmethod
-    def bytes_to_int(b: bytes, order: Literal['little', 'big'] = 'big') -> int:  # pragma: no cover
-        """convert bytes to integer"""
-
-        return int.from_bytes(b, order)
-
-    @staticmethod
-    def int_to_bytes(i: int, minlen: int = 1, order: Literal['little', 'big'] = 'big') -> bytes:  # pragma: no cover
-        """convert integer to bytes"""
-        blen = max(minlen, PGPObject.int_byte_len(i), 1)
-
-        return i.to_bytes(blen, order)
-
-    @staticmethod
-    def text_to_bytes(text: Union[str, bytes, bytearray]) -> Union[bytes, bytearray]:
-        # if we got bytes, just return it
-        if isinstance(text, (bytearray, bytes)):
-            return text
-
-        # if we were given a unicode string, or if we translated the string into utf-8,
-        # we know that Python already has it in utf-8 encoding, so we can now just encode it to bytes
-        return text.encode('utf-8')
-
-    @staticmethod
-    def bytes_to_text(text: Union[str, bytes, bytearray]) -> str:
-        if isinstance(text, str):
-            return text
-
-        return text.decode('utf-8')
-
-    @abc.abstractmethod
-    def parse(self, packet: bytearray) -> None:
-        """this method is too abstract to understand"""
-
-    @abc.abstractmethod
-    def __bytearray__(self) -> bytearray:
-        """
-        Returns the contents of concrete subclasses in a binary format that can be understood by other OpenPGP
-        implementations
-        """
-
-    def __bytes__(self) -> bytes:
-        """
-        Return the contents of concrete subclasses in a binary format that can be understood by other OpenPGP
-        implementations
-        """
-        # this is what all subclasses will do anyway, so doing this here we can reduce code duplication significantly
-        return bytes(self.__bytearray__())
 
 
 class Field(PGPObject):

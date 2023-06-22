@@ -95,7 +95,7 @@ __all__ = ['PGPSignature',
            'PGPKeyring']
 
 
-class PGPSignature(Armorable, ParentRef, PGPObject):
+class PGPSignature(Armorable, ParentRef):
     ReasonForRevocation = collections.namedtuple('ReasonForRevocation', ['code', 'comment'])
 
     @property
@@ -599,7 +599,7 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
             raise ValueError('Expected: Signature. Got: {:s}'.format(pkt.__class__.__name__))
 
 
-class PGPSignatures(collections.abc.Container, collections.abc.Iterable, collections.abc.Sized, Armorable, PGPObject):
+class PGPSignatures(collections.abc.Container, collections.abc.Iterable, collections.abc.Sized, Armorable):
     '''OpenPGP detached signatures can often contain more than one signature in them.'''
 
     def __init__(self, signatures: List[PGPSignature] = []) -> None:
@@ -926,7 +926,7 @@ class PGPUID(ParentRef):
         raise NotImplementedError
 
 
-class PGPMessage(Armorable, PGPObject):
+class PGPMessage(Armorable):
     @staticmethod
     def dash_unescape(text: str) -> str:
         return re.subn(r'^- ', '', text, flags=re.MULTILINE)[0]
@@ -1371,7 +1371,7 @@ class PGPMessage(Armorable, PGPObject):
                 self |= Packet(data)  # type: ignore[abstract]
 
 
-class PGPKey(Armorable, ParentRef, PGPObject):
+class PGPKey(Armorable, ParentRef):
     """
     11.1.  Transferable Public Keys
 
