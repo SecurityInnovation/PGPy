@@ -85,6 +85,7 @@ from .types import ParentRef
 from .types import PGPObject
 from .types import SignatureVerification
 from .types import SorteDeque
+from .types import PGPMagicClass
 
 __all__ = ['PGPSignature',
            'PGPSignatures',
@@ -238,7 +239,7 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
         return None
 
     @property
-    def magic(self):
+    def magic(self) -> PGPMagicClass:
         return "SIGNATURE"
 
     @property
@@ -618,7 +619,7 @@ class PGPSignatures(collections.abc.Container, collections.abc.Iterable, collect
             yield sig
 
     @property
-    def magic(self) -> str:
+    def magic(self) -> PGPMagicClass:
         return "SIGNATURE"
 
     def __bytearray__(self) -> bytearray:
@@ -975,7 +976,7 @@ class PGPMessage(Armorable, PGPObject):
         return self.encrypters | self.signers
 
     @property
-    def magic(self) -> str:
+    def magic(self) -> PGPMagicClass:
         if self.type == 'cleartext':
             return "SIGNATURE"
         return "MESSAGE"
@@ -1558,9 +1559,13 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return param.bit_length()
 
     @property
-    def magic(self) -> str:
-        return '{:s} KEY BLOCK'.format('PUBLIC' if (isinstance(self._key, Public) and not isinstance(self._key, Private)) else
-                                       'PRIVATE' if isinstance(self._key, Private) else '')
+    def magic(self) -> PGPMagicClass:
+        if isinstance(self._key, Private):
+            return 'PRIVATE KEY BLOCK'
+        elif isinstance(self._key, Public):
+            return 'PUBLIC KEY BLOCK'
+        else:
+            raise TypeError(f'PGPKey has no appropriate type: {type(self._key)}')
 
     @property
     def pubkey(self):

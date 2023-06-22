@@ -36,6 +36,8 @@ __all__ = ['Armorable',
            'SignatureVerification',
            'SorteDeque']
 
+PGPMagicClass = Literal['SIGNATURE', 'MESSAGE', 'PUBLIC KEY BLOCK', 'PRIVATE KEY BLOCK']
+
 
 class Armorable(metaclass=abc.ABCMeta):
     __crc24_init = 0x0B704CE
@@ -184,7 +186,7 @@ class Armorable(metaclass=abc.ABCMeta):
         return crc & 0xFFFFFF
 
     @abc.abstractproperty
-    def magic(self):
+    def magic(self) -> PGPMagicClass:
         """The magic string identifier for the current PGP type"""
 
     @classmethod
