@@ -17,6 +17,7 @@ from cryptography.hazmat.primitives.asymmetric import ec, x25519, ed25519
 from cryptography.hazmat.primitives.ciphers import algorithms
 from cryptography.hazmat.primitives._cipheralgorithm import CipherAlgorithm
 from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives._cipheralgorithm import CipherAlgorithm
 
 from .decorators import classproperty
 
