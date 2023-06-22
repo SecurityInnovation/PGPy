@@ -2724,6 +2724,8 @@ class PGPKey(Armorable, ParentRef, PGPObject):
                        preference defaults and selection validation.
         :type user: ``str``, ``unicode``
         """
+        if self._key is None:
+            raise PGPError("PGPKey: cannot encrypt with incomplete key material")
         cipherprefs: Optional[List[SymmetricKeyAlgorithm]] = None
         compprefs: Optional[List[CompressionAlgorithm]] = None
         sig: PGPSignature

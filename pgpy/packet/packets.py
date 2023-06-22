@@ -90,14 +90,12 @@ class PKESessionKey(VersionedPacket):
     __typeid__ = PacketTag.PublicKeyEncryptedSessionKey
     __ver__ = 0
 
-    # note that we don't have a good type signature for pk: it should be PrivKey, but from .fields, not the PrivKey in this file.
     @abc.abstractmethod
-    def decrypt_sk(self, pk) -> Tuple[Optional[SymmetricKeyAlgorithm], bytes]:
+    def decrypt_sk(self, pk: 'PrivKey') -> Tuple[Optional[SymmetricKeyAlgorithm], bytes]:
         raise NotImplementedError()
 
-    # note that we don't have a good type signature for pk: it should be PubKey, but from .fields, not the PubKey in this file.
     @abc.abstractmethod
-    def encrypt_sk(self, pk, symalg: Optional[SymmetricKeyAlgorithm], symkey: bytes) -> None:
+    def encrypt_sk(self, pk: 'PubKey', symalg: Optional[SymmetricKeyAlgorithm], symkey: bytes) -> None:
         raise NotImplementedError()
 
     # a PKESK should return a pointer to the recipient, or None
@@ -237,8 +235,10 @@ class PKESessionKeyV3(PKESessionKey):
 
         return sk
 
-    def decrypt_sk(self, pk) -> Tuple[Optional[SymmetricKeyAlgorithm], bytes]:
+    def decrypt_sk(self, pk: 'PrivKey') -> Tuple[Optional[SymmetricKeyAlgorithm], bytes]:
         if isinstance(self.ct, RSACipherText):
+            if not isinstance(pk.keymaterial, PrivKeyField):
+                raise TypeError(f"Private key key material was {type(pk.keymaterial)}, should have been PrivKeyField")
             # pad up ct with null bytes if necessary
             ct = self.ct.me_mod_n.to_mpibytes()[2:]
             ct = b'\x00' * ((pk.keymaterial.__privkey__().key_size // 8) - len(ct)) + ct
@@ -282,9 +282,11 @@ class PKESessionKeyV3(PKESessionKey):
 
         return (symalg, symkey)
 
-    def encrypt_sk(self, pk, symalg: Optional[SymmetricKeyAlgorithm], symkey: bytes) -> None:
+    def encrypt_sk(self, pk: 'PubKey', symalg: Optional[SymmetricKeyAlgorithm], symkey: bytes) -> None:
         if symalg is None:
             raise ValueError('PKESKv3: must pass a symmetric key algorithm explicitly when encrypting')
+        if pk.keymaterial is None:
+            raise ValueError('PKESKv3: public key material must be instantiated')
         m = bytearray(self.int_to_bytes(symalg) + symkey)
         m += self.int_to_bytes(sum(bytearray(symkey)) % 65536, 2)
 
