@@ -413,7 +413,6 @@ class SOPGPy(sop.StatelessOpenPGP):
         encmsg: pgpy.PGPMessage = pgpy.PGPMessage.from_blob(data)
         msg: pgpy.PGPMessage
         ret: Optional[bytes] = None
-        out: Union[str, bytes]
         for handle, seckey in seckeys.items():
             try:
                 if seckey.is_protected:
@@ -431,7 +430,7 @@ class SOPGPy(sop.StatelessOpenPGP):
                 if isinstance(out, str):
                     ret = out.encode('utf8')
                 else:
-                    ret = out
+                    ret = bytes(out)
                 break
             except pgpy.errors.PGPDecryptionError as e:
                 logging.warning(f'could not decrypt with {seckey.fingerprint}')
@@ -468,7 +467,7 @@ class SOPGPy(sop.StatelessOpenPGP):
                             if isinstance(out, str):
                                 ret = out.encode('utf8')
                             else:
-                                ret = out
+                                ret = bytes(out)
                             break
                         except pgpy.errors.PGPDecryptionError:
                             pass
@@ -543,7 +542,7 @@ class SOPGPy(sop.StatelessOpenPGP):
         self.raise_on_unknown_options(**kwargs)
         msg: pgpy.PGPMessage
         msg = pgpy.PGPMessage.from_blob(clearsigned)
-        body: Union[bytes, bytearray, str] = msg.message
+        body = msg.message
         if isinstance(body, str):
             body = body.encode('utf-8')
         return (bytes(body), self._maybe_armor(armor, pgpy.PGPSignatures(msg.signatures)))
@@ -609,10 +608,10 @@ class SOPGPy(sop.StatelessOpenPGP):
         sigresults: List[sop.SOPSigResult] = self._check_sigs(certs, msg, None, start, end)
         if not sigresults:
             raise sop.SOPNoSignature("No good signature found")
-        outmsg: Union[bytes, str] = msg.message
+        outmsg = msg.message
         if isinstance(outmsg, str):
             outmsg = outmsg.encode("utf-8")
-        return (outmsg, sigresults)
+        return (bytes(outmsg), sigresults)
 
 
 def main() -> None:
