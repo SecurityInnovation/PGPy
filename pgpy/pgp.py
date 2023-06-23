@@ -181,14 +181,14 @@ class PGPSignature(Armorable, ParentRef):
         """
         return self._signature.halg
 
-    def check_primitives(self):
+    def check_primitives(self) -> SecurityIssues:
         return self.hash_algorithm.is_considered_secure
 
-    def check_soundness(self):
+    def check_soundness(self) -> SecurityIssues:
         return self.check_primitives()
 
     @property
-    def is_expired(self):
+    def is_expired(self) -> bool:
         """
         ``True`` if the signature has an expiration date, and is expired. Otherwise, ``False``
         """
@@ -199,14 +199,14 @@ class PGPSignature(Armorable, ParentRef):
         return False
 
     @property
-    def key_algorithm(self):
+    def key_algorithm(self) -> PubKeyAlgorithm:
         """
         The :py:obj:`~constants.PubKeyAlgorithm` of the key that generated this signature.
         """
         return self._signature.pubalg
 
     @property
-    def key_expiration(self):
+    def key_expiration(self) -> Optional[datetime]:
         if 'KeyExpirationTime' in self._signature.subpackets:
             return next(iter(self._signature.subpackets['KeyExpirationTime'])).expires
         return None
@@ -325,7 +325,7 @@ class PGPSignature(Armorable, ParentRef):
         return NotImplemented
 
     @property
-    def type(self):
+    def type(self) -> SignatureType:
         """
         The :py:obj:`~constants.SignatureType` of this signature.
         """
@@ -407,7 +407,7 @@ class PGPSignature(Armorable, ParentRef):
         h.update(othersig._signature.canonical_bytes())
         return h.finalize() in self.attested_certifications
 
-    def hashdata(self, subject):
+    def hashdata(self, subject) -> bytes:
         _data = bytearray()
 
         if isinstance(subject, str):
@@ -577,7 +577,7 @@ class PGPSignature(Armorable, ParentRef):
     def make_onepass(self) -> OnePassSignature:
         return self._signature.make_onepass()
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         unarmored = self.ascii_unarmor(packet)
         data = unarmored['body']
 
@@ -588,7 +588,7 @@ class PGPSignature(Armorable, ParentRef):
             self.ascii_headers = unarmored['headers']
 
         # load *one* packet from data
-        pkt = Packet(data)
+        pkt = Packet(data)  # type: ignore
         if pkt.header.tag == PacketTag.Signature:
             if isinstance(pkt, Opaque):
                 # this is an unrecognized version.
