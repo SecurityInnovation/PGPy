@@ -658,49 +658,61 @@ class PGPUID(ParentRef):
     def __sig__(self):
         return list(self._signatures)
 
-    def _splitstring(self) -> Tuple[str, str, str]:
+    def _splitstring(self) -> Tuple[Optional[str], Optional[str], Optional[str]]:
         '''returns name, comment email from User ID string'''
         if not isinstance(self._uid, UserID):
-            return "", "", ""
+            return (None, None, None)
         if self._uid.uid == "":
-            return "", "", ""
-        output = re.match(r"""^
-                           # name should always match something
-                           (?P<name>.+?)
-                           # comment *optionally* matches text in parens following name
-                           # this should never come after email and must be followed immediately by
-                           # either the email field, or the end of the packet.
-                           (\ \((?P<comment>.+?)\)(?=(\ <|$)))?
-                           # email *optionally* matches text in angle brackets following name or comment
-                           # this should never come before a comment, if comment exists,
-                           # but can immediately follow name if comment does not exist
-                           (\ <(?P<email>.+)>)?
-                           $
-                           """, self._uid.uid, flags=re.VERBOSE)
-        if output is None:
-            raise ValueError("the standard User ID regex should have always matched something!")
-        rfc2822 = output.groupdict()
+            return (None, None, None)
 
-        return (rfc2822['name'], rfc2822['comment'] or "", rfc2822['email'] or "")
+        specials = r'[()<>\[\]:;@\\,."]'
+        atext = "[-A-Za-z0-9!#$%&'*+/=?^_`{|}~\x80-\U0010ffff]"
+        dot_atom_text = atext + r"+(?:\." + atext + "+)*"
+        pgp_addr_spec = dot_atom_text + "@" + dot_atom_text
+        pgp_uid_prefix_char = "(?:" + atext + "|" + specials + "| )"
+        addr_spec_raw = "(?P<addr_spec_raw>" + pgp_addr_spec + ")"
+        pgp_comment = r'(?: *\((?P<comment>' + pgp_uid_prefix_char + r'*)\) *)?'
+        pgp_name = '(?P<name>' + pgp_uid_prefix_char + r'*?)'
+        pgp_email = r'<(?P<addr_spec_wrapped>' + pgp_addr_spec + ")>"
+        addr_spec_wrapped = pgp_name + pgp_comment + pgp_email
+        pgp_uid_convention = "^(?:" + addr_spec_raw + "|" + addr_spec_wrapped + ")$"
+
+        pgp_uid_convention_re = re.compile(pgp_uid_convention, re.UNICODE)
+
+        output = pgp_uid_convention_re.match(self._uid.uid)
+        if output is None:
+            return self._uid.uid, None, None
+
+        name = output['name']
+        if name is not None:
+            name = name.strip()
+            if name == '':
+                name = None
+
+        comment = output['comment']
+        if comment is not None and comment == '':
+            comment = None
+
+        return (name, comment, output['addr_spec_wrapped'] or output['addr_spec_raw'])
 
     @property
-    def name(self) -> str:
-        """If this is a User ID, the stored name. If this is not a User ID, this will be an empty string."""
+    def name(self) -> Optional[str]:
+        """If this is a User ID, the stored name. If this is not a User ID, or if the User ID only contains an e-mail address, this will be None."""
         return self._splitstring()[0]
 
     @property
-    def comment(self) -> str:
+    def comment(self) -> Optional[str]:
         """
         If this is a User ID, this will be the stored comment. If this is not a User ID, or there is no stored comment,
-        this will be an empty string.,
+        this will be None.
         """
         return self._splitstring()[1]
 
     @property
-    def email(self) -> str:
+    def email(self) -> Optional[str]:
         """
         If this is a User ID, this will be the stored email address. If this is not a User ID, or there is no stored
-        email address, this will be an empty string.
+        email address, this will be None.
         """
         return self._splitstring()[2]
 
@@ -921,10 +933,8 @@ class PGPUID(ParentRef):
         return uid
 
     def __format__(self, format_spec: str) -> str:
-        if self.is_uid:
-            comment = "" if self.comment == "" else " ({:s})".format(self.comment)
-            email = "" if self.email == "" else " <{:s}>".format(self.email)
-            return "{:s}{:s}{:s}".format(self.name, comment, email)
+        if isinstance(self._uid, UserID):
+            return self._uid.uid
 
         raise NotImplementedError
 

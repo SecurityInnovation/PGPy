@@ -71,9 +71,9 @@ class TestPGPUID:
         assert abe.image is None
 
     def test_userphoto(self, abe_image):
-        assert abe_image.name == ""
-        assert abe_image.comment == ""
-        assert abe_image.email == ""
+        assert abe_image.name is None
+        assert abe_image.comment is None
+        assert abe_image.email is None
         with open('tests/testdata/abe.jpg', 'rb') as abef:
             abebytes = bytearray(os.path.getsize('tests/testdata/abe.jpg'))
             abef.readinto(abebytes)

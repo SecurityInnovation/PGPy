@@ -86,6 +86,12 @@ Fingerprints, not just Key IDs.
 Passing None to PGPObject.text_to_bytes or PGPObject.bytes_to_text is
 now an error.
 
+PGPUID's name, email, and comment members all return None if the field
+in question doesn't exist in the User ID string, rather than returning
+the empty string.  User ID string parsing is also improved, to better
+handle raw e-mail addresses (without angle-brackets) and other subtle
+variations.
+
 v0.6.0
 ======
 
