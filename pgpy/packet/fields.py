@@ -214,7 +214,7 @@ class SubPackets(collections.abc.MutableMapping, Field):
         self._hashed_sp = collections.OrderedDict(sorted(self._hashed_sp.items(), key=lambda x: (x[1].__typeid__, x[0][1])))
         self._unhashed_sp = collections.OrderedDict(sorted(self._unhashed_sp.items(), key=lambda x: (x[1].__typeid__, x[0][1])))
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         hl = self.bytes_to_int(packet[:self._width])
         del packet[:self._width]
 
@@ -243,29 +243,29 @@ class UserAttributeSubPackets(SubPackets):
     """
     _spmodule = userattribute
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = bytearray()
         for uhsp in self._unhashed_sp.values():
             _bytes += uhsp.__bytearray__()
         return _bytes
 
-    def __len__(self):  # pragma: no cover
+    def __len__(self) -> int:  # pragma: no cover
         return sum(len(sp) for sp in self._unhashed_sp.values())
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         # parse just one packet and add it to the unhashed subpacket ordereddict
         # I actually have yet to come across a User Attribute packet with more than one subpacket
         # which makes sense, given that there is only one defined subpacket
-        sp = UserAttribute(packet)
+        sp = UserAttribute(packet)  # type: ignore[abstract]
         self[sp.__class__.__name__] = sp
 
 
 class Signature(MPIs):
-    def __init__(self):
+    def __init__(self) -> None:
         for i in self.__mpis__:
             setattr(self, i, MPI(0))
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = bytearray()
         for i in self:
             _bytes += i.to_mpibytes()
@@ -281,17 +281,17 @@ class Signature(MPIs):
 
 
 class OpaqueSignature(Signature):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.data = bytearray()
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         return self.data
 
     def __sig__(self):
         return self.data
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         self.data = packet
 
     def from_signer(self, sig):
@@ -304,7 +304,7 @@ class RSASignature(Signature):
     def __sig__(self):
         return self.md_mod_n.to_mpibytes()[2:]
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         self.md_mod_n = MPI(packet)
 
     def from_signer(self, sig):
@@ -397,10 +397,10 @@ class OpaquePubKey(PubKey):  # pragma: no cover
     def __pubkey__(self):
         return NotImplemented
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         return self.data
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         ##TODO: this needs to be length-bounded to the end of the packet
         self.data = packet
 
@@ -421,7 +421,7 @@ class RSAPub(PubKey):
             return False
         return True
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         self.n = MPI(packet)
         self.e = MPI(packet)
 
@@ -441,7 +441,7 @@ class DSAPub(PubKey):
             return False
         return True
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         self.p = MPI(packet)
         self.q = MPI(packet)
         self.g = MPI(packet)
@@ -455,7 +455,7 @@ class ElGPub(PubKey):
     def __pubkey__(self):
         raise NotImplementedError()
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         self.p = MPI(packet)
         self.g = MPI(packet)
         self.y = MPI(packet)
@@ -539,7 +539,7 @@ class ECDSAPub(PubKey):
     def __pubkey__(self):
         return ec.EllipticCurvePublicNumbers(self.p.x, self.p.y, self.oid.curve()).public_key()
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _b = bytearray()
         _b += bytes(self.oid)
         _b += self.p.to_mpibytes()
@@ -557,7 +557,7 @@ class ECDSAPub(PubKey):
             return False
         return True
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         self.oid = EllipticCurveOID.parse(packet)
 
         if isinstance(self.oid, EllipticCurveOID):
@@ -576,10 +576,10 @@ class EdDSAPub(PubKey):
         super().__init__()
         self.oid = None
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.p) + len(self.oid)
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _b = bytearray()
         _b += bytes(self.oid)
         _b += self.p.to_mpibytes()
@@ -588,7 +588,7 @@ class EdDSAPub(PubKey):
     def __pubkey__(self):
         return ed25519.Ed25519PublicKey.from_public_bytes(self.p.x)
 
-    def __copy__(self):
+    def __copy__(self) -> 'EdDSAPub':
         pkt = super().__copy__()
         pkt.oid = self.oid
         return pkt
@@ -605,7 +605,7 @@ class EdDSAPub(PubKey):
             return False
         return True
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         self.oid = EllipticCurveOID.parse(packet)
 
         if isinstance(self.oid, EllipticCurveOID):
@@ -647,7 +647,7 @@ class ECDHPub(PubKey):
         pkt.kdf = copy.copy(self.kdf)
         return pkt
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         """
         Algorithm-Specific Fields for ECDH keys:
 
@@ -958,7 +958,7 @@ class S2KSpecifier(Field):
     def __len__(self) -> int:
         return len(self.__bytearray__())
 
-    def parse(self, packet) -> None:
+    def parse(self, packet: bytearray) -> None:
         self._type = String2KeyType(packet[0])
         if self._type is String2KeyType.Unknown:
             self._opaque_type: int = packet[0]
@@ -1207,7 +1207,7 @@ class ECKDF(Field):
         self.halg = 0
         self.encalg = 0
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = bytearray()
         _bytes.append(len(self) - 1)
         _bytes.append(0x01)
@@ -1218,7 +1218,7 @@ class ECKDF(Field):
     def __len__(self):
         return 4
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         # packet[0] should always be 3
         # packet[1] should always be 1
         # TODO: this assert is likely not necessary, but we should raise some kind of exception
@@ -1462,7 +1462,7 @@ class RSAPriv(PrivKey, RSAPub):
 
         self._compute_chksum()
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         super().parse(packet)
         self.s2k.parse(packet)
 
@@ -1534,7 +1534,7 @@ class DSAPriv(PrivKey, DSAPub):
 
         self._compute_chksum()
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         super().parse(packet)
         self.s2k.parse(packet)
 
@@ -1575,7 +1575,7 @@ class ElGPriv(PrivKey, ElGPub):
     def _generate(self, key_size_or_oid: Optional[Union[int, EllipticCurveOID]]) -> None:
         raise NotImplementedError(PubKeyAlgorithm.ElGamal)
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         super().parse(packet)
         self.s2k.parse(packet)
 
@@ -1632,7 +1632,7 @@ class ECDSAPriv(PrivKey, ECDSAPub):
         self.s = MPI(pk.private_numbers().private_value)
         self._compute_chksum()
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         super().parse(packet)
         self.s2k.parse(packet)
 
@@ -1693,7 +1693,7 @@ class EdDSAPriv(PrivKey, EdDSAPub):
         )))
         self._compute_chksum()
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         super().parse(packet)
         self.s2k.parse(packet)
 
@@ -1721,7 +1721,7 @@ class EdDSAPriv(PrivKey, EdDSAPub):
 
 
 class ECDHPriv(ECDSAPriv, ECDHPub):
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _b = ECDHPub.__bytearray__(self)
         _b += self.s2k.__bytearray__()
         if not self.s2k:
@@ -1732,7 +1732,7 @@ class ECDHPriv(ECDSAPriv, ECDHPub):
             _b += self.encbytes
         return _b
 
-    def __len__(self):
+    def __len__(self) -> int:
         nbytes = ECDHPub.__len__(self) + len(self.s2k) + len(self.chksum)
         if self.s2k:
             nbytes += len(self.encbytes)
@@ -1780,7 +1780,7 @@ class ECDHPriv(ECDSAPriv, ECDHPub):
     def publen(self):
         return ECDHPub.__len__(self)
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         ECDHPub.parse(self, packet)
         self.s2k.parse(packet)
 
@@ -1812,7 +1812,7 @@ class CipherText(MPIs):
     def decrypt(self, decfn, *args):
         """decrypt the ciphertext contained in this CipherText instance"""
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = bytearray()
         for i in self:
             _bytes += i.to_mpibytes()
@@ -1831,7 +1831,7 @@ class RSACipherText(CipherText):
     def decrypt(self, decfn, *args):
         return decfn(*args)
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         self.me_mod_n = MPI(packet)
 
 
@@ -1845,7 +1845,7 @@ class ElGCipherText(CipherText):
     def decrypt(self, decfn, *args):
         raise NotImplementedError()
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         self.gk_mod_p = MPI(packet)
         self.myk_mod_p = MPI(packet)
 
@@ -1931,18 +1931,18 @@ class ECDHCipherText(CipherText):
         padder = PKCS7(64).unpadder()
         return padder.update(_m) + padder.finalize()
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.c = bytearray(0)
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = bytearray()
         _bytes += self.p.to_mpibytes()
         _bytes.append(len(self.c))
         _bytes += self.c
         return _bytes
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         # read ephemeral public key
         self.p = ECPoint(packet)
         # read signature value
