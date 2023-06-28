@@ -20,7 +20,6 @@ from pgpy import PGPKey
 from pgpy import PGPMessage
 from pgpy import PGPSignature
 from pgpy import PGPUID
-from pgpy._curves import _openssl_get_supported_curves
 from pgpy.constants import CompressionAlgorithm
 from pgpy.constants import EllipticCurveOID
 from pgpy.constants import Features
@@ -288,7 +287,7 @@ class TestPGPKey_Management:
         if not alg.can_gen:
             pytest.xfail('Key algorithm {} not yet supported'.format(alg.name))
 
-        if isinstance(size, EllipticCurveOID) and ((not size.can_gen) or size.curve.name not in _openssl_get_supported_curves()):
+        if isinstance(size, EllipticCurveOID) and (not size.can_gen):
             pytest.xfail('Curve {} not yet supported'.format(size.curve.name))
 
         key = self.keys[pkspec]
@@ -511,7 +510,7 @@ class TestPGPKey_Management:
         if not alg.can_gen:
             pytest.xfail('Key algorithm {} not yet supported'.format(alg.name))
 
-        if isinstance(size, EllipticCurveOID) and ((not size.can_gen) or size.curve.name not in _openssl_get_supported_curves()):
+        if isinstance(size, EllipticCurveOID) and (not size.can_gen):
             pytest.xfail('Curve {} not yet supported'.format(size.curve.name))
 
         # revoke the subkey

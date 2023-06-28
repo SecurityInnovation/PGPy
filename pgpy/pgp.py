@@ -20,9 +20,12 @@ import weakref
 
 from datetime import datetime, timezone
 
+from typing import Any, List, Optional, Union
+
 from cryptography.hazmat.primitives import hashes
 
 from .constants import CompressionAlgorithm
+from .constants import EllipticCurveOID
 from .constants import Features
 from .constants import HashAlgorithm
 from .constants import ImageEncoding
@@ -79,6 +82,7 @@ from .types import SignatureVerification
 from .types import SorteDeque
 
 __all__ = ['PGPSignature',
+           'PGPSignatures',
            'PGPUID',
            'PGPMessage',
            'PGPKey',
@@ -592,6 +596,59 @@ class PGPSignature(Armorable, ParentRef, PGPObject):
             raise ValueError('Expected: Signature. Got: {:s}'.format(pkt.__class__.__name__))
 
 
+class PGPSignatures(collections_abc.Container, collections_abc.Iterable, collections_abc.Sized, Armorable, PGPObject):
+    '''OpenPGP detached signatures can often contain more than one signature in them.'''
+
+    def __init__(self, signatures: List[PGPSignature] = []) -> None:
+        super().__init__()
+        self._sigs: List[PGPSignature] = signatures
+
+    def __contains__(self, thing: Any) -> bool:
+        if not isinstance(thing, PGPSignature):
+            raise TypeError(f'PGPSignatures only contains a PGPSignature, not {type(thing)}')
+        return thing in self._sigs
+
+    def __len__(self) -> int:
+        return len(self._sigs)
+
+    def __iter__(self) -> collections_abc.Iterator[PGPSignature]:
+        for sig in self._sigs:
+            yield sig
+
+    @property
+    def magic(self) -> str:
+        return "SIGNATURE"
+
+    def __bytearray__(self) -> bytearray:
+        b = bytearray()
+        for sig in self._sigs:
+            b += sig.__bytearray__()
+        return b
+
+    def parse(self, packet: bytes) -> None:
+        unarmored = self.ascii_unarmor(packet)
+        data = unarmored['body']
+
+        if unarmored['magic'] is not None and unarmored['magic'] != 'SIGNATURE':
+            raise ValueError(f"Expected: SIGNATURE. Got: {format(str(unarmored['magic']))}")
+
+        if unarmored['headers'] is not None:
+            self.ascii_headers = unarmored['headers']
+
+        while data:
+            pkt = Packet(data)
+            if pkt.header.tag == PacketTag.Signature:
+                if isinstance(pkt, Opaque):
+                    # skip unrecognized version.
+                    pass
+                else:
+                    sig = PGPSignature()
+                    sig._signature = pkt
+                    self._sigs.append(sig)
+            else:
+                raise ValueError(f"Expected: Signature. Got: {format(pkt.__class__.__name__)}")
+
+
 class PGPUID(ParentRef):
     @property
     def __sig__(self):
@@ -1076,6 +1133,10 @@ class PGPMessage(Armorable, PGPObject):
             self._signatures += other._signatures
             return self
 
+        if isinstance(other, Opaque):
+            # ignore opaque packets
+            return self
+
         raise NotImplementedError(str(type(other)))
 
     def __copy__(self):
@@ -1152,9 +1213,9 @@ class PGPMessage(Armorable, PGPObject):
                 # message is definitely UTF-8 already
                 format = 'u'
 
-            elif cls.is_ascii(message):
+            elif cls.is_utf8(message):
                 # message is probably text
-                format = 't'
+                format = 'u'
 
             else:
                 # message is probably binary
@@ -1174,9 +1235,6 @@ class PGPMessage(Armorable, PGPObject):
             lit.filename = '_CONSOLE' if sensitive else os.path.basename(filename)
             lit.mtime = mtime
             lit.format = format
-
-            # if cls.is_ascii(message):
-            #     lit.format = 't'
 
             lit.update_hlen()
 
@@ -1459,12 +1517,14 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         return self._key.pkalg
 
     @property
-    def key_size(self):
+    def key_size(self) -> Optional[Union[int, EllipticCurveOID]]:
         """
         The size pertaining to this key. ``int`` for non-EC key algorithms; :py:obj:`constants.EllipticCurveOID` for EC keys.
 
         .. versionadded:: 0.4.1
         """
+        if self._key is None:
+            return None
         if self.key_algorithm in {PubKeyAlgorithm.ECDSA, PubKeyAlgorithm.ECDH, PubKeyAlgorithm.EdDSA}:
             return self._key.keymaterial.oid
         # check if keymaterial is not an Opaque class containing a bytearray
