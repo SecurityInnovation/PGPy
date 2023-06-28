@@ -920,7 +920,10 @@ class PubKeyV4(PubKey):
     __ver__ = 4
 
     @property
-    def fingerprint(self):
+    def fingerprint(self) -> Fingerprint:
+        if self.keymaterial is None:
+            raise TypeError("Key material is not present, cannot calculate fingerprint")
+
         # A V4 fingerprint is the 160-bit SHA-1 hash of the octet 0x99, followed by the two-octet packet length,
         # followed by the entire Public-Key packet starting with the version field.  The Key ID is the
         # low-order 64 bits of the fingerprint.
@@ -948,13 +951,13 @@ class PubKeyV4(PubKey):
         # and return the digest
         return Fingerprint(fp.finalize())
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.created = datetime.now(timezone.utc)
-        self.pkalg = 0
-        self.keymaterial = None
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
+        if self.keymaterial is None:
+            raise TypeError("Key Material is missing, cannot produce bytearray")
         _bytes = bytearray()
         _bytes += super().__bytearray__()
         _bytes += self.int_to_bytes(calendar.timegm(self.created.timetuple()), 4)
@@ -965,7 +968,7 @@ class PubKeyV4(PubKey):
         _bytes += self.keymaterial.__bytearray__()
         return _bytes
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         super().parse(packet)
 
         self.created = packet[:4]
@@ -976,7 +979,8 @@ class PubKeyV4(PubKey):
 
         # bound keymaterial to the remaining length of the packet
         pend = self.header.length - 6
-        self.keymaterial.parse(packet[:pend])
+        if self.keymaterial is not None:
+            self.keymaterial.parse(packet[:pend])
         del packet[:pend]
 
 
