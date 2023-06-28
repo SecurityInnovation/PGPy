@@ -35,6 +35,11 @@ To install PGPy, simply:
 
     $ pip install PGPy
 
+Command-Line Interface
+----------------------
+
+This module will install `sopgpy`, an implementation of the `Stateless OpenPGP Command-line Interface <https://datatracker.ietf.org/doc/draft-dkg-openpgp-stateless-cli/>`_.
+
 Documentation
 -------------
 
@@ -55,6 +60,10 @@ Requirements
   Tested with: 3.10, 3.9, 3.8, 3.7, 3.6
 
 - `Cryptography <https://pypi.python.org/pypi/cryptography>`_
+
+To use `sopgpy` you'll also need:
+
+- `sop <https://pypi.org/project/sop/>`_ >= 0.5.1
 
 License
 -------

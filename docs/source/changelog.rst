@@ -31,7 +31,6 @@ Armorable.is_ascii() is deprecated.  You probably want
 Armorable.is_utf8() instead, since OpenPGP assumes that all text is
 UTF-8.
 
-
 EllipticCurveOID.Invalid was removed -- EllipticCurveOID only
 enumerates supported curves now.
 
