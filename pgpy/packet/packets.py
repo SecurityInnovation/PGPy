@@ -60,6 +60,7 @@ from ..constants import AEADMode
 from ..decorators import sdproperty
 
 from ..errors import PGPDecryptionError
+from ..errors import PGPEncryptionError
 
 from ..symenc import _cfb_decrypt
 from ..symenc import _cfb_encrypt
@@ -70,6 +71,7 @@ from ..types import KeyID
 
 __all__ = ['PKESessionKey',
            'PKESessionKeyV3',
+           'PKESessionKeyV6',
            'Signature',
            'SignatureV4',
            'SKESessionKey',
@@ -282,6 +284,80 @@ class PKESessionKeyV3(PKESessionKey):
 
         else:  # pragma: no cover
             del packet[:(self.header.length - 10)]
+
+
+class PKESessionKeyV6(PKESessionKey):
+    __ver__ = 6
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._encrypter: Optional[Fingerprint] = None
+
+    @sdproperty
+    def encrypter(self) -> Optional[Fingerprint]:
+        return self._encrypter
+
+    def __bytearray__(self) -> bytearray:
+        _bytes = bytearray()
+        _bytes += super().__bytearray__()
+        if self._encrypter is None:
+            _bytes.append(0)
+        else:
+            _bytes.append(len(bytes(self._encrypter)) + 1)
+            _bytes.append(self._encrypter.version)
+            _bytes += bytes(self._encrypter)
+        _bytes.append(self.pkalg)
+        _bytes += self.ct.__bytearray__() if self.ct is not None else b'\x00' * (self.header.length - 10)
+        return _bytes
+
+    def __copy__(self) -> PKESessionKeyV6:
+        sk = self.__class__()
+        sk.header = copy.copy(self.header)
+        sk._encrypter = self._encrypter
+        sk.pkalg = self.pkalg
+        if self.ct is not None:
+            sk.ct = copy.copy(self.ct)
+        return sk
+
+    def decrypt_sk(self, pk: PrivKey) -> Tuple[Optional[SymmetricKeyAlgorithm], bytes]:
+        algo: Optional[SymmetricKeyAlgorithm]
+        symkey: bytes
+        if self.ct is None:
+            raise PGPDecryptionError("PKESKv6: Tried to decrypt session key when ciphertext was not initialized")
+        return pk.keymaterial.decrypt(self.ct, pk.fingerprint, False)
+
+    def encrypt_sk(self, pk: PubKey, symalg: Optional[SymmetricKeyAlgorithm], symkey: bytes, **kwargs) -> None:
+        if symalg is not None:
+            raise ValueError(f"PKESKv6 does not encrypt the symmetric key algorithm, but {symalg} was supplied (should be None)")
+        self._encrypter = pk.fingerprint
+        self.pkalg = pk.pkalg
+        if self.ct is None:
+            raise PGPEncryptionError(f"Don't know how to encrypt to {pk.pkalg!r}")
+        self.ct = pk.keymaterial.encrypt(None, symkey, pk.fingerprint)
+        self.update_hlen()
+
+    def parse(self, packet: bytearray) -> None:
+        super().parse(packet)
+        fplen = packet[0]
+        del packet[0]
+
+        if fplen:
+            # the key version
+            fpversion = packet[0]
+            del packet[0]
+
+            Fingerprint.confirm_expected_length(fpversion, fplen - 1)
+            # extract the fingerprint
+            self._encrypter = Fingerprint(bytes(packet[:fplen - 1]), version=fpversion)
+            del packet[:fplen - 1]
+
+        self.pkalg = packet[0]
+        del packet[0]
+
+        if self.ct is not None:
+            self.ct.parse(packet)
+        else:  # pragma: no cover
+            del packet[:(self.header.length - (2 + fplen + 1))]
 
 
 class Signature(VersionedPacket):
