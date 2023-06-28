@@ -90,6 +90,12 @@ class PKESessionKey(VersionedPacket):
     __typeid__ = PacketTag.PublicKeyEncryptedSessionKey
     __ver__ = 0
 
+    def __init__(self) -> None:
+        super().__init__()
+        self._pkalg: PubKeyAlgorithm = PubKeyAlgorithm.Unknown
+        self._opaque_pkalg: int = 0
+        self.ct: Optional[CipherText] = None
+
     @abc.abstractmethod
     def decrypt_sk(self, pk: 'PrivKey') -> Tuple[Optional[SymmetricKeyAlgorithm], bytes]:
         raise NotImplementedError()
@@ -102,6 +108,26 @@ class PKESessionKey(VersionedPacket):
     @abc.abstractproperty
     def encrypter(self) -> Optional[Union[KeyID, Fingerprint]]:
         raise NotImplementedError()
+
+    @sdproperty
+    def pkalg(self):
+        return self._pkalg
+
+    @pkalg.register
+    def pkalg_int(self, val: int) -> None:
+        if isinstance(val, PubKeyAlgorithm):
+            self._pkalg = val
+        else:
+            self._pkalg = PubKeyAlgorithm(val)
+            if self._pkalg is PubKeyAlgorithm.Invalid:
+                self._opaque_pkalg = val
+
+        if self._pkalg in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.RSAEncrypt}:
+            self.ct = RSACipherText()
+        elif self._pkalg in {PubKeyAlgorithm.ElGamal, PubKeyAlgorithm.FormerlyElGamalEncryptOrSign}:
+            self.ct = ElGCipherText()
+        elif self._pkalg is PubKeyAlgorithm.ECDH:
+            self.ct = ECDHCipherText()
 
 
 class PKESessionKeyV3(PKESessionKey):
@@ -182,32 +208,9 @@ class PKESessionKeyV3(PKESessionKey):
         else:
             self._encrypter = KeyID(val)
 
-    @sdproperty
-    def pkalg(self):
-        return self._pkalg
-
-    @pkalg.register
-    def pkalg_int(self, val: int) -> None:
-        if isinstance(val, PubKeyAlgorithm):
-            self._pkalg = val
-        else:
-            self._pkalg = PubKeyAlgorithm(val)
-            if self._pkalg is PubKeyAlgorithm.Invalid:
-                self._opaque_pkalg: int = val
-
-        self.ct: Optional[CipherText] = None
-        if self._pkalg in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.RSAEncrypt}:
-            self.ct = RSACipherText()
-        elif self._pkalg in {PubKeyAlgorithm.ElGamal, PubKeyAlgorithm.FormerlyElGamalEncryptOrSign}:
-            self.ct = ElGCipherText()
-        elif self._pkalg is PubKeyAlgorithm.ECDH:
-            self.ct = ECDHCipherText()
-
     def __init__(self) -> None:
         super().__init__()
         self._encrypter = None
-        self.pkalg = 0
-        self.ct = None
 
     def __bytearray__(self):
         _bytes = bytearray()
