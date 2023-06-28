@@ -17,6 +17,8 @@ import weakref
 from enum import EnumMeta
 from enum import IntEnum
 
+from typing import Union, Optional, Dict
+
 from .decorators import sdproperty
 
 from .errors import PGPError
@@ -69,15 +71,27 @@ class Armorable(metaclass=abc.ABCMeta):
                          """, flags=re.MULTILINE | re.VERBOSE)
 
     @property
-    def charset(self):
+    def charset(self) -> str:
         return self.ascii_headers.get('Charset', 'utf-8')
 
     @charset.setter
-    def charset(self, encoding):
+    def charset(self, encoding: str) -> None:
         self.ascii_headers['Charset'] = codecs.lookup(encoding).name
 
     @staticmethod
-    def is_ascii(text):
+    def is_utf8(text: Union[str, bytes, bytearray]) -> bool:
+        if isinstance(text, str):
+            return True
+        else:
+            try:
+                text.decode('utf-8')
+                return True
+            except UnicodeDecodeError:
+                return False
+
+    @staticmethod
+    def is_ascii(text: Union[str, bytes, bytearray]) -> bool:
+        '''This is a deprecated, pointless method'''
         if isinstance(text, str):
             return bool(re.match(r'^[ -~\r\n\t]*$', text, flags=re.ASCII))
 
@@ -87,7 +101,7 @@ class Armorable(metaclass=abc.ABCMeta):
         raise TypeError("Expected: ASCII input of type str, bytes, or bytearray")  # pragma: no cover
 
     @staticmethod
-    def is_armor(text):
+    def is_armor(text: Union[str, bytes, bytearray]) -> bool:
         """
         Whether the ``text`` provided is an ASCII-armored PGP block.
         :param text: A possible ASCII-armored PGP block.
@@ -95,12 +109,15 @@ class Armorable(metaclass=abc.ABCMeta):
         :returns: Whether the text is ASCII-armored.
         """
         if isinstance(text, (bytes, bytearray)):  # pragma: no cover
-            text = text.decode('latin-1')
+            try:
+                text = text.decode('utf-8')
+            except UnicodeDecodeError:
+                return False
 
         return Armorable.__armor_regex.search(text) is not None
 
     @staticmethod
-    def ascii_unarmor(text):
+    def ascii_unarmor(text: Union[str, bytes, bytearray]) -> Dict[str, Optional[Union[str, bytes, bytearray]]]:
         """
         Takes an ASCII-armored PGP block and returns the decoded byte value.
 
@@ -111,7 +128,7 @@ class Armorable(metaclass=abc.ABCMeta):
         It can contain the following keys: ``magic``, ``headers``, ``hashes``, ``cleartext``, ``body``, ``crc``.
         """
         m = {'magic': None, 'headers': None, 'body': bytearray(), 'crc': None}
-        if not Armorable.is_ascii(text):
+        if not Armorable.is_utf8(text):
             m['body'] = bytearray(text)
             return m
 
@@ -731,6 +748,7 @@ class Fingerprint(str):
 
 class SorteDeque(collections.deque):
     """A deque subclass that tries to maintain sorted ordering using bisect"""
+
     def insort(self, item):
         i = bisect.bisect_left(self, item)
         self.rotate(- i)

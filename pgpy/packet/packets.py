@@ -168,10 +168,14 @@ class PKESessionKeyV3(PKESessionKey):
     def pkalg(self):
         return self._pkalg
 
-    @pkalg.register(int)
-    @pkalg.register(PubKeyAlgorithm)
-    def pkalg_int(self, val):
-        self._pkalg = PubKeyAlgorithm(val)
+    @pkalg.register
+    def pkalg_int(self, val: int) -> None:
+        if isinstance(val, PubKeyAlgorithm):
+            self._pkalg = val
+        else:
+            self._pkalg = PubKeyAlgorithm(val)
+            if self._pkalg is PubKeyAlgorithm.Invalid:
+                self._opaque_pkalg: int = val
 
         _c = {PubKeyAlgorithm.RSAEncryptOrSign: RSACipherText,
               PubKeyAlgorithm.RSAEncrypt: RSACipherText,
@@ -192,7 +196,10 @@ class PKESessionKeyV3(PKESessionKey):
         _bytes = bytearray()
         _bytes += super(PKESessionKeyV3, self).__bytearray__()
         _bytes += binascii.unhexlify(self.encrypter.encode())
-        _bytes += bytearray([self.pkalg])
+        if self.pkalg == PubKeyAlgorithm.Invalid:
+            _bytes.append(self._opaque_pkalg)
+        else:
+            _bytes.append(self.pkalg)
         _bytes += self.ct.__bytearray__() if self.ct is not None else b'\x00' * (self.header.length - 10)
         return _bytes
 
@@ -201,6 +208,8 @@ class PKESessionKeyV3(PKESessionKey):
         sk.header = copy.copy(self.header)
         sk._encrypter = self._encrypter
         sk.pkalg = self.pkalg
+        if self.pkalg == PubKeyAlgorithm.Invalid:
+            sk._opaque_pkalg = self._opaque_pkalg
         if self.ct is not None:
             sk.ct = copy.copy(self.ct)
 
@@ -281,7 +290,7 @@ class PKESessionKeyV3(PKESessionKey):
             self.ct.parse(packet)
 
         else:  # pragma: no cover
-            del packet[:(self.header.length - 18)]
+            del packet[:(self.header.length - 10)]
 
 
 class Signature(VersionedPacket):
@@ -350,13 +359,17 @@ class SignatureV4(Signature):
         self._sigtype = SignatureType(val)
 
     @sdproperty
-    def pubalg(self):
+    def pubalg(self) -> PubKeyAlgorithm:
         return self._pubalg
 
-    @pubalg.register(int)
-    @pubalg.register(PubKeyAlgorithm)
-    def pubalg_int(self, val):
-        self._pubalg = PubKeyAlgorithm(val)
+    @pubalg.register
+    def pubalg_int(self, val: int) -> None:
+        if isinstance(val, PubKeyAlgorithm):
+            self._pubalg: PubKeyAlgorithm = val
+        else:
+            self._pubalg = PubKeyAlgorithm(val)
+            if self._pubalg is PubKeyAlgorithm.Unknown:
+                self._opaque_pubalg: int = val
 
         sigs = {
             PubKeyAlgorithm.RSAEncryptOrSign: RSASignature,
@@ -370,17 +383,17 @@ class SignatureV4(Signature):
         self.signature = sigs.get(self.pubalg, OpaqueSignature)()
 
     @sdproperty
-    def halg(self):
+    def halg(self) -> HashAlgorithm:
         return self._halg
 
-    @halg.register(int)
-    @halg.register(HashAlgorithm)
-    def halg_int(self, val):
-        try:
-            self._halg = HashAlgorithm(val)
-
-        except ValueError:  # pragma: no cover
+    @halg.register
+    def halg_int(self, val: int) -> None:
+        if isinstance(val, HashAlgorithm):
             self._halg = val
+        else:
+            self._halg = HashAlgorithm(val)
+            if self._halg is HashAlgorithm.Unknown:
+                self._opaque_halg = val
 
     @property
     def signature(self):
@@ -407,8 +420,14 @@ class SignatureV4(Signature):
         _bytes = bytearray()
         _bytes += super(Signature, self).__bytearray__()
         _bytes += self.int_to_bytes(self.sigtype)
-        _bytes += self.int_to_bytes(self.pubalg)
-        _bytes += self.int_to_bytes(self.halg)
+        if self.pubalg is PubKeyAlgorithm.Unknown:
+            _bytes.append(self._opaque_pubalg)
+        else:
+            _bytes.append(self.pubalg)
+        if self.halg is HashAlgorithm.Unknown:
+            _bytes.append(self._opaque_halg)
+        else:
+            _bytes.append(self.halg)
         _bytes += self.subpackets.__bytearray__()
         _bytes += self.hash2
         _bytes += self.signature.__bytearray__()
@@ -432,8 +451,14 @@ class SignatureV4(Signature):
         _body = bytearray()
         _body += self.int_to_bytes(self.header.version)
         _body += self.int_to_bytes(self.sigtype)
-        _body += self.int_to_bytes(self.pubalg)
-        _body += self.int_to_bytes(self.halg)
+        if self.pubalg is PubKeyAlgorithm.Unknown:
+            _body.append(self._opaque_pubalg)
+        else:
+            _body.append(self.pubalg)
+        if self.halg is HashAlgorithm.Unknown:
+            _body.append(self._opaque_halg)
+        else:
+            _body.append(self.halg)
         _body += self.subpackets.__hashbytearray__()
         _body += self.int_to_bytes(0, minlen=2)  # empty unhashed subpackets
         _body += self.hash2
@@ -449,7 +474,11 @@ class SignatureV4(Signature):
         spkt.header = copy.copy(self.header)
         spkt._sigtype = self._sigtype
         spkt._pubalg = self._pubalg
+        if self._pubalg is PubKeyAlgorithm.Unknown:
+            spkt._opaque_pubalg = self._opaque_pubalg
         spkt._halg = self._halg
+        if self._halg is HashAlgorithm.Unknown:
+            spkt._opaque_halg = self._opaque_halg
 
         spkt.subpackets = copy.copy(self.subpackets)
         spkt.hash2 = copy.copy(self.hash2)
@@ -678,17 +707,17 @@ class OnePassSignatureV3(OnePassSignature):
             self.signature = DSASignature()
 
     @sdproperty
-    def halg(self):
+    def halg(self) -> HashAlgorithm:
         return self._halg
 
-    @halg.register(int)
-    @halg.register(HashAlgorithm)
-    def halg_int(self, val):
-        try:
-            self._halg = HashAlgorithm(val)
-
-        except ValueError:  # pragma: no cover
+    @halg.register
+    def halg_int(self, val: int) -> None:
+        if isinstance(val, HashAlgorithm):
             self._halg = val
+        else:
+            self._halg = HashAlgorithm(val)
+            if self._halg is HashAlgorithm.Unknown:
+                self._opaque_halg: int = val
 
     @sdproperty
     def signer(self):
@@ -715,7 +744,10 @@ class OnePassSignatureV3(OnePassSignature):
         _bytes = bytearray()
         _bytes += super(OnePassSignatureV3, self).__bytearray__()
         _bytes += bytearray([self.sigtype])
-        _bytes += bytearray([self.halg])
+        if self.halg is HashAlgorithm.Unknown:
+            _bytes.append(self._opaque_halg)
+        else:
+            _bytes.append(self.halg)
         _bytes += bytearray([self.pubalg])
         _bytes += binascii.unhexlify(self.signer.encode("latin-1"))
         _bytes += bytearray([int(self.nested)])
@@ -776,13 +808,17 @@ class PubKeyV4(PubKey):
         self.created = self.bytes_to_int(val)
 
     @sdproperty
-    def pkalg(self):
+    def pkalg(self) -> PubKeyAlgorithm:
         return self._pkalg
 
-    @pkalg.register(int)
-    @pkalg.register(PubKeyAlgorithm)
-    def pkalg_int(self, val):
-        self._pkalg = PubKeyAlgorithm(val)
+    @pkalg.register
+    def pkalg_int(self, val: int) -> None:
+        if isinstance(val, PubKeyAlgorithm):
+            self._pkalg: PubKeyAlgorithm = val
+        else:
+            self._pkalg = PubKeyAlgorithm(val)
+            if self._pkalg is PubKeyAlgorithm.Unknown:
+                self._opaque_pkalg: int = val
 
         _c = {
             # True means public
@@ -838,7 +874,10 @@ class PubKeyV4(PubKey):
         # c) timestamp of key creation (4 octets);
         fp.update(self.int_to_bytes(calendar.timegm(self.created.timetuple()), 4))
         # d) algorithm (1 octet): 17 = DSA (example);
-        fp.update(self.int_to_bytes(self.pkalg))
+        if self.pkalg is PubKeyAlgorithm.Unknown:
+            fp.update(bytes([self._opaque_pkalg]))
+        else:
+            fp.update(self.int_to_bytes(self.pkalg))
         # e) Algorithm-specific fields.
         fp.update(self.keymaterial.__bytearray__()[:plen])
 
@@ -855,7 +894,10 @@ class PubKeyV4(PubKey):
         _bytes = bytearray()
         _bytes += super(PubKeyV4, self).__bytearray__()
         _bytes += self.int_to_bytes(calendar.timegm(self.created.timetuple()), 4)
-        _bytes += self.int_to_bytes(self.pkalg)
+        if self.pkalg is PubKeyAlgorithm.Unknown:
+            _bytes.append(self._opaque_pkalg)
+        else:
+            _bytes.append(self.pkalg)
         _bytes += self.keymaterial.__bytearray__()
         return _bytes
 
@@ -863,7 +905,10 @@ class PubKeyV4(PubKey):
         pk = self.__class__()
         pk.header = copy.copy(self.header)
         pk.created = self.created
-        pk.pkalg = self.pkalg
+        if self.pkalg is PubKeyAlgorithm.Unknown:
+            pk.pkalg = self._opaque_pkalg
+        else:
+            pk.pkalg = self.pkalg
         pk.keymaterial = copy.copy(self.keymaterial)
 
         return pk
