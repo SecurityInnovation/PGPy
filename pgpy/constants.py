@@ -17,6 +17,7 @@ from pyasn1.type.univ import ObjectIdentifier
 from cryptography.hazmat.backends import openssl
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.ciphers import algorithms
+from cryptography.hazmat.primitives._cipheralgorithm import CipherAlgorithm
 
 from .types import FlagEnum
 from .decorators import classproperty
@@ -187,28 +188,33 @@ class SymmetricKeyAlgorithm(IntEnum):
     #: Camellia with 256-bit key
     Camellia256 = 0x0D
 
-    @property
-    def cipher(self):
-        bs = {SymmetricKeyAlgorithm.IDEA: algorithms.IDEA,
-              SymmetricKeyAlgorithm.TripleDES: algorithms.TripleDES,
-              SymmetricKeyAlgorithm.CAST5: algorithms.CAST5,
-              SymmetricKeyAlgorithm.Blowfish: algorithms.Blowfish,
-              SymmetricKeyAlgorithm.AES128: algorithms.AES,
-              SymmetricKeyAlgorithm.AES192: algorithms.AES,
-              SymmetricKeyAlgorithm.AES256: algorithms.AES,
-              SymmetricKeyAlgorithm.Twofish256: namedtuple('Twofish256', ['block_size'])(block_size=128),
-              SymmetricKeyAlgorithm.Camellia128: algorithms.Camellia,
-              SymmetricKeyAlgorithm.Camellia192: algorithms.Camellia,
-              SymmetricKeyAlgorithm.Camellia256: algorithms.Camellia}
-
-        if self in bs:
-            return bs[self]
-
+    def cipher(self, key: bytes) -> CipherAlgorithm:
+        if self is SymmetricKeyAlgorithm.IDEA:
+            return algorithms.IDEA(key)
+        elif self is SymmetricKeyAlgorithm.TripleDES:
+            return algorithms.TripleDES(key)
+        elif self is SymmetricKeyAlgorithm.CAST5:
+            return algorithms.CAST5(key)
+        elif self is SymmetricKeyAlgorithm.Blowfish:
+            return algorithms.Blowfish(key)
+        elif self in {SymmetricKeyAlgorithm.AES128, SymmetricKeyAlgorithm.AES192, SymmetricKeyAlgorithm.AES256}:
+            return algorithms.AES(key)
+        elif self in {SymmetricKeyAlgorithm.Camellia128, SymmetricKeyAlgorithm.Camellia192, SymmetricKeyAlgorithm.Camellia256}:
+            return algorithms.Camellia(key)
         raise NotImplementedError(repr(self))
 
     @property
-    def is_supported(self):
-        return callable(self.cipher)
+    def is_supported(self) -> bool:
+        return self in {SymmetricKeyAlgorithm.IDEA,
+                        SymmetricKeyAlgorithm.TripleDES,
+                        SymmetricKeyAlgorithm.CAST5,
+                        SymmetricKeyAlgorithm.Blowfish,
+                        SymmetricKeyAlgorithm.AES128,
+                        SymmetricKeyAlgorithm.AES192,
+                        SymmetricKeyAlgorithm.AES256,
+                        SymmetricKeyAlgorithm.Camellia128,
+                        SymmetricKeyAlgorithm.Camellia192,
+                        SymmetricKeyAlgorithm.Camellia256}
 
     @property
     def is_insecure(self):
@@ -216,8 +222,14 @@ class SymmetricKeyAlgorithm(IntEnum):
         return self in insecure_ciphers
 
     @property
-    def block_size(self):
-        return self.cipher.block_size
+    def block_size(self) -> int:
+        if self in {SymmetricKeyAlgorithm.IDEA,
+                    SymmetricKeyAlgorithm.TripleDES,
+                    SymmetricKeyAlgorithm.CAST5,
+                    SymmetricKeyAlgorithm.Blowfish}:
+            return 64
+        else:
+            return 128
 
     @property
     def key_size(self):
