@@ -44,31 +44,31 @@ def use_legacy_cryptography_decorator():
 
 if use_legacy_cryptography_decorator():
     @utils.register_interface(ec.EllipticCurve)
-    class BrainpoolP256R1(object):
+    class BrainpoolP256R1:
         name = 'brainpoolP256r1'
         key_size = 256
 
 
     @utils.register_interface(ec.EllipticCurve)  # noqa: E303
-    class BrainpoolP384R1(object):
+    class BrainpoolP384R1:
         name = 'brainpoolP384r1'
         key_size = 384
 
 
     @utils.register_interface(ec.EllipticCurve)  # noqa: E303
-    class BrainpoolP512R1(object):
+    class BrainpoolP512R1:
         name = 'brainpoolP512r1'
         key_size = 512
 
 
     @utils.register_interface(ec.EllipticCurve)  # noqa: E303
-    class X25519(object):
+    class X25519:
         name = 'X25519'
         key_size = 256
 
 
     @utils.register_interface(ec.EllipticCurve)  # noqa: E303
-    class Ed25519(object):
+    class Ed25519:
         name = 'ed25519'
         key_size = 256
 else:

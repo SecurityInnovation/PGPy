@@ -297,7 +297,7 @@ block_attrs = {
 
 
 # generic block tests
-class TestBlocks(object):
+class TestBlocks:
     @pytest.mark.parametrize('block', blocks, ids=[os.path.basename(f) for f in blocks])
     def test_load_blob(self, block):
         with open(block) as bf:
@@ -338,7 +338,7 @@ binary = glob.glob('tests/testdata/files/*.bin')
 raw = txt + binary
 
 # armor matching test
-class TestMatching(object):
+class TestMatching:
     @pytest.mark.parametrize('armored', armored, ids=[os.path.basename(f) for f in armored])
     def test_is_armor(self, armored):
         with open(armored) as af:

@@ -1,6 +1,5 @@
 """ fields.py
 """
-from __future__ import absolute_import, division
 
 import abc
 import binascii
@@ -107,7 +106,7 @@ class SubPackets(collections_abc.MutableMapping, Field):
     _spmodule = signature
 
     def __init__(self):
-        super(SubPackets, self).__init__()
+        super().__init__()
         self._hashed_sp = collections.OrderedDict()
         self._unhashed_sp = collections.OrderedDict()
 
@@ -135,8 +134,7 @@ class SubPackets(collections_abc.MutableMapping, Field):
         return sum(sp.header.length for sp in itertools.chain(self._hashed_sp.values(), self._unhashed_sp.values())) + 4
 
     def __iter__(self):
-        for sp in itertools.chain(self._hashed_sp.values(), self._unhashed_sp.values()):
-            yield sp
+        yield from itertools.chain(self._hashed_sp.values(), self._unhashed_sp.values())
 
     def __setitem__(self, key, val):
         # the key provided should always be the classname for the subpacket
@@ -174,7 +172,7 @@ class SubPackets(collections_abc.MutableMapping, Field):
         raise NotImplementedError
 
     def __contains__(self, key):
-        return key in set(k for k, _ in itertools.chain(self._hashed_sp, self._unhashed_sp))
+        return key in {k for k, _ in itertools.chain(self._hashed_sp, self._unhashed_sp)}
 
     def __copy__(self):
         sp = SubPackets()
@@ -267,7 +265,7 @@ class Signature(MPIs):
 
 class OpaqueSignature(Signature):
     def __init__(self):
-        super(OpaqueSignature, self).__init__()
+        super().__init__()
         self.data = bytearray()
 
     def __bytearray__(self):
@@ -380,11 +378,10 @@ class PubKey(MPIs):
 
     @property
     def __mpis__(self):
-        for i in self.__pubfields__:
-            yield i
+        yield from self.__pubfields__
 
     def __init__(self):
-        super(PubKey, self).__init__()
+        super().__init__()
         for field in self.__pubfields__:
             if isinstance(field, tuple):  # pragma: no cover
                 field, val = field
@@ -415,7 +412,7 @@ class PubKey(MPIs):
 
 class OpaquePubKey(PubKey):  # pragma: no cover
     def __init__(self):
-        super(OpaquePubKey, self).__init__()
+        super().__init__()
         self.data = bytearray()
 
     def __iter__(self):
@@ -553,7 +550,7 @@ class ECDSAPub(PubKey):
     __pubfields__ = ('p',)
 
     def __init__(self):
-        super(ECDSAPub, self).__init__()
+        super().__init__()
         self.oid = None
 
     def __len__(self):
@@ -569,7 +566,7 @@ class ECDSAPub(PubKey):
         return _b
 
     def __copy__(self):
-        pkt = super(ECDSAPub, self).__copy__()
+        pkt = super().__copy__()
         pkt.oid = self.oid
         return pkt
 
@@ -599,7 +596,7 @@ class EdDSAPub(PubKey):
     __pubfields__ = ('p', )
 
     def __init__(self):
-        super(EdDSAPub, self).__init__()
+        super().__init__()
         self.oid = None
 
     def __len__(self):
@@ -615,7 +612,7 @@ class EdDSAPub(PubKey):
         return ed25519.Ed25519PublicKey.from_public_bytes(self.p.x)
 
     def __copy__(self):
-        pkt = super(EdDSAPub, self).__copy__()
+        pkt = super().__copy__()
         pkt.oid = self.oid
         return pkt
 
@@ -650,7 +647,7 @@ class ECDHPub(PubKey):
     __pubfields__ = ('p',)
 
     def __init__(self):
-        super(ECDHPub, self).__init__()
+        super().__init__()
         self.oid = None
         self.kdf = ECKDF()
 
@@ -671,7 +668,7 @@ class ECDHPub(PubKey):
         return _b
 
     def __copy__(self):
-        pkt = super(ECDHPub, self).__copy__()
+        pkt = super().__copy__()
         pkt.oid = self.oid
         pkt.kdf = copy.copy(self.kdf)
         return pkt
@@ -876,7 +873,7 @@ class String2Key(Field):
         self._count = val
 
     def __init__(self):
-        super(String2Key, self).__init__()
+        super().__init__()
         self.usage = 0
         self.encalg = 0
         self.specifier = 0
@@ -1019,7 +1016,7 @@ class String2Key(Field):
         keylen = self.encalg.key_size
         hashlen = self.halg.digest_size * 8
 
-        ctx = int(math.ceil((keylen / hashlen)))
+        ctx = int(math.ceil(keylen / hashlen))
 
         # Simple S2K - always done
         hsalt = b''
@@ -1092,7 +1089,7 @@ class ECKDF(Field):
         self._encalg = SymmetricKeyAlgorithm(val)
 
     def __init__(self):
-        super(ECKDF, self).__init__()
+        super().__init__()
         self.halg = 0
         self.encalg = 0
 
@@ -1143,14 +1140,11 @@ class PrivKey(PubKey):
 
     @property
     def __mpis__(self):
-        for i in super(PrivKey, self).__mpis__:
-            yield i
-
-        for i in self.__privfields__:
-            yield i
+        yield from super().__mpis__
+        yield from self.__privfields__
 
     def __init__(self):
-        super(PrivKey, self).__init__()
+        super().__init__()
 
         self.s2k = String2Key()
         self.encbytes = bytearray()
@@ -1161,7 +1155,7 @@ class PrivKey(PubKey):
 
     def __bytearray__(self):
         _bytes = bytearray()
-        _bytes += super(PrivKey, self).__bytearray__()
+        _bytes += super().__bytearray__()
 
         _bytes += self.s2k.__bytearray__()
         if self.s2k:
@@ -1177,7 +1171,7 @@ class PrivKey(PubKey):
         return _bytes
 
     def __len__(self):
-        nbytes = super(PrivKey, self).__len__() + len(self.s2k) + len(self.chksum)
+        nbytes = super().__len__() + len(self.s2k) + len(self.chksum)
         if self.s2k:
             nbytes += len(self.encbytes)
 
@@ -1187,7 +1181,7 @@ class PrivKey(PubKey):
         return nbytes
 
     def __copy__(self):
-        pk = super(PrivKey, self).__copy__()
+        pk = super().__copy__()
         pk.s2k = copy.copy(self.s2k)
         pk.encbytes = copy.copy(self.encbytes)
         pk.chksum = copy.copy(self.chksum)
@@ -1205,7 +1199,7 @@ class PrivKey(PubKey):
         "Calculate the key checksum"
 
     def publen(self):
-        return super(PrivKey, self).__len__()
+        return super().__len__()
 
     def encrypt_keyblob(self, passphrase, enc_alg, hash_alg):
         # PGPy will only ever use iterated and salted S2k mode
@@ -1332,7 +1326,7 @@ class RSAPriv(PrivKey, RSAPub):
         self._compute_chksum()
 
     def parse(self, packet):
-        super(RSAPriv, self).parse(packet)
+        super().parse(packet)
         self.s2k.parse(packet)
 
         if not self.s2k:
@@ -1350,7 +1344,7 @@ class RSAPriv(PrivKey, RSAPub):
             self.encbytes = packet
 
     def decrypt_keyblob(self, passphrase):
-        kb = super(RSAPriv, self).decrypt_keyblob(passphrase)
+        kb = super().decrypt_keyblob(passphrase)
         del passphrase
 
         self.d = MPI(kb)
@@ -1398,7 +1392,7 @@ class DSAPriv(PrivKey, DSAPub):
         self._compute_chksum()
 
     def parse(self, packet):
-        super(DSAPriv, self).parse(packet)
+        super().parse(packet)
         self.s2k.parse(packet)
 
         if not self.s2k:
@@ -1412,7 +1406,7 @@ class DSAPriv(PrivKey, DSAPub):
             del packet[:2]
 
     def decrypt_keyblob(self, passphrase):
-        kb = super(DSAPriv, self).decrypt_keyblob(passphrase)
+        kb = super().decrypt_keyblob(passphrase)
         del passphrase
 
         self.x = MPI(kb)
@@ -1439,7 +1433,7 @@ class ElGPriv(PrivKey, ElGPub):
         raise NotImplementedError(PubKeyAlgorithm.ElGamal)
 
     def parse(self, packet):
-        super(ElGPriv, self).parse(packet)
+        super().parse(packet)
         self.s2k.parse(packet)
 
         if not self.s2k:
@@ -1453,7 +1447,7 @@ class ElGPriv(PrivKey, ElGPub):
             del packet[:2]
 
     def decrypt_keyblob(self, passphrase):
-        kb = super(ElGPriv, self).decrypt_keyblob(passphrase)
+        kb = super().decrypt_keyblob(passphrase)
         del passphrase
 
         self.x = MPI(kb)
@@ -1490,7 +1484,7 @@ class ECDSAPriv(PrivKey, ECDSAPub):
         self._compute_chksum()
 
     def parse(self, packet):
-        super(ECDSAPriv, self).parse(packet)
+        super().parse(packet)
         self.s2k.parse(packet)
 
         if not self.s2k:
@@ -1504,7 +1498,7 @@ class ECDSAPriv(PrivKey, ECDSAPub):
             self.encbytes = packet
 
     def decrypt_keyblob(self, passphrase):
-        kb = super(ECDSAPriv, self).decrypt_keyblob(passphrase)
+        kb = super().decrypt_keyblob(passphrase)
         del passphrase
         self.s = MPI(kb)
 
@@ -1543,7 +1537,7 @@ class EdDSAPriv(PrivKey, EdDSAPub):
         self._compute_chksum()
 
     def parse(self, packet):
-        super(EdDSAPriv, self).parse(packet)
+        super().parse(packet)
         self.s2k.parse(packet)
 
         if not self.s2k:
@@ -1556,7 +1550,7 @@ class EdDSAPriv(PrivKey, EdDSAPub):
             self.encbytes = packet
 
     def decrypt_keyblob(self, passphrase):
-        kb = super(EdDSAPriv, self).decrypt_keyblob(passphrase)
+        kb = super().decrypt_keyblob(passphrase)
         del passphrase
         self.s = MPI(kb)
 
@@ -1640,7 +1634,7 @@ class ECDHPriv(ECDSAPriv, ECDHPub):
 
 class CipherText(MPIs):
     def __init__(self):
-        super(CipherText, self).__init__()
+        super().__init__()
         for i in self.__mpis__:
             setattr(self, i, MPI(0))
 
@@ -1773,7 +1767,7 @@ class ECDHCipherText(CipherText):
         return padder.update(_m) + padder.finalize()
 
     def __init__(self):
-        super(ECDHCipherText, self).__init__()
+        super().__init__()
         self.c = bytearray(0)
 
     def __bytearray__(self):

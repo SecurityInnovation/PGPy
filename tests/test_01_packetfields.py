@@ -51,7 +51,7 @@ subpkt_headers = [
     ]
 
 
-class TestHeaders(object):
+class TestHeaders:
     @pytest.mark.parametrize('pheader', pkt_headers)
     def test_packet_header(self, pheader):
         b = pheader[:]
@@ -197,7 +197,7 @@ _ssps = [
 sig_subpkts = [bytearray(sp) + _trailer for sp in _ssps]
 
 
-class TestSignatureSubPackets(object):
+class TestSignatureSubPackets:
     @pytest.mark.parametrize('sigsubpacket', sig_subpkts)
     def test_load(self, sigsubpacket):
             spb = sigsubpacket[:]
@@ -267,7 +267,7 @@ _uassps = [
 ua_subpkts = [bytearray(sp) + _trailer for sp in _uassps]
 
 
-class TestUserAttributeSubPackets(object):
+class TestUserAttributeSubPackets:
     @pytest.mark.parametrize('uasubpacket', ua_subpkts)
     def test_load(self, uasubpacket):
         spb = uasubpacket[:]
@@ -317,7 +317,7 @@ is2ks = [bytearray(i) + _salt + _count + _iv for i in itertools.product(*(_s2k_p
 gnus2ks = [bytearray(b'\xff\x00\x65\x00GNU' + i) for i in ([b'\x01'] + [b'\x02' + bytearray([len(s)]) + s for s in _gnu_scserials])]
 
 
-class TestString2Key(object):
+class TestString2Key:
     @pytest.mark.parametrize('sis2k', sis2ks)
     def test_simple_string2key(self, sis2k):
         b = sis2k[:]

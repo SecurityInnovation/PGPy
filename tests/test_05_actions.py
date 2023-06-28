@@ -40,7 +40,7 @@ from pgpy.packet.packets import PrivSubKeyV4
 enc_msgs = [ PGPMessage.from_file(f) for f in sorted(glob.glob('tests/testdata/messages/message*.pass*.asc')) ]
 
 
-class TestPGPMessage(object):
+class TestPGPMessage:
     @staticmethod
     def gpg_message(msg):
         ret = None
@@ -71,7 +71,7 @@ class TestPGPMessage(object):
     @pytest.mark.parametrize('comp_alg,sensitive',
                              itertools.product(CompressionAlgorithm, [False, True]))
     def test_new(self, comp_alg, sensitive):
-        mtxt = u"This is a new message!"
+        mtxt = "This is a new message!"
         msg = PGPMessage.new(mtxt, compression=comp_alg, sensitive=sensitive)
 
         assert isinstance(msg, PGPMessage)
@@ -106,10 +106,10 @@ class TestPGPMessage(object):
     # @pytest.mark.parametrize('cleartext', [False, True])
     def test_new_non_unicode(self):
         # this message text comes from http://www.columbia.edu/~fdc/utf8/
-        text = u'色は匂へど 散りぬるを\n' \
-               u'我が世誰ぞ 常ならむ\n' \
-               u'有為の奥山 今日越えて\n' \
-               u'浅き夢見じ 酔ひもせず'
+        text = '色は匂へど 散りぬるを\n' \
+               '我が世誰ぞ 常ならむ\n' \
+               '有為の奥山 今日越えて\n' \
+               '浅き夢見じ 酔ひもせず'
         msg = PGPMessage.new(text.encode('jisx0213'), encoding='jisx0213')
 
         assert msg.type == 'literal'
@@ -122,17 +122,17 @@ class TestPGPMessage(object):
     @pytest.mark.regression(issue=154)
     def test_new_non_unicode_cleartext(self):
         # this message text comes from http://www.columbia.edu/~fdc/utf8/
-        text = u'色は匂へど 散りぬるを\n' \
-               u'我が世誰ぞ 常ならむ\n' \
-               u'有為の奥山 今日越えて\n' \
-               u'浅き夢見じ 酔ひもせず'
+        text = '色は匂へど 散りぬるを\n' \
+               '我が世誰ぞ 常ならむ\n' \
+               '有為の奥山 今日越えて\n' \
+               '浅き夢見じ 酔ひもせず'
         msg = PGPMessage.new(text.encode('jisx0213'), cleartext=True, encoding='jisx0213')
 
         assert msg.type == 'cleartext'
         assert msg.message == text
 
     def test_add_marker(self):
-        msg = PGPMessage.new(u"This is a new message")
+        msg = PGPMessage.new("This is a new message")
         marker = Packet(bytearray(b'\xa8\x03\x50\x47\x50'))
         msg |= marker
 
@@ -237,7 +237,7 @@ skeyspecs = ((PubKeyAlgorithm.RSAEncryptOrSign, 2048),
              (PubKeyAlgorithm.ECDH, EllipticCurveOID.Curve25519),)
 
 
-class TestPGPKey_Management(object):
+class TestPGPKey_Management:
     # test PGPKey management actions, e.g.:
     # - key/subkey generation
     # - adding/removing UIDs
@@ -623,7 +623,7 @@ pubkeys = [ PGPKey.from_file(f)[0] for f in sorted(glob.glob('tests/testdata/key
 
 symalgos = sorted(filter(lambda x: x is not SymmetricKeyAlgorithm.Plaintext, sorted(SymmetricKeyAlgorithm)))
 
-class TestPGPKey_Actions(object):
+class TestPGPKey_Actions:
     sigs = {}
     msgs = {}
 
