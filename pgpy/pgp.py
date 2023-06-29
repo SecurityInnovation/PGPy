@@ -588,7 +588,7 @@ class PGPSignature(Armorable, ParentRef):
             self.ascii_headers = unarmored['headers']
 
         # load *one* packet from data
-        pkt = Packet(data)  # type: ignore
+        pkt = Packet(data)  # type: ignore[abstract]
         if pkt.header.tag == PacketTag.Signature:
             if isinstance(pkt, Opaque):
                 # this is an unrecognized version.
