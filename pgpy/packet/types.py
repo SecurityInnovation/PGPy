@@ -4,7 +4,7 @@
 import abc
 import copy
 
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple, Type, Union
 
 from ..constants import PacketTag
 
@@ -146,29 +146,29 @@ class VersionedHeader(Header):
 
 class Packet(Dispatchable):
     __typeid__: Optional[Union[PacketTag, DispatchGuidance]] = None
-    __headercls__ = Header
+    __headercls__: Type[Header] = Header
 
-    def __init__(self, _=None):
+    def __init__(self, _=None) -> None:
         super().__init__()
         self.header = self.__headercls__()
         if isinstance(self.__typeid__, int):
             self.header.tag = self.__typeid__
 
     @abc.abstractmethod
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         return self.header.__bytearray__()
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.header) + self.header.length
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<{cls:s} [tag {tag:02d}] at 0x{id:x}>".format(cls=self.__class__.__name__, tag=self.header.tag, id=id(self))
 
-    def update_hlen(self):
+    def update_hlen(self) -> None:
         self.header.length = len(self.__bytearray__()) - len(self.header)
 
     @abc.abstractmethod
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         if self.header.tag == 0:
             self.header.parse(packet)
 
@@ -177,12 +177,12 @@ class VersionedPacket(Packet):
     __typeid__: Union[PacketTag, DispatchGuidance] = DispatchGuidance.NoDispatch
     __headercls__ = VersionedHeader
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         if isinstance(self.__ver__, int):
             self.header.version = self.__ver__
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<{cls:s} [tag {tag:02d}][v{ver:d}] at 0x{id:x}>".format(cls=self.__class__.__name__, tag=self.header.tag,
                                                                         ver=self.header.version, id=id(self))
 
