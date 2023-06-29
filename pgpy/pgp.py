@@ -3092,7 +3092,7 @@ class PGPKeyring(collections.abc.Container, collections.abc.Iterable, collection
                 if pk.is_public in [True if keyhalf in ['public', 'any'] else None,
                                     False if keyhalf in ['private', 'any'] else None]}
 
-    def unload(self, key):
+    def unload(self, key) -> None:
         """
         Unload a loaded key and its subkeys.
 
@@ -3108,7 +3108,10 @@ class PGPKeyring(collections.abc.Container, collections.abc.Iterable, collection
         pkid = id(key)
         if pkid in self._keys:
             # remove references
-            [ kd.remove(pkid) for kd in [self._pubkeys, self._privkeys] if pkid in kd ]
+            if pkid in self._pubkeys:
+                self._pubkeys.remove(pkid)
+            if pkid in self._privkeys:
+                self._privkeys.remove(pkid)
             # remove the key
             self._keys.pop(pkid)
 
@@ -3121,4 +3124,5 @@ class PGPKeyring(collections.abc.Container, collections.abc.Iterable, collection
 
             # if key is a primary key, unload its subkeys as well
             if key.is_primary:
-                [ self.unload(sk) for sk in key.subkeys.values() ]
+                for sk in key.subkeys.values():
+                    self.unload(sk)
