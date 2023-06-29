@@ -109,9 +109,17 @@ class SubPacket(Dispatchable):
 class Signature(SubPacket):
     __typeid__: Optional[SigSubpacketType] = None
 
+    # allow one parameter for MetaDispatchable initialization:
+    def __init__(self, _: Optional[bytes] = None) -> None:
+        super().__init__()
+
 
 class UserAttribute(SubPacket):
     __typeid__: Optional[AttributeType] = None
+
+    # allow one parameter for MetaDispatchable initialization:
+    def __init__(self, _: Optional[bytes] = None) -> None:
+        super().__init__()
 
 
 class Opaque(Signature, UserAttribute):

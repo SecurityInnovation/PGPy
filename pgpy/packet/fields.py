@@ -223,7 +223,7 @@ class SubPackets(collections.abc.MutableMapping, Field):
         # so instead of tracking how many bytes we can now output, we track how many bytes have we parsed so far
         plen = len(packet)
         while plen - len(packet) < hl:
-            sp = SignatureSP(packet)
+            sp = SignatureSP(packet)  # type: ignore[abstract]
             self['h_' + sp.__class__.__name__] = sp
 
         uhl = self.bytes_to_int(packet[:self._width])
@@ -231,7 +231,7 @@ class SubPackets(collections.abc.MutableMapping, Field):
 
         plen = len(packet)
         while plen - len(packet) < uhl:
-            sp = SignatureSP(packet)
+            sp = SignatureSP(packet)  # type: ignore[abstract]
             self[sp.__class__.__name__] = sp
 
 
