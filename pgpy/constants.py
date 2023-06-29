@@ -763,6 +763,7 @@ class SecurityIssues(IntFlag):
     AsymmetricKeyLengthIsTooShort = (1 << 8)
     InsecureCurve = (1 << 9)
     NoSelfSignature = (1 << 10)
+    AlgorithmUnknown = (1 << 11)
 
     @property
     def causes_signature_verify_to_fail(self) -> bool:
@@ -772,6 +773,7 @@ class SecurityIssues(IntFlag):
             SecurityIssues.Disabled,
             SecurityIssues.Invalid,
             SecurityIssues.NoSelfSignature,
+            SecurityIssues.AlgorithmUnknown,
         }
 
 

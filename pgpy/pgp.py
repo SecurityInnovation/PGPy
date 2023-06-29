@@ -2600,6 +2600,8 @@ class PGPKey(Armorable, ParentRef):
         return self._self_verified
 
     def check_primitives(self):
+        if self.key_algorithm is None:
+            return SecurityIssues.AlgorithmUnknown
         return self.key_algorithm.validate_params(self.key_size)
 
     def check_management(self, self_verifying=False):

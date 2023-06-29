@@ -24,6 +24,8 @@ PGPSignatures represents a detached signature, which can contain more
 than a single signature.  It is a simple sequence of individual
 PGPSignature objects.
 
+New SecurityIssues flag: AlgorithmUnknown
+
 API changes
 -----------
 
