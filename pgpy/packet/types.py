@@ -252,11 +252,7 @@ class Sub(Key):
     pass
 
 
-# This is required for class MPI to work in both Python 2 and 3
-long = int
-
-
-class MPI(long):
+class MPI(int):
     def __new__(cls, num):
         mpi = num
 
