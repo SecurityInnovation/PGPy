@@ -205,7 +205,7 @@ class SubPackets(collections.abc.MutableMapping, Field):
             sp.update_hlen()
 
     def _normalize(self) -> None:
-        '''Order subpackets by subpacket tag number
+        '''Order subpackets by subpacket ID
 
         This private interface must only be called a Subpackets object
         before it is signed, otherwise it will break the signature

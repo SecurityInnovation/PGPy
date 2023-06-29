@@ -4,6 +4,7 @@ import abc
 
 from typing import Optional, Union
 
+from ...constants import PacketType
 from ...constants import SigSubpacketType
 from ...constants import AttributeType
 
@@ -67,11 +68,11 @@ class Header(_Header):
 
 
 class EmbeddedSignatureHeader(VersionedHeader):
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         return bytearray([self.version])
 
-    def parse(self, packet):
-        self.tag = 2
+    def parse(self, packet: bytearray) -> None:
+        self.typeid = PacketType.Signature
         super().parse(packet)
 
 
@@ -88,20 +89,20 @@ class SubPacket(Dispatchable):
         ):
             self.header.typeid = self.__typeid__
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         return self.header.__bytearray__()
 
-    def __len__(self):
+    def __len__(self) -> int:
         return (self.header.llen + self.header.length)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<{} [0x{:02x}] {}at 0x{:x}>".format(self.__class__.__name__, self.header.typeid, 'critical! ' if self.header.critical else '', id(self))
 
-    def update_hlen(self):
+    def update_hlen(self) -> None:
         self.header.length = (len(self.__bytearray__()) - len(self.header)) + 1
 
     @abc.abstractmethod
-    def parse(self, packet):  # pragma: no cover
+    def parse(self, packet: bytearray) -> None:  # pragma: no cover
         if self.header._typeid == -1:
             self.header.parse(packet)
 

@@ -5,6 +5,7 @@ import pytest
 import itertools
 
 from pgpy.constants import HashAlgorithm
+from pgpy.constants import PacketType
 from pgpy.constants import String2KeyType
 from pgpy.constants import SymmetricKeyAlgorithm
 from pgpy.constants import S2KGNUExtension
@@ -58,7 +59,7 @@ class TestHeaders:
         h = Header()
         h.parse(pheader)
 
-        assert h.tag == 0x02
+        assert h.typeid is PacketType.Signature
         assert h.length == len(pheader) - len(_trailer)
         assert pheader[h.length:] == _trailer
         assert len(h) == len(b) - len(pheader)

@@ -92,6 +92,12 @@ the empty string.  User ID string parsing is also improved, to better
 handle raw e-mail addresses (without angle-brackets) and other subtle
 variations.
 
+pgpy.constants.PacketTag has been renamed to PacketType.  Similarly,
+Header objects (both for Packet and Subpacket) use the "typeid"
+property.  Packet Header objects no longer expose a "tag" alias. The
+term "Tag" was used ambiguously in the OpenPGP specifications, so we
+avoid it.
+
 v0.6.0
 ======
 

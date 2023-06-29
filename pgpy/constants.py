@@ -25,7 +25,7 @@ __all__ = [
     'ECFields',
     'EllipticCurveOID',
     'ECPointFormat',
-    'PacketTag',
+    'PacketType',
     'SymmetricKeyAlgorithm',
     'PubKeyAlgorithm',
     'CompressionAlgorithm',
@@ -61,7 +61,8 @@ class ECPointFormat(IntEnum):
     OnlyY = 0x42
 
 
-class PacketTag(IntEnum):
+class PacketType(IntEnum):
+    Unknown = -1
     Invalid = 0
     PublicKeyEncryptedSessionKey = 1
     Signature = 2
@@ -80,6 +81,12 @@ class PacketTag(IntEnum):
     UserAttribute = 17
     SymmetricallyEncryptedIntegrityProtectedData = 18
     ModificationDetectionCode = 19
+
+    @classmethod
+    def _missing_(cls, val: object) -> 'PacketType':
+        if not isinstance(val, int):
+            raise TypeError(f"cannot look up PacketType by non-int {type(val)}")
+        return cls.Unknown
 
 
 class SymmetricKeyAlgorithm(IntEnum):

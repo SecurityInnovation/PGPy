@@ -29,7 +29,7 @@ from .constants import ImageEncoding
 from .constants import KeyFlags
 from .constants import KeyServerPreferences
 from .constants import NotationDataFlags
-from .constants import PacketTag
+from .constants import PacketType
 from .constants import PubKeyAlgorithm
 from .constants import RevocationKeyClass
 from .constants import RevocationReason
@@ -340,7 +340,7 @@ class PGPSignature(Armorable, ParentRef):
         if created is None:
             created = datetime.now(timezone.utc)
         sigpkt = SignatureV4()
-        sigpkt.header.tag = 2
+        sigpkt.header.typeid = PacketType.Signature
         if not isinstance(sigpkt.header, VersionedHeader):
             raise TypeError(f"Signature packet should have VersionedHeader, had {type(sigpkt.header)}")
         sigpkt.header.version = 4
@@ -592,7 +592,7 @@ class PGPSignature(Armorable, ParentRef):
 
         # load *one* packet from data
         pkt = Packet(data)  # type: ignore[abstract]
-        if pkt.header.tag == PacketTag.Signature:
+        if pkt.header.typeid is PacketType.Signature:
             if isinstance(pkt, Opaque):
                 # this is an unrecognized version.
                 pass
@@ -644,7 +644,7 @@ class PGPSignatures(collections.abc.Container, collections.abc.Iterable, collect
         while data:
             # this is safe to do because of how MetaDispatchable works:
             pkt = Packet(data)  # type: ignore[abstract]
-            if pkt.header.tag == PacketTag.Signature:
+            if pkt.header.typeid is PacketType.Signature:
                 if isinstance(pkt, Opaque):
                     # skip unrecognized version.
                     pass
@@ -2858,7 +2858,7 @@ class PGPKey(Armorable, ParentRef):
         def _getpkt(d):
             return Packet(d) if d else None
         # some packets are filtered out
-        getpkt = filter(lambda p: p.header.tag != PacketTag.Trust, iter(functools.partial(_getpkt, data), None))
+        getpkt = filter(lambda p: p.header.typeid is not PacketType.Trust, iter(functools.partial(_getpkt, data), None))
 
         def pktgrouper():
             class PktGrouper:
@@ -2866,7 +2866,7 @@ class PGPKey(Armorable, ParentRef):
                     self.last = None
 
                 def __call__(self, pkt):
-                    if pkt.header.tag != PacketTag.Signature:
+                    if pkt.header.typeid is not PacketType.Signature:
                         self.last = '{:02X}_{:s}'.format(id(pkt), pkt.__class__.__name__)
                     return self.last
             return PktGrouper()

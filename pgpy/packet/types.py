@@ -6,7 +6,7 @@ import copy
 
 from typing import Iterator, Optional, Tuple, Type, Union
 
-from ..constants import PacketTag
+from ..constants import PacketType
 
 from ..decorators import sdproperty
 
@@ -33,39 +33,41 @@ __all__ = ['Header',
 
 class Header(_Header):
     @sdproperty
-    def tag(self):
-        return self._tag
+    def typeid(self) -> PacketType:
+        return self._typeid
 
-    @tag.register(int)
-    @tag.register(PacketTag)
-    def tag_int(self, val):
-        _tag = (val & 0x3F) if self._openpgp_format else ((val & 0x3C) >> 2)
-        try:
-            self._tag = PacketTag(_tag)
+    @typeid.register
+    def typeid_int(self, val: int) -> None:
+        if isinstance(val, PacketType):
+            self._typeid = val
+            return
 
-        except ValueError:  # pragma: no cover
-            self._tag = _tag
+        if self._openpgp_format:
+            type_id = (val & 0x3F)
+        else:
+            type_id = ((val & 0x3C) >> 2)
 
-    @property
-    def typeid(self):
-        return self.tag
+        self._typeid = PacketType(type_id)
+        if self._typeid is PacketType.Unknown:
+            self._opaque_typeid = type_id
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
-        self.tag = 0x00
+        self._typeid = PacketType.Invalid
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         tag = 0x80 | (0x40 if self._openpgp_format else 0x00)
-        tag |= (self.tag) if self._openpgp_format else ((self.tag << 2) | {1: 0, 2: 1, 4: 2, 0: 3}[self.llen])
+        tval: int = self._opaque_typeid if self._typeid is PacketType.Unknown else self._typeid
+        tag |= (tval) if self._openpgp_format else ((tval << 2) | {1: 0, 2: 1, 4: 2, 0: 3}[self.llen])
 
-        _bytes = bytearray(self.int_to_bytes(tag))
+        _bytes = bytearray([tag])
         _bytes += self.encode_length(self.length, self._openpgp_format, self.llen)
         return _bytes
 
-    def __len__(self):
+    def __len__(self) -> int:
         return 1 + self.llen
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         """
         There are two formats for headers
 
@@ -104,7 +106,7 @@ class Header(_Header):
         :param packet: raw packet bytes
         """
         self._openpgp_format = bool(packet[0] & 0x40)
-        self.tag = packet[0]
+        self.typeid = packet[0]
         if not self._openpgp_format:
             self.llen = (packet[0] & 0x03)
         del packet[0]
@@ -119,24 +121,24 @@ class Header(_Header):
 
 class VersionedHeader(Header):
     @sdproperty
-    def version(self):
+    def version(self) -> int:
         return self._version
 
-    @version.register(int)
-    def version_int(self, val):
+    @version.register
+    def version_int(self, val: int) -> None:
         self._version = val
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.version = 0
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = bytearray(super().__bytearray__())
         _bytes += bytearray([self.version])
         return _bytes
 
-    def parse(self, packet):  # pragma: no cover
-        if self.tag == 0:
+    def parse(self, packet: bytearray) -> None:  # pragma: no cover
+        if self.typeid is PacketType.Invalid:
             super().parse(packet)
 
         if self.version == 0:
@@ -145,14 +147,14 @@ class VersionedHeader(Header):
 
 
 class Packet(Dispatchable):
-    __typeid__: Optional[Union[PacketTag, DispatchGuidance]] = None
+    __typeid__: Optional[Union[PacketType, DispatchGuidance]] = None
     __headercls__: Type[Header] = Header
 
     def __init__(self, _=None) -> None:
         super().__init__()
         self.header = self.__headercls__()
         if isinstance(self.__typeid__, int):
-            self.header.tag = self.__typeid__
+            self.header.typeid = self.__typeid__
 
     @abc.abstractmethod
     def __bytearray__(self) -> bytearray:
@@ -162,19 +164,19 @@ class Packet(Dispatchable):
         return len(self.header) + self.header.length
 
     def __repr__(self) -> str:
-        return "<{cls:s} [tag {tag:02d}] at 0x{id:x}>".format(cls=self.__class__.__name__, tag=self.header.tag, id=id(self))
+        return f'<{self.__class__.__name__} [type {self.header.typeid:02}] at 0x{id(self):x}>'
 
     def update_hlen(self) -> None:
         self.header.length = len(self.__bytearray__()) - len(self.header)
 
     @abc.abstractmethod
     def parse(self, packet: bytearray) -> None:
-        if self.header.tag == 0:
+        if self.header.typeid is PacketType.Invalid:
             self.header.parse(packet)
 
 
 class VersionedPacket(Packet):
-    __typeid__: Union[PacketTag, DispatchGuidance] = DispatchGuidance.NoDispatch
+    __typeid__: Union[PacketType, DispatchGuidance] = DispatchGuidance.NoDispatch
     __headercls__ = VersionedHeader
 
     def __init__(self) -> None:
@@ -185,8 +187,7 @@ class VersionedPacket(Packet):
     def __repr__(self) -> str:
         if not isinstance(self.header, VersionedHeader):
             raise TypeError(f"VersionedPacket should have VersionedHeader, instead it has {type(self.header)}")
-        return "<{cls:s} [tag {tag:02d}][v{ver:d}] at 0x{id:x}>".format(cls=self.__class__.__name__, tag=self.header.tag,
-                                                                        ver=self.header.version, id=id(self))
+        return f"<{self.__class__.__name__} [type {self.header.typeid:02}][v{self.header.version}] at 0x{id(self):x}>"
 
 
 class Opaque(Packet):
