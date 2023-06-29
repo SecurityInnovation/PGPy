@@ -1152,7 +1152,7 @@ class String2Key(Field):
         s2k.iv = self.iv
         return s2k
 
-    def parse(self, packet: bytearray, iv: bool = True) -> None:
+    def parse(self, packet: bytearray) -> None:
         self.usage = S2KUsage(packet[0])
         del packet[0]
 
@@ -1161,7 +1161,7 @@ class String2Key(Field):
             del packet[0]
 
             self._specifier.parse(packet)
-            if self.encalg is not SymmetricKeyAlgorithm.Plaintext and iv:
+            if self.encalg is not SymmetricKeyAlgorithm.Plaintext:
                 ivlen = self._iv_length
                 if ivlen:
                     self.iv = packet[:(ivlen)]

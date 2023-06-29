@@ -634,43 +634,42 @@ class SKESessionKeyV4(SKESessionKey):
     """
     __ver__ = 4
 
-    @property
-    def symalg(self):
-        return self.s2k.encalg
-
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
-        self.s2k = String2Key()
+        self.symalg = SymmetricKeyAlgorithm.AES256
+        self.s2kspec = S2KSpecifier()
         self.ct = bytearray()
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = bytearray()
         _bytes += super().__bytearray__()
-        _bytes += self.s2k.__bytearray__()[1:]
+        _bytes.append(self.symalg)
+        _bytes += self.s2kspec.__bytearray__()
         _bytes += self.ct
         return _bytes
 
-    def __copy__(self):
+    def __copy__(self) -> 'SKESessionKeyV4':
         sk = self.__class__()
         sk.header = copy.copy(self.header)
-        sk.s2k = copy.copy(self.s2k)
+        sk.s2kspec = copy.copy(self.s2kspec)
         sk.ct = self.ct[:]
 
         return sk
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         super().parse(packet)
-        # prepend a valid usage identifier so this parses correctly
-        packet.insert(0, 255)
-        self.s2k.parse(packet, iv=False)
+        self.symalg = SymmetricKeyAlgorithm(packet[0])
+        del packet[0]
+        self.s2kspec.parse(packet)
 
-        ctend = self.header.length - len(self.s2k)
+        ctend = self.header.length - (2 + len(self.s2kspec))
         self.ct = packet[:ctend]
         del packet[:ctend]
 
     def decrypt_sk(self, passphrase: Union[str, bytes]) -> Tuple[Optional[SymmetricKeyAlgorithm], bytes]:
         # derive the first session key from our passphrase
-        sk = self.s2k.derive_key(passphrase)
+
+        sk = self.s2kspec.derive_key(passphrase, self.symalg.key_size)
         del passphrase
 
         # if there is no ciphertext, then the first session key is the session key being used
@@ -688,7 +687,7 @@ class SKESessionKeyV4(SKESessionKey):
 
     def encrypt_sk(self, passphrase: Union[str, bytes], sk: ByteString) -> None:
         # derive the key to encrypt sk with from it (salt will be generated automatically if it is not yet set)
-        esk = self.s2k.derive_key(passphrase)
+        esk = self.s2kspec.derive_key(passphrase, self.symalg.key_size)
         del passphrase
 
         # note that by default, we assume that we're using same

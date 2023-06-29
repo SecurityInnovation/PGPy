@@ -1300,11 +1300,9 @@ class PGPMessage(Armorable):
         """
         # set up a new SKESessionKeyV4
         skesk = SKESessionKeyV4()
-        skesk.s2k.usage = 255
-        skesk.s2k.specifier = 3
-        skesk.s2k.halg = hash
-        skesk.s2k.encalg = cipher
-        skesk.s2k.count = 255
+        skesk.symalg = cipher
+        skesk.s2kspec.halg = hash
+        skesk.s2kspec.iteration_count = b'\xff'
 
         if sessionkey is None:
             sessionkey = cipher.gen_key()
