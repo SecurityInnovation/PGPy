@@ -100,7 +100,7 @@ __all__ = ['SubPackets',
            'ECDHCipherText', ]
 
 
-class SubPackets(collections.abc.MutableMapping, Field):
+class SubPackets(collections.abc.MutableMapping[str, SubPacket], Field):
     _spmodule = signature
 
     def __init__(self, width: int = 2) -> None:

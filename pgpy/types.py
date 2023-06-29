@@ -339,7 +339,7 @@ class Header(Field):
 
             return b'\xFF' + Header.int_to_bytes(nl, 4)
 
-        def _old_length(nl: int, llen: int):
+        def _old_length(nl: int, llen: int) -> bytes:
             return Header.int_to_bytes(nl, llen) if llen > 0 else b''
 
         return _new_length(length) if nhf else _old_length(length, llen)

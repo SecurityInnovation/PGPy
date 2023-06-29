@@ -1740,7 +1740,7 @@ class PGPKey(Armorable, ParentRef):
         self._signatures = SorteDeque()
         self._uids: Deque[PGPUID] = SorteDeque()
         self._sibling = None
-        self._self_verified = None
+        self._self_verified: Optional[SecurityIssues] = None
         self._require_usage_flags = True
 
     def __bytearray__(self):
@@ -2514,14 +2514,14 @@ class PGPKey(Armorable, ParentRef):
 
         return self._sign(key, sig, **prefs)
 
-    def is_considered_insecure(self, self_verifying=False):
+    def is_considered_insecure(self, self_verifying=False) -> SecurityIssues:
         res = self.check_soundness(self_verifying=self_verifying)
 
         for sk in self.subkeys.values():
             res |= sk.check_soundness(self_verifying=self_verifying)
         return res
 
-    def self_verify(self):
+    def self_verify(self) -> SecurityIssues:
         self_sigs = list(self.self_signatures)
         res = SecurityIssues.OK
         if self_sigs:
@@ -2533,7 +2533,7 @@ class PGPKey(Armorable, ParentRef):
             return SecurityIssues.NoSelfSignature
         return res
 
-    def _do_self_signatures_verification(self):
+    def _do_self_signatures_verification(self) -> None:
         try:
             self._self_verified = self.self_verify()
         except Exception:
@@ -2590,7 +2590,7 @@ class PGPKey(Armorable, ParentRef):
                     yield sig
 
     @property
-    def self_verified(self):
+    def self_verified(self) -> SecurityIssues:
         warnings.warn("TODO: Self-sigs verification is not yet working because self-sigs are not parsed!!!")
         return SecurityIssues.OK
 
@@ -2599,12 +2599,12 @@ class PGPKey(Armorable, ParentRef):
 
         return self._self_verified
 
-    def check_primitives(self):
+    def check_primitives(self) -> SecurityIssues:
         if self.key_algorithm is None:
             return SecurityIssues.AlgorithmUnknown
         return self.key_algorithm.validate_params(self.key_size)
 
-    def check_management(self, self_verifying=False):
+    def check_management(self, self_verifying: bool = False) -> SecurityIssues:
         res = self.self_verified
         if self.is_expired:
             warnings.warn('Key {} has expired at {:s}'.format(repr(self), self.expires_at))
@@ -2615,7 +2615,7 @@ class PGPKey(Armorable, ParentRef):
         res |= int(bool(list(self.revocation_signatures))) * SecurityIssues.Revoked
         return res
 
-    def check_soundness(self, self_verifying=False):
+    def check_soundness(self, self_verifying: bool = False) -> SecurityIssues:
         return self.check_management(self_verifying) | self.check_primitives()
 
     def issuer_matches(self, sig: PGPSignature) -> bool:
@@ -2864,12 +2864,12 @@ class PGPKey(Armorable, ParentRef):
 
         def pktgrouper():
             class PktGrouper:
-                def __init__(self):
-                    self.last = None
+                def __init__(self) -> None:
+                    self.last: Optional[str] = None
 
-                def __call__(self, pkt):
+                def __call__(self, pkt) -> Optional[str]:
                     if pkt.header.typeid is not PacketType.Signature:
-                        self.last = '{:02X}_{:s}'.format(id(pkt), pkt.__class__.__name__)
+                        self.last = f'{id(pkt):02X}_{pkt.__class__.__name__}'
                     return self.last
             return PktGrouper()
 
