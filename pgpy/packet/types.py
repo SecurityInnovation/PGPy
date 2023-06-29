@@ -4,7 +4,7 @@
 import abc
 import copy
 
-from typing import Optional, Tuple, Type, Union
+from typing import Iterator, Optional, Tuple, Type, Union
 
 from ..constants import PacketTag
 
@@ -179,10 +179,12 @@ class VersionedPacket(Packet):
 
     def __init__(self) -> None:
         super().__init__()
-        if isinstance(self.__ver__, int):
+        if isinstance(self.__ver__, int) and isinstance(self.header, VersionedHeader):
             self.header.version = self.__ver__
 
     def __repr__(self) -> str:
+        if not isinstance(self.header, VersionedHeader):
+            raise TypeError(f"VersionedPacket should have VersionedHeader, instead it has {type(self.header)}")
         return "<{cls:s} [tag {tag:02d}][v{ver:d}] at 0x{id:x}>".format(cls=self.__class__.__name__, tag=self.header.tag,
                                                                         ver=self.header.version, id=id(self))
 
@@ -191,24 +193,23 @@ class Opaque(Packet):
     __typeid__ = None
 
     @sdproperty
-    def payload(self):
+    def payload(self) -> Union[bytes, bytearray]:
         return self._payload
 
-    @payload.register(bytearray)
-    @payload.register(bytes)
-    def payload_bin(self, val):
+    @payload.register
+    def payload_bin(self, val: Union[bytes, bytearray]) -> None:
         self._payload = val
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.payload = b''
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super().__bytearray__()
         _bytes += self.payload
         return _bytes
 
-    def parse(self, packet):  # pragma: no cover
+    def parse(self, packet: bytearray) -> None:  # pragma: no cover
         super().parse(packet)
         pend = self.header.length
         if hasattr(self.header, 'version'):
@@ -271,30 +272,30 @@ class MPI(long):
 
         return super().__new__(cls, mpi)
 
-    def byte_length(self):
+    def byte_length(self) -> int:
         return ((self.bit_length() + 7) // 8)
 
-    def to_mpibytes(self):
+    def to_mpibytes(self) -> bytes:
         return MPIs.int_to_bytes(self.bit_length(), 2) + MPIs.int_to_bytes(self, self.byte_length())
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.byte_length() + 2
 
 
 class MPIs(Field):
     # this differs from MPI in that it's subclasses hold/parse several MPI fields
     # and, in the case of v4 private keys, also a String2Key specifier/information.
-    __mpis__: Tuple = ()
+    __mpis__: Tuple[str, ...] = ()
 
-    def __len__(self):
+    def __len__(self) -> int:
         return sum(len(i) for i in self)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[MPI]:
         """yield all components of an MPI so it can be iterated over"""
         for i in self.__mpis__:
             yield getattr(self, i)
 
-    def __copy__(self):
+    def __copy__(self) -> 'MPIs':
         pk = self.__class__()
         for m in self.__mpis__:
             setattr(pk, m, copy.copy(getattr(self, m)))

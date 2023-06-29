@@ -38,6 +38,7 @@ from .types import Private
 from .types import Public
 from .types import Sub
 from .types import VersionedPacket
+from .types import VersionedHeader
 
 from ..constants import PacketTag
 from ..constants import CompressionAlgorithm
@@ -490,6 +491,8 @@ class SignatureV4(Signature):
         the unhashed subpacket data length value is set to zero.
         '''
         _body = bytearray()
+        if not isinstance(self.header, VersionedHeader):
+            raise TypeError(f"SignatureV4 should have VersionedHeader, had {type(self.header)}")
         _body += self.int_to_bytes(self.header.version)
         _body += self.int_to_bytes(self.sigtype)
         if self.pubalg is PubKeyAlgorithm.Unknown:

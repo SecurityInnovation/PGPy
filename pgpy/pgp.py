@@ -76,6 +76,7 @@ from .packet.packets import SKESessionKeyV4
 from .packet.fields import ECDSAPub, EdDSAPub, ECDHPub
 
 from .packet.types import Opaque
+from .packet.types import VersionedHeader
 
 from .types import Armorable
 from .types import Fingerprint
@@ -340,6 +341,8 @@ class PGPSignature(Armorable, ParentRef):
             created = datetime.now(timezone.utc)
         sigpkt = SignatureV4()
         sigpkt.header.tag = 2
+        if not isinstance(sigpkt.header, VersionedHeader):
+            raise TypeError(f"Signature packet should have VersionedHeader, had {type(sigpkt.header)}")
         sigpkt.header.version = 4
         sigpkt.subpackets.addnew('CreationTime', critical=True, hashed=True, created=created)
         if signer.version <= 4:
@@ -1562,7 +1565,11 @@ class PGPKey(Armorable, ParentRef):
         if self._key is None:
             return None
         if isinstance(self._key.keymaterial, (ECDSAPub, EdDSAPub, ECDHPub)):
-            return self._key.keymaterial.oid
+            if isinstance(self._key.keymaterial.oid, EllipticCurveOID):
+                return self._key.keymaterial.oid
+            else:
+                # this is an unknown elliptic curve
+                return 0
         if self._key.keymaterial is None:
             return None
         # check if keymaterial is not an Opaque class containing a bytearray

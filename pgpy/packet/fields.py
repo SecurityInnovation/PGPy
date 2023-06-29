@@ -491,7 +491,7 @@ class ECPoint:
         ct.y = y
         return ct
 
-    def __len__(self):
+    def __len__(self) -> int:
         """ Returns length of MPI encoded point """
         if self.format == ECPointFormat.Standard:
             return 2 * self.bytelen + 3
@@ -500,7 +500,7 @@ class ECPoint:
         else:
             raise NotImplementedError("No curve is supposed to use only X or Y coordinates")
 
-    def to_mpibytes(self):
+    def to_mpibytes(self) -> bytes:
         """ Returns MPI encoded point as it should be written in packet """
         b = bytearray()
         b.append(self.format)
@@ -513,10 +513,10 @@ class ECPoint:
             raise NotImplementedError("No curve is supposed to use only X or Y coordinates")
         return MPI(MPIs.bytes_to_int(b)).to_mpibytes()
 
-    def __bytearray__(self):
-        return self.to_mpibytes()
+    def __bytearray__(self) -> bytearray:
+        return bytearray(self.to_mpibytes())
 
-    def __copy__(self):
+    def __copy__(self) -> 'ECPoint':
         pk = self.__class__()
         pk.bytelen = self.bytelen
         pk.format = self.format
@@ -529,11 +529,11 @@ class ECDSAPub(PubKey):
     __pubfields__ = ('p',)
     __pubkey_algo__ = PubKeyAlgorithm.ECDSA
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
-        self.oid = None
+        self.oid: Union[bytes, EllipticCurveOID] = EllipticCurveOID.NIST_P256
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.p) + len(self.oid)
 
     def __pubkey__(self):
@@ -545,8 +545,10 @@ class ECDSAPub(PubKey):
         _b += self.p.to_mpibytes()
         return _b
 
-    def __copy__(self):
+    def __copy__(self) -> 'ECDSAPub':
         pkt = super().__copy__()
+        if not isinstance(pkt, ECDSAPub):
+            raise TypeError(f"Failed to create ECDSAPub when copying, got {type(pkt)}")
         pkt.oid = self.oid
         return pkt
 
@@ -561,7 +563,7 @@ class ECDSAPub(PubKey):
         self.oid = EllipticCurveOID.parse(packet)
 
         if isinstance(self.oid, EllipticCurveOID):
-            self.p = ECPoint(packet)
+            self.p: Union[ECPoint, MPI] = ECPoint(packet)
             if self.p.format != ECPointFormat.Standard:
                 raise PGPIncompatibleECPointFormatError("Only Standard format is valid for ECDSA")
         else:
@@ -572,9 +574,9 @@ class EdDSAPub(PubKey):
     __pubfields__ = ('p', )
     __pubkey_algo__ = PubKeyAlgorithm.EdDSA
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
-        self.oid = None
+        self.oid: Union[bytes, EllipticCurveOID] = EllipticCurveOID.Ed25519
 
     def __len__(self) -> int:
         return len(self.p) + len(self.oid)
@@ -590,6 +592,8 @@ class EdDSAPub(PubKey):
 
     def __copy__(self) -> 'EdDSAPub':
         pkt = super().__copy__()
+        if not isinstance(pkt, EdDSAPub):
+            raise TypeError(f"Failed to create EdDSAPub when copying, got {type(pkt)}")
         pkt.oid = self.oid
         return pkt
 
@@ -609,7 +613,7 @@ class EdDSAPub(PubKey):
         self.oid = EllipticCurveOID.parse(packet)
 
         if isinstance(self.oid, EllipticCurveOID):
-            self.p = ECPoint(packet)
+            self.p: Union[ECPoint, MPI] = ECPoint(packet)
             if self.p.format != ECPointFormat.Native:
                 raise PGPIncompatibleECPointFormatError("Only Native format is valid for EdDSA")
         else:
@@ -620,9 +624,9 @@ class ECDHPub(PubKey):
     __pubfields__ = ('p',)
     __pubkey_algo__ = PubKeyAlgorithm.ECDH
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
-        self.oid = None
+        self.oid: Union[bytes, EllipticCurveOID] = EllipticCurveOID.NIST_P256
         self.kdf = ECKDF()
 
     def __len__(self):
@@ -641,8 +645,10 @@ class ECDHPub(PubKey):
         _b += self.kdf.__bytearray__()
         return _b
 
-    def __copy__(self):
+    def __copy__(self) -> 'ECDHPub':
         pkt = super().__copy__()
+        if not isinstance(pkt, ECDHPub):
+            raise TypeError(f"Failed to create ECDHAPub when copying, got {type(pkt)}")
         pkt.oid = self.oid
         pkt.kdf = copy.copy(self.kdf)
         return pkt
@@ -679,7 +685,7 @@ class ECDHPub(PubKey):
         self.oid = EllipticCurveOID.parse(packet)
 
         if isinstance(self.oid, EllipticCurveOID):
-            self.p = ECPoint(packet)
+            self.p: Union[ECPoint, MPI] = ECPoint(packet)
             if self.oid == EllipticCurveOID.Curve25519:
                 if self.p.format != ECPointFormat.Native:
                     raise PGPIncompatibleECPointFormatError("Only Native format is valid for Curve25519")
@@ -1774,8 +1780,9 @@ class ECDHPriv(ECDSAPriv, ECDHPub):
             self._compute_chksum()
         else:
             ECDSAPriv._generate(self, _oid)
-        self.kdf.halg = self.oid.kdf_halg
-        self.kdf.encalg = self.oid.kek_alg
+        if isinstance(self.oid, EllipticCurveOID):
+            self.kdf.halg = self.oid.kdf_halg
+            self.kdf.encalg = self.oid.kek_alg
 
     def publen(self):
         return ECDHPub.__len__(self)
