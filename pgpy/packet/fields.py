@@ -1726,7 +1726,7 @@ class EdDSAPriv(PrivKey, EdDSAPub):
         return self.__privkey__().sign(sigdata)
 
 
-class ECDHPriv(ECDSAPriv, ECDHPub):
+class ECDHPriv(ECDSAPriv, ECDHPub):  # type: ignore[misc] # (definition of __copy__ in base classes ECDHPub and ECDSAPub differs)
     def __bytearray__(self) -> bytearray:
         _b = ECDHPub.__bytearray__(self)
         _b += self.s2k.__bytearray__()
