@@ -1054,7 +1054,7 @@ class PubKeyV4(PubKey):
         fp.update(self.keymaterial.__bytearray__()[:plen])
 
         # and return the digest
-        return Fingerprint(fp.finalize())
+        return Fingerprint(fp.finalize(), version=4)
 
     def __init__(self) -> None:
         super().__init__()

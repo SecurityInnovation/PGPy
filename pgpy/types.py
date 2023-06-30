@@ -744,7 +744,12 @@ class Fingerprint(str):
     """
     @property
     def keyid(self) -> KeyID:
-        return KeyID(self[-16:])
+        if self._version == 4:
+            return KeyID(self[-16:])
+        elif self._version == 6:
+            return KeyID(self[:16])
+        else:
+            raise ValueError(f"Do not know how to calculate a keyID for fingerprint version {self._version}.")
 
     @property
     def shortid(self) -> str:
@@ -754,27 +759,43 @@ class Fingerprint(str):
 
     @sdproperty
     def version(self) -> int:
-        'Returns None if the version is unknown'
+        'The version of the key this fingerprint belongs to'
         return self._version
 
     @version.register
     def version_int(self, version: int) -> None:
         self._version: int = version
 
+    @staticmethod
+    def confirm_expected_length(version: int, length: int) -> None:
+        'Raises PGPError if fingerprint version `version` should not be length `length` (in octets)'
+        expected_lengths = { 4: 20, 6: 32 }
+        if version in expected_lengths and length != expected_lengths[version]:
+            raise PGPError(f"Version {version} fingerprints should be {expected_lengths[version]} octets, got {length} octets ")
+
     def __new__(cls, content: Union[str, bytes, bytearray], version=None) -> Fingerprint:
         if isinstance(content, Fingerprint):
+            if version is not None and version != content.version:
+                raise ValueError(f"requested version {version} but existing Fingerprint is version {content.version}")
+
             return content
 
         if isinstance(content, (bytes, bytearray)):
-            if len(content) != 20:
-                raise ValueError(f'binary Fingerprint must be 20 bytes, not {len(content)}')
-            return Fingerprint(binascii.b2a_hex(content).decode('latin-1').upper())
-        # validate input before continuing: this should be a string of 40 hex digits
+            if len(content) not in {20, 32}:
+                raise ValueError(f'binary Fingerprint must be either 20 or 32 bytes, not {len(content)}')
+            return Fingerprint(binascii.b2a_hex(content).decode('latin-1').upper(), version=version)
         content = content.upper().replace(' ', '')
-        if not re.match(r'^[0-9A-F]{40}$', content):
-            raise ValueError('Fingerprint must be a string of 40 hex digits')
+        if not re.match(r'^[0-9A-F]{40,64}$', content):
+            raise ValueError('Fingerprint must be a string of 40 or 64 hex digits')
         ret = str.__new__(cls, content)
-        ret._version = 4 if version is None else version
+        if version is None:
+            if len(content) == 64:
+                ret._version = 6
+            else:
+                ret._version = 4
+        else:
+            Fingerprint.confirm_expected_length(version, len(content) // 2)
+            ret._version = version
         return ret
 
     def __eq__(self, other: object) -> bool:
