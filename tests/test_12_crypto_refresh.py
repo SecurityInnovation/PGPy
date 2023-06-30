@@ -63,7 +63,6 @@ class TestPGP_CryptoRefresh(object):
         assert not locked.is_public
         assert locked.is_protected
         assert not locked.is_unlocked
-        pytest.xfail('AEAD-protected secret keys cannot yet be unlocked')
         with locked.unlock("correct horse battery staple"):
             assert locked.is_unlocked
             clearmsg2 = locked.decrypt(msg)

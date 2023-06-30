@@ -1544,7 +1544,8 @@ class PrivKey(PubKey, Private):
     def unprotect(self, passphrase: Union[str, bytes]) -> None:
         if not isinstance(self.keymaterial, PrivKeyField):
             raise TypeError("Key material is not a private key, cannot unprotect")
-        self.keymaterial.decrypt_keyblob(passphrase)
+        self.keymaterial.decrypt_keyblob(passphrase, packet_type=self.__typeid__,
+                                         creation_time=self._created)
         del passphrase
 
     def sign(self, sigdata: bytes, hash_alg: HashAlgorithm) -> bytes:

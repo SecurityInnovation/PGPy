@@ -1762,13 +1762,23 @@ class PrivKey(PubKey):
         self.clear()
 
     @abc.abstractmethod
-    def decrypt_keyblob(self, passphrase: Union[str, bytes]) -> None:
+    def decrypt_keyblob(self, passphrase: Union[str, bytes],
+                        packet_type: PacketType = PacketType.SecretKey,
+                        creation_time: Optional[datetime] = None) -> None:
         raise NotImplementedError()
 
-    def _decrypt_keyblob_helper(self, passphrase: Union[str, bytes]) -> Optional[bytearray]:
+    def _decrypt_keyblob_helper(self, passphrase: Union[str, bytes],
+                                packet_type: PacketType,
+                                creation_time: Optional[datetime]) -> Optional[bytearray]:
         if not self.s2k:  # pragma: no cover
             # not encrypted
             return None
+
+        if self.s2k.usage is S2KUsage.AEAD:
+            if creation_time is None:
+                raise ValueError("S2K Usage Octet indicates AEAD, but no creation time provided")
+            (aead, associated_data) = self._aead_object_and_ad(passphrase, packet_type, creation_time)
+            return bytearray(aead.decrypt(self.s2k.iv, bytes(self.encbytes), associated_data))
 
         # Encryption/decryption of the secret data is done in CFB mode using
         # the key created from the passphrase and the Initial Vector from the
@@ -1854,7 +1864,9 @@ class OpaquePrivKey(PrivKey, OpaquePubKey):  # pragma: no cover
     def _generate(self, key_size_or_oid: Optional[Union[int, EllipticCurveOID]]) -> None:
         raise NotImplementedError()
 
-    def decrypt_keyblob(self, passphrase: Union[str, bytes]) -> None:
+    def decrypt_keyblob(self, passphrase: Union[str, bytes],
+                        packet_type: PacketType = PacketType.SecretKey,
+                        creation_time: Optional[datetime] = None) -> None:
         raise NotImplementedError()
 
 
@@ -1921,8 +1933,10 @@ class RSAPriv(PrivKey, RSAPub):
             ##TODO: this needs to be bounded to the length of the encrypted key material
             self.encbytes = packet
 
-    def decrypt_keyblob(self, passphrase: Union[str, bytes]) -> None:
-        kb = self._decrypt_keyblob_helper(passphrase)
+    def decrypt_keyblob(self, passphrase: Union[str, bytes],
+                        packet_type: PacketType = PacketType.SecretKey,
+                        creation_time: Optional[datetime] = None) -> None:
+        kb = self._decrypt_keyblob_helper(passphrase, packet_type, creation_time)
         del passphrase
         if kb is None:
             return
@@ -2001,8 +2015,10 @@ class DSAPriv(PrivKey, DSAPub):
             self.chksum = packet[:2]
             del packet[:2]
 
-    def decrypt_keyblob(self, passphrase: Union[str, bytes]) -> None:
-        kb = self._decrypt_keyblob_helper(passphrase)
+    def decrypt_keyblob(self, passphrase: Union[str, bytes],
+                        packet_type: PacketType = PacketType.SecretKey,
+                        creation_time: Optional[datetime] = None) -> None:
+        kb = self._decrypt_keyblob_helper(passphrase, packet_type, creation_time)
         del passphrase
         if kb is None:
             return
@@ -2044,8 +2060,10 @@ class ElGPriv(PrivKey, ElGPub):
             self.chksum = packet[:2]
             del packet[:2]
 
-    def decrypt_keyblob(self, passphrase: Union[str, bytes]) -> None:
-        kb = self._decrypt_keyblob_helper(passphrase)
+    def decrypt_keyblob(self, passphrase: Union[str, bytes],
+                        packet_type: PacketType = PacketType.SecretKey,
+                        creation_time: Optional[datetime] = None) -> None:
+        kb = self._decrypt_keyblob_helper(passphrase, packet_type, creation_time)
         del passphrase
         if kb is None:
             return
@@ -2103,8 +2121,10 @@ class ECDSAPriv(PrivKey, ECDSAPub):
             ##TODO: this needs to be bounded to the length of the encrypted key material
             self.encbytes = packet
 
-    def decrypt_keyblob(self, passphrase: Union[str, bytes]) -> None:
-        kb = self._decrypt_keyblob_helper(passphrase)
+    def decrypt_keyblob(self, passphrase: Union[str, bytes],
+                        packet_type: PacketType = PacketType.SecretKey,
+                        creation_time: Optional[datetime] = None) -> None:
+        kb = self._decrypt_keyblob_helper(passphrase, packet_type, creation_time)
         del passphrase
         if kb is None:
             return
@@ -2165,8 +2185,10 @@ class EdDSAPriv(PrivKey, EdDSAPub):
             ##TODO: this needs to be bounded to the length of the encrypted key material
             self.encbytes = packet
 
-    def decrypt_keyblob(self, passphrase: Union[str, bytes]) -> None:
-        kb = self._decrypt_keyblob_helper(passphrase)
+    def decrypt_keyblob(self, passphrase: Union[str, bytes],
+                        packet_type: PacketType = PacketType.SecretKey,
+                        creation_time: Optional[datetime] = None) -> None:
+        kb = self._decrypt_keyblob_helper(passphrase, packet_type, creation_time)
         del passphrase
         if kb is None:
             return
@@ -2235,9 +2257,13 @@ class NativeEdDSAPriv(PrivKey, NativeEdDSAPub):
             ##TODO: this needs to be bounded to the length of the encrypted key material
             self.encbytes = packet
 
-    def decrypt_keyblob(self, passphrase: Union[str, bytes]) -> None:
-        kb = super().decrypt_keyblob(passphrase)
+    def decrypt_keyblob(self, passphrase: Union[str, bytes],
+                        packet_type: PacketType = PacketType.SecretKey,
+                        creation_time: Optional[datetime] = None) -> None:
+        kb = self._decrypt_keyblob_helper(passphrase, packet_type, creation_time)
         del passphrase
+        if kb is None:
+            return None
 
         self._raw_privkey = self.priv_from_bytes(kb[:self._private_length])
         del kb[:self._private_length]
@@ -2422,9 +2448,13 @@ class NativeCFRGXPriv(PrivKey, NativeCFRGXPub):
     def sign(self, sigdata: bytes, hash_alg: HashAlgorithm) -> bytes:
         raise PGPError("Cannot sign with a CFRG X* key")
 
-    def decrypt_keyblob(self, passphrase):
-        kb = super().decrypt_keyblob(passphrase)
+    def decrypt_keyblob(self, passphrase: Union[str, bytes],
+                        packet_type: PacketType = PacketType.SecretKey,
+                        creation_time: Optional[datetime] = None) -> None:
+        kb = self._decrypt_keyblob_helper(passphrase, packet_type, creation_time)
         del passphrase
+        if kb is None:
+            return None
 
         self._raw_privkey = self._native_private_type.from_private_bytes(kb[:self._private_length])
         del kb[:self._private_length]
