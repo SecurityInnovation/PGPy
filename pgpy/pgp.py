@@ -426,18 +426,13 @@ class PGPSignature(Armorable, ParentRef):
             raise TypeError(f"tried to compare PGPSignature to {type(other)}")
         return self.created < other.created
 
-    def __or__(self, other):
+    def __or__(self, other: Signature) -> 'PGPSignature':
         if isinstance(other, Signature):
             if self._signature is None:
                 self._signature = other
                 return self
 
-        ##TODO: this is not a great way to do this
-        if other.__class__.__name__ == 'EmbeddedSignature':
-            self._signature = other
-            return self
-
-        raise TypeError
+        raise TypeError(f"should be Signature, got {type(other)}")
 
     def __copy__(self):
         # because the default shallow copy isn't actually all that useful,
@@ -614,7 +609,9 @@ class PGPSignature(Armorable, ParentRef):
         """
 
         hcontext = bytearray()
-        hcontext.append(self._signature.header.version if not self.embedded else self._signature._sig.header.version)
+        if not isinstance(self._signature.header, VersionedHeader):
+            raise TypeError(f"Expected a VersionedHeader for signature, got {type(self._signature.header)}")
+        hcontext.append(self._signature.header.version)
         hcontext.append(self.type)
         hcontext.append(self.key_algorithm)
         hcontext.append(self.hash_algorithm)
@@ -1850,7 +1847,7 @@ class PGPKey(Armorable, ParentRef):
             # if this is a subkey binding signature that has embedded primary key binding signatures, add them to parent
             if other.type == SignatureType.Subkey_Binding:
                 for es in iter(pkb for pkb in other._signature.subpackets['EmbeddedSignature']):
-                    esig = PGPSignature() | es
+                    esig = PGPSignature() | es._sig
                     esig._parent = other
                     self._signatures.insort(esig)
 
