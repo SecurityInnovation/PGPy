@@ -398,6 +398,10 @@ class Signature(VersionedPacket):
     def make_onepass(self) -> 'OnePassSignature':
         raise NotImplementedError()
 
+    @abc.abstractproperty
+    def signer(self) -> Optional[Union[KeyID, Fingerprint]]:
+        ...
+
 
 class SignatureV4(Signature):
     """

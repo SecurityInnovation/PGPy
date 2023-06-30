@@ -108,6 +108,8 @@ class PGPSignature(Armorable, ParentRef):
         """
         A ``list`` of preferred symmetric algorithms specified in this signature, if any. Otherwise, return None.
         """
+        if self._signature is None:
+            return None
         if 'PreferredSymmetricAlgorithms' in self._signature.subpackets:
             return next(iter(self._signature.subpackets['h_PreferredSymmetricAlgorithms'])).flags
         return None
@@ -117,6 +119,8 @@ class PGPSignature(Armorable, ParentRef):
         """
         A ``list`` of preferred compression algorithms specified in this signature, if any. Otherwise, return None.
         """
+        if self._signature is None:
+            return None
         if 'PreferredCompressionAlgorithms' in self._signature.subpackets:
             return next(iter(self._signature.subpackets['h_PreferredCompressionAlgorithms'])).flags
         return None
@@ -126,6 +130,8 @@ class PGPSignature(Armorable, ParentRef):
         """
         A :py:obj:`~datetime.datetime` of when this signature was created.
         """
+        if self._signature is None:
+            return None
         return self._signature.subpackets['h_CreationTime'][-1].created
 
     @property
@@ -138,6 +144,8 @@ class PGPSignature(Armorable, ParentRef):
         A :py:obj:`~datetime.datetime` of when this signature expires, if a signature expiration date is specified.
         Otherwise, ``None``
         """
+        if self._signature is None:
+            return None
         if 'SignatureExpirationTime' in self._signature.subpackets:
             expd = next(iter(self._signature.subpackets['SignatureExpirationTime'])).expires
             return self.created + expd
@@ -148,6 +156,8 @@ class PGPSignature(Armorable, ParentRef):
         """
         ``False`` if this signature is marked as being not exportable. Otherwise, ``True``.
         """
+        if self._signature is None:
+            return True
         if 'ExportableCertification' in self._signature.subpackets:
             return bool(next(iter(self._signature.subpackets['ExportableCertification'])))
 
@@ -158,6 +168,8 @@ class PGPSignature(Armorable, ParentRef):
         """
         The implementation Features specified in this signature, if any. Otherwise, None
         """
+        if self._signature is None:
+            return None
         if 'Features' in self._signature.subpackets:
             return next(iter(self._signature.subpackets['Features'])).flags
         return None
@@ -171,6 +183,8 @@ class PGPSignature(Armorable, ParentRef):
         """
         A ``list`` of preferred hash algorithms specified in this signature, if any. Otherwise, return None
         """
+        if self._signature is None:
+            return None
         if 'PreferredHashAlgorithms' in self._signature.subpackets:
             return next(iter(self._signature.subpackets['h_PreferredHashAlgorithms'])).flags
         return None
@@ -180,6 +194,8 @@ class PGPSignature(Armorable, ParentRef):
         """
         The :py:obj:`~constants.HashAlgorithm` used when computing this signature.
         """
+        if self._signature is None:
+            raise ValueError("wanted hash_algorithm of uninitizalized PGPSignature")
         return self._signature.halg
 
     def check_primitives(self) -> SecurityIssues:
@@ -204,10 +220,14 @@ class PGPSignature(Armorable, ParentRef):
         """
         The :py:obj:`~constants.PubKeyAlgorithm` of the key that generated this signature.
         """
+        if self._signature is None:
+            raise ValueError("wanted key_algorithm of uninitizalized PGPSignature")
         return self._signature.pubalg
 
     @property
     def key_expiration(self) -> Optional[datetime]:
+        if self._signature is None:
+            return None
         if 'KeyExpirationTime' in self._signature.subpackets:
             return next(iter(self._signature.subpackets['KeyExpirationTime'])).expires
         return None
@@ -217,6 +237,8 @@ class PGPSignature(Armorable, ParentRef):
         """
         The KeyFlags specified in this signature, if any. Otherwise, None.
         """
+        if self._signature is None:
+            return None
         if 'KeyFlags' in self._signature.subpackets:
             return next(iter(self._signature.subpackets['h_KeyFlags'])).flags
         return None
@@ -226,6 +248,8 @@ class PGPSignature(Armorable, ParentRef):
         """
         The preferred key server specified in this signature, if any. Otherwise, None.
         """
+        if self._signature is None:
+            return None
         if 'PreferredKeyServer' in self._signature.subpackets:
             return next(iter(self._signature.subpackets['h_PreferredKeyServer'])).uri
         return None
@@ -235,6 +259,8 @@ class PGPSignature(Armorable, ParentRef):
         """
         The KeyServerPreferences` in this signature, if any. Otherwise, None.
         """
+        if self._signature is None:
+            return None
         if 'KeyServerPreferences' in self._signature.subpackets:
             return next(iter(self._signature.subpackets['h_KeyServerPreferences'])).flags
         return None
@@ -248,6 +274,8 @@ class PGPSignature(Armorable, ParentRef):
         """
         A ``dict`` of notation data in this signature, if any. Otherwise, an empty ``dict``.
         """
+        if self._signature is None:
+            return {}
         return {nd.name: nd.value for nd in self._signature.subpackets['NotationData']}
 
     @property
@@ -255,6 +283,8 @@ class PGPSignature(Armorable, ParentRef):
         """
         The policy URI specified in this signature, if any. Otherwise, None.
         """
+        if self._signature is None:
+            return None
         if 'Policy' in self._signature.subpackets:
             return next(iter(self._signature.subpackets['Policy'])).uri
         return None
@@ -264,18 +294,24 @@ class PGPSignature(Armorable, ParentRef):
         """
         ``False`` if this signature is marked as being not revocable. Otherwise, ``True``.
         """
+        if self._signature is None:
+            return True
         if 'Revocable' in self._signature.subpackets:
             return bool(next(iter(self._signature.subpackets['Revocable'])))
         return True
 
     @property
     def revocation_key(self):
+        if self._signature is None:
+            return None
         if 'RevocationKey' in self._signature.subpackets:
             raise NotImplementedError()
         return None
 
     @property
     def revocation_reason(self) -> Optional[ReasonForRevocation]:
+        if self._signature is None:
+            return None
         if 'ReasonForRevocation' in self._signature.subpackets:
             subpacket = next(iter(self._signature.subpackets['ReasonForRevocation']))
             return self.ReasonForRevocation(subpacket.code, subpacket.string)
@@ -299,10 +335,12 @@ class PGPSignature(Armorable, ParentRef):
         return ret
 
     @property
-    def signer(self) -> Optional[KeyID]:
+    def signer(self) -> Optional[Union[KeyID, Fingerprint]]:
         """
         The 16-character Key ID of the key that generated this signature.
         """
+        if self._signature is None:
+            return None
         return self._signature.signer
 
     @property
@@ -310,6 +348,8 @@ class PGPSignature(Armorable, ParentRef):
         """
         The fingerprint of the key that generated this signature, if it contained. Otherwise, None.
         """
+        if self._signature is None:
+            return None
         if 'IssuerFingerprint' in self._signature.subpackets:
             return next(iter(self._signature.subpackets['IssuerFingerprint'])).issuer_fingerprint
         return None
@@ -330,6 +370,8 @@ class PGPSignature(Armorable, ParentRef):
         """
         The :py:obj:`~constants.SignatureType` of this signature.
         """
+        if self._signature is None:
+            raise ValueError("wanted signature type of uninitizalized PGPSignature")
         return self._signature.sigtype
 
     @classmethod
@@ -358,7 +400,7 @@ class PGPSignature(Armorable, ParentRef):
         sig._signature = sigpkt
         return sig
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         PGPSignature objects represent OpenPGP compliant signatures.
 
@@ -369,15 +411,19 @@ class PGPSignature(Armorable, ParentRef):
         OpenPGP-compliant binary format.
         """
         super().__init__()
-        self._signature = None
+        self._signature: Optional[Signature] = None
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
+        if self._signature is None:
+            return bytearray()
         return self._signature.__bytearray__()
 
-    def __repr__(self):
-        return "<PGPSignature [{:s}] object at 0x{:02x}>".format(self.type.name, id(self))
+    def __repr__(self) -> str:
+        return f"<PGPSignature [{self.type.name}] object at 0x{id(self):02x}>"
 
-    def __lt__(self, other):
+    def __lt__(self, other: Any) -> bool:
+        if not isinstance(other, PGPSignature):
+            raise TypeError(f"tried to compare PGPSignature to {type(other)}")
         return self.created < other.created
 
     def __or__(self, other):
@@ -411,6 +457,8 @@ class PGPSignature(Armorable, ParentRef):
         return h.finalize() in self.attested_certifications
 
     def hashdata(self, subject) -> bytes:
+        if self._signature is None:
+            raise TypeError("called hashdata on uninitializaed PGPSignature")
         _data = bytearray()
 
         if isinstance(subject, str):
@@ -578,6 +626,8 @@ class PGPSignature(Armorable, ParentRef):
         return bytes(_data)
 
     def make_onepass(self) -> OnePassSignature:
+        if self._signature is None:
+            raise TypeError("called make_onepass on an uninitialized PGPSignature")
         return self._signature.make_onepass()
 
     def parse(self, packet: bytearray) -> None:
@@ -596,10 +646,12 @@ class PGPSignature(Armorable, ParentRef):
             if isinstance(pkt, Opaque):
                 # this is an unrecognized version.
                 pass
-            else:
+            elif isinstance(pkt, Signature):
                 self._signature = pkt
+            else:
+                raise TypeError(f"Expected Signature, got {type(pkt)}")
         else:
-            raise ValueError('Expected: Signature. Got: {:s}'.format(pkt.__class__.__name__))
+            raise ValueError(f'Expected: Signature. Got: {type(pkt)}')
 
 
 class PGPSignatures(collections.abc.Container, collections.abc.Iterable, collections.abc.Sized, Armorable):
@@ -648,12 +700,14 @@ class PGPSignatures(collections.abc.Container, collections.abc.Iterable, collect
                 if isinstance(pkt, Opaque):
                     # skip unrecognized version.
                     pass
-                else:
+                elif isinstance(pkt, Signature):
                     sig = PGPSignature()
                     sig._signature = pkt
                     self._sigs.append(sig)
+                else:
+                    raise TypeError(f"Expected Signature. Got: {type(pkt)}")
             else:
-                raise ValueError(f"Expected: Signature. Got: {format(pkt.__class__.__name__)}")
+                raise ValueError(f"Expected: Signature. Got: {type(pkt)}")
 
 
 class PGPUID(ParentRef):
@@ -738,7 +792,7 @@ class PGPUID(ParentRef):
         """
         If the most recent, valid self-signature specifies this as being primary, this will be True. Otherwise, False.
         """
-        if self.selfsig is not None:
+        if self.selfsig is not None and self.selfsig._signature is not None:
             return bool(next(iter(self.selfsig._signature.subpackets['h_PrimaryUserID']), False))
         return False
 
@@ -2087,6 +2141,8 @@ class PGPKey(Armorable, ParentRef):
         revocable = prefs.pop('revocable', True)
         policy_uri = prefs.pop('policy_uri', None)
         intended_recipients = prefs.pop('intended_recipients', [])
+        if sig._signature is None:
+            raise ValueError("PGPSignature should have been initialized already here")
 
         for intended_recipient in intended_recipients:
             if isinstance(intended_recipient, PGPKey) and isinstance(intended_recipient._key, PubKeyV4):
@@ -2483,6 +2539,8 @@ class PGPKey(Armorable, ParentRef):
             raise PGPError('Uninitialized or unknown PGPKey cannot bind subkeys')
 
         sig = PGPSignature.new(sig_type, key_algo, hash_algo, self.fingerprint, created=created)
+        if sig._signature is None:
+            raise PGPError("PGPSignature should have been initialized here")
 
         if sig_type == SignatureType.Subkey_Binding:
             # signature options that only make sense in subkey binding signatures
