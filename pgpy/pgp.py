@@ -2142,12 +2142,11 @@ class PGPKey(Armorable, ParentRef):
             raise ValueError("PGPSignature should have been initialized already here")
 
         for intended_recipient in intended_recipients:
-            if isinstance(intended_recipient, PGPKey) and isinstance(intended_recipient._key, PubKeyV4):
-                sig._signature.subpackets.addnew('IntendedRecipient', hashed=True, version=4,
+            if isinstance(intended_recipient, PGPKey):
+                sig._signature.subpackets.addnew('IntendedRecipient', hashed=True,
                                                  intended_recipient=intended_recipient.fingerprint)
             elif isinstance(intended_recipient, Fingerprint):
-                # FIXME: what if it's not a v4 fingerprint?
-                sig._signature.subpackets.addnew('IntendedRecipient', hashed=True, version=4,
+                sig._signature.subpackets.addnew('IntendedRecipient', hashed=True,
                                                  intended_recipient=intended_recipient)
             else:
                 warnings.warn("Intended Recipient is not a PGPKey, ignoring")
