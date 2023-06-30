@@ -1120,8 +1120,9 @@ class String2Key(Field):
                 val = bytes(val)
             self._iv = val
 
-    def __init__(self) -> None:
+    def __init__(self, key_version: int) -> None:
         super().__init__()
+        self.key_version = key_version
         self.usage = S2KUsage.Unprotected
         self._encalg = SymmetricKeyAlgorithm.AES256
         self._specifier = S2KSpecifier()
@@ -1144,7 +1145,7 @@ class String2Key(Field):
         return self.usage in [S2KUsage.CFB, S2KUsage.MalleableCFB]
 
     def __copy__(self) -> 'String2Key':
-        s2k = String2Key()
+        s2k = String2Key(self.key_version)
         s2k.usage = self.usage
         s2k.encalg = self.encalg
         s2k._specifier = copy.copy(self._specifier)
@@ -1267,7 +1268,7 @@ class PrivKey(PubKey):
         super().__init__()
 
         self.key_version = key_version
-        self.s2k = String2Key()
+        self.s2k = String2Key(key_version)
         self.encbytes = bytearray()
         self.chksum = bytearray()
 

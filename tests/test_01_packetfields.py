@@ -322,7 +322,7 @@ class TestString2Key:
     @pytest.mark.parametrize('sis2k', sis2ks)
     def test_simple_string2key(self, sis2k):
         b = sis2k[:]
-        s = String2Key()
+        s = String2Key(key_version=4)
         s.parse(sis2k)
 
         assert len(sis2k) == 0
@@ -338,7 +338,7 @@ class TestString2Key:
     @pytest.mark.parametrize('sas2k', sas2ks)
     def test_salted_string2key(self, sas2k):
         b = sas2k[:]
-        s = String2Key()
+        s = String2Key(key_version=4)
         s.parse(sas2k)
 
         assert len(sas2k) == 0
@@ -355,7 +355,7 @@ class TestString2Key:
     @pytest.mark.parametrize('is2k', is2ks)
     def test_iterated_string2key(self, is2k):
         b = is2k[:]
-        s = String2Key()
+        s = String2Key(key_version=4)
         s.parse(is2k)
 
         assert len(is2k) == 0
@@ -373,7 +373,7 @@ class TestString2Key:
     @pytest.mark.parametrize('gnus2k', gnus2ks)
     def test_gnu_extension_string2key(self, gnus2k):
         b = gnus2k[:]
-        s = String2Key()
+        s = String2Key(key_version=4)
         s.parse(gnus2k)
 
         assert len(gnus2k) == 0
