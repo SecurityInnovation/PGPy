@@ -884,19 +884,19 @@ class PubKey(VersionedPacket, Primary, Public):
                 self._opaque_pkalg: int = val
 
         if self.pkalg in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.RSAEncrypt, PubKeyAlgorithm.RSASign}:
-            self.keymaterial = (RSAPub if self.public else RSAPriv)()
+            self.keymaterial = RSAPub() if self.public else RSAPriv(self.__ver__)
         elif self.pkalg is PubKeyAlgorithm.DSA:
-            self.keymaterial = (DSAPub if self.public else DSAPriv)()
+            self.keymaterial = DSAPub() if self.public else DSAPriv(self.__ver__)
         elif self.pkalg in {PubKeyAlgorithm.ElGamal, PubKeyAlgorithm.FormerlyElGamalEncryptOrSign}:
-            self.keymaterial = (ElGPub if self.public else ElGPriv)()
+            self.keymaterial = ElGPub() if self.public else ElGPriv(self.__ver__)
         elif self.pkalg is PubKeyAlgorithm.ECDSA:
-            self.keymaterial = (ECDSAPub if self.public else ECDSAPriv)()
+            self.keymaterial = ECDSAPub() if self.public else ECDSAPriv(self.__ver__)
         elif self.pkalg is PubKeyAlgorithm.ECDH:
-            self.keymaterial = (ECDHPub if self.public else ECDHPriv)()
+            self.keymaterial = ECDHPub() if self.public else ECDHPriv(self.__ver__)
         elif self.pkalg is PubKeyAlgorithm.EdDSA:
-            self.keymaterial = (EdDSAPub if self.public else EdDSAPriv)()
+            self.keymaterial = EdDSAPub() if self.public else EdDSAPriv(self.__ver__)
         else:
-            self.keymaterial = (OpaquePubKey if self.public else OpaquePrivKey)()
+            self.keymaterial = OpaquePubKey() if self.public else OpaquePrivKey(self.__ver__)
 
     @property
     def public(self) -> bool:

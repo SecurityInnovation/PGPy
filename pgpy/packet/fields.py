@@ -1263,9 +1263,10 @@ class PrivKey(PubKey):
         yield from super().__mpis__
         yield from self.__privfields__
 
-    def __init__(self):
+    def __init__(self, key_version: int = 4) -> None:
         super().__init__()
 
+        self.key_version = key_version
         self.s2k = String2Key()
         self.encbytes = bytearray()
         self.chksum = bytearray()
@@ -1306,6 +1307,7 @@ class PrivKey(PubKey):
 
     def __copy__(self):
         pk = super().__copy__()
+        pk.key_version = self.key_version
         pk.s2k = copy.copy(self.s2k)
         pk.encbytes = copy.copy(self.encbytes)
         pk.chksum = copy.copy(self.chksum)
