@@ -232,7 +232,7 @@ class Public(Key):
 
 
 class Private(Key):
-    @abc.abstractproperty
+    @abc.abstractmethod
     def pubkey(self) -> Public:
         """compute and return the fingerprint of the key"""
 

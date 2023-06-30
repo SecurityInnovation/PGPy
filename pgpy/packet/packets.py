@@ -1028,6 +1028,29 @@ class PrivKey(PubKey, Private):
             raise TypeError("Key material is not a private key, cannot sign")
         return self.keymaterial.sign(sigdata, hash_alg)
 
+    def _extract_pubkey(self, pk: PubKey) -> None:
+        pk.created = self.created
+        pk.pkalg = self.pkalg
+
+        if self.keymaterial is not None:
+            if pk.keymaterial is None:
+                raise TypeError(f"pubkey material for {type(self.keymaterial)} was missing")
+            # copy over MPIs
+            for pm in self.keymaterial.__pubfields__:
+                setattr(pk.keymaterial, pm, copy.copy(getattr(self.keymaterial, pm)))
+
+            if isinstance(self.keymaterial, (ECDSAPub, EdDSAPub, ECDHPub)):
+                if not isinstance(pk.keymaterial, (ECDSAPub, EdDSAPub, ECDHPub)):
+                    raise TypeError(f"Expected Elliptic Curve, got {type(pk.keymaterial)} instead")
+                pk.keymaterial.oid = self.keymaterial.oid
+
+                if isinstance(self.keymaterial, ECDHPub):
+                    if not isinstance(pk.keymaterial, ECDHPub):
+                        raise TypeError(f"Expected ECDH, got {type(pk.keymaterial)} instead")
+                    pk.keymaterial.kdf = copy.copy(self.keymaterial.kdf)
+
+        pk.update_hlen()
+
 
 class PrivKeyV4(PrivKey, PubKeyV4):
     __ver__ = 4
@@ -1047,24 +1070,10 @@ class PrivKeyV4(PrivKey, PubKeyV4):
         pk.update_hlen()
         return pk
 
-    def pubkey(self):
+    def pubkey(self) -> Public:
         # return a copy of ourselves, but just the public half
         pk = PubKeyV4() if not isinstance(self, PrivSubKeyV4) else PubSubKeyV4()
-        pk.created = self.created
-        pk.pkalg = self.pkalg
-
-        # copy over MPIs
-        for pm in self.keymaterial.__pubfields__:
-            setattr(pk.keymaterial, pm, copy.copy(getattr(self.keymaterial, pm)))
-
-        if self.pkalg in {PubKeyAlgorithm.ECDSA, PubKeyAlgorithm.EdDSA}:
-            pk.keymaterial.oid = self.keymaterial.oid
-
-        if self.pkalg == PubKeyAlgorithm.ECDH:
-            pk.keymaterial.oid = self.keymaterial.oid
-            pk.keymaterial.kdf = copy.copy(self.keymaterial.kdf)
-
-        pk.update_hlen()
+        self._extract_pubkey(pk)
         return pk
 
 
