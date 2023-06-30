@@ -17,6 +17,8 @@ from typing import Optional, Type, Union, List, Set
 from .types import EmbeddedSignatureHeader
 from .types import Signature
 
+from ..types import VersionedHeader
+
 from ...constants import CompressionAlgorithm
 from ...constants import Features as _Features
 from ...constants import HashAlgorithm
@@ -27,6 +29,7 @@ from ...constants import PubKeyAlgorithm
 from ...constants import RevocationKeyClass
 from ...constants import RevocationReason
 from ...constants import SigSubpacketType
+from ...constants import SignatureType
 from ...constants import SymmetricKeyAlgorithm
 
 from ...decorators import sdproperty
@@ -868,23 +871,25 @@ class EmbeddedSignature(Signature):
         return self._sigpkt
 
     @_sig.setter
-    def _sig_set(self, val):
+    def _sig_set(self, val) -> None:
         esh = EmbeddedSignatureHeader()
+        if not isinstance(val.header, VersionedHeader):
+            raise TypeError(f"Signature packet should have had a versioned header, got {type(val.header)}")
         esh.version = val.header.version
         val.header = esh
         val.update_hlen()
         self._sigpkt = val
 
     @property
-    def sigtype(self):
+    def sigtype(self) -> SignatureType:
         return self._sig.sigtype
 
     @property
-    def pubalg(self):
+    def pubalg(self) -> PubKeyAlgorithm:
         return self._sig.pubalg
 
     @property
-    def halg(self):
+    def halg(self) -> HashAlgorithm:
         return self._sig.halg
 
     @property
@@ -900,19 +905,19 @@ class EmbeddedSignature(Signature):
         return self._sig.signature
 
     @property
-    def signer(self):
+    def signer(self) -> Optional[Union[KeyID, Fingerprint]]:
         return self._sig.signer
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         from ..packets import SignatureV4
         self._sigpkt = SignatureV4()
         self._sigpkt.header = EmbeddedSignatureHeader()
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         return super().__bytearray__() + self._sigpkt.__bytearray__()
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         super().parse(packet)
         self._sig.parse(packet)
 

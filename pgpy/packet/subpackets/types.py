@@ -25,43 +25,42 @@ __all__ = ['Header',
 
 class Header(_Header):
     @sdproperty
-    def critical(self):
+    def critical(self) -> bool:
         return self._critical
 
-    @critical.register(bool)
-    def critical_bool(self, val):
+    @critical.register
+    def critical_bool(self, val: bool) -> None:
         self._critical = val
 
     @sdproperty
-    def typeid(self):
+    def typeid(self) -> int:
         return self._typeid
 
-    @typeid.register(int)
-    def typeid_int(self, val):
+    @typeid.register
+    def typeid_int(self, val: int) -> None:
         self._typeid = val & 0x7f
 
-    @typeid.register(bytes)
-    @typeid.register(bytearray)
-    def typeid_bin(self, val):
+    @typeid.register
+    def typeid_bin(self, val: Union[bytes, bytearray]) -> None:
         v = self.bytes_to_int(val)
         self.typeid = v
         self.critical = bool(v & 0x80)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self._typeid = -1
         self.critical = False
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         self.length = packet
 
         self.typeid = packet[:1]
         del packet[:1]
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.llen + 1
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = bytearray(self.encode_length(self.length))
         _bytes += self.int_to_bytes((int(self.critical) << 7) + self.typeid)
         return _bytes
@@ -79,7 +78,7 @@ class EmbeddedSignatureHeader(VersionedHeader):
 class SubPacket(Dispatchable):
     __headercls__ = Header
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.header = Header()
 
@@ -127,24 +126,23 @@ class Opaque(Signature, UserAttribute):
     __typeid__ = None
 
     @sdproperty
-    def payload(self):
+    def payload(self) -> bytearray:
         return self._payload
 
-    @payload.register(bytes)
-    @payload.register(bytearray)
-    def payload_bin(self, val):
+    @payload.register
+    def payload_bin(self, val: Union[bytes, bytearray]) -> None:
         self._payload = bytearray(val)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
-        self.payload = b''
+        self.payload = bytearray(b'')
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super().__bytearray__()
         _bytes += self.payload
         return _bytes
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         super().parse(packet)
         self.payload = packet[:(self.header.length - 1)]
         del packet[:(self.header.length - 1)]
