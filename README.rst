@@ -57,7 +57,7 @@ Requirements
 
 - Python >= 3.6
 
-  Tested with: 3.10, 3.9, 3.8, 3.7, 3.6
+  Tested with: 3.11, 3.10, 3.9, 3.8, 3.7, 3.6
 
 - `Cryptography <https://pypi.python.org/pypi/cryptography>`_
 
