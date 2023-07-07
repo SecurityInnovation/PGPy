@@ -16,11 +16,17 @@ import weakref
 
 from enum import IntEnum
 
-from typing import ByteString, Optional, Dict, List, Literal, Set, Tuple, Type, Union, OrderedDict, TypeVar, Generic
+from typing import ByteString, Optional, Dict, List, Literal, NamedTuple, Set, Tuple, Type, Union, OrderedDict, TypeVar, Generic
 
 from .decorators import sdproperty
+from .constants import SecurityIssues
 
 from .errors import PGPError
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .pgp import PGPSubject, PGPSignature, PGPKey
 
 __all__ = ['Armorable',
            'ParentRef',
@@ -574,7 +580,12 @@ class Dispatchable(PGPObject, metaclass=MetaDispatchable):
 
 class SignatureVerification:
     __slots__ = ("_subjects",)
-    sigsubj = collections.namedtuple('sigsubj', ['issues', 'by', 'signature', 'subject'])
+
+    class SigSubj(NamedTuple):
+        issues: SecurityIssues
+        by: PGPKey
+        signature: PGPSignature
+        subject: PGPSubject
 
     @property
     def good_signatures(self):
