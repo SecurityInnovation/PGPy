@@ -24,6 +24,9 @@ PGPSignatures represents a detached signature, which can contain more
 than a single signature.  It is a simple sequence of individual
 PGPSignature objects.
 
+PGPSubject is a simple type that collects all the possible things that
+could be signed in OpenPGP.  It is useful for type annotations.
+
 New SecurityIssues flag: AlgorithmUnknown
 
 API changes

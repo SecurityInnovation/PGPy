@@ -3182,3 +3182,11 @@ class PGPKeyring(collections.abc.Container, collections.abc.Iterable, collection
             if key.is_primary:
                 for sk in key.subkeys.values():
                     self.unload(sk)
+
+
+# things that can be signed in OpenPGP:
+PGPSubject = Union[None,  # nothing (i.e., a standalone or timestamp signature)
+                   str, bytes, bytearray, PGPMessage,  # a message (i.e., a binary or canonical text document signature)
+                   PGPUID,  # a User ID with its parent primary key (i.e., a certification)
+                   PGPKey,  # a subkey (i.e., a subkey binding signature)
+                   ]
