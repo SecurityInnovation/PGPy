@@ -19,7 +19,7 @@ import weakref
 
 from datetime import datetime, timezone
 
-from typing import Any, ByteString, Deque, Literal, List, Iterator, Mapping, Optional, Set, Tuple, Union
+from typing import Any, ByteString, Deque, Literal, List, Iterable, Iterator, Mapping, Optional, Set, Tuple, Union
 
 from cryptography.hazmat.primitives import hashes
 
@@ -2690,7 +2690,8 @@ class PGPKey(Armorable, ParentRef):
             return self._children[sig.signer]
         return None
 
-    def verify(self, subject, signature=None):
+    def verify(self, subject: PGPSubject,
+               signature: Optional[PGPSignature] = None) -> SignatureVerification:
         """
         Verify a subject with a signature using this key.
 
@@ -2700,7 +2701,7 @@ class PGPKey(Armorable, ParentRef):
         :type signature: :py:obj:`PGPSignature`
         :returns: :py:obj:`~pgpy.types.SignatureVerification`
         """
-        sspairs = []
+        sspairs: List[Tuple[PGPSignature, PGPSubject]] = []
 
         # some type checking
         if not isinstance(subject, (type(None), PGPMessage, PGPKey, PGPUID, PGPSignature, str, bytes, bytearray)):
@@ -2708,7 +2709,7 @@ class PGPKey(Armorable, ParentRef):
         if not isinstance(signature, (type(None), PGPSignature)):
             raise TypeError("Unexpected signature value: {:s}".format(str(type(signature))))
 
-        def _filter_sigs(sigs):
+        def _filter_sigs(sigs: Iterable[PGPSignature]) -> Iterator[PGPSignature]:
             for sig in sigs:
                 if self.issuer_matches(sig):
                     yield sig
@@ -2716,6 +2717,8 @@ class PGPKey(Armorable, ParentRef):
         # collect signature(s)
         if signature is None:
             if isinstance(subject, PGPMessage):
+                if not isinstance(subject.message, (str, bytes, bytearray)):
+                    raise TypeError("Cannot verify encrypted message without decrypting it first")
                 for sig in _filter_sigs(subject.signatures):
                     sspairs.append((sig, subject.message))
 
@@ -2751,6 +2754,8 @@ class PGPKey(Armorable, ParentRef):
                 sigv &= signing_subkey.verify(subj, sig)
 
             else:
+                if self._key is None:
+                    raise PGPError("Tried to verify using a key with no key material!")
                 if isinstance(subj, PGPKey):
                     self_verifying = sig.signer == subj.fingerprint
                 else:
