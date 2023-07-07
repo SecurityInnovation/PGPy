@@ -628,22 +628,22 @@ class SignatureVerification:
             if sigsub.issues and sigsub.issues.causes_signature_verify_to_fail
         )
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Returned by :py:meth:`.PGPKey.verify`
 
         Can be compared directly as a boolean to determine whether or not the specified signature verified.
         """
         super().__init__()
-        self._subjects = []
+        self._subjects: List[SignatureVerification.SigSubj] = []
 
-    def __contains__(self, item):
+    def __contains__(self, item: PGPSubject) -> bool:
         return item in {ii for i in self._subjects for ii in [i.signature, i.subject]}
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._subjects)
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         from .constants import SecurityIssues
         return all(
             sigsub.issues is SecurityIssues.OK
@@ -651,24 +651,23 @@ class SignatureVerification:
             for sigsub in self._subjects
         )
 
-    def __and__(self, other):
+    def __and__(self, other) -> SignatureVerification:
         if not isinstance(other, SignatureVerification):
             raise TypeError(type(other))
 
         self._subjects += other._subjects
         return self
 
-    def __repr__(self):
-        return '<{classname}({val})>'.format(
-            classname=self.__class__.__name__,
-            val=bool(self)
-        )
+    def __repr__(self) -> str:
+        return f'<{self.__class__.__name__}({bool(self)})>'
 
-    def add_sigsubj(self, signature, by, subject=None, issues=None):
+    def add_sigsubj(self, signature: PGPSignature, by: PGPKey,
+                    subject: PGPSubject = None,
+                    issues: Optional[SecurityIssues] = None) -> None:
         if issues is None:
             from .constants import SecurityIssues
             issues = SecurityIssues(0xFF)
-        self._subjects.append(self.sigsubj(issues, by, signature, subject))
+        self._subjects.append(self.SigSubj(issues, by, signature, subject))
 
 
 class KeyID(str):
