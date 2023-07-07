@@ -2009,7 +2009,7 @@ class PGPKey(Armorable, ParentRef):
             for sk in itertools.chain([self], self.subkeys.values()):
                 sk._key.keymaterial.clear()
 
-    def add_uid(self, uid, selfsign=True, **prefs):
+    def add_uid(self, uid: PGPUID, selfsign: bool = True, **prefs) -> None:
         """
         Add a User ID to this key.
 
@@ -2027,7 +2027,7 @@ class PGPKey(Armorable, ParentRef):
 
         self |= uid
 
-    def get_uid(self, search):
+    def get_uid(self, search: str) -> Optional[PGPUID]:
         """
         Find and return a User ID that matches the search string given.
 
@@ -2039,7 +2039,7 @@ class PGPKey(Armorable, ParentRef):
             return next((u for u in self._uids if search in filter(lambda a: a is not None, (u.name, u.comment, u.email))), None)
         return self.parent.get_uid(search)
 
-    def del_uid(self, search):
+    def del_uid(self, search: str) -> None:
         """
         Find and remove a user id that matches the search string given. This method does not modify the corresponding
         :py:obj:`~pgpy.PGPUID` object; it only removes it from the list of user ids on the key.
@@ -2055,7 +2055,7 @@ class PGPKey(Armorable, ParentRef):
         u._parent = None
         self._uids.remove(u)
 
-    def add_subkey(self, key, **prefs):
+    def add_subkey(self, key: PGPKey, **prefs) -> None:
         """
         Add a key as a subkey to this key.
 
@@ -2074,9 +2074,13 @@ class PGPKey(Armorable, ParentRef):
         if key.is_primary:
             if len(key._children) > 0:
                 raise PGPError("Cannot add a key that already has subkeys as a subkey!")
+            if key._key is None:
+                raise PGPError("Cannot add a PGPKey as a subkey when it has no proper key object")
 
             # convert key into a subkey
             npk: PrivSubKey = PrivSubKeyV4()
+            if key._key is None:
+                raise PGPError("Cannot add a subkey with an unknown algorithm")
             npk.pkalg = key._key.pkalg
             npk.created = key._key.created
             npk.keymaterial = key._key.keymaterial
@@ -2090,13 +2094,13 @@ class PGPKey(Armorable, ParentRef):
         bsig = self.bind(key, **prefs)
         key |= bsig
 
-    def _get_key_flags(self, user=None):
+    def _get_key_flags(self, user=None) -> Optional[KeyFlags]:
         if self.is_primary:
             if user is not None:
                 user = self.get_uid(user)
 
             elif len(self._uids) == 0:
-                return {KeyFlags.Certify}
+                return KeyFlags.Certify
 
             else:
                 user = next(iter(self.userids))
@@ -2106,7 +2110,7 @@ class PGPKey(Armorable, ParentRef):
 
         return next(self.self_signatures).key_flags
 
-    def _sign(self, subject, sig: PGPSignature, **prefs) -> PGPSignature:
+    def _sign(self, subject: PGPSubject, sig: PGPSignature, **prefs) -> PGPSignature:
         """
         The actual signing magic happens here.
         :param subject: The subject to sign
@@ -2205,7 +2209,7 @@ class PGPKey(Armorable, ParentRef):
         return sig
 
     @KeyAction(KeyFlags.Sign, is_unlocked=True, is_public=False)
-    def sign(self, subject, **prefs):
+    def sign(self, subject: PGPSubject, **prefs) -> PGPSignature:
         """
         Sign text, a message, or a timestamp using this key.
 
@@ -2239,6 +2243,9 @@ class PGPKey(Armorable, ParentRef):
                                              (only for v4 keys, defaults to True)
         :type include_issuer_fingerprint: ``bool``
         """
+        if self.key_algorithm is None:
+            raise PGPError("PGPKey: cannot sign with an unknown algorithm")
+
         sig_type = SignatureType.BinaryDocument
         hash_algo = prefs.pop('hash', None)
 
@@ -2256,7 +2263,7 @@ class PGPKey(Armorable, ParentRef):
         return self._sign(subject, sig, **prefs)
 
     @KeyAction(KeyFlags.Certify, is_unlocked=True, is_public=False)
-    def certify(self, subject, level=SignatureType.Generic_Cert, **prefs):
+    def certify(self, subject: PGPSubject, level: SignatureType = SignatureType.Generic_Cert, **prefs) -> PGPSignature:
         """
         certify(subject, level=SignatureType.Generic_Cert, **prefs)
 
@@ -2322,12 +2329,17 @@ class PGPKey(Armorable, ParentRef):
         :keyword exportable: Whether this certification is exportable or not.
         :type exportable: ``bool``
         """
+        if self.key_algorithm is None:
+            raise PGPError("PGPKey: cannot certify with an unknown algorithm")
+
         hash_algo = prefs.pop('hash', None)
         sig_type = level
         if isinstance(subject, PGPKey):
             sig_type = SignatureType.DirectlyOnKey
 
         sig = PGPSignature.new(sig_type, self.key_algorithm, hash_algo, self.fingerprint, created=prefs.pop('created', None))
+        if sig._signature is None:
+            raise PGPError(f"Failed to create usable PGPSignature using {self.key_algorithm!r} and {hash_algo!r}")
 
         # signature options that only make sense in certifications
         usage = prefs.pop('usage', None)
@@ -2398,6 +2410,8 @@ class PGPKey(Armorable, ParentRef):
                 attestations = set()
                 for attestation in attested_certifications:
                     if isinstance(attestation, PGPSignature) and attestation.type in cert_sigtypes:
+                        if attestation._signature is None:
+                            raise PGPError("Attestation PGPSignature is missing packet!")
                         h = sig.hash_algorithm.hasher
                         h.update(attestation._signature.canonical_bytes())
                         attestations.add(h.finalize())

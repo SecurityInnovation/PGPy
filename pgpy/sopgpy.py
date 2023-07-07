@@ -173,7 +173,7 @@ class SOPGPy(sop.StatelessOpenPGP):
         }
 
         for uid in uids:
-            primary.add_uid(pgpy.PGPUID.new(uid), **uidoptions)
+            primary.add_uid(pgpy.PGPUID.new(uid), selfsign=True, **uidoptions)
             if 'primary' in uidoptions:  # only first User ID is Primary
                 del uidoptions['primary']
 

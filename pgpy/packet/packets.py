@@ -404,6 +404,10 @@ class Signature(VersionedPacket):
     def signer(self) -> Optional[Union[KeyID, Fingerprint]]:
         ...
 
+    @abc.abstractmethod
+    def canonical_bytes(self) -> bytearray:
+        ...
+
 
 class SignatureV4(Signature):
     """
