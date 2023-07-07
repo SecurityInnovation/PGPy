@@ -1,5 +1,7 @@
 """ constants.py
 """
+from __future__ import annotations
+
 import bz2
 import os
 import zlib
@@ -83,7 +85,7 @@ class PacketType(IntEnum):
     ModificationDetectionCode = 19
 
     @classmethod
-    def _missing_(cls, val: object) -> 'PacketType':
+    def _missing_(cls, val: object) -> PacketType:
         if not isinstance(val, int):
             raise TypeError(f"cannot look up PacketType by non-int {type(val)}")
         return cls.Unknown
@@ -205,7 +207,7 @@ class PubKeyAlgorithm(IntEnum):
     EdDSA = 0x16  # https://tools.ietf.org/html/draft-koch-eddsa-for-openpgp-04
 
     @classmethod
-    def _missing_(cls, val: object) -> 'PubKeyAlgorithm':
+    def _missing_(cls, val: object) -> PubKeyAlgorithm:
         if not isinstance(val, int):
             raise TypeError(f"cannot look up PubKeyAlgorithm by non-int {type(val)}")
         return cls.Unknown
@@ -232,7 +234,7 @@ class PubKeyAlgorithm(IntEnum):
                         PubKeyAlgorithm.RSASign,
                         PubKeyAlgorithm.FormerlyElGamalEncryptOrSign}
 
-    def validate_params(self, size) -> 'SecurityIssues':
+    def validate_params(self, size) -> SecurityIssues:
         min_size = MINIMUM_ASYMMETRIC_KEY_LENGTHS.get(self)
         if min_size is not None:
             if isinstance(min_size, set):
@@ -338,7 +340,7 @@ class HashAlgorithm(IntEnum):
     #SHA3_512 = 15
 
     @classmethod
-    def _missing_(cls, val: object) -> 'HashAlgorithm':
+    def _missing_(cls, val: object) -> HashAlgorithm:
         if not isinstance(val, int):
             raise TypeError(f"cannot look up HashAlgorithm by non-int {type(val)}")
         return cls.Unknown
@@ -364,7 +366,7 @@ class HashAlgorithm(IntEnum):
         return self in {HashAlgorithm.SHA256, HashAlgorithm.SHA384, HashAlgorithm.SHA512}
 
     @property
-    def is_considered_secure(self) -> 'SecurityIssues':
+    def is_considered_secure(self) -> SecurityIssues:
         if self.is_collision_resistant:
             return SecurityIssues.OK
 
@@ -429,7 +431,7 @@ class EllipticCurveOID(Enum):
     SECP256K1 = (ec.SECP256K1, '1.3.132.0.10',
                  b'\x2b\x81\x04\x00\x0a')
 
-    def __new__(cls, impl_cls: Type, oid: str, oid_der: bytes, name: Optional[str] = None, key_size_bits: Optional[int] = None) -> "EllipticCurveOID":
+    def __new__(cls, impl_cls: Type, oid: str, oid_der: bytes, name: Optional[str] = None, key_size_bits: Optional[int] = None) -> EllipticCurveOID:
         # preprocessing stage for enum members:
         #  - set enum_member.value to ObjectIdentifier(oid)
         #  - if curve is not None and curve.name is in ec._CURVE_TYPES, set enum_member.curve to curve
@@ -564,7 +566,7 @@ class ImageEncoding(IntEnum):
     JPEG = 0x01
 
     @classmethod
-    def encodingof(cls, imagebytes: bytes) -> 'ImageEncoding':
+    def encodingof(cls, imagebytes: bytes) -> ImageEncoding:
         if imagebytes[6:10] in (b'JFIF', b'Exif') or imagebytes[:4] == b'\xff\xd8\xff\xdb':
             return ImageEncoding.JPEG
         return ImageEncoding.Unknown  # pragma: no cover
@@ -664,7 +666,7 @@ class String2KeyType(IntEnum):
     GNUExtension = 101
 
     @classmethod
-    def _missing_(cls, val: object) -> 'String2KeyType':
+    def _missing_(cls, val: object) -> String2KeyType:
         if not isinstance(val, int):
             raise TypeError(f"cannot look up String2KeyType by non-int {type(val)}")
         return cls.Unknown
@@ -730,7 +732,7 @@ class Features(IntFlag):
     UnknownFeature80 = 0x80
 
     @classproperty
-    def pgpy_features(cls) -> 'Features':
+    def pgpy_features(cls) -> Features:
         return Features.ModificationDetection
 
 

@@ -1,5 +1,7 @@
 """ packet.py
 """
+from __future__ import annotations
+
 import abc
 import binascii
 import calendar
@@ -98,11 +100,11 @@ class PKESessionKey(VersionedPacket):
         self.ct: Optional[CipherText] = None
 
     @abc.abstractmethod
-    def decrypt_sk(self, pk: 'PrivKey') -> Tuple[Optional[SymmetricKeyAlgorithm], bytes]:
+    def decrypt_sk(self, pk: PrivKey) -> Tuple[Optional[SymmetricKeyAlgorithm], bytes]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def encrypt_sk(self, pk: 'PubKey', symalg: Optional[SymmetricKeyAlgorithm], symkey: bytes) -> None:
+    def encrypt_sk(self, pk: PubKey, symalg: Optional[SymmetricKeyAlgorithm], symkey: bytes) -> None:
         raise NotImplementedError()
 
     # a PKESK should return a pointer to the recipient, or None
@@ -239,7 +241,7 @@ class PKESessionKeyV3(PKESessionKey):
 
         return sk
 
-    def decrypt_sk(self, pk: 'PrivKey') -> Tuple[Optional[SymmetricKeyAlgorithm], bytes]:
+    def decrypt_sk(self, pk: PrivKey) -> Tuple[Optional[SymmetricKeyAlgorithm], bytes]:
         if isinstance(self.ct, RSACipherText):
             if not isinstance(pk.keymaterial, PrivKeyField):
                 raise TypeError(f"Private key key material was {type(pk.keymaterial)}, should have been PrivKeyField")
@@ -286,7 +288,7 @@ class PKESessionKeyV3(PKESessionKey):
 
         return (symalg, symkey)
 
-    def encrypt_sk(self, pk: 'PubKey', symalg: Optional[SymmetricKeyAlgorithm], symkey: bytes) -> None:
+    def encrypt_sk(self, pk: PubKey, symalg: Optional[SymmetricKeyAlgorithm], symkey: bytes) -> None:
         if symalg is None:
             raise ValueError('PKESKv3: must pass a symmetric key algorithm explicitly when encrypting')
         if pk.keymaterial is None:
@@ -395,7 +397,7 @@ class Signature(VersionedPacket):
         super().update_hlen()
 
     @abc.abstractmethod
-    def make_onepass(self) -> 'OnePassSignature':
+    def make_onepass(self) -> OnePassSignature:
         raise NotImplementedError()
 
     @abc.abstractproperty
@@ -517,7 +519,7 @@ class SignatureV4(Signature):
         _hdr += self.int_to_bytes(len(_body), minlen=4)
         return _hdr + _body
 
-    def __copy__(self) -> 'SignatureV4':
+    def __copy__(self) -> SignatureV4:
         spkt = SignatureV4()
         spkt.header = copy.copy(self.header)
         spkt._sigtype = self._sigtype
@@ -552,7 +554,7 @@ class SignatureV4(Signature):
 
         self.signature.parse(packet)
 
-    def make_onepass(self) -> 'OnePassSignatureV3':
+    def make_onepass(self) -> OnePassSignatureV3:
         signer = self.signer
         if signer is None:
             raise ValueError("Cannot make a one-pass signature without knowledge of who the signer is")
@@ -652,7 +654,7 @@ class SKESessionKeyV4(SKESessionKey):
         _bytes += self.ct
         return _bytes
 
-    def __copy__(self) -> 'SKESessionKeyV4':
+    def __copy__(self) -> SKESessionKeyV4:
         sk = self.__class__()
         sk.header = copy.copy(self.header)
         sk.s2kspec = copy.copy(self.s2kspec)
@@ -906,7 +908,7 @@ class PubKey(VersionedPacket, Primary, Public):
     def public(self) -> bool:
         return isinstance(self, PubKey) and not isinstance(self, PrivKey)
 
-    def __copy__(self) -> 'PubKey':
+    def __copy__(self) -> PubKey:
         pk = self.__class__()
         pk.header = copy.copy(self.header)
         pk.created = self.created
@@ -1060,7 +1062,7 @@ class PrivKeyV4(PrivKey, PubKeyV4):
     __ver__ = 4
 
     @classmethod
-    def new(cls, key_algorithm, key_size, created=None) -> 'PrivKeyV4':
+    def new(cls, key_algorithm, key_size, created=None) -> PrivKeyV4:
         # build a key packet
         pk = PrivKeyV4()
         pk.pkalg = key_algorithm

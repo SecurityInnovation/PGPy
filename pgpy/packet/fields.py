@@ -1,5 +1,6 @@
 """ fields.py
 """
+from __future__ import annotations
 
 import abc
 import binascii
@@ -516,7 +517,7 @@ class ECPoint:
     def __bytearray__(self) -> bytearray:
         return bytearray(self.to_mpibytes())
 
-    def __copy__(self) -> 'ECPoint':
+    def __copy__(self) -> ECPoint:
         pk = self.__class__()
         pk.bytelen = self.bytelen
         pk.format = self.format
@@ -545,7 +546,7 @@ class ECDSAPub(PubKey):
         _b += self.p.to_mpibytes()
         return _b
 
-    def __copy__(self) -> 'ECDSAPub':
+    def __copy__(self) -> ECDSAPub:
         pkt = super().__copy__()
         if not isinstance(pkt, ECDSAPub):
             raise TypeError(f"Failed to create ECDSAPub when copying, got {type(pkt)}")
@@ -590,7 +591,7 @@ class EdDSAPub(PubKey):
     def __pubkey__(self):
         return ed25519.Ed25519PublicKey.from_public_bytes(self.p.x)
 
-    def __copy__(self) -> 'EdDSAPub':
+    def __copy__(self) -> EdDSAPub:
         pkt = super().__copy__()
         if not isinstance(pkt, EdDSAPub):
             raise TypeError(f"Failed to create EdDSAPub when copying, got {type(pkt)}")
@@ -645,7 +646,7 @@ class ECDHPub(PubKey):
         _b += self.kdf.__bytearray__()
         return _b
 
-    def __copy__(self) -> 'ECDHPub':
+    def __copy__(self) -> ECDHPub:
         pkt = super().__copy__()
         if not isinstance(pkt, ECDHPub):
             raise TypeError(f"Failed to create ECDHAPub when copying, got {type(pkt)}")
@@ -843,7 +844,7 @@ class S2KSpecifier(Field):
         if smartcard_serial is not None:
             self.smartcard_serial = bytes(smartcard_serial)
 
-    def __copy__(self) -> "S2KSpecifier":
+    def __copy__(self) -> S2KSpecifier:
         s2k = S2KSpecifier()
         s2k._type = self._type
         if self._type is String2KeyType.Unknown:
@@ -1144,7 +1145,7 @@ class String2Key(Field):
     def __bool__(self) -> bool:
         return self.usage in [S2KUsage.CFB, S2KUsage.MalleableCFB]
 
-    def __copy__(self) -> 'String2Key':
+    def __copy__(self) -> String2Key:
         s2k = String2Key(self.key_version)
         s2k.usage = self.usage
         s2k.encalg = self.encalg

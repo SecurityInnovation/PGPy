@@ -1,5 +1,6 @@
 """ types.py
 """
+from __future__ import annotations
 
 import abc
 import base64
@@ -665,7 +666,7 @@ class KeyID(str):
 
     If a uint64 basic type existed in the stdlib, it would have been beter to use that instead.
     '''
-    def __new__(cls, content: Union[str, bytes, bytearray]) -> "KeyID":
+    def __new__(cls, content: Union[str, bytes, bytearray]) -> KeyID:
         if isinstance(content, str):
             if not re.match(r'^[0-9A-F]{16}$', content):
                 raise ValueError(f'Initializing a KeyID from a string requires it to be 16 uppercase hex digits, not "{content}"')
@@ -678,11 +679,11 @@ class KeyID(str):
             raise TypeError(f'cannot initialize a KeyID from {type(content)}')
 
     @classmethod
-    def from_bytes(cls, b: bytes) -> "KeyID":
+    def from_bytes(cls, b: bytes) -> KeyID:
         return cls(binascii.b2a_hex(b).decode('latin-1').upper())
 
     @classmethod
-    def parse(cls, b: bytearray) -> "KeyID":
+    def parse(cls, b: bytearray) -> KeyID:
         'read a Key ID off the wire and consume the series of bytes that represent the Key ID.  Produces a new KeyID object'
         ret = cls.from_bytes(b[:8])
         del b[:8]
@@ -741,7 +742,7 @@ class Fingerprint(str):
     def version_int(self, version: int) -> None:
         self._version: int = version
 
-    def __new__(cls, content: Union[str, bytes, bytearray], version=None) -> "Fingerprint":
+    def __new__(cls, content: Union[str, bytes, bytearray], version=None) -> Fingerprint:
         if isinstance(content, Fingerprint):
             return content
 

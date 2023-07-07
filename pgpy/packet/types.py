@@ -1,5 +1,6 @@
 """ types.py
 """
+from __future__ import annotations
 
 import abc
 import copy
@@ -292,7 +293,7 @@ class MPIs(Field):
         for i in self.__mpis__:
             yield getattr(self, i)
 
-    def __copy__(self) -> 'MPIs':
+    def __copy__(self) -> MPIs:
         pk = self.__class__()
         for m in self.__mpis__:
             setattr(pk, m, copy.copy(getattr(self, m)))

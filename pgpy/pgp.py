@@ -2,6 +2,8 @@
 
 this is where the armorable PGP block objects live
 """
+from __future__ import annotations
+
 import binascii
 import collections
 import collections.abc
@@ -375,7 +377,7 @@ class PGPSignature(Armorable, ParentRef):
         return self._signature.sigtype
 
     @classmethod
-    def new(cls, sigtype, pkalg: PubKeyAlgorithm, halg: HashAlgorithm, signer: Fingerprint, created=None) -> "PGPSignature":
+    def new(cls, sigtype, pkalg: PubKeyAlgorithm, halg: HashAlgorithm, signer: Fingerprint, created=None) -> PGPSignature:
         sig = PGPSignature()
 
         sigpkt: Signature
@@ -426,7 +428,7 @@ class PGPSignature(Armorable, ParentRef):
             raise TypeError(f"tried to compare PGPSignature to {type(other)}")
         return self.created < other.created
 
-    def __or__(self, other: Signature) -> 'PGPSignature':
+    def __or__(self, other: Signature) -> PGPSignature:
         if isinstance(other, Signature):
             if self._signature is None:
                 self._signature = other
@@ -886,7 +888,7 @@ class PGPUID(ParentRef):
         return self.attested_to(self.third_party_certifications)
 
     @classmethod
-    def new(cls, pn: Union[bytearray, str], comment: Optional[str] = None, email: Optional[str] = None) -> 'PGPUID':
+    def new(cls, pn: Union[bytearray, str], comment: Optional[str] = None, email: Optional[str] = None) -> PGPUID:
         """
         Create a new User ID or photo.
 
@@ -934,7 +936,7 @@ class PGPUID(ParentRef):
             return "<PGPUID [{:s}][{}] at 0x{:02X}>".format(self._uid.__class__.__name__, self.selfsig.created, id(self))
         return "<PGPUID [{:s}] at 0x{:02X}>".format(self._uid.__class__.__name__, id(self))
 
-    def __lt__(self, other: 'PGPUID') -> bool:  # pragma: no cover
+    def __lt__(self, other: PGPUID) -> bool:  # pragma: no cover
         if self.is_uid == other.is_uid:
             if self.is_primary == other.is_primary:
                 mysig = self.selfsig
@@ -958,7 +960,7 @@ class PGPUID(ParentRef):
 
         raise ValueError("should not have reached here!")
 
-    def __or__(self, other: Union[PGPSignature, UserID, UserAttribute]) -> 'PGPUID':
+    def __or__(self, other: Union[PGPSignature, UserID, UserAttribute]) -> PGPUID:
         if isinstance(other, PGPSignature):
             self._signatures.insort(other)
             if self.parent is not None and self in self.parent._uids:
@@ -977,7 +979,7 @@ class PGPUID(ParentRef):
         raise TypeError("unsupported operand type(s) for |: '{:s}' and '{:s}'"
                         "".format(self.__class__.__name__, other.__class__.__name__))
 
-    def __copy__(self) -> 'PGPUID':
+    def __copy__(self) -> PGPUID:
         # because the default shallow copy isn't actually all that useful,
         # and deepcopy does too much work
         uid = PGPUID()
@@ -1162,7 +1164,7 @@ class PGPMessage(Armorable):
             for sig in self._signatures:
                 yield sig
 
-    def __or__(self, other) -> 'PGPMessage':
+    def __or__(self, other) -> PGPMessage:
         if isinstance(other, Marker):
             return self
 
@@ -1216,7 +1218,7 @@ class PGPMessage(Armorable):
 
         raise NotImplementedError(str(type(other)))
 
-    def __copy__(self) -> 'PGPMessage':
+    def __copy__(self) -> PGPMessage:
         msg = super().__copy__()
         msg._compression = self._compression
         msg._message = copy.copy(self._message)
@@ -1237,7 +1239,7 @@ class PGPMessage(Armorable):
             sensitive: bool = False,
             compression: CompressionAlgorithm = CompressionAlgorithm.ZIP,
             file: bool = False,
-            encoding: Optional[str] = None) -> 'PGPMessage':
+            encoding: Optional[str] = None) -> PGPMessage:
         """
         Create a new PGPMessage object.
 
@@ -1327,7 +1329,7 @@ class PGPMessage(Armorable):
                 sessionkey: Optional[Union[int, ByteString]] = None,
                 cipher: SymmetricKeyAlgorithm = SymmetricKeyAlgorithm.AES256,
                 hash: HashAlgorithm = HashAlgorithm.SHA256,
-                iv: Optional[bytes] = None) -> 'PGPMessage':
+                iv: Optional[bytes] = None) -> PGPMessage:
         """
         encrypt(passphrase, [sessionkey=None,] **prefs)
 
@@ -1374,7 +1376,7 @@ class PGPMessage(Armorable):
 
         return msg
 
-    def decrypt(self, passphrase: Union[str, bytes]) -> 'PGPMessage':
+    def decrypt(self, passphrase: Union[str, bytes]) -> PGPMessage:
         """
         Attempt to decrypt this message using a passphrase.
 
@@ -1744,7 +1746,7 @@ class PGPKey(Armorable, ParentRef):
                 yield sig.revocation_key
 
     @classmethod
-    def new(cls, key_algorithm: PubKeyAlgorithm, key_size: Union[int, EllipticCurveOID], created: Optional[datetime] = None) -> 'PGPKey':
+    def new(cls, key_algorithm: PubKeyAlgorithm, key_size: Union[int, EllipticCurveOID], created: Optional[datetime] = None) -> PGPKey:
         """
         Generate a new PGP key
 
@@ -2504,7 +2506,7 @@ class PGPKey(Armorable, ParentRef):
         return self._sign(self, sig, **prefs)
 
     @KeyAction(is_unlocked=True, is_public=False)
-    def bind(self, key: 'PGPKey', **prefs) -> PGPSignature:
+    def bind(self, key: PGPKey, **prefs) -> PGPSignature:
         """
         Bind a subkey to this key.
 
