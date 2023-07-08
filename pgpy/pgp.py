@@ -3189,4 +3189,7 @@ PGPSubject = Union[None,  # nothing (i.e., a standalone or timestamp signature)
                    str, bytes, bytearray, PGPMessage,  # a message (i.e., a binary or canonical text document signature)
                    PGPUID,  # a User ID with its parent primary key (i.e., a certification)
                    PGPKey,  # a subkey (i.e., a subkey binding signature)
+                   SKEData, IntegrityProtectedSKEData,  # signing an encrypted message (i.e., binary document signature)
+                   # this last one seems dubious, as signatures outside encryption have a very different set of semantics
+                   # compared to signatures inside encryption, and the API is unclear how the user can distinguish them)
                    ]
