@@ -436,7 +436,7 @@ class PGPSignature(Armorable, ParentRef):
 
         raise TypeError(f"should be Signature, got {type(other)}")
 
-    def __copy__(self):
+    def __copy__(self) -> PGPSignature:
         # because the default shallow copy isn't actually all that useful,
         # and deepcopy does too much work
         sig = super().__copy__()
@@ -445,24 +445,27 @@ class PGPSignature(Armorable, ParentRef):
         sig |= copy.copy(self._signature)
         return sig
 
-    def attests_to(self, othersig):
+    def attests_to(self, othersig: PGPSignature) -> bool:
         'returns True if this signature attests to othersig (acknolwedges it for redistribution)'
         if not isinstance(othersig, PGPSignature):
             raise TypeError
         h = self.hash_algorithm.hasher
+        if othersig._signature is None:
+            raise TypeError("PGPSignature.attests_to() other sig had no underlying signature packet")
         h.update(othersig._signature.canonical_bytes())
         return h.finalize() in self.attested_certifications
 
-    def hashdata(self, subject) -> bytes:
+    def hashdata(self, subject: PGPSubject) -> bytes:
         if self._signature is None:
             raise TypeError("called hashdata on uninitializaed PGPSignature")
         _data = bytearray()
 
         if isinstance(subject, str):
             try:
-                subject = subject.encode('utf-8')
+                subject_bytes = subject.encode('utf-8')
             except UnicodeEncodeError:
-                subject = subject.encode('charmap')
+                subject_bytes = subject.encode('charmap')
+            subject = subject_bytes
 
         """
         All signatures are formed by producing a hash over the signature
@@ -476,8 +479,10 @@ class PGPSignature(Armorable, ParentRef):
             """
             if isinstance(subject, (SKEData, IntegrityProtectedSKEData)):
                 _data += subject.__bytearray__()
-            else:
+            elif isinstance(subject, (bytes, bytearray)):
                 _data += bytearray(subject)
+            else:
+                raise TypeError(f"Tried to make binary signature over {type(subject)}")
 
         if self.type == SignatureType.CanonicalDocument:
             """
@@ -485,6 +490,8 @@ class PGPSignature(Armorable, ParentRef):
             document is canonicalized by converting line endings to <CR><LF>,
             and the resulting data is hashed.
             """
+            if not isinstance(subject, (bytes, bytearray)):
+                raise TypeError(f'Tried to make canonical text signature over {type(subject)}')
             _data += re.subn(br'\r?\n', b'\r\n', subject)[0]
 
         if self.type in {SignatureType.Generic_Cert, SignatureType.Persona_Cert, SignatureType.Casual_Cert,
@@ -518,7 +525,12 @@ class PGPSignature(Armorable, ParentRef):
             the subkey using the same format as the main key (also using 0x99 as
             the first octet).
             """
+            if not isinstance(subject, PGPKey):
+                raise TypeError(f'Tried to make {self.type!r} over {type(subject)}, expected PGPKey')
+
             if subject.is_primary:
+                if self.signer is None:
+                    raise TypeError(f"Cannot make signature over primary key ({self.type!r}) without identifying the signer")
                 _s = subject.subkeys[self.signer].hashdata
 
             else:
@@ -554,6 +566,9 @@ class PGPSignature(Armorable, ParentRef):
             about the key itself, rather than the binding between a key and a
             name.
             """
+            if not isinstance(subject, PGPKey):
+                raise TypeError(f'Tried to make {self.type!r} over {type(subject)}, expected PGPKey')
+
             if self.type == SignatureType.SubkeyRevocation:
                 # hash the primary key first if this is a Subkey Revocation signature
                 _s = subject.parent.hashdata
@@ -580,6 +595,8 @@ class PGPSignature(Armorable, ParentRef):
             revokes, and should have a later creation date than that
             certificate.
             """
+            if not isinstance(subject, PGPUID):
+                raise TypeError(f'Tried to make {self.type!r} over {type(subject)}, expected PGPUID')
 
             _s = subject.hashdata
             if subject.is_uid:
