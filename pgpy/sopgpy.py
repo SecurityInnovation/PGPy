@@ -353,6 +353,28 @@ class SOPGPy(sop.StatelessOpenPGP):
         del sessionkey
         return self._maybe_armor(armor, msg)
 
+    def _convert_sig_verification(self,
+                                  cert: pgpy.PGPKey,
+                                  verif: pgpy.types.SignatureVerification,
+                                  start: Optional[datetime],
+                                  end: Optional[datetime]) -> List[sop.SOPSigResult]:
+        results: List[sop.SOPSigResult] = []
+        goodsig: pgpy.types.SignatureVerification.SigSubj
+        for goodsig in verif.good_signatures:
+            sigtime = goodsig.signature.created
+            # some versions of pgpy return tz-naive objects, even though all timestamps are in UTC:
+            # see https://docs.python.org/3/library/datetime.html#aware-and-naive-objects
+            if sigtime.tzinfo is None:
+                sigtime = sigtime.replace(tzinfo=timezone.utc)
+            # PGPy before 0.6.0 included a "verified" boolean in sigsubj:
+            if ('issues' in goodsig._fields and goodsig.issues == 0) or \
+               ('verified' in goodsig._fields and goodsig.verified):  # type: ignore[attr-defined]
+                if start is None or sigtime >= start:
+                    if end is None or sigtime <= end:
+                        results += [sop.SOPSigResult(when=goodsig.signature.created, signing_fpr=goodsig.by.fingerprint,
+                                                     primary_fpr=cert.fingerprint, moreinfo=goodsig.signature.__repr__())]
+        return results
+
     def _check_sigs(self,
                     certs: MutableMapping[str, pgpy.PGPKey],
                     msg: Union[pgpy.PGPMessage, bytes],
@@ -365,22 +387,16 @@ class SOPGPy(sop.StatelessOpenPGP):
                 for signer, cert in certs.items():
                     try:
                         verif: pgpy.types.SignatureVerification = cert.verify(msg, signature=sig)
-                        goodsig: pgpy.types.SignatureVerification.SigSubj
-                        for goodsig in verif.good_signatures:
-                            sigtime = goodsig.signature.created
-                            # some versions of pgpy return tz-naive objects, even though all timestamps are in UTC:
-                            # see https://docs.python.org/3/library/datetime.html#aware-and-naive-objects
-                            if sigtime.tzinfo is None:
-                                sigtime = sigtime.replace(tzinfo=timezone.utc)
-                            # PGPy before 0.6.0 included a "verified" boolean in sigsubj:
-                            if ('issues' in goodsig._fields and goodsig.issues == 0) or \
-                               ('verified' in goodsig._fields and goodsig.verified):  # type: ignore[attr-defined]
-                                if start is None or sigtime >= start:
-                                    if end is None or sigtime <= end:
-                                        results += [sop.SOPSigResult(when=goodsig.signature.created, signing_fpr=goodsig.by.fingerprint,
-                                                                     primary_fpr=cert.fingerprint, moreinfo=goodsig.signature.__repr__())]
+                        results += self._convert_sig_verification(cert, verif, start, end)
                     except:
                         pass
+        else:
+            for signer, cert in certs.items():
+                try:
+                    verif = cert.verify(msg)
+                    results += self._convert_sig_verification(cert, verif, start, end)
+                except:
+                    pass
         return results
 
     def decrypt(self,
