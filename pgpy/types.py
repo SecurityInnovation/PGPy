@@ -116,8 +116,9 @@ class Armorable(PGPObject, metaclass=abc.ABCMeta):
     #  - whitespace is ignored except when in a character class or escaped
     #  - anything after a '#' that is not escaped or in a character class is ignored, allowing for comments
     __armor_regex = re.compile(r"""# This capture group is optional because it will only be present in signed cleartext messages
-                         (^-{5}BEGIN\ PGP\ SIGNED\ MESSAGE-{5}(?:\r?\n)
-                          (Hash:\ (?P<hashes>[A-Za-z0-9\-,]+)(?:\r?\n){2})?
+                         (^-{5}BEGIN\ PGP\ SIGNED\ MESSAGE-{5}\r?\n
+                          (Hash:\ (?P<hashes>[A-Za-z0-9\-,]+)\r?\n)?
+                          \r?\n
                           (?P<cleartext>(.*\r?\n)*(.*(?=\r?\n-{5})))(?:\r?\n)
                          )?
                          # armor header line; capture the variable part of the magic text
