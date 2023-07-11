@@ -60,13 +60,17 @@ class SOPGPy(sop.StatelessOpenPGP):
 
     @property
     def generate_key_profiles(self) -> List[sop.SOPProfile]:
-        return [sop.SOPProfile('draft-koch-eddsa-for-openpgp-00', 'EdDSA/ECDH with Curve25519 '),
-                sop.SOPProfile('rfc4880', '3072-bit RSA'),]
+        return [
+            sop.SOPProfile('draft-koch-eddsa-for-openpgp-00', 'EdDSA/ECDH with Curve25519'),
+            sop.SOPProfile('draft-ietf-openpgp-crypto-refresh-10', 'Ed25519 with X25519'),
+            sop.SOPProfile('rfc4880', '3072-bit RSA'),
+        ]
 
     @property
     def encrypt_profiles(self) -> List[sop.SOPProfile]:
-        '''Override this to offer multiple encryption profiles'''
-        return [sop.SOPProfile('rfc4880', 'Algorithms from RFC 4880')]
+        return [
+            sop.SOPProfile('rfc4880', 'Algorithms from RFC 4880'),
+        ]
 
     # implemented ciphers that we are willing to use to encrypt, in
     # the order we prefer them:
@@ -149,8 +153,11 @@ class SOPGPy(sop.StatelessOpenPGP):
                      profile: Optional[sop.SOPProfile] = None,
                      **kwargs: Namespace) -> bytes:
         self.raise_on_unknown_options(**kwargs)
+
         if profile is not None and profile.name == 'rfc4880':
             primary = pgpy.PGPKey.new(pgpy.constants.PubKeyAlgorithm.RSAEncryptOrSign)
+        elif profile is not None and profile.name == 'draft-ietf-openpgp-crypto-refresh-10':
+            primary = pgpy.PGPKey.new(pgpy.constants.PubKeyAlgorithm.Ed25519, version=6)
         else:
             primary = pgpy.PGPKey.new(pgpy.constants.PubKeyAlgorithm.EdDSA)
         primaryflags = pgpy.constants.KeyFlags.Certify | pgpy.constants.KeyFlags.Sign
@@ -158,6 +165,11 @@ class SOPGPy(sop.StatelessOpenPGP):
 
         features = pgpy.constants.Features.SEIPDv1
         hashes: List[pgpy.constants.HashAlgorithm] = []
+
+        if profile is not None and profile.name == 'draft-ietf-openpgp-crypto-refresh-10':
+            hashes += [pgpy.constants.HashAlgorithm.SHA3_512,
+                       pgpy.constants.HashAlgorithm.SHA3_256]
+            features |= pgpy.constants.Features.SEIPDv2
 
         hashes += [pgpy.constants.HashAlgorithm.SHA512,
                    pgpy.constants.HashAlgorithm.SHA384,
@@ -171,6 +183,7 @@ class SOPGPy(sop.StatelessOpenPGP):
                                pgpy.constants.KeyFlags,
                                pgpy.constants.Features,
                                pgpy.constants.KeyServerPreferences,
+                               pgpy.packet.types.AEADCiphersuiteList,
                                ]] = {
                                    'usage': primaryflags,
                                    'hashes': hashes,
@@ -181,6 +194,12 @@ class SOPGPy(sop.StatelessOpenPGP):
                                    'keyserver_flags': pgpy.constants.KeyServerPreferences.NoModify,
                                    'features': features,
         }
+
+        if profile is not None and profile.name == 'draft-ietf-openpgp-crypto-refresh-10':
+            prefs['aead_ciphersuites'] = pgpy.packet.types.AEADCiphersuiteList([
+                (pgpy.constants.SymmetricKeyAlgorithm.AES256, pgpy.constants.AEADMode.OCB),
+                (pgpy.constants.SymmetricKeyAlgorithm.AES128, pgpy.constants.AEADMode.OCB),
+            ])
 
         # make a direct key signature with prefs:
         direct_key_sig = primary.certify(primary, **prefs)
@@ -194,6 +213,8 @@ class SOPGPy(sop.StatelessOpenPGP):
 
         if profile is not None and profile.name == 'rfc4880':
             subkey = pgpy.PGPKey.new(pgpy.constants.PubKeyAlgorithm.RSAEncryptOrSign)
+        elif profile is not None and profile.name == 'draft-ietf-openpgp-crypto-refresh-10':
+            subkey = pgpy.PGPKey.new(pgpy.constants.PubKeyAlgorithm.X25519, version=6)
         else:
             subkey = pgpy.PGPKey.new(pgpy.constants.PubKeyAlgorithm.ECDH)
         subflags: Set[int] = set()
