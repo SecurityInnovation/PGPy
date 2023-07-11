@@ -562,7 +562,8 @@ class AttributeType(IntEnum):
 
 
 class ImageEncoding(IntEnum):
-    Unknown = 0x00
+    Unknown = -1
+    Invalid = 0x00
     JPEG = 0x01
 
     @classmethod
@@ -570,6 +571,12 @@ class ImageEncoding(IntEnum):
         if imagebytes[6:10] in (b'JFIF', b'Exif') or imagebytes[:4] == b'\xff\xd8\xff\xdb':
             return ImageEncoding.JPEG
         return ImageEncoding.Unknown  # pragma: no cover
+
+    @classmethod
+    def _missing_(cls, val: object) -> ImageEncoding:
+        if not isinstance(val, int):
+            raise TypeError(f"cannot look up ImageEncoding by non-int {type(val)}")
+        return cls.Unknown
 
 
 class SignatureType(IntEnum):

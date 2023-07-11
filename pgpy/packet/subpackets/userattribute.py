@@ -58,17 +58,15 @@ class Image(UserAttribute):
         self._version = val
 
     @sdproperty
-    def iencoding(self):
+    def iencoding(self) -> ImageEncoding:
         return self._iencoding
 
-    @iencoding.register(int)
-    @iencoding.register(ImageEncoding)
-    def iencoding_int(self, val):
-        try:
-            self._iencoding = ImageEncoding(val)
+    @iencoding.register
+    def iencoding_int(self, val: int) -> None:
+        self._iencoding = ImageEncoding(val)
 
-        except ValueError:  # pragma: no cover
-            self._iencoding = val
+        if self._iencoding is ImageEncoding.Unknown:
+            self._opaque_iencoding = val
 
     @sdproperty
     def image(self):
@@ -79,19 +77,23 @@ class Image(UserAttribute):
     def image_bin(self, val):
         self._image = bytearray(val)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
-        self.version = 1
-        self.iencoding = 1
+        self.version: int = 1
+        self.iencoding: ImageEncoding = ImageEncoding.JPEG
         self.image = bytearray()
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super().__bytearray__()
 
         if self.version == 1:
+            if self.iencoding is ImageEncoding.Unknown:
+                encoding: int = self._opaque_iencoding
+            else:
+                encoding = self.iencoding
             # v1 image header length is always 16 bytes
             # and stored little-endian due to an 'historical accident'
-            _bytes += struct.pack('<hbbiii', 16, self.version, self.iencoding, 0, 0, 0)
+            _bytes += struct.pack('<hbbiii', 16, self.version, encoding, 0, 0, 0)
 
         _bytes += self.image
         return _bytes
