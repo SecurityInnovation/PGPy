@@ -1764,7 +1764,9 @@ class PGPKey(Armorable, ParentRef):
                 yield sig.revocation_key
 
     @classmethod
-    def new(cls, key_algorithm: PubKeyAlgorithm, key_size: Union[int, EllipticCurveOID], created: Optional[datetime] = None) -> PGPKey:
+    def new(cls, key_algorithm: PubKeyAlgorithm,
+            key_size: Optional[Union[int, EllipticCurveOID]] = None,
+            created: Optional[datetime] = None) -> PGPKey:
         """
         Generate a new PGP key
 

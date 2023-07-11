@@ -150,10 +150,9 @@ class SOPGPy(sop.StatelessOpenPGP):
                      **kwargs: Namespace) -> bytes:
         self.raise_on_unknown_options(**kwargs)
         if profile is not None and profile.name == 'rfc4880':
-            primary = pgpy.PGPKey.new(pgpy.constants.PubKeyAlgorithm.RSAEncryptOrSign, 3072)
+            primary = pgpy.PGPKey.new(pgpy.constants.PubKeyAlgorithm.RSAEncryptOrSign)
         else:
-            primary = pgpy.PGPKey.new(pgpy.constants.PubKeyAlgorithm.EdDSA,
-                                      pgpy.constants.EllipticCurveOID.Ed25519)
+            primary = pgpy.PGPKey.new(pgpy.constants.PubKeyAlgorithm.EdDSA)
         primaryflags: Set[int] = set()
         primaryflags.add(pgpy.constants.KeyFlags.Certify)
         primaryflags.add(pgpy.constants.KeyFlags.Sign)
@@ -178,10 +177,9 @@ class SOPGPy(sop.StatelessOpenPGP):
                 del uidoptions['primary']
 
         if profile is not None and profile.name == 'rfc4880':
-            subkey = pgpy.PGPKey.new(pgpy.constants.PubKeyAlgorithm.RSAEncryptOrSign, 3072)
+            subkey = pgpy.PGPKey.new(pgpy.constants.PubKeyAlgorithm.RSAEncryptOrSign)
         else:
-            subkey = pgpy.PGPKey.new(pgpy.constants.PubKeyAlgorithm.ECDH,
-                                     pgpy.constants.EllipticCurveOID.Curve25519)
+            subkey = pgpy.PGPKey.new(pgpy.constants.PubKeyAlgorithm.ECDH)
         subflags: Set[int] = set()
         subflags.add(pgpy.constants.KeyFlags.EncryptCommunications)
         subflags.add(pgpy.constants.KeyFlags.EncryptStorage)
