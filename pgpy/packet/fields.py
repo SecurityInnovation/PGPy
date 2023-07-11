@@ -1372,10 +1372,13 @@ class PrivKey(PubKey):
         self.clear()
 
     @abc.abstractmethod
-    def decrypt_keyblob(self, passphrase):
+    def decrypt_keyblob(self, passphrase: Union[str, bytes]) -> None:
+        ...
+
+    def _decrypt_keyblob_helper(self, passphrase: Union[str, bytes]) -> Optional[bytearray]:
         if not self.s2k:  # pragma: no cover
             # not encrypted
-            return
+            return None
 
         # Encryption/decryption of the secret data is done in CFB mode using
         # the key created from the passphrase and the Initial Vector from the
@@ -1408,7 +1411,7 @@ class PrivKey(PubKey):
     def sign(self, sigdata, hash_alg):
         return NotImplemented  # pragma: no cover
 
-    def clear(self):
+    def clear(self) -> None:
         """delete and re-initialize all private components to zero"""
         for field in self.__privfields__:
             delattr(self, field)
@@ -1420,11 +1423,10 @@ class OpaquePrivKey(PrivKey, OpaquePubKey):  # pragma: no cover
         return NotImplemented
 
     def _generate(self, key_size_or_oid: Optional[Union[int, EllipticCurveOID]]) -> None:
-        # return NotImplemented
         raise NotImplementedError()
 
-    def decrypt_keyblob(self, passphrase):
-        return NotImplemented
+    def decrypt_keyblob(self, passphrase: Union[str, bytes]) -> None:
+        raise NotImplementedError()
 
 
 class RSAPriv(PrivKey, RSAPub):
@@ -1490,9 +1492,11 @@ class RSAPriv(PrivKey, RSAPub):
             ##TODO: this needs to be bounded to the length of the encrypted key material
             self.encbytes = packet
 
-    def decrypt_keyblob(self, passphrase):
-        kb = super().decrypt_keyblob(passphrase)
+    def decrypt_keyblob(self, passphrase: Union[str, bytes]) -> None:
+        kb = self._decrypt_keyblob_helper(passphrase)
         del passphrase
+        if kb is None:
+            return
 
         self.d = MPI(kb)
         self.p = MPI(kb)
@@ -1558,9 +1562,11 @@ class DSAPriv(PrivKey, DSAPub):
             self.chksum = packet[:2]
             del packet[:2]
 
-    def decrypt_keyblob(self, passphrase):
-        kb = super().decrypt_keyblob(passphrase)
+    def decrypt_keyblob(self, passphrase: Union[str, bytes]) -> None:
+        kb = self._decrypt_keyblob_helper(passphrase)
         del passphrase
+        if kb is None:
+            return
 
         self.x = MPI(kb)
 
@@ -1599,9 +1605,11 @@ class ElGPriv(PrivKey, ElGPub):
             self.chksum = packet[:2]
             del packet[:2]
 
-    def decrypt_keyblob(self, passphrase):
-        kb = super().decrypt_keyblob(passphrase)
+    def decrypt_keyblob(self, passphrase: Union[str, bytes]) -> None:
+        kb = self._decrypt_keyblob_helper(passphrase)
         del passphrase
+        if kb is None:
+            return
 
         self.x = MPI(kb)
 
@@ -1656,9 +1664,11 @@ class ECDSAPriv(PrivKey, ECDSAPub):
             ##TODO: this needs to be bounded to the length of the encrypted key material
             self.encbytes = packet
 
-    def decrypt_keyblob(self, passphrase):
-        kb = super().decrypt_keyblob(passphrase)
+    def decrypt_keyblob(self, passphrase: Union[str, bytes]) -> None:
+        kb = self._decrypt_keyblob_helper(passphrase)
         del passphrase
+        if kb is None:
+            return
         self.s = MPI(kb)
 
     def sign(self, sigdata, hash_alg):
@@ -1716,9 +1726,11 @@ class EdDSAPriv(PrivKey, EdDSAPub):
             ##TODO: this needs to be bounded to the length of the encrypted key material
             self.encbytes = packet
 
-    def decrypt_keyblob(self, passphrase):
-        kb = super().decrypt_keyblob(passphrase)
+    def decrypt_keyblob(self, passphrase: Union[str, bytes]) -> None:
+        kb = self._decrypt_keyblob_helper(passphrase)
         del passphrase
+        if kb is None:
+            return
         self.s = MPI(kb)
 
     def sign(self, sigdata, hash_alg):

@@ -19,7 +19,7 @@ import weakref
 
 from datetime import datetime, timezone
 
-from typing import Any, ByteString, Deque, Literal, List, Iterable, Iterator, Mapping, Optional, Set, Tuple, Union
+from typing import Any, ByteString, Generator, Literal, List, Iterable, Iterator, Mapping, Optional, Set, Tuple, Union
 
 from cryptography.hazmat.primitives import hashes
 
@@ -76,6 +76,7 @@ from .packet.packets import SKESessionKey
 from .packet.packets import SKESessionKeyV4
 
 from .packet.fields import ECDSAPub, EdDSAPub, ECDHPub
+from .packet.fields import PrivKey as field_PrivKey
 
 from .packet.types import Opaque
 from .packet.types import VersionedHeader
@@ -1806,13 +1807,15 @@ class PGPKey(Armorable, ParentRef):
         self._key: Optional[PubKey] = None
         self._children = FingerprintDict["PGPKey"]()
         self._signatures = SorteDeque()
-        self._uids: Deque[PGPUID] = SorteDeque()
+        self._uids: collections.deque[PGPUID] = SorteDeque()
         self._sibling = None
         self._self_verified: Optional[SecurityIssues] = None
         self._require_usage_flags = True
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = bytearray()
+        if self._key is None:
+            raise ValueError("PGPKey: tried to get bytearray but this is uninitializes")
         # us
         _bytes += self._key.__bytearray__()
         # our signatures; ignore embedded signatures
@@ -1829,7 +1832,7 @@ class PGPKey(Armorable, ParentRef):
 
         return _bytes
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if self._key is not None:
             return "<PGPKey [{:s}][0x{:s}] at 0x{:02X}>" \
                    "".format(self._key.__class__.__name__, self.fingerprint.keyid, id(self))
@@ -1837,7 +1840,7 @@ class PGPKey(Armorable, ParentRef):
         return "<PGPKey [unknown] at 0x{:02X}>" \
                "".format(id(self))
 
-    def __contains__(self, item):
+    def __contains__(self, item) -> bool:
         if isinstance(item, PGPKey):  # pragma: no cover
             return item.fingerprint in self._children
 
@@ -1852,8 +1855,8 @@ class PGPKey(Armorable, ParentRef):
 
         raise TypeError
 
-    def __or__(self, other, from_sib=False):
-        if isinstance(other, Key) and self._key is None:
+    def __or__(self, other: Any, from_sib: bool = False) -> PGPKey:
+        if isinstance(other, PubKey) and self._key is None:
             self._key = other
 
         elif isinstance(other, PGPKey) and not other.is_primary and other.is_public == self.is_public:
@@ -1864,7 +1867,7 @@ class PGPKey(Armorable, ParentRef):
             self._signatures.insort(other)
 
             # if this is a subkey binding signature that has embedded primary key binding signatures, add them to parent
-            if other.type == SignatureType.Subkey_Binding:
+            if other.type is SignatureType.Subkey_Binding and other._signature is not None:
                 for es in iter(pkb for pkb in other._signature.subpackets['EmbeddedSignature']):
                     esig = PGPSignature() | es._sig
                     esig._parent = other
@@ -1872,7 +1875,8 @@ class PGPKey(Armorable, ParentRef):
 
         elif isinstance(other, PGPUID):
             other._parent = weakref.ref(self)
-            self._uids.insort(other)
+            if isinstance(self._uids, SorteDeque):  # should not be necessary, but satisfies the type checker.
+                self._uids.insort(other)
 
         else:
             raise TypeError(
@@ -1890,7 +1894,7 @@ class PGPKey(Armorable, ParentRef):
 
         return self
 
-    def __copy__(self):
+    def __copy__(self) -> PGPKey:
         key = super().__copy__()
         key._key = copy.copy(self._key)
 
@@ -1972,7 +1976,7 @@ class PGPKey(Armorable, ParentRef):
         del passphrase
 
     @contextlib.contextmanager
-    def unlock(self, passphrase):
+    def unlock(self, passphrase: Union[str, bytes]) -> Generator[PGPKey, None, None]:
         """
         Context manager method for unlocking passphrase-protected private keys. Has no effect if the key is not both
         private and passphrase-protected.
@@ -2017,14 +2021,16 @@ class PGPKey(Armorable, ParentRef):
 
         try:
             for sk in itertools.chain([self], self.subkeys.values()):
-                sk._key.unprotect(passphrase)
+                if isinstance(sk._key, PrivKey):
+                    sk._key.unprotect(passphrase)
             del passphrase
             yield self
 
         finally:
             # clean up here by deleting the previously decrypted secret key material
             for sk in itertools.chain([self], self.subkeys.values()):
-                sk._key.keymaterial.clear()
+                if isinstance(sk._key, PrivKey) and isinstance(sk._key.keymaterial, field_PrivKey):
+                    sk._key.keymaterial.clear()
 
     def add_uid(self, uid: PGPUID, selfsign: bool = True, **prefs) -> None:
         """

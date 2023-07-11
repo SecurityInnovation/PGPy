@@ -1027,7 +1027,7 @@ class PrivKey(PubKey, Private):
         del passphrase
         self.update_hlen()
 
-    def unprotect(self, passphrase: str) -> None:
+    def unprotect(self, passphrase: Union[str, bytes]) -> None:
         if not isinstance(self.keymaterial, PrivKeyField):
             raise TypeError("Key material is not a private key, cannot unprotect")
         self.keymaterial.decrypt_keyblob(passphrase)
