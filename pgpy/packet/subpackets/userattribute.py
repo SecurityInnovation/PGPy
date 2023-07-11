@@ -2,6 +2,8 @@
 """
 import struct
 
+from typing import Union
+
 from .types import UserAttribute
 
 from ...constants import AttributeType
@@ -50,11 +52,11 @@ class Image(UserAttribute):
     __typeid__ = AttributeType.Image
 
     @sdproperty
-    def version(self):
+    def version(self) -> int:
         return self._version
 
-    @version.register(int)
-    def version_int(self, val):
+    @version.register
+    def version_int(self, val: int) -> None:
         self._version = val
 
     @sdproperty
@@ -69,12 +71,11 @@ class Image(UserAttribute):
             self._opaque_iencoding = val
 
     @sdproperty
-    def image(self):
+    def image(self) -> bytearray:
         return self._image
 
-    @image.register(bytes)
-    @image.register(bytearray)
-    def image_bin(self, val):
+    @image.register
+    def image_bin(self, val: Union[bytes, bytearray]) -> None:
         self._image = bytearray(val)
 
     def __init__(self) -> None:
@@ -98,7 +99,7 @@ class Image(UserAttribute):
         _bytes += self.image
         return _bytes
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         super().parse(packet)
 
         with memoryview(packet) as _head:

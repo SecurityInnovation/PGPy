@@ -357,7 +357,7 @@ class PubKey(MPIs):
     def __mpis__(self):
         yield from self.__pubfields__
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         for field in self.__pubfields__:
             if isinstance(field, tuple):  # pragma: no cover
@@ -370,17 +370,17 @@ class PubKey(MPIs):
     def __pubkey__(self):
         """return the requisite *PublicKey class from the cryptography library"""
 
-    def __len__(self):
+    def __len__(self) -> int:
         return sum(len(getattr(self, i)) for i in self.__pubfields__)
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = bytearray()
         for field in self.__pubfields__:
             _bytes += getattr(self, field).to_mpibytes()
 
         return _bytes
 
-    def publen(self):
+    def publen(self) -> int:
         return len(self)
 
     def verify(self, subj, sigbytes, hash_alg):

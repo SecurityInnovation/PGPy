@@ -72,27 +72,27 @@ __all__ = ['URI',
 
 class URI(Signature):
     @sdproperty
-    def uri(self):
+    def uri(self) -> str:
         return self._uri
 
-    @uri.register(str)
-    def uri_str(self, val):
+    @uri.register
+    def uri_str(self, val: str) -> None:
         self._uri = val
 
-    @uri.register(bytearray)
-    def uri_bytearray(self, val):
+    @uri.register
+    def uri_bytearray(self, val: bytearray) -> None:
         self.uri = val.decode('latin-1')
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.uri = ""
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super().__bytearray__()
         _bytes += self.uri.encode()
         return _bytes
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         super().parse(packet)
         self.uri = packet[:(self.header.length - 1)]
         del packet[:(self.header.length - 1)]
@@ -180,30 +180,30 @@ class ByteFlag(Signature):
 
 class Boolean(Signature):
     @sdproperty
-    def bflag(self):
+    def bflag(self) -> bool:
         return self._bool
 
-    @bflag.register(bool)
-    def bflag_bool(self, val):
+    @bflag.register
+    def bflag_bool(self, val: bool) -> None:
         self._bool = val
 
-    @bflag.register(bytearray)
-    def bflag_bytearray(self, val):
+    @bflag.register
+    def bflag_bytearray(self, val: bytearray) -> None:
         self.bool = bool(self.bytes_to_int(val))
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.bflag = False
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super().__bytearray__()
-        _bytes += self.int_to_bytes(int(self.bflag))
+        _bytes.append(int(self.bflag))
         return _bytes
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         return self.bflag
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         super().parse(packet)
         self.bflag = packet[:1]
         del packet[:1]
@@ -258,33 +258,33 @@ class CreationTime(Signature):
     __typeid__ = SigSubpacketType.CreationTime
 
     @sdproperty
-    def created(self):
+    def created(self) -> datetime:
         return self._created
 
-    @created.register(datetime)
-    def created_datetime(self, val):
+    @created.register
+    def created_datetime(self, val: datetime) -> None:
         if val.tzinfo is None:
             warnings.warn("Passing TZ-naive datetime object to CreationTime subpacket")
         self._created = val
 
-    @created.register(int)
-    def created_int(self, val):
+    @created.register
+    def created_int(self, val: int) -> None:
         self.created = datetime.fromtimestamp(val, timezone.utc)
 
-    @created.register(bytearray)
-    def created_bytearray(self, val):
+    @created.register
+    def created_bytearray(self, val: bytearray) -> None:
         self.created = self.bytes_to_int(val)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.created = datetime.now(timezone.utc)
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super().__bytearray__()
         _bytes += self.int_to_bytes(calendar.timegm(self.created.utctimetuple()), 4)
         return _bytes
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         super().parse(packet)
         self.created = packet[:4]
         del packet[:4]
@@ -303,31 +303,31 @@ class SignatureExpirationTime(Signature):
     __typeid__ = SigSubpacketType.SigExpirationTime
 
     @sdproperty
-    def expires(self):
+    def expires(self) -> timedelta:
         return self._expires
 
-    @expires.register(timedelta)
-    def expires_timedelta(self, val):
+    @expires.register
+    def expires_timedelta(self, val: timedelta) -> None:
         self._expires = val
 
-    @expires.register(int)
-    def expires_int(self, val):
+    @expires.register
+    def expires_int(self, val: int) -> None:
         self.expires = timedelta(seconds=val)
 
-    @expires.register(bytearray)
-    def expires_bytearray(self, val):
+    @expires.register
+    def expires_bytearray(self, val: bytearray) -> None:
         self.expires = self.bytes_to_int(val)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.expires = 0
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super().__bytearray__()
         _bytes += self.int_to_bytes(int(self.expires.total_seconds()), 4)
         return _bytes
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         super().parse(packet)
         self.expires = packet[:4]
         del packet[:4]
@@ -388,42 +388,42 @@ class TrustSignature(Signature):
     __typeid__ = SigSubpacketType.TrustSignature
 
     @sdproperty
-    def level(self):
+    def level(self) -> int:
         return self._level
 
-    @level.register(int)
-    def level_int(self, val):
+    @level.register
+    def level_int(self, val: int) -> None:
         self._level = val
 
-    @level.register(bytearray)
-    def level_bytearray(self, val):
+    @level.register
+    def level_bytearray(self, val: bytearray) -> None:
         self.level = self.bytes_to_int(val)
 
     @sdproperty
-    def amount(self):
+    def amount(self) -> int:
         return self._amount
 
-    @amount.register(int)
-    def amount_int(self, val):
+    @amount.register
+    def amount_int(self, val: int) -> None:
         # clamp 'val' to the range 0-255
         self._amount = max(0, min(val, 255))
 
-    @amount.register(bytearray)
-    def amount_bytearray(self, val):
+    @amount.register
+    def amount_bytearray(self, val: bytearray) -> None:
         self.amount = self.bytes_to_int(val)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.level = 0
         self.amount = 0
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super().__bytearray__()
         _bytes += self.int_to_bytes(self.level)
         _bytes += self.int_to_bytes(self.amount)
         return _bytes
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         super().parse(packet)
         self.level = packet[:1]
         del packet[:1]
@@ -448,27 +448,27 @@ class RegularExpression(Signature):
     __typeid__ = SigSubpacketType.RegularExpression
 
     @sdproperty
-    def regex(self):
+    def regex(self) -> str:
         return self._regex
 
-    @regex.register(str)
-    def regex_str(self, val):
+    @regex.register
+    def regex_str(self, val: str) -> None:
         self._regex = val
 
-    @regex.register(bytearray)
-    def regex_bytearray(self, val):
+    @regex.register
+    def regex_bytearray(self, val: bytearray) -> None:
         self.regex = val.decode('latin-1')
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.regex = r''
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = super().__bytearray__()
         _bytes += self.regex.encode()
         return _bytes
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         super().parse(packet)
         self.regex = packet[:(self.header.length - 1)]
         del packet[:(self.header.length - 1)]

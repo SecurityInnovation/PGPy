@@ -255,7 +255,7 @@ class Sub(Key):
 
 
 class MPI(int):
-    def __new__(cls, num):
+    def __new__(cls, num: Union[bytes, bytearray, int]) -> MPI:
         mpi = num
 
         if isinstance(num, (bytes, bytearray)):
