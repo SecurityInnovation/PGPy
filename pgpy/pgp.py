@@ -2670,9 +2670,6 @@ class PGPKey(Armorable, ParentRef, PGPObject):
             for pkt in group:  # pragma: no cover
                 orphaned.append(pkt)
 
-        # remove the reference to self from keys
-        [ keys.pop((getattr(self, 'fingerprint.keyid', '~'), None), t) for t in (True, False) ]
-        # return {'keys': keys, 'orphaned': orphaned}
         return keys
 
 
