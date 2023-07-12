@@ -157,13 +157,17 @@ class SOPGPy(sop.StatelessOpenPGP):
         primaryflags.add(pgpy.constants.KeyFlags.Certify)
         primaryflags.add(pgpy.constants.KeyFlags.Sign)
         first: bool = True
-        uidoptions = {
+
+        hashes: List[pgpy.constants.HashAlgorithm] = []
+
+        hashes += [pgpy.constants.HashAlgorithm.SHA512,
+                  pgpy.constants.HashAlgorithm.SHA384,
+                  pgpy.constants.HashAlgorithm.SHA256,
+                  pgpy.constants.HashAlgorithm.SHA224]
+        
+        prefs = {
             'usage': primaryflags,
-            'primary': True,
-            'hashes': [pgpy.constants.HashAlgorithm.SHA512,
-                       pgpy.constants.HashAlgorithm.SHA384,
-                       pgpy.constants.HashAlgorithm.SHA256,
-                       pgpy.constants.HashAlgorithm.SHA224],
+            'hashes': hashes,
             'ciphers': [pgpy.constants.SymmetricKeyAlgorithm.AES256,
                         pgpy.constants.SymmetricKeyAlgorithm.AES192,
                         pgpy.constants.SymmetricKeyAlgorithm.AES128],
@@ -171,10 +175,15 @@ class SOPGPy(sop.StatelessOpenPGP):
             'keyserver_flags': [pgpy.constants.KeyServerPreferences.NoModify]
         }
 
+        # make a direct key signature with prefs:
+        direct_key_sig = primary.certify(primary, **prefs)
+        primary |= direct_key_sig
+
+        prefs['primary'] = True
         for uid in uids:
-            primary.add_uid(pgpy.PGPUID.new(uid), selfsign=True, **uidoptions)
-            if 'primary' in uidoptions:  # only first User ID is Primary
-                del uidoptions['primary']
+            primary.add_uid(pgpy.PGPUID.new(uid), selfsign=True, **prefs)
+            if 'primary' in prefs:  # only first User ID is Primary
+                del prefs['primary']
 
         if profile is not None and profile.name == 'rfc4880':
             subkey = pgpy.PGPKey.new(pgpy.constants.PubKeyAlgorithm.RSAEncryptOrSign)
