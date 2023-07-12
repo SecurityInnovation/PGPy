@@ -2020,6 +2020,9 @@ class PGPKey(Armorable, ParentRef):
             prefs['enc_alg'] = posargs[0]
             prefs['hash_alg'] = posargs[1]
 
+        if self._key is not None and self._key.__ver__ >= 6 and 'aead_mode' not in prefs:
+            prefs['aead_mode'] = AEADMode.OCB
+
         # allow the user to pass in a list of initialization vectors
         # (this is suitable for trying to create reproducible objects, but should not normally be used)
         ivs: List[bytes] = prefs.pop('ivs', [])
