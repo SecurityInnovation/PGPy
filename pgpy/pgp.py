@@ -74,6 +74,7 @@ from .packet.packets import OnePassSignature
 from .packet.packets import OnePassSignatureV3
 from .packet.packets import PKESessionKey
 from .packet.packets import PKESessionKeyV3
+from .packet.packets import PKESessionKeyV6
 from .packet.packets import Signature
 from .packet.packets import SignatureV4
 from .packet.packets import SignatureV6
@@ -1274,6 +1275,7 @@ class PGPMessage(Armorable):
             return self
 
         if isinstance(other, (PKESessionKey, SKESessionKey)):
+            # FIXME: throw an error here if the version of the PKESK or SKESK don't match the SEIPD.
             self._sessionkeys.append(other)
             return self
 
@@ -2940,6 +2942,8 @@ class PGPKey(Armorable, ParentRef):
             raise PGPError("PGPKey: cannot encrypt with incomplete key material")
         cipherprefs: Optional[List[SymmetricKeyAlgorithm]] = None
         compprefs: Optional[List[CompressionAlgorithm]] = None
+        features: Optional[Features] = None
+        # FIXME: check AEAD Ciphersuites preferences
         sig: PGPSignature
 
         # line up a list of iterators of self-signatures: walk
@@ -2951,13 +2955,17 @@ class PGPKey(Armorable, ParentRef):
                 cipherprefs = sig.cipherprefs
             if sig.compprefs is not None:
                 compprefs = sig.compprefs
-            if cipherprefs is not None and compprefs is not None:
+            if sig.features is not None:
+                features = sig.features
+            if cipherprefs is not None and compprefs is not None and features is not None:
                 break
 
         if cipherprefs is None:
             cipherprefs = []
         if compprefs is None:
             compprefs = []
+        if features is None:
+            features = Features.SEIPDv1
 
         if max_featureset is not None:
             features &= max_featureset
@@ -2974,19 +2982,30 @@ class PGPKey(Armorable, ParentRef):
         if sessionkey is None:
             sessionkey = cipher_algo.gen_key()
 
-        # set up a new PKESessionKeyV3
-        pkesk = PKESessionKeyV3()
-        pkesk.encrypter = bytearray(binascii.unhexlify(self.fingerprint.keyid.encode('latin-1')))
-        pkesk.pkalg = self.key_algorithm
-        pkesk.encrypt_sk(self._key, cipher_algo, sessionkey)
+        if features & Features.SEIPDv2:
+            pkesk: PKESessionKey = PKESessionKeyV6()
+            pkesk.encrypt_sk(self._key, None, sessionkey)
+        else:
+            # set up a new PKESessionKeyV3
+            pkesk = PKESessionKeyV3()
+            pkesk.encrypter = bytearray(binascii.unhexlify(self.fingerprint.keyid.encode('latin-1')))
+            pkesk.pkalg = self.key_algorithm
+            pkesk.encrypt_sk(self._key, cipher_algo, sessionkey)
 
         if message.is_encrypted:  # pragma: no cover
             _m = message
 
         else:
             _m = PGPMessage()
-            skedata = IntegrityProtectedSKEDataV1()
-            skedata.encrypt(sessionkey, cipher_algo, message.__bytes__())
+            if features & Features.SEIPDv2:
+                seipd2 = IntegrityProtectedSKEDataV2()
+                seipd2.cipher = cipher_algo
+                seipd2.encrypt(sessionkey, message.__bytes__())
+                skedata: IntegrityProtectedSKEData = seipd2
+            else:
+                seipd1 = IntegrityProtectedSKEDataV1()
+                seipd1.encrypt(sessionkey, cipher_algo, message.__bytes__())
+                skedata = seipd1
             _m |= skedata
 
         _m |= pkesk
