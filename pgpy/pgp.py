@@ -2119,19 +2119,16 @@ class PGPKey(Armorable, ParentRef):
         bsig = self.bind(key, **prefs)
         key |= bsig
 
-    def _get_key_flags(self, user=None) -> Optional[KeyFlags]:
+    def _get_key_flags(self, user: Optional[str] = None) -> Optional[KeyFlags]:
         if self.is_primary:
-            if user is not None:
-                user = self.get_uid(user)
-
-            elif len(self._uids) == 0:
-                return KeyFlags.Certify
-
-            else:
-                user = next(iter(self.userids))
-
             # RFC 4880 says that primary keys *must* be capable of certification
-            return KeyFlags.Certify | (user.selfsig.key_flags if user.selfsig and user.selfsig.key_flags is not None else KeyFlags(0))
+            key_flags: KeyFlags = KeyFlags.Certify
+            for prefsig in self.search_pref_sigs(uid=user):
+                if prefsig.key_flags is not None:
+                    key_flags |= prefsig.key_flags
+                    break
+
+            return key_flags
 
         return next(self.self_signatures).key_flags
 
