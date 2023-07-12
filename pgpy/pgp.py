@@ -152,6 +152,10 @@ class PGPSignature(Armorable, ParentRef):
         return self.parent is not None
 
     @property
+    def emit_crc(self) -> bool:
+        return self._signature is not None and self._signature.__ver__ < 6
+
+    @property
     def expires_at(self) -> Optional[datetime]:
         """
         A :py:obj:`~datetime.datetime` of when this signature expires, if a signature expiration date is specified.
@@ -728,6 +732,13 @@ class PGPSignatures(collections.abc.Container, collections.abc.Iterable, collect
             b += sig.__bytearray__()
         return b
 
+    @property
+    def emit_crc(self) -> bool:
+        for sig in self._sigs:
+            if sig._signature is not None and sig._signature.__ver__ < 6:
+                return True
+        return False
+
     def parse(self, packet: bytes) -> None:
         unarmored = self.ascii_unarmor(packet)
         data = unarmored['body']
@@ -1054,6 +1065,22 @@ class PGPMessage(Armorable):
     def encrypters(self) -> Set[Union[KeyID, Fingerprint]]:
         """A ``set`` containing all key ids (if any) to which this message was encrypted."""
         return {m.encrypter for m in self._sessionkeys if isinstance(m, PKESessionKey) and m.encrypter is not None}
+
+    @property
+    def emit_crc(self) -> bool:
+        if self.is_encrypted:
+            if isinstance(self._message, IntegrityProtectedSKEDataV2):
+                return False
+            return True
+        # unencrypted messages with no signatures at all are pointless, but
+        # let's go ahead and leave the CRC on them anyway, so that legacy tools will
+        # base64-decode them without complaint:
+        if len(self._signatures) == 0:
+            return True
+        for sig in self._signatures:
+            if sig._signature is not None and sig._signature.__ver__ < 6:
+                return True
+        return False
 
     @property
     def filename(self) -> Optional[str]:
@@ -1599,6 +1626,12 @@ class PGPKey(Armorable, ParentRef):
         """The fingerprint of this key, as a :py:obj:`~pgpy.types.Fingerprint` object."""
         if self._key:
             return self._key.fingerprint
+
+    @property
+    def emit_crc(self) -> bool:
+        if self._key is not None and self._key.__ver__ < 6:
+            return True
+        return False
 
     @property
     def hashdata(self):
