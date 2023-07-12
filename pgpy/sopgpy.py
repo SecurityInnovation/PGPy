@@ -153,26 +153,33 @@ class SOPGPy(sop.StatelessOpenPGP):
             primary = pgpy.PGPKey.new(pgpy.constants.PubKeyAlgorithm.RSAEncryptOrSign)
         else:
             primary = pgpy.PGPKey.new(pgpy.constants.PubKeyAlgorithm.EdDSA)
-        primaryflags: Set[int] = set()
-        primaryflags.add(pgpy.constants.KeyFlags.Certify)
-        primaryflags.add(pgpy.constants.KeyFlags.Sign)
+        primaryflags = pgpy.constants.KeyFlags.Certify | pgpy.constants.KeyFlags.Sign
         first: bool = True
 
+        features = pgpy.constants.Features.ModificationDetection
         hashes: List[pgpy.constants.HashAlgorithm] = []
 
         hashes += [pgpy.constants.HashAlgorithm.SHA512,
-                  pgpy.constants.HashAlgorithm.SHA384,
-                  pgpy.constants.HashAlgorithm.SHA256,
-                  pgpy.constants.HashAlgorithm.SHA224]
-        
-        prefs = {
-            'usage': primaryflags,
-            'hashes': hashes,
-            'ciphers': [pgpy.constants.SymmetricKeyAlgorithm.AES256,
-                        pgpy.constants.SymmetricKeyAlgorithm.AES192,
-                        pgpy.constants.SymmetricKeyAlgorithm.AES128],
-            'compression': [pgpy.constants.CompressionAlgorithm.Uncompressed],
-            'keyserver_flags': [pgpy.constants.KeyServerPreferences.NoModify]
+                   pgpy.constants.HashAlgorithm.SHA384,
+                   pgpy.constants.HashAlgorithm.SHA256,
+                   pgpy.constants.HashAlgorithm.SHA224]
+
+        prefs: Dict[str, Union[List[pgpy.constants.SymmetricKeyAlgorithm],
+                               List[pgpy.constants.HashAlgorithm],
+                               List[pgpy.constants.CompressionAlgorithm],
+                               bool,
+                               pgpy.constants.KeyFlags,
+                               pgpy.constants.Features,
+                               pgpy.constants.KeyServerPreferences,
+                               ]] = {
+                                   'usage': primaryflags,
+                                   'hashes': hashes,
+                                   'ciphers': [pgpy.constants.SymmetricKeyAlgorithm.AES256,
+                                               pgpy.constants.SymmetricKeyAlgorithm.AES192,
+                                               pgpy.constants.SymmetricKeyAlgorithm.AES128],
+                                   'compression': [pgpy.constants.CompressionAlgorithm.Uncompressed],
+                                   'keyserver_flags': pgpy.constants.KeyServerPreferences.NoModify,
+                                   'features': features,
         }
 
         # make a direct key signature with prefs:
