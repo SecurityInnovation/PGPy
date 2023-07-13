@@ -579,6 +579,11 @@ class SKESessionKey(VersionedPacket):
     __typeid__ = PacketType.SymmetricKeyEncryptedSessionKey
     __ver__ = 0
 
+    def __init__(self) -> None:
+        super().__init__()
+        self.symalg = SymmetricKeyAlgorithm.AES256
+        self.s2kspec = S2KSpecifier()
+
     # FIXME: the type signature for this function is awkward because
     # the symmetric algorithm used by the following SEIPDv2 packet is
     # not encoded in the SKESKv6:
@@ -646,8 +651,6 @@ class SKESessionKeyV4(SKESessionKey):
 
     def __init__(self) -> None:
         super().__init__()
-        self.symalg = SymmetricKeyAlgorithm.AES256
-        self.s2kspec = S2KSpecifier()
         self.ct = bytearray()
 
     def __bytearray__(self) -> bytearray:
