@@ -4,6 +4,41 @@
 Changelog
 *********
 
+v0.7.0
+======
+
+(not yet released)
+
+Dependency changes
+------------------
+
+pyasn1 is no longer needed
+
+Now depends transitively (via the cryptography module) on OpenSSL
+1.1.1 or later for Brainpool, X25519, Ed25519.
+
+API additions
+-------------
+
+PGPSignatures represents a detached signature, which can contain more
+than a single signature.  It is a simple sequence of individual
+PGPSignature objects.
+
+API changes
+-----------
+
+Armorable.is_ascii() is deprecated.  You probably want
+Armorable.is_utf8() instead, since OpenPGP assumes that all text is
+UTF-8.
+
+EllipticCurveOID.Invalid was removed -- EllipticCurveOID only
+enumerates supported curves now.
+
+HashAlgorithm.hasher now returns a
+cryptography.hazmat.primitives.hashes.Hash object, not a hashlib.HASH
+object.  The main difference between these interfaces is the use of
+finalize() instead of digest().
+
 v0.6.0
 ======
 

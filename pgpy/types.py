@@ -1,6 +1,5 @@
 """ types.py
 """
-from __future__ import division
 
 import abc
 import base64
@@ -17,6 +16,8 @@ import weakref
 from enum import EnumMeta
 from enum import IntEnum
 
+from typing import Optional, Dict, List, Set, Tuple, Type, Union
+
 from .decorators import sdproperty
 
 from .errors import PGPError
@@ -31,8 +32,8 @@ __all__ = ['Armorable',
            'Header',
            'MetaDispatchable',
            'Dispatchable',
+           'DispatchGuidance',
            'SignatureVerification',
-           'Fingerprint',
            'SorteDeque']
 
 
@@ -69,15 +70,27 @@ class Armorable(metaclass=abc.ABCMeta):
                          """, flags=re.MULTILINE | re.VERBOSE)
 
     @property
-    def charset(self):
+    def charset(self) -> str:
         return self.ascii_headers.get('Charset', 'utf-8')
 
     @charset.setter
-    def charset(self, encoding):
+    def charset(self, encoding: str) -> None:
         self.ascii_headers['Charset'] = codecs.lookup(encoding).name
 
     @staticmethod
-    def is_ascii(text):
+    def is_utf8(text: Union[str, bytes, bytearray]) -> bool:
+        if isinstance(text, str):
+            return True
+        else:
+            try:
+                text.decode('utf-8')
+                return True
+            except UnicodeDecodeError:
+                return False
+
+    @staticmethod
+    def is_ascii(text: Union[str, bytes, bytearray]) -> bool:
+        '''This is a deprecated, pointless method'''
         if isinstance(text, str):
             return bool(re.match(r'^[ -~\r\n\t]*$', text, flags=re.ASCII))
 
@@ -87,7 +100,7 @@ class Armorable(metaclass=abc.ABCMeta):
         raise TypeError("Expected: ASCII input of type str, bytes, or bytearray")  # pragma: no cover
 
     @staticmethod
-    def is_armor(text):
+    def is_armor(text: Union[str, bytes, bytearray]) -> bool:
         """
         Whether the ``text`` provided is an ASCII-armored PGP block.
         :param text: A possible ASCII-armored PGP block.
@@ -95,12 +108,15 @@ class Armorable(metaclass=abc.ABCMeta):
         :returns: Whether the text is ASCII-armored.
         """
         if isinstance(text, (bytes, bytearray)):  # pragma: no cover
-            text = text.decode('latin-1')
+            try:
+                text = text.decode('utf-8')
+            except UnicodeDecodeError:
+                return False
 
         return Armorable.__armor_regex.search(text) is not None
 
     @staticmethod
-    def ascii_unarmor(text):
+    def ascii_unarmor(text: Union[str, bytes, bytearray]) -> Dict[str, Optional[Union[str, bytes, bytearray, List[str]]]]:
         """
         Takes an ASCII-armored PGP block and returns the decoded byte value.
 
@@ -110,20 +126,18 @@ class Armorable(metaclass=abc.ABCMeta):
         :returns: A ``dict`` containing information from ``text``, including the de-armored data.
         It can contain the following keys: ``magic``, ``headers``, ``hashes``, ``cleartext``, ``body``, ``crc``.
         """
-        m = {'magic': None, 'headers': None, 'body': bytearray(), 'crc': None}
-        if not Armorable.is_ascii(text):
-            m['body'] = bytearray(text)
-            return m
+        if not isinstance(text, str) and not Armorable.is_utf8(text):
+            return {'magic': None, 'headers': None, 'body': bytearray(text), 'crc': None}
 
         if isinstance(text, (bytes, bytearray)):  # pragma: no cover
             text = text.decode('latin-1')
 
-        m = Armorable.__armor_regex.search(text)
+        matcher = Armorable.__armor_regex.search(text)
 
-        if m is None:  # pragma: no cover
+        if matcher is None:  # pragma: no cover
             raise ValueError("Expected: ASCII-armored PGP data")
 
-        m = m.groupdict()
+        m = matcher.groupdict()
 
         if m['hashes'] is not None:
             m['hashes'] = m['hashes'].split(',')
@@ -203,7 +217,7 @@ class Armorable(metaclass=abc.ABCMeta):
         return obj  # pragma: no cover
 
     def __init__(self):
-        super(Armorable, self).__init__()
+        super().__init__()
         self.ascii_headers = collections.OrderedDict()
 
     def __str__(self):
@@ -224,7 +238,7 @@ class Armorable(metaclass=abc.ABCMeta):
         return obj
 
 
-class ParentRef(object):
+class ParentRef:
     # mixin class to handle weak-referencing a parent object
     @property
     def _parent(self):
@@ -245,7 +259,7 @@ class ParentRef(object):
         return self._parent
 
     def __init__(self):
-        super(ParentRef, self).__init__()
+        super().__init__()
         self._parent = None
 
 
@@ -414,11 +428,16 @@ class Header(Field):
             self._llen = {0: 1, 1: 2, 2: 4, 3: 0}[val]
 
     def __init__(self):
-        super(Header, self).__init__()
+        super().__init__()
         self._len = 1
         self._llen = 1
         self._lenfmt = 1
         self._partial = False
+
+
+class DispatchGuidance(IntEnum):
+    "Identify classes that should be left alone by PGPy's internal dispatch mechanism"
+    NoDispatch = -1
 
 
 class MetaDispatchable(abc.ABCMeta):
@@ -426,15 +445,15 @@ class MetaDispatchable(abc.ABCMeta):
     MetaDispatchable is a metaclass for objects that subclass Dispatchable
     """
 
-    _roots = set()
+    _roots: Set[Type] = set()
     """
     _roots is a set of all currently registered RootClass class objects
 
     A RootClass is successfully registered if the following things are true:
      - it inherits (directly or indirectly) from Dispatchable
-     - __typeid__ == -1
+     - __typeid__ is None
     """
-    _registry = {}
+    _registry: Dict[Union[Tuple[Type, Optional[IntEnum]], Tuple[Type, IntEnum, int]], Type] = {}
     """
     _registry is the Dispatchable class registry. It uses the following format:
 
@@ -467,14 +486,14 @@ class MetaDispatchable(abc.ABCMeta):
     """
 
     def __new__(mcs, name, bases, attrs):  # NOQA
-        ncls = super(MetaDispatchable, mcs).__new__(mcs, name, bases, attrs)
+        ncls = super().__new__(mcs, name, bases, attrs)
 
-        if not hasattr(ncls.__typeid__, '__isabstractmethod__'):
-            if ncls.__typeid__ == -1 and not issubclass(ncls, tuple(MetaDispatchable._roots)):
+        if ncls.__typeid__ is not DispatchGuidance.NoDispatch:
+            if ncls.__typeid__ is None and not issubclass(ncls, tuple(MetaDispatchable._roots)):
                 # this is a root class
                 MetaDispatchable._roots.add(ncls)
 
-            elif issubclass(ncls, tuple(MetaDispatchable._roots)) and ncls.__typeid__ != -1:
+            elif issubclass(ncls, tuple(MetaDispatchable._roots)):
                 for rcls in (root for root in MetaDispatchable._roots if issubclass(ncls, root)):
                     if (rcls, ncls.__typeid__) not in MetaDispatchable._registry:
                         MetaDispatchable._registry[(rcls, ncls.__typeid__)] = ncls
@@ -548,21 +567,18 @@ class MetaDispatchable(abc.ABCMeta):
 
 
 class Dispatchable(PGPObject, metaclass=MetaDispatchable):
+    __typeid__: Optional[IntEnum] = DispatchGuidance.NoDispatch
 
     @abc.abstractproperty
     def __headercls__(self):  # pragma: no cover
         return False
 
-    @abc.abstractproperty
-    def __typeid__(self):  # pragma: no cover
-        return False
-
-    __ver__ = None
+    __ver__: Optional[int] = None
 
 
-class SignatureVerification(object):
+class SignatureVerification:
     __slots__ = ("_subjects",)
-    _sigsubj = collections.namedtuple('sigsubj', ['issues', 'by', 'signature', 'subject'])
+    sigsubj = collections.namedtuple('sigsubj', ['issues', 'by', 'signature', 'subject'])
 
     @property
     def good_signatures(self):
@@ -611,7 +627,7 @@ class SignatureVerification(object):
 
         Can be compared directly as a boolean to determine whether or not the specified signature verified.
         """
-        super(SignatureVerification, self).__init__()
+        super().__init__()
         self._subjects = []
 
     def __contains__(self, item):
@@ -627,9 +643,6 @@ class SignatureVerification(object):
             or (sigsub.issues and not sigsub.issues.causes_signature_verify_to_fail)
             for sigsub in self._subjects
         )
-
-    def __nonzero__(self):
-        return self.__bool__()
 
     def __and__(self, other):
         if not isinstance(other, SignatureVerification):
@@ -648,7 +661,7 @@ class SignatureVerification(object):
         if issues is None:
             from .constants import SecurityIssues
             issues = SecurityIssues(0xFF)
-        self._subjects.append(self._sigsubj(issues, by, signature, subject))
+        self._subjects.append(self.sigsubj(issues, by, signature, subject))
 
 
 class FlagEnumMeta(EnumMeta):
@@ -674,22 +687,39 @@ class Fingerprint(str):
         return self[-16:]
 
     @property
-    def shortid(self):
+    def shortid(self) -> str:
+        if self._version != 4:
+            raise ValueError("shortid can only ever be used on version 4 keys")
         return self[-8:]
 
-    def __new__(cls, content):
+    @sdproperty
+    def version(self) -> int:
+        'Returns None if the version is unknown'
+        return self._version
+
+    @version.register
+    def version_int(self, version: int) -> None:
+        self._version: int = version
+
+    def __new__(cls, content: Union[str, bytes, bytearray], version=None) -> "Fingerprint":
         if isinstance(content, Fingerprint):
             return content
 
+        if isinstance(content, (bytes, bytearray)):
+            if len(content) != 20:
+                raise ValueError(f'binary Fingerprint must be 20 bytes, not {len(content)}')
+            return Fingerprint(binascii.b2a_hex(content).decode('latin-1').upper())
         # validate input before continuing: this should be a string of 40 hex digits
         content = content.upper().replace(' ', '')
-        if not re.match(r'^[0-9A-F]+$', content):
+        if not re.match(r'^[0-9A-F]{40}$', content):
             raise ValueError('Fingerprint must be a string of 40 hex digits')
-        return str.__new__(cls, content)
+        ret = str.__new__(cls, content)
+        ret._version = 4 if version is None else version
+        return ret
 
     def __eq__(self, other):
         if isinstance(other, Fingerprint):
-            return str(self) == str(other)
+            return str(self) == str(other) and self._version == other._version
 
         if isinstance(other, (str, bytes, bytearray)):
             if isinstance(other, (bytes, bytearray)):  # pragma: no cover
@@ -698,7 +728,7 @@ class Fingerprint(str):
             other = other.replace(' ', '')
             return any([str(self) == other,
                         self.keyid == other,
-                        self.shortid == other])
+                        self._version == 4 and self.shortid == other])
 
         return False  # pragma: no cover
 
@@ -708,8 +738,11 @@ class Fingerprint(str):
     def __hash__(self):
         return hash(str(self))
 
-    def __bytes__(self):
-        return binascii.unhexlify(self.encode("latin-1"))
+    def __bytes__(self) -> bytes:
+        return binascii.a2b_hex(self.encode("latin-1"))
+
+    def __wireformat__(self) -> bytes:
+        return bytes([self._version]) + bytes(self)
 
     def __pretty__(self):
         content = self
@@ -722,22 +755,20 @@ class Fingerprint(str):
         ]
         return '  '.join(' '.join(c for c in half) for half in halves)
 
-    def __repr__(self):
-        return '{classname}({fp})'.format(
-            classname=self.__class__.__name__,
-            fp=self.__pretty__()
-        )
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}v{self._version}({self.__pretty__()})'
 
 
 class SorteDeque(collections.deque):
     """A deque subclass that tries to maintain sorted ordering using bisect"""
-    def insort(self, item):
+
+    def insort(self, item) -> None:
         i = bisect.bisect_left(self, item)
         self.rotate(- i)
         self.appendleft(item)
         self.rotate(i)
 
-    def resort(self, item):  # pragma: no cover
+    def resort(self, item) -> None:  # pragma: no cover
         if item in self:
             # if item is already in self, see if it is still in sorted order.
             # if not, re-sort it by removing it and then inserting it into its sorted order
@@ -750,7 +781,7 @@ class SorteDeque(collections.deque):
             # if item is not in self, just insert it in sorted order
             self.insort(item)
 
-    def check(self):  # pragma: no cover
+    def check(self) -> None:  # pragma: no cover
         """re-sort any items in self that are not sorted"""
         for unsorted in iter(self[i] for i in range(len(self) - 2) if not operator.le(self[i], self[i + 1])):
             self.resort(unsorted)

@@ -1,17 +1,21 @@
 """ types.py
 """
-from __future__ import division
 
 import abc
 import copy
+
+from typing import Optional, Tuple, Union
 
 from ..constants import PacketTag
 
 from ..decorators import sdproperty
 
+from ..types import DispatchGuidance
 from ..types import Dispatchable
 from ..types import Field
 from ..types import Header as _Header
+
+from ..constants import PubKeyAlgorithm
 
 __all__ = ['Header',
            'VersionedHeader',
@@ -47,7 +51,7 @@ class Header(_Header):
         return self.tag
 
     def __init__(self):
-        super(Header, self).__init__()
+        super().__init__()
         self.tag = 0x00
 
     def __bytearray__(self):
@@ -123,17 +127,17 @@ class VersionedHeader(Header):
         self._version = val
 
     def __init__(self):
-        super(VersionedHeader, self).__init__()
+        super().__init__()
         self.version = 0
 
     def __bytearray__(self):
-        _bytes = bytearray(super(VersionedHeader, self).__bytearray__())
+        _bytes = bytearray(super().__bytearray__())
         _bytes += bytearray([self.version])
         return _bytes
 
     def parse(self, packet):  # pragma: no cover
         if self.tag == 0:
-            super(VersionedHeader, self).parse(packet)
+            super().parse(packet)
 
         if self.version == 0:
             self.version = packet[0]
@@ -141,11 +145,11 @@ class VersionedHeader(Header):
 
 
 class Packet(Dispatchable):
-    __typeid__ = -1
+    __typeid__: Optional[Union[PacketTag, DispatchGuidance]] = None
     __headercls__ = Header
 
     def __init__(self, _=None):
-        super(Packet, self).__init__()
+        super().__init__()
         self.header = self.__headercls__()
         if isinstance(self.__typeid__, int):
             self.header.tag = self.__typeid__
@@ -170,10 +174,11 @@ class Packet(Dispatchable):
 
 
 class VersionedPacket(Packet):
+    __typeid__: Union[PacketTag, DispatchGuidance] = DispatchGuidance.NoDispatch
     __headercls__ = VersionedHeader
 
     def __init__(self):
-        super(VersionedPacket, self).__init__()
+        super().__init__()
         if isinstance(self.__ver__, int):
             self.header.version = self.__ver__
 
@@ -195,16 +200,16 @@ class Opaque(Packet):
         self._payload = val
 
     def __init__(self):
-        super(Opaque, self).__init__()
+        super().__init__()
         self.payload = b''
 
     def __bytearray__(self):
-        _bytes = super(Opaque, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self.payload
         return _bytes
 
     def parse(self, packet):  # pragma: no cover
-        super(Opaque, self).parse(packet)
+        super().parse(packet)
         pend = self.header.length
         if hasattr(self.header, 'version'):
             pend -= 1
@@ -214,8 +219,10 @@ class Opaque(Packet):
 
 
 # key marker classes for convenience
-class Key(object):
-    pass
+class Key:
+    @abc.abstractproperty
+    def pkalg(self) -> PubKeyAlgorithm:
+        """The public key algorithm of the key"""
 
 
 class Public(Key):
@@ -223,7 +230,17 @@ class Public(Key):
 
 
 class Private(Key):
-    pass
+    @abc.abstractproperty
+    def pubkey(self) -> Public:
+        """compute and return the fingerprint of the key"""
+
+    @abc.abstractproperty
+    def protected(self) -> bool:
+        """Whether the secret key material is protected by a password"""
+
+    @abc.abstractproperty
+    def unlocked(self) -> bool:
+        """Is the secret key material is protected and also unlocked for use?"""
 
 
 class Primary(Key):
@@ -252,7 +269,7 @@ class MPI(long):
             mpi = MPIs.bytes_to_int(num[:fl])
             del num[:fl]
 
-        return super(MPI, cls).__new__(cls, mpi)
+        return super().__new__(cls, mpi)
 
     def byte_length(self):
         return ((self.bit_length() + 7) // 8)
@@ -267,7 +284,7 @@ class MPI(long):
 class MPIs(Field):
     # this differs from MPI in that it's subclasses hold/parse several MPI fields
     # and, in the case of v4 private keys, also a String2Key specifier/information.
-    __mpis__ = ()
+    __mpis__: Tuple = ()
 
     def __len__(self):
         return sum(len(i) for i in self)

@@ -2,6 +2,11 @@
 """
 import abc
 
+from typing import Optional, Union
+
+from ...constants import SigSubpacketType
+from ...constants import AttributeType
+
 from ..types import VersionedHeader
 
 from ...decorators import sdproperty
@@ -42,7 +47,7 @@ class Header(_Header):
         self.critical = bool(v & 0x80)
 
     def __init__(self):
-        super(Header, self).__init__()
+        super().__init__()
         self._typeid = -1
         self.critical = False
 
@@ -67,20 +72,19 @@ class EmbeddedSignatureHeader(VersionedHeader):
 
     def parse(self, packet):
         self.tag = 2
-        super(EmbeddedSignatureHeader, self).parse(packet)
+        super().parse(packet)
 
 
 class SubPacket(Dispatchable):
     __headercls__ = Header
 
     def __init__(self):
-        super(SubPacket, self).__init__()
+        super().__init__()
         self.header = Header()
 
         if (
             self.header.typeid == -1
-            and (not hasattr(self.__typeid__, '__abstractmethod__'))
-            and (self.__typeid__ not in {-1, None})
+            and (self.__typeid__ is not None)
         ):
             self.header.typeid = self.__typeid__
 
@@ -91,7 +95,7 @@ class SubPacket(Dispatchable):
         return (self.header.llen + self.header.length)
 
     def __repr__(self):
-        return "<{} [0x{:02x}] at 0x{:x}>".format(self.__class__.__name__, self.header.typeid, id(self))
+        return "<{} [0x{:02x}] {}at 0x{:x}>".format(self.__class__.__name__, self.header.typeid, 'critical! ' if self.header.critical else '', id(self))
 
     def update_hlen(self):
         self.header.length = (len(self.__bytearray__()) - len(self.header)) + 1
@@ -103,11 +107,11 @@ class SubPacket(Dispatchable):
 
 
 class Signature(SubPacket):
-    __typeid__ = -1
+    __typeid__: Optional[SigSubpacketType] = None
 
 
 class UserAttribute(SubPacket):
-    __typeid__ = -1
+    __typeid__: Optional[AttributeType] = None
 
 
 class Opaque(Signature, UserAttribute):
@@ -123,15 +127,15 @@ class Opaque(Signature, UserAttribute):
         self._payload = bytearray(val)
 
     def __init__(self):
-        super(Opaque, self).__init__()
+        super().__init__()
         self.payload = b''
 
     def __bytearray__(self):
-        _bytes = super(Opaque, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self.payload
         return _bytes
 
     def parse(self, packet):
-        super(Opaque, self).parse(packet)
+        super().parse(packet)
         self.payload = packet[:(self.header.length - 1)]
         del packet[:(self.header.length - 1)]

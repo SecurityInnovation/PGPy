@@ -1,21 +1,24 @@
 """ symenc.py
 """
-from cryptography.exceptions import UnsupportedAlgorithm
 
-from cryptography.hazmat.backends import default_backend
+from typing import Optional
+
+from cryptography.exceptions import UnsupportedAlgorithm
 
 from cryptography.hazmat.primitives.ciphers import Cipher
 from cryptography.hazmat.primitives.ciphers import modes
+
+from .constants import SymmetricKeyAlgorithm
 
 from .errors import PGPDecryptionError
 from .errors import PGPEncryptionError
 from .errors import PGPInsecureCipherError
 
-__all__ = ['_encrypt',
-           '_decrypt']
+__all__ = ['_cfb_encrypt',
+           '_cfb_decrypt']
 
 
-def _encrypt(pt, key, alg, iv=None):
+def _cfb_encrypt(pt: bytes, key: bytes, alg: SymmetricKeyAlgorithm, iv: Optional[bytes] = None) -> bytearray:
     if iv is None:
         iv = b'\x00' * (alg.block_size // 8)
 
@@ -26,7 +29,7 @@ def _encrypt(pt, key, alg, iv=None):
         raise PGPEncryptionError("Cipher {:s} not supported".format(alg.name))
 
     try:
-        encryptor = Cipher(alg.cipher(key), modes.CFB(iv), default_backend()).encryptor()
+        encryptor = Cipher(alg.cipher(key), modes.CFB(iv)).encryptor()
 
     except UnsupportedAlgorithm as ex:  # pragma: no cover
         raise PGPEncryptionError from ex
@@ -35,7 +38,7 @@ def _encrypt(pt, key, alg, iv=None):
         return bytearray(encryptor.update(pt) + encryptor.finalize())
 
 
-def _decrypt(ct, key, alg, iv=None):
+def _cfb_decrypt(ct: bytes, key: bytes, alg: SymmetricKeyAlgorithm, iv: Optional[bytes] = None) -> bytearray:
     if iv is None:
         """
         Instead of using an IV, OpenPGP prefixes a string of length
@@ -47,7 +50,7 @@ def _decrypt(ct, key, alg, iv=None):
         iv = b'\x00' * (alg.block_size // 8)
 
     try:
-        decryptor = Cipher(alg.cipher(key), modes.CFB(iv), default_backend()).decryptor()
+        decryptor = Cipher(alg.cipher(key), modes.CFB(iv)).decryptor()
 
     except UnsupportedAlgorithm as ex:  # pragma: no cover
         raise PGPDecryptionError from ex

@@ -20,7 +20,6 @@ from pgpy import PGPKey
 from pgpy import PGPMessage
 from pgpy import PGPSignature
 from pgpy import PGPUID
-from pgpy._curves import _openssl_get_supported_curves
 from pgpy.constants import CompressionAlgorithm
 from pgpy.constants import EllipticCurveOID
 from pgpy.constants import Features
@@ -40,7 +39,7 @@ from pgpy.packet.packets import PrivSubKeyV4
 enc_msgs = [ PGPMessage.from_file(f) for f in sorted(glob.glob('tests/testdata/messages/message*.pass*.asc')) ]
 
 
-class TestPGPMessage(object):
+class TestPGPMessage:
     @staticmethod
     def gpg_message(msg):
         ret = None
@@ -71,7 +70,7 @@ class TestPGPMessage(object):
     @pytest.mark.parametrize('comp_alg,sensitive',
                              itertools.product(CompressionAlgorithm, [False, True]))
     def test_new(self, comp_alg, sensitive):
-        mtxt = u"This is a new message!"
+        mtxt = "This is a new message!"
         msg = PGPMessage.new(mtxt, compression=comp_alg, sensitive=sensitive)
 
         assert isinstance(msg, PGPMessage)
@@ -106,10 +105,10 @@ class TestPGPMessage(object):
     # @pytest.mark.parametrize('cleartext', [False, True])
     def test_new_non_unicode(self):
         # this message text comes from http://www.columbia.edu/~fdc/utf8/
-        text = u'色は匂へど 散りぬるを\n' \
-               u'我が世誰ぞ 常ならむ\n' \
-               u'有為の奥山 今日越えて\n' \
-               u'浅き夢見じ 酔ひもせず'
+        text = '色は匂へど 散りぬるを\n' \
+               '我が世誰ぞ 常ならむ\n' \
+               '有為の奥山 今日越えて\n' \
+               '浅き夢見じ 酔ひもせず'
         msg = PGPMessage.new(text.encode('jisx0213'), encoding='jisx0213')
 
         assert msg.type == 'literal'
@@ -122,17 +121,17 @@ class TestPGPMessage(object):
     @pytest.mark.regression(issue=154)
     def test_new_non_unicode_cleartext(self):
         # this message text comes from http://www.columbia.edu/~fdc/utf8/
-        text = u'色は匂へど 散りぬるを\n' \
-               u'我が世誰ぞ 常ならむ\n' \
-               u'有為の奥山 今日越えて\n' \
-               u'浅き夢見じ 酔ひもせず'
+        text = '色は匂へど 散りぬるを\n' \
+               '我が世誰ぞ 常ならむ\n' \
+               '有為の奥山 今日越えて\n' \
+               '浅き夢見じ 酔ひもせず'
         msg = PGPMessage.new(text.encode('jisx0213'), cleartext=True, encoding='jisx0213')
 
         assert msg.type == 'cleartext'
         assert msg.message == text
 
     def test_add_marker(self):
-        msg = PGPMessage.new(u"This is a new message")
+        msg = PGPMessage.new("This is a new message")
         marker = Packet(bytearray(b'\xa8\x03\x50\x47\x50'))
         msg |= marker
 
@@ -237,7 +236,7 @@ skeyspecs = ((PubKeyAlgorithm.RSAEncryptOrSign, 2048),
              (PubKeyAlgorithm.ECDH, EllipticCurveOID.Curve25519),)
 
 
-class TestPGPKey_Management(object):
+class TestPGPKey_Management:
     # test PGPKey management actions, e.g.:
     # - key/subkey generation
     # - adding/removing UIDs
@@ -288,7 +287,7 @@ class TestPGPKey_Management(object):
         if not alg.can_gen:
             pytest.xfail('Key algorithm {} not yet supported'.format(alg.name))
 
-        if isinstance(size, EllipticCurveOID) and ((not size.can_gen) or size.curve.name not in _openssl_get_supported_curves()):
+        if isinstance(size, EllipticCurveOID) and (not size.can_gen):
             pytest.xfail('Curve {} not yet supported'.format(size.curve.name))
 
         key = self.keys[pkspec]
@@ -511,7 +510,7 @@ class TestPGPKey_Management(object):
         if not alg.can_gen:
             pytest.xfail('Key algorithm {} not yet supported'.format(alg.name))
 
-        if isinstance(size, EllipticCurveOID) and ((not size.can_gen) or size.curve.name not in _openssl_get_supported_curves()):
+        if isinstance(size, EllipticCurveOID) and (not size.can_gen):
             pytest.xfail('Curve {} not yet supported'.format(size.curve.name))
 
         # revoke the subkey
@@ -621,8 +620,9 @@ def targette_sec():
 seckeys = [ PGPKey.from_file(f)[0] for f in sorted(glob.glob('tests/testdata/keys/*.sec.asc')) ]
 pubkeys = [ PGPKey.from_file(f)[0] for f in sorted(glob.glob('tests/testdata/keys/*.pub.asc')) ]
 
+symalgos = sorted(filter(lambda x: x is not SymmetricKeyAlgorithm.Plaintext, sorted(SymmetricKeyAlgorithm)))
 
-class TestPGPKey_Actions(object):
+class TestPGPKey_Actions:
     sigs = {}
     msgs = {}
 
@@ -906,14 +906,14 @@ class TestPGPKey_Actions(object):
         self.gpg_verify(abe)
 
     @pytest.mark.parametrize('pub,cipher',
-                             itertools.product(pubkeys, sorted(SymmetricKeyAlgorithm)),
-                             ids=['{}:{}-{}'.format(pk.key_algorithm.name, pk.key_size, c.name) for pk, c in itertools.product(pubkeys, sorted(SymmetricKeyAlgorithm))])
+                             itertools.product(pubkeys, symalgos),
+                             ids=['{}:{}-{}'.format(pk.key_algorithm.name, pk.key_size, c.name) for pk, c in itertools.product(pubkeys, symalgos)])
     def test_encrypt_message(self, pub, cipher):
         if pub.key_algorithm in {PubKeyAlgorithm.DSA}:
             pytest.skip('Asymmetric encryption only implemented for RSA/ECDH currently')
 
-        if cipher in {SymmetricKeyAlgorithm.Plaintext, SymmetricKeyAlgorithm.Twofish256, SymmetricKeyAlgorithm.IDEA}:
-            pytest.xfail('Symmetric cipher {} not supported for encryption'.format(cipher))
+        if cipher in {SymmetricKeyAlgorithm.Twofish256, SymmetricKeyAlgorithm.IDEA}:
+            pytest.xfail(f'{cipher!r} not supported for encryption')
 
         # test encrypting a message
         mtxt = "This message will have been encrypted"
@@ -925,7 +925,7 @@ class TestPGPKey_Actions(object):
 
     @pytest.mark.order(after='test_encrypt_message')
     @pytest.mark.parametrize('sf,cipher',
-                             itertools.product(sorted(glob.glob('tests/testdata/keys/*.sec.asc')), sorted(SymmetricKeyAlgorithm)))
+                             itertools.product(sorted(glob.glob('tests/testdata/keys/*.sec.asc')), symalgos))
     def test_decrypt_message(self, sf, cipher):
         # test decrypting a message
         sec, _ = PGPKey.from_file(sf)
@@ -949,7 +949,7 @@ class TestPGPKey_Actions(object):
 
     @pytest.mark.order(after='test_encrypt_message')
     @pytest.mark.parametrize('sf,cipher',
-                             itertools.product(sorted(glob.glob('tests/testdata/keys/*.sec.asc')), sorted(SymmetricKeyAlgorithm)))
+                             itertools.product(sorted(glob.glob('tests/testdata/keys/*.sec.asc')), symalgos))
     def test_sign_encrypted_message(self, sf, cipher):
         # test decrypting a message
         sec, _ = PGPKey.from_file(sf)

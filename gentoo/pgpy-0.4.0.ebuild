@@ -19,7 +19,6 @@ IUSE=""
 DEPEND="dev-python/setuptools[${PYTHON_USEDEP}]"
 RDEPEND="dev-python/singledispatch[${PYTHON_USEDEP}]
          dev-python/pyasn1[${PYTHON_USEDEP}]
-         >=dev-python/six-1.9.0[${PYTHON_USEDEP}]
          >=dev-python/cryptography-1.1.0[${PYTHON_USEDEP}]
          $(python_gen_cond_dep 'dev-python/enum34[${PYTHON_USEDEP}]' python2_7 python3_3)"
 DOCS=( README.rst )

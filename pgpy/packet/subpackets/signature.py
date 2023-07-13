@@ -10,6 +10,8 @@ from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 
+from typing import Optional, Type, Union
+
 from .types import EmbeddedSignatureHeader
 from .types import Signature
 
@@ -22,6 +24,7 @@ from ...constants import NotationDataFlags
 from ...constants import PubKeyAlgorithm
 from ...constants import RevocationKeyClass
 from ...constants import RevocationReason
+from ...constants import SigSubpacketType
 from ...constants import SymmetricKeyAlgorithm
 
 from ...decorators import sdproperty
@@ -33,6 +36,7 @@ __all__ = ['URI',
            'FlagList',
            'ByteFlag',
            'Boolean',
+           'FingerprintSubpacket',
            'CreationTime',
            'SignatureExpirationTime',
            'ExportableCertification',
@@ -52,7 +56,6 @@ __all__ = ['URI',
            'Policy',
            'KeyFlags',
            'SignersUserID',
-           'SubkeyBindingSignature',
            'ReasonForRevocation',
            'Features',
            'EmbeddedSignature',
@@ -67,7 +70,6 @@ class URI(Signature):
         return self._uri
 
     @uri.register(str)
-    @uri.register(str)
     def uri_str(self, val):
         self._uri = val
 
@@ -76,22 +78,22 @@ class URI(Signature):
         self.uri = val.decode('latin-1')
 
     def __init__(self):
-        super(URI, self).__init__()
+        super().__init__()
         self.uri = ""
 
     def __bytearray__(self):
-        _bytes = super(URI, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self.uri.encode()
         return _bytes
 
     def parse(self, packet):
-        super(URI, self).parse(packet)
+        super().parse(packet)
         self.uri = packet[:(self.header.length - 1)]
         del packet[:(self.header.length - 1)]
 
 
 class FlagList(Signature):
-    __flags__ = None
+    __flags__: Optional[Type] = None
 
     @sdproperty
     def flags(self):
@@ -118,23 +120,23 @@ class FlagList(Signature):
         self.flags = self.bytes_to_int(val)
 
     def __init__(self):
-        super(FlagList, self).__init__()
+        super().__init__()
         self.flags = []
 
     def __bytearray__(self):
-        _bytes = super(FlagList, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += b''.join(self.int_to_bytes(b) for b in self.flags)
         return _bytes
 
     def parse(self, packet):
-        super(FlagList, self).parse(packet)
+        super().parse(packet)
         for i in range(0, self.header.length - 1):
             self.flags = packet[:1]
             del packet[:1]
 
 
 class ByteFlag(Signature):
-    __flags__ = None
+    __flags__: Optional[Type] = None
 
     @sdproperty
     def flags(self):
@@ -159,11 +161,11 @@ class ByteFlag(Signature):
         self.flags = self.bytes_to_int(val)
 
     def __init__(self):
-        super(ByteFlag, self).__init__()
+        super().__init__()
         self.flags = []
 
     def __bytearray__(self):
-        _bytes = super(ByteFlag, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self.int_to_bytes(sum(self.flags))
         # null-pad _bytes if they are not up to the end now
         if len(_bytes) < len(self):
@@ -171,7 +173,7 @@ class ByteFlag(Signature):
         return _bytes
 
     def parse(self, packet):
-        super(ByteFlag, self).parse(packet)
+        super().parse(packet)
         for i in range(0, self.header.length - 1):
             self.flags = packet[:1]
             del packet[:1]
@@ -191,24 +193,57 @@ class Boolean(Signature):
         self.bool = bool(self.bytes_to_int(val))
 
     def __init__(self):
-        super(Boolean, self).__init__()
+        super().__init__()
         self.bflag = False
 
     def __bytearray__(self):
-        _bytes = super(Boolean, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self.int_to_bytes(int(self.bflag))
         return _bytes
 
     def __bool__(self):
         return self.bflag
 
-    def __nonzero__(self):
-        return self.__bool__()
-
     def parse(self, packet):
-        super(Boolean, self).parse(packet)
+        super().parse(packet)
         self.bflag = packet[:1]
         del packet[:1]
+
+
+class FingerprintSubpacket(Signature):
+    def __init__(self) -> None:
+        super().__init__()
+        self._fpr: Optional[Fingerprint] = None
+
+    @sdproperty
+    def fingerprint(self) -> Fingerprint:
+        if self._fpr is None:
+            # if we raise an exception here, then hasattr(fingerprint) will raise an exception as well.
+            return Fingerprint(b'\x00' * 20, version=4)
+        return self._fpr
+
+    @fingerprint.register
+    def fingerprint_set(self, val: Union[str, bytes, bytearray]) -> None:
+        if not isinstance(val, Fingerprint):
+            val = Fingerprint(val)
+        self._fpr = val
+
+    def __bytearray__(self) -> bytearray:
+        if self._fpr is None:
+            raise ValueError(f"Tried to write out the fingerprint from {self.__class__.__name__} before it was set")
+        _bytes = super().__bytearray__()
+        _bytes += self.fingerprint.__wireformat__()
+        return _bytes
+
+    def parse(self, packet: bytearray) -> None:
+        super().parse(packet)
+        version: int = packet[0]
+        del packet[0]
+
+        fpr_len = self.header.length - 2
+
+        self.fingerprint = Fingerprint(bytes(packet[:fpr_len]), version)
+        del packet[:fpr_len]
 
 
 class CreationTime(Signature):
@@ -221,7 +256,7 @@ class CreationTime(Signature):
 
     MUST be present in the hashed area.
    """
-    __typeid__ = 0x02
+    __typeid__ = SigSubpacketType.CreationTime
 
     @sdproperty
     def created(self):
@@ -242,16 +277,16 @@ class CreationTime(Signature):
         self.created = self.bytes_to_int(val)
 
     def __init__(self):
-        super(CreationTime, self).__init__()
+        super().__init__()
         self.created = datetime.now(timezone.utc)
 
     def __bytearray__(self):
-        _bytes = super(CreationTime, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self.int_to_bytes(calendar.timegm(self.created.utctimetuple()), 4)
         return _bytes
 
     def parse(self, packet):
-        super(CreationTime, self).parse(packet)
+        super().parse(packet)
         self.created = packet[:4]
         del packet[:4]
 
@@ -266,7 +301,7 @@ class SignatureExpirationTime(Signature):
     after the signature creation time that the signature expires.  If
     this is not present or has a value of zero, it never expires.
     """
-    __typeid__ = 0x03
+    __typeid__ = SigSubpacketType.SigExpirationTime
 
     @sdproperty
     def expires(self):
@@ -285,16 +320,16 @@ class SignatureExpirationTime(Signature):
         self.expires = self.bytes_to_int(val)
 
     def __init__(self):
-        super(SignatureExpirationTime, self).__init__()
+        super().__init__()
         self.expires = 0
 
     def __bytearray__(self):
-        _bytes = super(SignatureExpirationTime, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self.int_to_bytes(int(self.expires.total_seconds()), 4)
         return _bytes
 
     def parse(self, packet):
-        super(SignatureExpirationTime, self).parse(packet)
+        super().parse(packet)
         self.expires = packet[:4]
         del packet[:4]
 
@@ -329,7 +364,7 @@ class ExportableCertification(Boolean):
     (for example, a key server).  Such implementations always trim local
     certifications from any key they handle.
     """
-    __typeid__ = 0x04
+    __typeid__ = SigSubpacketType.ExportableCertification
 
 
 class TrustSignature(Signature):
@@ -351,7 +386,7 @@ class TrustSignature(Signature):
     greater indicate complete trust.  Implementations SHOULD emit values
     of 60 for partial trust and 120 for complete trust.
     """
-    __typeid__ = 0x05
+    __typeid__ = SigSubpacketType.TrustSignature
 
     @sdproperty
     def level(self):
@@ -379,18 +414,18 @@ class TrustSignature(Signature):
         self.amount = self.bytes_to_int(val)
 
     def __init__(self):
-        super(TrustSignature, self).__init__()
+        super().__init__()
         self.level = 0
         self.amount = 0
 
     def __bytearray__(self):
-        _bytes = super(TrustSignature, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self.int_to_bytes(self.level)
         _bytes += self.int_to_bytes(self.amount)
         return _bytes
 
     def parse(self, packet):
-        super(TrustSignature, self).parse(packet)
+        super().parse(packet)
         self.level = packet[:1]
         del packet[:1]
         self.amount = packet[:1]
@@ -411,13 +446,12 @@ class RegularExpression(Signature):
     "almost public domain" regular expression [REGEX] package.  A
     description of the syntax is found in Section 8 below.
     """
-    __typeid__ = 0x06
+    __typeid__ = SigSubpacketType.RegularExpression
 
     @sdproperty
     def regex(self):
         return self._regex
 
-    @regex.register(str)
     @regex.register(str)
     def regex_str(self, val):
         self._regex = val
@@ -427,16 +461,16 @@ class RegularExpression(Signature):
         self.regex = val.decode('latin-1')
 
     def __init__(self):
-        super(RegularExpression, self).__init__()
+        super().__init__()
         self.regex = r''
 
     def __bytearray__(self):
-        _bytes = super(RegularExpression, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self.regex.encode()
         return _bytes
 
     def parse(self, packet):
-        super(RegularExpression, self).parse(packet)
+        super().parse(packet)
         self.regex = packet[:(self.header.length - 1)]
         del packet[:(self.header.length - 1)]
 
@@ -454,7 +488,7 @@ class Revocable(Boolean):
     signature for the life of his key.  If this packet is not present,
     the signature is revocable.
     """
-    __typeid__ = 0x07
+    __typeid__ = SigSubpacketType.Revocable
 
 
 class KeyExpirationTime(SignatureExpirationTime):
@@ -468,7 +502,7 @@ class KeyExpirationTime(SignatureExpirationTime):
     or has a value of zero, the key never expires.  This is found only on
     a self-signature.
     """
-    __typeid__ = 0x09
+    __typeid__ = SigSubpacketType.KeyExpirationTime
 
 
 class PreferredSymmetricAlgorithms(FlagList):
@@ -484,7 +518,7 @@ class PreferredSymmetricAlgorithms(FlagList):
     Algorithm numbers are in Section 9.  This is only found on a self-
     signature.
     """
-    __typeid__ = 0x0B
+    __typeid__ = SigSubpacketType.PreferredSymmetricAlgorithms
     __flags__ = SymmetricKeyAlgorithm
 
 
@@ -511,7 +545,7 @@ class RevocationKey(Signature):
     isolate this subpacket within a separate signature so that it is not
     combined with other subpackets that need to be exported.
     """
-    __typeid__ = 0x0C
+    __typeid__ = SigSubpacketType.RevocationKey
 
     @sdproperty
     def keyclass(self):
@@ -548,7 +582,6 @@ class RevocationKey(Signature):
         return self._fingerprint
 
     @fingerprint.register(str)
-    @fingerprint.register(str)
     @fingerprint.register(Fingerprint)
     def fingerprint_str(self, val):
         self._fingerprint = Fingerprint(val)
@@ -558,20 +591,20 @@ class RevocationKey(Signature):
         self.fingerprint = ''.join('{:02x}'.format(c) for c in val).upper()
 
     def __init__(self):
-        super(RevocationKey, self).__init__()
+        super().__init__()
         self.keyclass = []
         self.algorithm = PubKeyAlgorithm.Invalid
         self._fingerprint = ""
 
     def __bytearray__(self):
-        _bytes = super(RevocationKey, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self.int_to_bytes(sum(self.keyclass))
         _bytes += self.int_to_bytes(self.algorithm.value)
         _bytes += self.fingerprint.__bytes__()
         return _bytes
 
     def parse(self, packet):
-        super(RevocationKey, self).parse(packet)
+        super().parse(packet)
         self.keyclass = packet[:1]
         del packet[:1]
         self.algorithm = packet[:1]
@@ -581,7 +614,7 @@ class RevocationKey(Signature):
 
 
 class Issuer(Signature):
-    __typeid__ = 0x10
+    __typeid__ = SigSubpacketType.IssuerKeyID
 
     @sdproperty
     def issuer(self):
@@ -592,22 +625,22 @@ class Issuer(Signature):
         self._issuer = binascii.hexlify(val).upper().decode('latin-1')
 
     def __init__(self):
-        super(Issuer, self).__init__()
+        super().__init__()
         self.issuer = bytearray()
 
     def __bytearray__(self):
-        _bytes = super(Issuer, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += binascii.unhexlify(self._issuer.encode())
         return _bytes
 
     def parse(self, packet):
-        super(Issuer, self).parse(packet)
+        super().parse(packet)
         self.issuer = packet[:8]
         del packet[:8]
 
 
 class NotationData(Signature):
-    __typeid__ = 0x14
+    __typeid__ = SigSubpacketType.NotationData
 
     @sdproperty
     def flags(self):
@@ -631,7 +664,6 @@ class NotationData(Signature):
         return self._name
 
     @name.register(str)
-    @name.register(str)
     def name_str(self, val):
         self._name = val
 
@@ -643,7 +675,6 @@ class NotationData(Signature):
     def value(self):
         return self._value
 
-    @value.register(str)
     @value.register(str)
     def value_str(self, val):
         self._value = val
@@ -657,13 +688,13 @@ class NotationData(Signature):
             self._value = val
 
     def __init__(self):
-        super(NotationData, self).__init__()
+        super().__init__()
         self.flags = [0, 0, 0, 0]
         self.name = ""
         self.value = ""
 
     def __bytearray__(self):
-        _bytes = super(NotationData, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self.int_to_bytes(sum(self.flags)) + b'\x00\x00\x00'
         _bytes += self.int_to_bytes(len(self.name), 2)
         _bytes += self.int_to_bytes(len(self.value), 2)
@@ -672,7 +703,7 @@ class NotationData(Signature):
         return bytes(_bytes)
 
     def parse(self, packet):
-        super(NotationData, self).parse(packet)
+        super().parse(packet)
         self.flags = packet[:1]
         del packet[:4]
         nlen = self.bytes_to_int(packet[:2])
@@ -686,30 +717,26 @@ class NotationData(Signature):
 
 
 class PreferredHashAlgorithms(FlagList):
-    __typeid__ = 0x15
+    __typeid__ = SigSubpacketType.PreferredHashAlgorithms
     __flags__ = HashAlgorithm
 
 
 class PreferredCompressionAlgorithms(FlagList):
-    __typeid__ = 0x16
+    __typeid__ = SigSubpacketType.PreferredCompressionAlgorithms
     __flags__ = CompressionAlgorithm
 
 
 class KeyServerPreferences(ByteFlag):
-    __typeid__ = 0x17
+    __typeid__ = SigSubpacketType.KeyServerPreferences
     __flags__ = _KeyServerPreferences
 
 
 class PreferredKeyServer(URI):
-    __typeid__ = 0x18
+    __typeid__ = SigSubpacketType.PreferredKeyServer
 
 
-class SubkeyBindingSignature(Signature):
-    __typeid__ = 0x18
-
-
-class PrimaryUserID(SubkeyBindingSignature):
-    __typeid__ = 0x19
+class PrimaryUserID(Signature):
+    __typeid__ = SigSubpacketType.PrimaryUserID
 
     @sdproperty
     def primary(self):
@@ -724,43 +751,39 @@ class PrimaryUserID(SubkeyBindingSignature):
         self.primary = bool(self.bytes_to_int(val))
 
     def __init__(self):
-        super(PrimaryUserID, self).__init__()
+        super().__init__()
         self.primary = True
 
     def __bytearray__(self):
-        _bytes = super(PrimaryUserID, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self.int_to_bytes(int(self.primary))
         return _bytes
 
     def __bool__(self):
         return self.primary
 
-    def __nonzero__(self):
-        return self.__bool__()
-
     def parse(self, packet):
-        super(PrimaryUserID, self).parse(packet)
+        super().parse(packet)
         self.primary = packet[:1]
         del packet[:1]
 
 
 class Policy(URI):
-    __typeid__ = 0x1a
+    __typeid__ = SigSubpacketType.PolicyURI
 
 
 class KeyFlags(ByteFlag):
-    __typeid__ = 0x1B
+    __typeid__ = SigSubpacketType.KeyFlags
     __flags__ = _KeyFlags
 
 
 class SignersUserID(Signature):
-    __typeid__ = 0x1C
+    __typeid__ = SigSubpacketType.SignersUserID
 
     @sdproperty
     def userid(self):
         return self._userid
 
-    @userid.register(str)
     @userid.register(str)
     def userid_str(self, val):
         self._userid = val
@@ -770,22 +793,22 @@ class SignersUserID(Signature):
         self.userid = val.decode('latin-1')
 
     def __init__(self):
-        super(SignersUserID, self).__init__()
+        super().__init__()
         self.userid = ""
 
     def __bytearray__(self):
-        _bytes = super(SignersUserID, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self.userid.encode()
         return _bytes
 
     def parse(self, packet):
-        super(SignersUserID, self).parse(packet)
+        super().parse(packet)
         self.userid = packet[:(self.header.length - 1)]
         del packet[:(self.header.length - 1)]
 
 
 class ReasonForRevocation(Signature):
-    __typeid__ = 0x1D
+    __typeid__ = SigSubpacketType.ReasonForRevocation
 
     @sdproperty
     def code(self):
@@ -805,7 +828,6 @@ class ReasonForRevocation(Signature):
         return self._string
 
     @string.register(str)
-    @string.register(str)
     def string_str(self, val):
         self._string = val
 
@@ -814,18 +836,18 @@ class ReasonForRevocation(Signature):
         self.string = val.decode('latin-1')
 
     def __init__(self):
-        super(ReasonForRevocation, self).__init__()
+        super().__init__()
         self.code = 0x00
         self.string = ""
 
     def __bytearray__(self):
-        _bytes = super(ReasonForRevocation, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self.int_to_bytes(self.code)
         _bytes += self.string.encode()
         return _bytes
 
     def parse(self, packet):
-        super(ReasonForRevocation, self).parse(packet)
+        super().parse(packet)
         self.code = packet[:1]
         del packet[:1]
         self.string = packet[:(self.header.length - 2)]
@@ -833,7 +855,7 @@ class ReasonForRevocation(Signature):
 
 
 class Features(ByteFlag):
-    __typeid__ = 0x1E
+    __typeid__ = SigSubpacketType.Features
     __flags__ = _Features
 
 
@@ -841,14 +863,14 @@ class Features(ByteFlag):
 
 
 class EmbeddedSignature(Signature):
-    __typeid__ = 0x20
+    __typeid__ = SigSubpacketType.EmbeddedSignature
 
     @sdproperty
     def _sig(self):
         return self._sigpkt
 
     @_sig.setter
-    def _sig(self, val):
+    def _sig_set(self, val):
         esh = EmbeddedSignatureHeader()
         esh.version = val.header.version
         val.header = esh
@@ -884,160 +906,79 @@ class EmbeddedSignature(Signature):
         return self._sig.signer
 
     def __init__(self):
-        super(EmbeddedSignature, self).__init__()
+        super().__init__()
         from ..packets import SignatureV4
         self._sigpkt = SignatureV4()
         self._sigpkt.header = EmbeddedSignatureHeader()
 
     def __bytearray__(self):
-        return super(EmbeddedSignature, self).__bytearray__() + self._sigpkt.__bytearray__()
+        return super().__bytearray__() + self._sigpkt.__bytearray__()
 
     def parse(self, packet):
-        super(EmbeddedSignature, self).parse(packet)
+        super().parse(packet)
         self._sig.parse(packet)
 
 
-class IssuerFingerprint(Signature):
-    '''
-    (from RFC4880bis-07)
-    5.2.3.28.  Issuer Fingerprint
+class IssuerFingerprint(FingerprintSubpacket):
+    '''(from crypto-refresh-07)
+    5.2.3.35. Issuer Fingerprint
 
     (1 octet key version number, N octets of fingerprint)
 
-    The OpenPGP Key fingerprint of the key issuing the signature.  This
-    subpacket SHOULD be included in all signatures.  If the version of
-    the issuing key is 4 and an Issuer subpacket is also included in the
-    signature, the key ID of the Issuer subpacket MUST match the low 64
-    bits of the fingerprint.
+    The OpenPGP Key fingerprint of the key issuing the signature. This
+    subpacket SHOULD be included in all signatures. If the version of
+    the issuing key is 4 and an Issuer Key ID subpacket (Section
+    5.2.3.12) is also included in the signature, the key ID of the
+    Issuer Key ID subpacket MUST match the low 64 bits of the
+    fingerprint.
 
-    Note that the length N of the fingerprint for a version 4 key is 20
-    octets; for a version 5 key N is 32.
+    Note that the length N of the fingerprint for a version 4 key is
+    20 octets; for a version 6 key N is 32. Since the version of the
+    signature is bound to the version of the key, the version octet
+    here MUST match the version of the signature. If the version octet
+    does not match the signature version, the receiving implementation
+    MUST treat it as a malformed signature (see Section 5.2.5).
     '''
-    __typeid__ = 0x21
+    __typeid__ = SigSubpacketType.IssuerFingerprint
 
     @sdproperty
-    def version(self):
-        return self._version
+    def issuer_fingerprint(self) -> Fingerprint:
+        return self.fingerprint
 
-    @version.register(int)
-    def version_int(self, val):
-        self._version = val
-
-    @version.register(bytearray)
-    def version_bytearray(self, val):
-        self.version = self.bytes_to_int(val)
-
-    @sdproperty
-    def issuer_fingerprint(self):
-        return self._issuer_fpr
-
-    @issuer_fingerprint.register(str)
-    @issuer_fingerprint.register(str)
-    @issuer_fingerprint.register(Fingerprint)
-    def issuer_fingerprint_str(self, val):
-        self._issuer_fpr = Fingerprint(val)
-
-    @issuer_fingerprint.register(bytearray)
-    def issuer_fingerprint_bytearray(self, val):
-        self.issuer_fingerprint = ''.join('{:02x}'.format(c) for c in val).upper()
-
-    def __init__(self):
-        super(IssuerFingerprint, self).__init__()
-        self.version = 4
-        self._issuer_fpr = ""
-
-    def __bytearray__(self):
-        _bytes = super(IssuerFingerprint, self).__bytearray__()
-        _bytes += self.int_to_bytes(self.version)
-        _bytes += self.issuer_fingerprint.__bytes__()
-        return _bytes
-
-    def parse(self, packet):
-        super(IssuerFingerprint, self).parse(packet)
-        self.version = packet[:1]
-        del packet[:1]
-
-        if self.version == 4:
-            fpr_len = 20
-        elif self.version == 5:  # pragma: no cover
-            fpr_len = 32
-        else:  # pragma: no cover
-            fpr_len = self.header.length - 1
-
-        self.issuer_fingerprint = packet[:fpr_len]
-        del packet[:fpr_len]
+    @issuer_fingerprint.register
+    def issuer_fingerprint_set(self, val: Union[str, bytes, bytearray]) -> None:
+        self.fingerprint = val
 
 
-class IntendedRecipient(Signature):
-    '''
-    (from RFC4880bis-08)
-    5.2.3.29. Intended Recipient
+class IntendedRecipient(IssuerFingerprint):
+    '''(from crypto-refresh-08)
+    5.2.3.36. Intended Recipient Fingerprint
 
     (1 octet key version number, N octets of fingerprint)
 
-    The OpenPGP Key fingerprint of the intended recipient primary key.
-    If one or more subpackets of this type are included in a signature,
-    it SHOULD be considered valid only in an encrypted context, where the
-    key it was encrypted to is one of the indicated primary keys, or one
-    of their subkeys.  This can be used to prevent forwarding a signature
-    outside of its intended, encrypted context.
+    The OpenPGP Key fingerprint of the intended recipient primary
+    key. If one or more subpackets of this type are included in a
+    signature, it SHOULD be considered valid only in an encrypted
+    context, where the key it was encrypted to is one of the indicated
+    primary keys, or one of their subkeys. This can be used to prevent
+    forwarding a signature outside of its intended, encrypted context
+    (see Section 14.11).
 
-    Note that the length N of the fingerprint for a version 4 key is 20
-    octets; for a version 5 key N is 32.
+    Note that the length N of the fingerprint for a version 4 key is
+    20 octets; for a version 6 key N is 32.
+
+    An implementation SHOULD generate this subpacket when creating a
+    signed and encrypted message.
     '''
-    __typeid__ = 0x23
+    __typeid__ = SigSubpacketType.IntendedRecipientFingerprint
 
     @sdproperty
-    def version(self):
-        return self._version
+    def intended_recipient(self) -> Fingerprint:
+        return self.fingerprint
 
-    @version.register(int)
-    def version_int(self, val):
-        self._version = val
-
-    @version.register(bytearray)
-    def version_bytearray(self, val):
-        self.version = self.bytes_to_int(val)
-
-    @sdproperty
-    def intended_recipient(self):
-        return self._intended_recipient
-
-    @intended_recipient.register(str)
-    @intended_recipient.register(str)
-    @intended_recipient.register(Fingerprint)
-    def intended_recipient_str(self, val):
-        self._intended_recipient = Fingerprint(val)
-
-    @intended_recipient.register(bytearray)
-    def intended_recipient_bytearray(self, val):
-        self.intended_recipient = ''.join('{:02x}'.format(c) for c in val).upper()
-
-    def __init__(self):
-        super(IntendedRecipient, self).__init__()
-        self.version = 4
-        self._intended_recipient = ""
-
-    def __bytearray__(self):
-        _bytes = super(IntendedRecipient, self).__bytearray__()
-        _bytes += self.int_to_bytes(self.version)
-        _bytes += self.intended_recipient.__bytes__()
-        return _bytes
-
-    def parse(self, packet):
-        super(IntendedRecipient, self).parse(packet)
-        self.version = packet[:1]
-        del packet[:1]
-
-        if self.version == 4:
-            fpr_len = 20
-        elif self.version == 5:  # pragma: no cover
-            fpr_len = 32
-        else:  # pragma: no cover
-            fpr_len = self.header.length - 1
-
-        self.intended_recipient = packet[:fpr_len]
-        del packet[:fpr_len]
+    @intended_recipient.register
+    def intended_recipient_set(self, val: Union[str, bytes, bytearray]) -> None:
+        self.fingerprint = val
 
 
 class AttestedCertifications(Signature):
@@ -1114,7 +1055,7 @@ class AttestedCertifications(Signature):
     key holder needs only to publish a more recent Attestation Key
     Signature with an empty Attested Certifications subpacket.
     '''
-    __typeid__ = 0x25
+    __typeid__ = SigSubpacketType.AttestedCertifications
 
     @sdproperty
     def attested_certifications(self):
@@ -1126,15 +1067,15 @@ class AttestedCertifications(Signature):
         self._attested_certifications = val
 
     def __init__(self):
-        super(AttestedCertifications, self).__init__()
+        super().__init__()
         self._attested_certifications = bytearray()
 
     def __bytearray__(self):
-        _bytes = super(AttestedCertifications, self).__bytearray__()
+        _bytes = super().__bytearray__()
         _bytes += self._attested_certifications
         return _bytes
 
     def parse(self, packet):
-        super(AttestedCertifications, self).parse(packet)
+        super().parse(packet)
         self.attested_certifications = packet[:(self.header.length - 1)]
         del packet[:(self.header.length - 1)]

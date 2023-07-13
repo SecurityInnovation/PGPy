@@ -4,11 +4,7 @@ import contextlib
 import functools
 import logging
 
-try:
-    from singledispatch import singledispatch
-
-except ImportError:  # pragma: no cover
-    from functools import singledispatch
+from functools import singledispatch
 
 
 from .errors import PGPError
@@ -20,7 +16,7 @@ __all__ = ['classproperty',
 
 
 def classproperty(fget):
-    class ClassProperty(object):
+    class ClassProperty:
         def __init__(self, fget):
             self.fget = fget
             self.__doc__ = fget.__doc__
@@ -69,9 +65,9 @@ def sdproperty(fget):
     return SDProperty(fget, sdmethod(defset))
 
 
-class KeyAction(object):
+class KeyAction:
     def __init__(self, *usage, **conditions):
-        super(KeyAction, self).__init__()
+        super().__init__()
         self.flags = set(usage)
         self.conditions = conditions
 
@@ -79,8 +75,7 @@ class KeyAction(object):
     def usage(self, key, user):
         def _preiter(first, iterable):
             yield first
-            for item in iterable:
-                yield item
+            yield from iterable
 
         em = {}
         em['keyid'] = key.fingerprint.keyid
@@ -120,9 +115,11 @@ class KeyAction(object):
             if key._key is None:
                 raise PGPError("No key!")
 
-            # if a key is in the process of being created, it needs to be allowed to certify its own user id
-            if len(key._uids) == 0 and key.is_primary and action is not key.certify.__wrapped__:
-                raise PGPError("Key is not complete - please add a User ID!")
+            # keys must have a user id:
+            if len(key._uids) == 0 and key.is_primary:
+                # if a key is in the process of being created, it needs to be allowed to certify its own user id
+                if action is not key.certify.__wrapped__:
+                    raise PGPError("Key is not complete - please add a User ID!")
 
             with self.usage(key, kwargs.get('user', None)) as _key:
                 self.check_attributes(key)
