@@ -384,7 +384,7 @@ class PubKey(MPIs):
         return len(self)
 
     def verify(self, subj, sigbytes, hash_alg):
-        return NotImplemented  # pragma: no cover
+        raise NotImplemented  # pragma: no cover
 
 
 class OpaquePubKey(PubKey):  # pragma: no cover
