@@ -1766,7 +1766,8 @@ class PGPKey(Armorable, ParentRef):
     @classmethod
     def new(cls, key_algorithm: PubKeyAlgorithm,
             key_size: Optional[Union[int, EllipticCurveOID]] = None,
-            created: Optional[datetime] = None) -> PGPKey:
+            created: Optional[datetime] = None,
+            version: int = 4) -> PGPKey:
         """
         Generate a new PGP key
 
@@ -1780,6 +1781,8 @@ class PGPKey(Armorable, ParentRef):
         :type created: :py:obj:`~datetime.datetime` or ``None``
         :return: A newly generated :py:obj:`PGPKey`
         """
+        if version != 4:
+            raise ValueError(f"PGPKey.new requested key version {version}, but can only generate v4 keys.")
         # new private key shell first
         key = PGPKey()
 
