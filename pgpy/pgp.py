@@ -40,6 +40,7 @@ from .constants import SignatureType
 from .constants import SymmetricKeyAlgorithm
 from .constants import SecurityIssues
 from .constants import AEADMode
+from .constants import String2KeyType
 
 from .decorators import KeyAction
 
@@ -1404,7 +1405,9 @@ class PGPMessage(Armorable):
                 sessionkey: Optional[Union[int, ByteString]] = None,
                 cipher: SymmetricKeyAlgorithm = SymmetricKeyAlgorithm.AES256,
                 hash: HashAlgorithm = HashAlgorithm.SHA256,
-                iv: Optional[bytes] = None) -> PGPMessage:
+                iv: Optional[bytes] = None,
+                aead_mode: Optional[AEADMode] = None,
+                salt: Optional[bytes] = None) -> PGPMessage:
         """
         encrypt(passphrase, [sessionkey=None,] **prefs)
 
@@ -1426,11 +1429,19 @@ class PGPMessage(Armorable):
         :raises: :py:exc:`~errors.PGPEncryptionError`
         :returns: A new :py:obj:`PGPMessage` containing the encrypted contents of this message.
         """
-        # set up a new SKESessionKeyV4
-        skesk = SKESessionKeyV4()
+        if aead_mode is not None:
+            if iv is not None:
+                raise ValueError(f'PGPMessage.encrypt using AEAD mode {aead_mode!r}, cannot use explicit IV')
+            # if we use AEAD, we're going to use SKESKv6 with Argon2 as S2K
+            skesk: SKESessionKey = SKESessionKeyV6()
+            skesk.s2kspec._type = String2KeyType.Argon2
+        else:
+            if salt is not None:
+                raise ValueError('PGPMessage.encrypt using CFB mode, cannot use salt')
+            # otherwise, we're going to use SKESKv4 with Iterated+Salted S2K
+            skesk = SKESessionKeyV4()
+            skesk.s2kspec.halg = hash
         skesk.symalg = cipher
-        skesk.s2kspec.halg = hash
-        skesk.s2kspec.iteration_count = b'\xff'
 
         if sessionkey is None:
             sessionkey = cipher.gen_key()
@@ -1442,8 +1453,16 @@ class PGPMessage(Armorable):
         msg = PGPMessage() | skesk
 
         if not self.is_encrypted:
-            skedata = IntegrityProtectedSKEDataV1()
-            skedata.encrypt(sessionkey, cipher, self.__bytes__(), iv = iv)
+            if skesk.__ver__ == 6:
+                seipd2 = IntegrityProtectedSKEDataV2()
+                if salt is not None:
+                    seipd2.salt = salt
+                seipd2.encrypt(bytes(sessionkey), self.__bytes__())
+                skedata: IntegrityProtectedSKEData = seipd2
+            else:
+                seipd1 = IntegrityProtectedSKEDataV1()
+                seipd1.encrypt(sessionkey, cipher, self.__bytes__(), iv = iv)
+                skedata = seipd1
             msg |= skedata
 
         else:
