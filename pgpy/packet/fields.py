@@ -634,7 +634,7 @@ class ECDHPub(PubKey):
         return len(self.p) + len(self.kdf) + len(self.oid)
 
     def __pubkey__(self):
-        if self.oid == EllipticCurveOID.Curve25519:
+        if self.oid is EllipticCurveOID.Curve25519:
             return x25519.X25519PublicKey.from_public_bytes(self.p.x)
         else:
             return ec.EllipticCurvePublicNumbers(self.p.x, self.p.y, self.oid.curve()).public_key()
@@ -687,7 +687,7 @@ class ECDHPub(PubKey):
 
         if isinstance(self.oid, EllipticCurveOID):
             self.p: Union[ECPoint, MPI] = ECPoint(packet)
-            if self.oid == EllipticCurveOID.Curve25519:
+            if self.oid is EllipticCurveOID.Curve25519:
                 if self.p.format != ECPointFormat.Native:
                     raise PGPIncompatibleECPointFormatError("Only Native format is valid for Curve25519")
             elif self.p.format != ECPointFormat.Standard:
@@ -1700,7 +1700,7 @@ class EdDSAPriv(PrivKey, EdDSAPub):
         else:
             self.oid = params
 
-        if self.oid != EllipticCurveOID.Ed25519:
+        if self.oid is not EllipticCurveOID.Ed25519:
             raise ValueError(f"EdDSA only supported with {EllipticCurveOID.Ed25519}, not {self.oid}")
 
         pk = ed25519.Ed25519PrivateKey.generate()
@@ -1763,7 +1763,7 @@ class ECDHPriv(ECDSAPriv, ECDHPub):  # type: ignore[misc] # (definition of __cop
         return nbytes
 
     def __privkey__(self):
-        if self.oid == EllipticCurveOID.Curve25519:
+        if self.oid is EllipticCurveOID.Curve25519:
             # NOTE: openssl and GPG don't use the same endianness for Curve25519 secret value
             s = self.int_to_bytes(self.s, (self.oid.key_size + 7) // 8, 'little')
             return x25519.X25519PrivateKey.from_private_bytes(s)
@@ -1780,7 +1780,7 @@ class ECDHPriv(ECDSAPriv, ECDHPub):  # type: ignore[misc] # (definition of __cop
         else:
             _oid = params
 
-        if _oid == EllipticCurveOID.Curve25519:
+        if _oid is EllipticCurveOID.Curve25519:
             if any(c != 0 for c in self):  # pragma: no cover
                 raise PGPError("Key is already populated!")
             self.oid = _oid
