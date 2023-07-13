@@ -14,7 +14,6 @@ from datetime import datetime, timezone
 from typing import ByteString, Optional, Tuple, Union
 
 from cryptography.hazmat.primitives import constant_time
-from cryptography.hazmat.primitives.asymmetric import padding
 
 from .fields import DSAPriv, DSAPub, DSASignature
 from .fields import ECDSAPub, ECDSAPriv, ECDSASignature
@@ -242,72 +241,21 @@ class PKESessionKeyV3(PKESessionKey):
         return sk
 
     def decrypt_sk(self, pk: PrivKey) -> Tuple[Optional[SymmetricKeyAlgorithm], bytes]:
-        if isinstance(self.ct, RSACipherText):
-            if not isinstance(pk.keymaterial, PrivKeyField):
-                raise TypeError(f"Private key key material was {type(pk.keymaterial)}, should have been PrivKeyField")
-            # pad up ct with null bytes if necessary
-            ct = self.ct.me_mod_n.to_mpibytes()[2:]
-            ct = b'\x00' * ((pk.keymaterial.__privkey__().key_size // 8) - len(ct)) + ct
+        if not isinstance(pk.keymaterial, PrivKeyField):
+            raise TypeError(f"PKESKv3.decrypt_sk() expected private key material, got {type(pk.keymaterial)}")
+        if self.ct is None:
+            raise TypeError("PKESKv3.decrypt_sk() expected ciphertext, got None")
 
-            decrypter = pk.keymaterial.__privkey__().decrypt
-            decargs = [ct, padding.PKCS1v15()]
-
-        elif isinstance(self.ct, ECDHCipherText):
-            decrypter = pk
-            decargs = []
-
-        else:
-            raise NotImplementedError(self.pkalg)
-
-        m = bytearray(self.ct.decrypt(decrypter, *decargs))
-
-        """
-        The value "m" in the above formulas is derived from the session key
-        as follows.  First, the session key is prefixed with a one-octet
-        algorithm identifier that specifies the symmetric encryption
-        algorithm used to encrypt the following Symmetrically Encrypted Data
-        Packet.  Then a two-octet checksum is appended, which is equal to the
-        sum of the preceding session key octets, not including the algorithm
-        identifier, modulo 65536.  This value is then encoded as described in
-        PKCS#1 block encoding EME-PKCS1-v1_5 in Section 7.2.1 of [RFC3447] to
-        form the "m" value used in the formulas above.  See Section 13.1 of
-        this document for notes on OpenPGP's use of PKCS#1.
-        """
-
-        symalg = SymmetricKeyAlgorithm(m[0])
-        del m[0]
-
-        symkey = m[:symalg.key_size // 8]
-        del m[:symalg.key_size // 8]
-
-        checksum = self.bytes_to_int(m[:2])
-        del m[:2]
-
-        if not sum(symkey) % 65536 == checksum:  # pragma: no cover
-            raise PGPDecryptionError("{:s} decryption failed".format(self.pkalg.name))
-
-        return (symalg, symkey)
+        return pk.keymaterial.decrypt(self.ct, pk.fingerprint, True)
 
     def encrypt_sk(self, pk: PubKey, symalg: Optional[SymmetricKeyAlgorithm], symkey: bytes) -> None:
         if symalg is None:
             raise ValueError('PKESKv3: must pass a symmetric key algorithm explicitly when encrypting')
         if pk.keymaterial is None:
             raise ValueError('PKESKv3: public key material must be instantiated')
-        m = bytearray(self.int_to_bytes(symalg) + symkey)
-        m += self.int_to_bytes(sum(bytearray(symkey)) % 65536, 2)
 
-        if isinstance(self.ct, RSACipherText):
-            encrypter = pk.keymaterial.__pubkey__().encrypt
-            encargs = [bytes(m), padding.PKCS1v15()]
+        self.ct = pk.keymaterial.encrypt(symalg, symkey, pk.fingerprint)
 
-        elif isinstance(self.ct, ECDHCipherText):
-            encrypter = pk
-            encargs = [bytes(m)]
-
-        else:
-            raise NotImplementedError(self.pkalg)
-
-        self.ct = self.ct.encrypt(encrypter, *encargs)
         self.update_hlen()
 
     def parse(self, packet):
