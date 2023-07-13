@@ -69,7 +69,8 @@ class SOPGPy(sop.StatelessOpenPGP):
     @property
     def encrypt_profiles(self) -> List[sop.SOPProfile]:
         return [
-            sop.SOPProfile('rfc4880', 'Algorithms from RFC 4880'),
+            sop.SOPProfile('default', 'passwords: Use CFB (SEIPDv1); pubkeys: determine from key features'),
+            sop.SOPProfile('draft-ietf-openpgp-crypto-refresh-10', 'passwords: Use AEAD (SEIPDv2); pubkeys: determine from key features'),
         ]
 
     # implemented ciphers that we are willing to use to encrypt, in
@@ -382,7 +383,10 @@ class SOPGPy(sop.StatelessOpenPGP):
         for handle, cert in certs.items():
             msg = cert.encrypt(msg, cipher=cipher, sessionkey=sessionkey)
         for p, pw in pws.items():
-            msg = msg.encrypt(passphrase=pw, sessionkey=sessionkey)
+            aead_mode: Optional[pgpy.constants.AEADMode] = None
+            if profile is not None and profile.name == 'draft-ietf-openpgp-crypto-refresh-10':
+                aead_mode = pgpy.constants.AEADMode.OCB
+            msg = msg.encrypt(passphrase=pw, sessionkey=sessionkey, aead_mode=aead_mode)
         del sessionkey
         return self._maybe_armor(armor, msg)
 
