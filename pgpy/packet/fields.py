@@ -172,7 +172,7 @@ class SubPackets(collections.abc.MutableMapping[str, SubPacket], Field):
 
     def __delitem__(self, key):
         ##TODO: this
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def __contains__(self, key):
         return key in {k for k, _ in itertools.chain(self._hashed_sp, self._unhashed_sp)}
@@ -384,10 +384,10 @@ class PubKey(MPIs):
         return len(self)
 
     def verify(self, subj, sigbytes, hash_alg):
-        raise NotImplemented  # pragma: no cover
+        raise NotImplementedError()  # pragma: no cover
 
     def encrypt(self, symalg: Optional[SymmetricKeyAlgorithm], data: bytes, fpr: Fingerprint) -> CipherText:
-        raise NotImplemented
+        raise NotImplementedError()
 
     def _encrypt_helper(self, symalg: Optional[SymmetricKeyAlgorithm], plaintext: bytes) -> bytes:
         'Common code for re-shaping session keys before storing in PKESK'
@@ -406,7 +406,7 @@ class OpaquePubKey(PubKey):  # pragma: no cover
         yield self.data
 
     def __pubkey__(self):
-        return NotImplemented
+        raise NotImplementedError()
 
     def __bytearray__(self) -> bytearray:
         return self.data
@@ -1442,7 +1442,7 @@ class PrivKey(PubKey):
 
     @abc.abstractmethod
     def decrypt_keyblob(self, passphrase: Union[str, bytes]) -> None:
-        ...
+        raise NotImplementedError()
 
     def _decrypt_keyblob_helper(self, passphrase: Union[str, bytes]) -> Optional[bytearray]:
         if not self.s2k:  # pragma: no cover
@@ -1478,10 +1478,10 @@ class PrivKey(PubKey):
         return bytearray(pt)
 
     def sign(self, sigdata, hash_alg):
-        return NotImplemented  # pragma: no cover
+        raise NotImplementedError()  # pragma: no cover
 
-    def decrypt(self, ct: CipherText, fpr: Fingerprint, get_symalg: bool) -> Tuple[Optional[SymmetricKeyAlgorithm],bytes]:
-        raise NotImplemented
+    def decrypt(self, ct: CipherText, fpr: Fingerprint, get_symalg: bool) -> Tuple[Optional[SymmetricKeyAlgorithm], bytes]:
+        raise NotImplementedError()
 
     def _decrypt_helper(self, plaintext: bytes, get_symalg: bool) -> Tuple[Optional[SymmetricKeyAlgorithm], bytes]:
         """
@@ -1528,7 +1528,7 @@ class PrivKey(PubKey):
 
 class OpaquePrivKey(PrivKey, OpaquePubKey):  # pragma: no cover
     def __privkey__(self):
-        return NotImplemented
+        raise NotImplementedError()
 
     def _generate(self, key_size_or_oid: Optional[Union[int, EllipticCurveOID]]) -> None:
         raise NotImplementedError()

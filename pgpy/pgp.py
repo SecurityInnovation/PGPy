@@ -365,10 +365,6 @@ class PGPSignature(Armorable, ParentRef):
         return map(lambda x: x.intended_recipient, self._signature.subpackets['IntendedRecipient'])
 
     @property
-    def target_signature(self):
-        return NotImplemented
-
-    @property
     def type(self) -> SignatureType:
         """
         The :py:obj:`~constants.SignatureType` of this signature.
@@ -1010,7 +1006,7 @@ class PGPUID(ParentRef):
         if isinstance(self._uid, UserID):
             return self._uid.uid
 
-        raise NotImplementedError
+        raise NotImplementedError()
 
 
 class PGPMessage(Armorable):
@@ -1103,7 +1099,7 @@ class PGPMessage(Armorable):
         if isinstance(self._message, (SKEData, IntegrityProtectedSKEData)):
             return 'encrypted'
 
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def __init__(self) -> None:
         """
@@ -2225,8 +2221,6 @@ class PGPKey(Armorable, ParentRef):
         sig._signature.hash2 = bytearray(h2.finalize()[:2])
 
         _sig = self._key.sign(sigdata, getattr(hashes, sig.hash_algorithm.name)())
-        if _sig is NotImplemented:
-            raise NotImplementedError(self.key_algorithm)
 
         sig._signature.signature.from_signer(_sig)
         sig._signature.update_hlen()
@@ -2811,8 +2805,6 @@ class PGPKey(Armorable, ParentRef):
                     sigv.add_sigsubj(sig, self, subj, issues)
                 else:
                     verified = self._key.verify(sig.hashdata(subj), sig.__sig__, getattr(hashes, sig.hash_algorithm.name)())
-                    if verified is NotImplemented:
-                        raise NotImplementedError(sig.key_algorithm)
 
                     sigv.add_sigsubj(sig, self, subj, SecurityIssues.WrongSig if not verified else SecurityIssues.OK)
 
