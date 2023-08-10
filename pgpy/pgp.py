@@ -2118,6 +2118,13 @@ class PGPKey(Armorable, ParentRef):
         bsig = self.bind(key, **prefs)
         key |= bsig
 
+    @property
+    def features(self) -> Optional[Features]:
+        for sig in self.search_pref_sigs():
+            if sig.features is not None:
+                return sig.features
+        return None
+
     def _get_key_flags(self, user: Optional[str] = None) -> Optional[KeyFlags]:
         if self.is_primary:
             # RFC 4880 says that primary keys *must* be capable of certification
