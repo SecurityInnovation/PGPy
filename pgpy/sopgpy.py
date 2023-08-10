@@ -330,12 +330,12 @@ class SOPGPy(sop.StatelessOpenPGP):
 
         ciphers = set(self._cipherprefs)
         for handle, cert in certs.items():
-            keyciphers = set()
-            for uid in cert.userids:
-                if uid.selfsig and uid.selfsig.cipherprefs:
-                    for cipher in uid.selfsig.cipherprefs:
-                        keyciphers.add(cipher)
-            ciphers = ciphers.intersection(keyciphers)
+            keyciphers: Set[pgpy.constants.SymmetricKeyAlgorithm] = set()
+            for sig in cert.search_pref_sigs():
+                if sig.cipherprefs is not None:
+                    for c in sig.cipherprefs:
+                        keyciphers.add(c)
+            ciphers &= keyciphers
         for c in self._cipherprefs:
             if c in ciphers:
                 cipher = c
