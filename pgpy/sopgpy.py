@@ -340,7 +340,7 @@ class SOPGPy(sop.StatelessOpenPGP):
             if c in ciphers:
                 cipher = c
                 break
-        # AES128 is MTI in RFC4880:
+        # AES128 is MTI in the upcoming revision to RFC 4880:
         if cipher is None:
             cipher = pgpy.constants.SymmetricKeyAlgorithm.AES128
         sessionkey = cipher.gen_key()
