@@ -2822,7 +2822,8 @@ class PGPKey(Armorable, ParentRef):
                 message: PGPMessage,
                 sessionkey: Optional[bytes] = None,
                 user: Optional[str] = None,
-                cipher: Optional[SymmetricKeyAlgorithm] = None) -> PGPMessage:
+                cipher: Optional[SymmetricKeyAlgorithm] = None,
+                max_featureset: Optional[Features] = None) -> PGPMessage:
         """Encrypt a PGPMessage using this key.
 
         :param message: The message to encrypt.
@@ -2870,6 +2871,9 @@ class PGPKey(Armorable, ParentRef):
             cipherprefs = []
         if compprefs is None:
             compprefs = []
+
+        if max_featureset is not None:
+            features &= max_featureset
 
         pref_cipher = next((c for c in cipherprefs if c.is_supported), SymmetricKeyAlgorithm.TripleDES)
         cipher_algo = cipher if cipher is not None else pref_cipher
