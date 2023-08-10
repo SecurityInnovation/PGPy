@@ -351,7 +351,15 @@ class SOPGPy(sop.StatelessOpenPGP):
         cipher: Optional[pgpy.constants.SymmetricKeyAlgorithm] = None
 
         ciphers = set(self._cipherprefs)
+        max_featureset: pgpy.constants.Features = pgpy.constants.Features.pgpy_features
+        if (len(pws) > 0 and not (profile is not None and profile.name == 'draft-ietf-openpgp-crypto-refresh-10')):
+            max_featureset &= pgpy.constants.Features.SEIPDv1
+
         for handle, cert in certs.items():
+            f: Optional[pgpy.constants.Features] = cert.features
+            if f is not None:
+                max_featureset &= f
+
             keyciphers: Set[pgpy.constants.SymmetricKeyAlgorithm] = set()
             for sig in cert.search_pref_sigs():
                 if sig.cipherprefs is not None:
@@ -381,10 +389,12 @@ class SOPGPy(sop.StatelessOpenPGP):
             msg |= sig
 
         for handle, cert in certs.items():
-            msg = cert.encrypt(msg, cipher=cipher, sessionkey=sessionkey)
+            msg = cert.encrypt(msg, cipher=cipher, sessionkey=sessionkey, max_featureset=max_featureset)
         for p, pw in pws.items():
             aead_mode: Optional[pgpy.constants.AEADMode] = None
-            if profile is not None and profile.name == 'draft-ietf-openpgp-crypto-refresh-10':
+            if max_featureset & pgpy.constants.Features.SEIPDv2 and \
+               profile is not None and \
+               profile.name == 'draft-ietf-openpgp-crypto-refresh-10':
                 aead_mode = pgpy.constants.AEADMode.OCB
             msg = msg.encrypt(passphrase=pw, sessionkey=sessionkey, aead_mode=aead_mode)
         del sessionkey
