@@ -71,6 +71,7 @@ class SOPGPy(sop.StatelessOpenPGP):
         return [
             sop.SOPProfile('default', 'passwords: Use CFB (SEIPDv1); pubkeys: determine from key features'),
             sop.SOPProfile('draft-ietf-openpgp-crypto-refresh-10', 'passwords: Use AEAD (SEIPDv2); pubkeys: determine from key features'),
+            sop.SOPProfile('rfc4880', 'Always use CFB (SEIPDv1)'),
         ]
 
     # implemented ciphers that we are willing to use to encrypt, in
@@ -352,7 +353,8 @@ class SOPGPy(sop.StatelessOpenPGP):
 
         ciphers = set(self._cipherprefs)
         max_featureset: pgpy.constants.Features = pgpy.constants.Features.pgpy_features
-        if (len(pws) > 0 and not (profile is not None and profile.name == 'draft-ietf-openpgp-crypto-refresh-10')):
+        if (len(pws) > 0 and not (profile is not None and profile.name == 'draft-ietf-openpgp-crypto-refresh-10')) or \
+           (profile is not None and profile.name == 'rfc4880'):
             max_featureset &= pgpy.constants.Features.SEIPDv1
 
         for handle, cert in certs.items():
