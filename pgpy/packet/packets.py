@@ -1577,7 +1577,7 @@ class PrivKey(PubKey, Private):
             elif isinstance(self.keymaterial, (NativeEdDSAPub, NativeCFRGXPub)):
                 if not isinstance(pk.keymaterial, (NativeEdDSAPub, NativeCFRGXPub)):
                     raise TypeError(f"Expected CFRG public key, got {type(pk.keymaterial)} instead")
-                pk.keymaterial._raw_pubkey = copy.copy(self.keymaterial._raw_pubkey)
+                pk.keymaterial._raw_pubkey = self.keymaterial._raw_pubkey
 
         pk.update_hlen()
 
