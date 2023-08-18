@@ -119,7 +119,7 @@ class KeyAction:
             if len(key._uids) == 0 and key.is_primary and key._key.__ver__ < 6:
                 # if a key is in the process of being created, it needs to be allowed to certify its own user id
                 if action is not key.certify.__wrapped__:
-                    raise PGPError("Key is not complete - please add a User ID!")
+                    logging.warning("Version 4 Key has no User ID -- may be incompatible with some legacy OpenPGP implementations.")
 
             with self.usage(key, kwargs.get('user', None)) as _key:
                 self.check_attributes(key)
