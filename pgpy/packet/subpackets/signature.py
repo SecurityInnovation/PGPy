@@ -2,6 +2,8 @@
 
 Signature SubPackets
 """
+from __future__ import annotations
+
 import binascii
 import calendar
 import warnings
@@ -25,6 +27,7 @@ from ...constants import HashAlgorithm
 from ...constants import KeyFlags as _KeyFlags
 from ...constants import KeyServerPreferences as _KeyServerPreferences
 from ...constants import NotationDataFlags
+from ...constants import PacketType
 from ...constants import PubKeyAlgorithm
 from ...constants import RevocationKeyClass
 from ...constants import RevocationReason
@@ -36,6 +39,11 @@ from ...decorators import sdproperty
 
 from ...types import Fingerprint
 from ...types import KeyID
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..packets import Signature as SignaturePacket
 
 
 __all__ = ['URI',
@@ -867,18 +875,23 @@ class EmbeddedSignature(Signature):
     __typeid__ = SigSubpacketType.EmbeddedSignature
 
     @sdproperty
-    def _sig(self):
+    def _sig(self) -> SignaturePacket:
         return self._sigpkt
 
     @_sig.setter
-    def _sig_set(self, val) -> None:
+    def _sig_set(self, val: SignaturePacket) -> None:
+        from ..packets import Signature as SignaturePacket
+
+        if not isinstance(val, SignaturePacket):
+            raise TypeError(f"EmbeddedSignature._sig expects a SignaturePacket, not {type(val)}")
+
         esh = EmbeddedSignatureHeader()
         if not isinstance(val.header, VersionedHeader):
             raise TypeError(f"Signature packet should have had a versioned header, got {type(val.header)}")
         esh.version = val.header.version
         val.header = esh
         val.update_hlen()
-        self._sigpkt = val
+        self._sigpkt: SignaturePacket = val
 
     @property
     def sigtype(self) -> SignatureType:
@@ -918,8 +931,24 @@ class EmbeddedSignature(Signature):
         return super().__bytearray__() + self._sigpkt.__bytearray__()
 
     def parse(self, packet: bytearray) -> None:
+        from ..types import Packet
+
         super().parse(packet)
-        self._sig.parse(packet)
+        # we know the length based on the size of the subpacket
+        synthetic_header = VersionedHeader()
+        synthetic_header.typeid = PacketType.Signature
+        synthetic_header.length = self.header.length
+        synthetic_header.version = packet[0]
+        del packet[0]
+        after_version_length = self.header.length - 2
+        packet_remainder = bytes(packet[:after_version_length])
+        synthetic_packet: bytearray = synthetic_header.__bytearray__() + packet_remainder
+        del packet[:after_version_length]
+
+        pkt = Packet(synthetic_packet)  # type: ignore[abstract]
+        if len(synthetic_packet) > 0:
+            warnings.warn(f"{len(synthetic_packet)} octets leftover when parsing EmbeddedSignature")
+        self._sig = pkt
 
 
 class IssuerFingerprint(FingerprintSubpacket):
