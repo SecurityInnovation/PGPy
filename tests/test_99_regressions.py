@@ -3,7 +3,7 @@
 from conftest import gpg_ver, gnupghome
 
 try:
-    import gpg
+    import gpg # type: ignore
 except ImportError:
     gpg = None
 import os
@@ -19,7 +19,7 @@ from pgpy.types import Armorable
 def test_reg_bug_56():
     # some imports only used by this regression test
     import hashlib
-    from datetime import datetime
+    from datetime import datetime, timezone
 
     from pgpy.pgp import PGPSignature
 
@@ -27,7 +27,6 @@ def test_reg_bug_56():
     from pgpy.constants import PubKeyAlgorithm
     from pgpy.constants import SignatureType
 
-    from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.primitives.asymmetric import padding
 
@@ -134,8 +133,8 @@ def test_reg_bug_56():
     sigsubject = bytearray(b"Hello!I'm a test document.I'm going to get signed a bunch of times.KBYE!")
 
     sig = PGPSignature.new(SignatureType.BinaryDocument, PubKeyAlgorithm.RSAEncryptOrSign, HashAlgorithm.SHA512,
-                           sk.fingerprint.keyid)
-    sig._signature.subpackets['h_CreationTime'][-1].created = datetime(2014, 8, 6, 23, 28, 51)
+                           sk.fingerprint)
+    sig._signature.subpackets['h_CreationTime'][-1].created = datetime(2014, 8, 6, 23, 28, 51, tzinfo=timezone.utc)
     sig._signature.subpackets.update_hlen()
     hdata = sig.hashdata(sigsubject)
     sig._signature.hash2 = hashlib.new('sha512', hdata).digest()[:2]

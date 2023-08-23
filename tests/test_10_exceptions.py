@@ -5,6 +5,8 @@ import pytest
 import glob
 import warnings
 
+from typing import Dict, List, Union
+
 from pgpy import PGPKey
 from pgpy import PGPKeyring
 from pgpy import PGPMessage
@@ -76,16 +78,17 @@ key_algs = [ pka for pka in PubKeyAlgorithm if pka.can_gen and not pka.deprecate
 key_algs_unim = [ pka for pka in PubKeyAlgorithm if not pka.can_gen and not pka.deprecated ]
 key_algs_rsa_depr = [ pka for pka in PubKeyAlgorithm if pka.deprecated and pka is not PubKeyAlgorithm.FormerlyElGamalEncryptOrSign ]
 
-key_algs_badsizes = {
+key_algs_badsizes: Dict[PubKeyAlgorithm, List[Union[int, EllipticCurveOID]]] = {
     PubKeyAlgorithm.RSAEncryptOrSign: [256],
     PubKeyAlgorithm.DSA: [512],
     PubKeyAlgorithm.ECDSA: [curve for curve in EllipticCurveOID if not curve.can_gen],
     PubKeyAlgorithm.ECDH: [curve for curve in EllipticCurveOID if not curve.can_gen],
+    PubKeyAlgorithm.EdDSA: [curve for curve in EllipticCurveOID if curve != EllipticCurveOID.Ed25519],
 }
 badkeyspec = [ (alg, size) for alg in key_algs_badsizes.keys() for size in key_algs_badsizes[alg] ]
 
 
-class TestArmorable(object):
+class TestArmorable:
     # some basic test cases specific to the Armorable mixin class
     def test_malformed_base64(self):
         # 'asdf' base64-encoded becomes 'YXNkZg=='
@@ -99,7 +102,7 @@ class TestArmorable(object):
             Armorable.ascii_unarmor(data)
 
 
-class TestMetaDispatchable(object):
+class TestMetaDispatchable:
     # test a couple of error cases in MetaDispatchable that affect all packet classes
     def test_parse_bytes_typeerror(self):
         # use a marker packet, but don't wrap it in a bytearray to get a TypeError
@@ -139,14 +142,14 @@ class TestMetaDispatchable(object):
         # unexpected signature type
         fuzz_pkt(3, 0x7f, PGPError)
 
-        # unexpected pubkey algorithm
-        fuzz_pkt(4, 0x64, PGPError)
+        # unexpected pubkey algorithm -- does not raise an exception during parsing
+        fuzz_pkt(4, 0x64, None)
 
         # unexpected hash algorithm - does not raise an exception during parsing
         fuzz_pkt(5, 0x64, None)
 
 
-class TestPGPKey(object):
+class TestPGPKey:
     def test_unlock_pubkey(self, rsa_pub, recwarn):
         with rsa_pub.unlock("QwertyUiop") as _unlocked:
             assert _unlocked is rsa_pub
@@ -164,18 +167,18 @@ class TestPGPKey(object):
         assert w.filename == __file__
 
     def test_protect_pubkey(self, rsa_pub, recwarn):
-        rsa_pub.protect('QwertyUiop', SymmetricKeyAlgorithm.CAST5, HashAlgorithm.SHA1)
+        rsa_pub.protect('QwertyUiop')
         w = recwarn.pop(UserWarning)
         assert str(w.message) == "Public keys cannot be passphrase-protected"
         assert w.filename == __file__
 
     def test_protect_protected_key(self, rsa_enc, recwarn):
-        rsa_enc.protect('QwertyUiop', SymmetricKeyAlgorithm.CAST5, HashAlgorithm.SHA1)
+        rsa_enc.protect('QwertyUiop')
 
-        w = recwarn.pop(UserWarning)
-        assert str(w.message) == "This key is already protected with a passphrase - " \
-                                 "please unlock it before attempting to specify a new passphrase"
-        assert w.filename == __file__
+        warning = "This key is already protected with a passphrase - please unlock it before attempting to specify a new passphrase"
+        msgs = list(filter(lambda x: str(x.message) == warning, recwarn))
+        assert len(msgs) == 1
+        assert msgs[0].filename == __file__
 
     def test_unlock_wrong_passphrase(self, rsa_enc):
         with pytest.raises(PGPDecryptionError):
@@ -343,7 +346,7 @@ class TestPGPKey(object):
             rsa_sec.add_subkey(temp_key)
 
 
-class TestPGPKeyring(object):
+class TestPGPKeyring:
     kr = PGPKeyring(_read('tests/testdata/pubtest.asc'))
 
     def test_key_keyerror(self):
@@ -352,7 +355,7 @@ class TestPGPKeyring(object):
                 pass
 
 
-class TestPGPMessage(object):
+class TestPGPMessage:
     def test_decrypt_unsupported_algorithm(self):
         msg = PGPMessage.from_file('tests/testdata/message.enc.twofish.asc')
         with pytest.raises(PGPDecryptionError):
@@ -380,7 +383,7 @@ class TestPGPMessage(object):
 
     def test_encrypt_sessionkey_wrongtype(self):
         msg = PGPMessage.new('asdf')
-        with pytest.raises(TypeError):
+        with pytest.raises(ValueError):
             msg.encrypt('asdf', sessionkey=0xabdf1234abdf1234, cipher=SymmetricKeyAlgorithm.AES128)
 
     def test_parse_wrong_magic(self):
@@ -390,7 +393,7 @@ class TestPGPMessage(object):
             msg.parse(msgtext)
 
 
-class TestPGPSignature(object):
+class TestPGPSignature:
     @pytest.mark.parametrize('inp', [12, None])
     def test_or_typeerror(self, inp):
         with pytest.raises(TypeError):
@@ -409,20 +412,20 @@ class TestPGPSignature(object):
             sig.parse(notsigtext)
 
 
-class TestPGPUID(object):
+class TestPGPUID:
     def test_or_typeerror(self):
         u = PGPUID.new("Asdf Qwert")
         with pytest.raises(TypeError):
             u |= 12
 
 
-class TestSignatureVerification(object):
+class TestSignatureVerification:
     def test_and_typeerror(self):
         with pytest.raises(TypeError):
             sv = SignatureVerification() & 12
 
 
-class TestFingerprint(object):
+class TestFingerprint:
     def test_bad_input(self):
         with pytest.raises(ValueError):
             Fingerprint("ABCDEFG")

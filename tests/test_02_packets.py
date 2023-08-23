@@ -43,7 +43,7 @@ def binload(f):
 pktfiles = sorted(glob.glob('tests/testdata/packets/[0-9]*'))
 
 
-class TestPacket(object):
+class TestPacket:
     @pytest.mark.parametrize('packet', pktfiles, ids=[os.path.basename(f) for f in pktfiles])
     def test_load(self, packet):
         b = binload(packet) + _trailer
@@ -63,13 +63,13 @@ class TestPacket(object):
             assert p.__bytes__() == b[:-len(_trailer)]
 
         # instantiated class is what we expected
-        if hasattr(p.header, 'version') and (p.header.tag, p.header.version) in _pclasses:
+        if hasattr(p.header, 'version') and (p.header.typeid, p.header.version) in _pclasses:
             # versioned packet
-            assert p.__class__.__name__ == _pclasses[(p.header.tag, p.header.version)]
+            assert p.__class__.__name__ == _pclasses[(p.header.typeid, p.header.version)]
 
-        elif (not hasattr(p.header, 'version')) and p.header.tag in _pclasses:
+        elif (not hasattr(p.header, 'version')) and p.header.typeid in _pclasses:
             # unversioned packet
-            assert p.__class__.__name__ in _pclasses[p.header.tag]
+            assert p.__class__.__name__ in _pclasses[p.header.typeid]
 
         else:
             # fallback to opaque

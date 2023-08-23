@@ -1,2 +1,2 @@
 cryptography>=3.3.2
-pyasn1
+sop>=0.5.1[sopgpy]

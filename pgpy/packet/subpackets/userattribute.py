@@ -2,8 +2,11 @@
 """
 import struct
 
+from typing import Union
+
 from .types import UserAttribute
 
+from ...constants import AttributeType
 from ...constants import ImageEncoding
 
 from ...decorators import sdproperty
@@ -46,57 +49,58 @@ class Image(UserAttribute):
     version of the image header or if a specified encoding format value
     is not recognized.
     """
-    __typeid__ = 0x01
+    __typeid__ = AttributeType.Image
 
     @sdproperty
-    def version(self):
+    def version(self) -> int:
         return self._version
 
-    @version.register(int)
-    def version_int(self, val):
+    @version.register
+    def version_int(self, val: int) -> None:
         self._version = val
 
     @sdproperty
-    def iencoding(self):
+    def iencoding(self) -> ImageEncoding:
         return self._iencoding
 
-    @iencoding.register(int)
-    @iencoding.register(ImageEncoding)
-    def iencoding_int(self, val):
-        try:
-            self._iencoding = ImageEncoding(val)
+    @iencoding.register
+    def iencoding_int(self, val: int) -> None:
+        self._iencoding = ImageEncoding(val)
 
-        except ValueError:  # pragma: no cover
-            self._iencoding = val
+        if self._iencoding is ImageEncoding.Unknown:
+            self._opaque_iencoding = val
 
     @sdproperty
-    def image(self):
+    def image(self) -> bytearray:
         return self._image
 
-    @image.register(bytes)
-    @image.register(bytearray)
-    def image_bin(self, val):
+    @image.register
+    def image_bin(self, val: Union[bytes, bytearray]) -> None:
         self._image = bytearray(val)
 
-    def __init__(self):
-        super(Image, self).__init__()
-        self.version = 1
-        self.iencoding = 1
+    def __init__(self) -> None:
+        super().__init__()
+        self.version: int = 1
+        self.iencoding: ImageEncoding = ImageEncoding.JPEG
         self.image = bytearray()
 
-    def __bytearray__(self):
-        _bytes = super(Image, self).__bytearray__()
+    def __bytearray__(self) -> bytearray:
+        _bytes = super().__bytearray__()
 
         if self.version == 1:
+            if self.iencoding is ImageEncoding.Unknown:
+                encoding: int = self._opaque_iencoding
+            else:
+                encoding = self.iencoding
             # v1 image header length is always 16 bytes
             # and stored little-endian due to an 'historical accident'
-            _bytes += struct.pack('<hbbiii', 16, self.version, self.iencoding, 0, 0, 0)
+            _bytes += struct.pack('<hbbiii', 16, self.version, encoding, 0, 0, 0)
 
         _bytes += self.image
         return _bytes
 
-    def parse(self, packet):
-        super(Image, self).parse(packet)
+    def parse(self, packet: bytearray) -> None:
+        super().parse(packet)
 
         with memoryview(packet) as _head:
             _, self.version, self.iencoding, _, _, _ = struct.unpack_from('<hbbiii', _head[:16].tobytes())

@@ -1,28 +1,35 @@
 """ packet.py
 """
+from __future__ import annotations
+
 import abc
 import binascii
 import calendar
 import copy
-import hashlib
 import os
 import warnings
 
 from datetime import datetime, timezone
 
+from typing import ByteString, Optional, Tuple, Union
+
 from cryptography.hazmat.primitives import constant_time
-from cryptography.hazmat.primitives.asymmetric import padding
 
 from .fields import DSAPriv, DSAPub, DSASignature
 from .fields import ECDSAPub, ECDSAPriv, ECDSASignature
 from .fields import ECDHPub, ECDHPriv, ECDHCipherText
 from .fields import EdDSAPub, EdDSAPriv, EdDSASignature
 from .fields import ElGCipherText, ElGPriv, ElGPub
+from .fields import CipherText
+from .fields import Signature as SignatureField
+from .fields import PubKey as PubKeyField
+from .fields import PrivKey as PrivKeyField
 from .fields import OpaquePubKey
 from .fields import OpaquePrivKey
 from .fields import OpaqueSignature
 from .fields import RSACipherText, RSAPriv, RSAPub, RSASignature
 from .fields import String2Key
+from .fields import S2KSpecifier
 from .fields import SubPackets
 from .fields import UserAttributeSubPackets
 
@@ -32,7 +39,9 @@ from .types import Private
 from .types import Public
 from .types import Sub
 from .types import VersionedPacket
+from .types import VersionedHeader
 
+from ..constants import PacketType
 from ..constants import CompressionAlgorithm
 from ..constants import HashAlgorithm
 from ..constants import PubKeyAlgorithm
@@ -45,10 +54,11 @@ from ..decorators import sdproperty
 
 from ..errors import PGPDecryptionError
 
-from ..symenc import _decrypt
-from ..symenc import _encrypt
+from ..symenc import _cfb_decrypt
+from ..symenc import _cfb_encrypt
 
 from ..types import Fingerprint
+from ..types import KeyID
 
 __all__ = ['PKESessionKey',
            'PKESessionKeyV3',
@@ -79,16 +89,47 @@ __all__ = ['PKESessionKey',
 
 
 class PKESessionKey(VersionedPacket):
-    __typeid__ = 0x01
+    __typeid__ = PacketType.PublicKeyEncryptedSessionKey
     __ver__ = 0
 
+    def __init__(self) -> None:
+        super().__init__()
+        self._pkalg: PubKeyAlgorithm = PubKeyAlgorithm.Unknown
+        self._opaque_pkalg: int = 0
+        self.ct: Optional[CipherText] = None
+
     @abc.abstractmethod
-    def decrypt_sk(self, pk):
+    def decrypt_sk(self, pk: PrivKey) -> Tuple[Optional[SymmetricKeyAlgorithm], bytes]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def encrypt_sk(self, pk, symalg, symkey):
+    def encrypt_sk(self, pk: PubKey, symalg: Optional[SymmetricKeyAlgorithm], symkey: bytes) -> None:
         raise NotImplementedError()
+
+    # a PKESK should return a pointer to the recipient, or None
+    @abc.abstractproperty
+    def encrypter(self) -> Optional[Union[KeyID, Fingerprint]]:
+        raise NotImplementedError()
+
+    @sdproperty
+    def pkalg(self):
+        return self._pkalg
+
+    @pkalg.register
+    def pkalg_int(self, val: int) -> None:
+        if isinstance(val, PubKeyAlgorithm):
+            self._pkalg = val
+        else:
+            self._pkalg = PubKeyAlgorithm(val)
+            if self._pkalg is PubKeyAlgorithm.Invalid:
+                self._opaque_pkalg = val
+
+        if self._pkalg in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.RSAEncrypt}:
+            self.ct = RSACipherText()
+        elif self._pkalg in {PubKeyAlgorithm.ElGamal, PubKeyAlgorithm.FormerlyElGamalEncryptOrSign}:
+            self.ct = ElGCipherText()
+        elif self._pkalg is PubKeyAlgorithm.ECDH:
+            self.ct = ECDHCipherText()
 
 
 class PKESessionKeyV3(PKESessionKey):
@@ -157,42 +198,33 @@ class PKESessionKeyV3(PKESessionKey):
     __ver__ = 3
 
     @sdproperty
-    def encrypter(self):
+    def encrypter(self) -> Optional[KeyID]:
         return self._encrypter
 
-    @encrypter.register(bytearray)
-    def encrypter_bin(self, val):
-        self._encrypter = binascii.hexlify(val).upper().decode('latin-1')
+    @encrypter.register
+    def encrypter_bin(self, val: Union[bytearray, KeyID]) -> None:
+        if isinstance(val, KeyID):
+            self._encrypter: Optional[KeyID]
+        elif val == b'\x00' * 8:
+            self._encrypter = None
+        else:
+            self._encrypter = KeyID(val)
 
-    @sdproperty
-    def pkalg(self):
-        return self._pkalg
-
-    @pkalg.register(int)
-    @pkalg.register(PubKeyAlgorithm)
-    def pkalg_int(self, val):
-        self._pkalg = PubKeyAlgorithm(val)
-
-        _c = {PubKeyAlgorithm.RSAEncryptOrSign: RSACipherText,
-              PubKeyAlgorithm.RSAEncrypt: RSACipherText,
-              PubKeyAlgorithm.ElGamal: ElGCipherText,
-              PubKeyAlgorithm.FormerlyElGamalEncryptOrSign: ElGCipherText,
-              PubKeyAlgorithm.ECDH: ECDHCipherText}
-
-        ct = _c.get(self._pkalg, None)
-        self.ct = ct() if ct is not None else ct
-
-    def __init__(self):
-        super(PKESessionKeyV3, self).__init__()
-        self.encrypter = bytearray(8)
-        self.pkalg = 0
-        self.ct = None
+    def __init__(self) -> None:
+        super().__init__()
+        self._encrypter = None
 
     def __bytearray__(self):
         _bytes = bytearray()
-        _bytes += super(PKESessionKeyV3, self).__bytearray__()
-        _bytes += binascii.unhexlify(self.encrypter.encode())
-        _bytes += bytearray([self.pkalg])
+        _bytes += super().__bytearray__()
+        if self._encrypter is None:
+            _bytes += b'\x00' * 8
+        else:
+            _bytes += bytes(self._encrypter)
+        if self.pkalg == PubKeyAlgorithm.Invalid:
+            _bytes.append(self._opaque_pkalg)
+        else:
+            _bytes.append(self.pkalg)
         _bytes += self.ct.__bytearray__() if self.ct is not None else b'\x00' * (self.header.length - 10)
         return _bytes
 
@@ -201,76 +233,33 @@ class PKESessionKeyV3(PKESessionKey):
         sk.header = copy.copy(self.header)
         sk._encrypter = self._encrypter
         sk.pkalg = self.pkalg
+        if self.pkalg == PubKeyAlgorithm.Invalid:
+            sk._opaque_pkalg = self._opaque_pkalg
         if self.ct is not None:
             sk.ct = copy.copy(self.ct)
 
         return sk
 
-    def decrypt_sk(self, pk):
-        if self.pkalg == PubKeyAlgorithm.RSAEncryptOrSign:
-            # pad up ct with null bytes if necessary
-            ct = self.ct.me_mod_n.to_mpibytes()[2:]
-            ct = b'\x00' * ((pk.keymaterial.__privkey__().key_size // 8) - len(ct)) + ct
+    def decrypt_sk(self, pk: PrivKey) -> Tuple[Optional[SymmetricKeyAlgorithm], bytes]:
+        if not isinstance(pk.keymaterial, PrivKeyField):
+            raise TypeError(f"PKESKv3.decrypt_sk() expected private key material, got {type(pk.keymaterial)}")
+        if self.ct is None:
+            raise TypeError("PKESKv3.decrypt_sk() expected ciphertext, got None")
 
-            decrypter = pk.keymaterial.__privkey__().decrypt
-            decargs = (ct, padding.PKCS1v15(),)
+        return pk.keymaterial.decrypt(self.ct, pk.fingerprint, True)
 
-        elif self.pkalg == PubKeyAlgorithm.ECDH:
-            decrypter = pk
-            decargs = ()
+    def encrypt_sk(self, pk: PubKey, symalg: Optional[SymmetricKeyAlgorithm], symkey: bytes) -> None:
+        if symalg is None:
+            raise ValueError('PKESKv3: must pass a symmetric key algorithm explicitly when encrypting')
+        if pk.keymaterial is None:
+            raise ValueError('PKESKv3: public key material must be instantiated')
 
-        else:
-            raise NotImplementedError(self.pkalg)
+        self.ct = pk.keymaterial.encrypt(symalg, symkey, pk.fingerprint)
 
-        m = bytearray(self.ct.decrypt(decrypter, *decargs))
-
-        """
-        The value "m" in the above formulas is derived from the session key
-        as follows.  First, the session key is prefixed with a one-octet
-        algorithm identifier that specifies the symmetric encryption
-        algorithm used to encrypt the following Symmetrically Encrypted Data
-        Packet.  Then a two-octet checksum is appended, which is equal to the
-        sum of the preceding session key octets, not including the algorithm
-        identifier, modulo 65536.  This value is then encoded as described in
-        PKCS#1 block encoding EME-PKCS1-v1_5 in Section 7.2.1 of [RFC3447] to
-        form the "m" value used in the formulas above.  See Section 13.1 of
-        this document for notes on OpenPGP's use of PKCS#1.
-        """
-
-        symalg = SymmetricKeyAlgorithm(m[0])
-        del m[0]
-
-        symkey = m[:symalg.key_size // 8]
-        del m[:symalg.key_size // 8]
-
-        checksum = self.bytes_to_int(m[:2])
-        del m[:2]
-
-        if not sum(symkey) % 65536 == checksum:  # pragma: no cover
-            raise PGPDecryptionError("{:s} decryption failed".format(self.pkalg.name))
-
-        return (symalg, symkey)
-
-    def encrypt_sk(self, pk, symalg, symkey):
-        m = bytearray(self.int_to_bytes(symalg) + symkey)
-        m += self.int_to_bytes(sum(bytearray(symkey)) % 65536, 2)
-
-        if self.pkalg == PubKeyAlgorithm.RSAEncryptOrSign:
-            encrypter = pk.keymaterial.__pubkey__().encrypt
-            encargs = (bytes(m), padding.PKCS1v15(),)
-
-        elif self.pkalg == PubKeyAlgorithm.ECDH:
-            encrypter = pk
-            encargs = (bytes(m),)
-
-        else:
-            raise NotImplementedError(self.pkalg)
-
-        self.ct = self.ct.encrypt(encrypter, *encargs)
         self.update_hlen()
 
     def parse(self, packet):
-        super(PKESessionKeyV3, self).parse(packet)
+        super().parse(packet)
         self.encrypter = packet[:8]
         del packet[:8]
 
@@ -281,12 +270,91 @@ class PKESessionKeyV3(PKESessionKey):
             self.ct.parse(packet)
 
         else:  # pragma: no cover
-            del packet[:(self.header.length - 18)]
+            del packet[:(self.header.length - 10)]
 
 
 class Signature(VersionedPacket):
-    __typeid__ = 0x02
+    __typeid__ = PacketType.Signature
     __ver__ = 0
+    __subpacket_width__ = 2
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._sigtype: Optional[SignatureType] = None
+        self._pubalg: Optional[PubKeyAlgorithm] = None
+        self._halg: Optional[HashAlgorithm] = None
+        self.subpackets = SubPackets(self.__subpacket_width__)
+        self.hash2 = bytearray(2)
+        self._signature: SignatureField = OpaqueSignature()
+
+    @sdproperty
+    def sigtype(self) -> Optional[SignatureType]:
+        return self._sigtype
+
+    @sigtype.register
+    def sigtype_int(self, val: int) -> None:
+        self._sigtype = SignatureType(val)
+
+    @sdproperty
+    def pubalg(self) -> Optional[PubKeyAlgorithm]:
+        return self._pubalg
+
+    @pubalg.register
+    def pubalg_int(self, val: int) -> None:
+        if isinstance(val, PubKeyAlgorithm):
+            self._pubalg = val
+        else:
+            self._pubalg = PubKeyAlgorithm(val)
+            if self._pubalg is PubKeyAlgorithm.Unknown:
+                self._opaque_pubalg: int = val
+
+        if self.pubalg in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.RSASign}:
+            self.signature = RSASignature()
+        elif self.pubalg is PubKeyAlgorithm.DSA:
+            self.signature = DSASignature()
+        elif self.pubalg is PubKeyAlgorithm.ECDSA:
+            self.signature = ECDSASignature()
+        elif self.pubalg is PubKeyAlgorithm.EdDSA:
+            self.signature = EdDSASignature()
+        else:
+            self.signature = OpaqueSignature()
+
+    @sdproperty
+    def halg(self) -> Optional[HashAlgorithm]:
+        return self._halg
+
+    @halg.register
+    def halg_int(self, val: int) -> None:
+        if isinstance(val, HashAlgorithm):
+            self._halg = val
+        else:
+            self._halg = HashAlgorithm(val)
+            if self._halg is HashAlgorithm.Unknown:
+                self._opaque_halg = val
+
+    @property
+    def signature(self) -> SignatureField:
+        return self._signature
+
+    @signature.setter
+    def signature(self, val: SignatureField) -> None:
+        self._signature = val
+
+    def update_hlen(self):
+        self.subpackets.update_hlen()
+        super().update_hlen()
+
+    @abc.abstractmethod
+    def make_onepass(self) -> OnePassSignature:
+        raise NotImplementedError()
+
+    @abc.abstractproperty
+    def signer(self) -> Optional[Union[KeyID, Fingerprint]]:
+        ...
+
+    @abc.abstractmethod
+    def canonical_bytes(self) -> bytearray:
+        ...
 
 
 class SignatureV4(Signature):
@@ -340,82 +408,33 @@ class SignatureV4(Signature):
     """
     __ver__ = 4
 
-    @sdproperty
-    def sigtype(self):
-        return self._sigtype
-
-    @sigtype.register(int)
-    @sigtype.register(SignatureType)
-    def sigtype_int(self, val):
-        self._sigtype = SignatureType(val)
-
-    @sdproperty
-    def pubalg(self):
-        return self._pubalg
-
-    @pubalg.register(int)
-    @pubalg.register(PubKeyAlgorithm)
-    def pubalg_int(self, val):
-        self._pubalg = PubKeyAlgorithm(val)
-
-        sigs = {
-            PubKeyAlgorithm.RSAEncryptOrSign: RSASignature,
-            PubKeyAlgorithm.RSAEncrypt: RSASignature,
-            PubKeyAlgorithm.RSASign: RSASignature,
-            PubKeyAlgorithm.DSA: DSASignature,
-            PubKeyAlgorithm.ECDSA: ECDSASignature,
-            PubKeyAlgorithm.EdDSA: EdDSASignature,
-        }
-
-        self.signature = sigs.get(self.pubalg, OpaqueSignature)()
-
-    @sdproperty
-    def halg(self):
-        return self._halg
-
-    @halg.register(int)
-    @halg.register(HashAlgorithm)
-    def halg_int(self, val):
-        try:
-            self._halg = HashAlgorithm(val)
-
-        except ValueError:  # pragma: no cover
-            self._halg = val
-
     @property
-    def signature(self):
-        return self._signature
+    def signer(self) -> Optional[Union[KeyID, Fingerprint]]:
+        if 'IssuerFingerprint' in self.subpackets:
+            return self.subpackets['IssuerFingerprint'][-1].issuer_fingerprint
+        elif 'Issuer' in self.subpackets:
+            return self.subpackets['Issuer'][-1].issuer
+        return None
 
-    @signature.setter
-    def signature(self, val):
-        self._signature = val
-
-    @property
-    def signer(self):
-        return self.subpackets['Issuer'][-1].issuer
-
-    def __init__(self):
-        super(Signature, self).__init__()
-        self._sigtype = None
-        self._pubalg = None
-        self._halg = None
-        self.subpackets = SubPackets()
-        self.hash2 = bytearray(2)
-        self.signature = None
-
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = bytearray()
-        _bytes += super(Signature, self).__bytearray__()
+        _bytes += super().__bytearray__()
         _bytes += self.int_to_bytes(self.sigtype)
-        _bytes += self.int_to_bytes(self.pubalg)
-        _bytes += self.int_to_bytes(self.halg)
+        if self.pubalg is PubKeyAlgorithm.Unknown:
+            _bytes.append(self._opaque_pubalg)
+        else:
+            _bytes.append(self.pubalg)
+        if self.halg is HashAlgorithm.Unknown:
+            _bytes.append(self._opaque_halg)
+        else:
+            _bytes.append(self.halg)
         _bytes += self.subpackets.__bytearray__()
         _bytes += self.hash2
         _bytes += self.signature.__bytearray__()
 
         return _bytes
 
-    def canonical_bytes(self):
+    def canonical_bytes(self) -> bytearray:
         '''Returns a bytearray that is the way the signature packet
         should be represented if it is itself being signed.
 
@@ -430,10 +449,18 @@ class SignatureV4(Signature):
         the unhashed subpacket data length value is set to zero.
         '''
         _body = bytearray()
+        if not isinstance(self.header, VersionedHeader):
+            raise TypeError(f"SignatureV4 should have VersionedHeader, had {type(self.header)}")
         _body += self.int_to_bytes(self.header.version)
         _body += self.int_to_bytes(self.sigtype)
-        _body += self.int_to_bytes(self.pubalg)
-        _body += self.int_to_bytes(self.halg)
+        if self.pubalg is PubKeyAlgorithm.Unknown:
+            _body.append(self._opaque_pubalg)
+        else:
+            _body.append(self.pubalg)
+        if self.halg is HashAlgorithm.Unknown:
+            _body.append(self._opaque_halg)
+        else:
+            _body.append(self.halg)
         _body += self.subpackets.__hashbytearray__()
         _body += self.int_to_bytes(0, minlen=2)  # empty unhashed subpackets
         _body += self.hash2
@@ -444,12 +471,16 @@ class SignatureV4(Signature):
         _hdr += self.int_to_bytes(len(_body), minlen=4)
         return _hdr + _body
 
-    def __copy__(self):
+    def __copy__(self) -> SignatureV4:
         spkt = SignatureV4()
         spkt.header = copy.copy(self.header)
         spkt._sigtype = self._sigtype
         spkt._pubalg = self._pubalg
+        if self._pubalg is PubKeyAlgorithm.Unknown:
+            spkt._opaque_pubalg = self._opaque_pubalg
         spkt._halg = self._halg
+        if self._halg is HashAlgorithm.Unknown:
+            spkt._opaque_halg = self._opaque_halg
 
         spkt.subpackets = copy.copy(self.subpackets)
         spkt.hash2 = copy.copy(self.hash2)
@@ -457,12 +488,8 @@ class SignatureV4(Signature):
 
         return spkt
 
-    def update_hlen(self):
-        self.subpackets.update_hlen()
-        super(SignatureV4, self).update_hlen()
-
-    def parse(self, packet):
-        super(Signature, self).parse(packet)
+    def parse(self, packet: bytearray) -> None:
+        super().parse(packet)
         self.sigtype = packet[0]
         del packet[0]
 
@@ -479,17 +506,41 @@ class SignatureV4(Signature):
 
         self.signature.parse(packet)
 
+    def make_onepass(self) -> OnePassSignatureV3:
+        signer = self.signer
+        if signer is None:
+            raise ValueError("Cannot make a one-pass signature without knowledge of who the signer is")
+        if isinstance(signer, Fingerprint):
+            signer = signer.keyid
+
+        onepass = OnePassSignatureV3()
+        onepass.sigtype = self.sigtype
+        onepass.halg = self.halg
+        onepass.pubalg = self.pubalg
+
+        onepass._signer = signer
+        onepass.update_hlen()
+        return onepass
+
 
 class SKESessionKey(VersionedPacket):
-    __typeid__ = 0x03
+    __typeid__ = PacketType.SymmetricKeyEncryptedSessionKey
     __ver__ = 0
 
+    def __init__(self) -> None:
+        super().__init__()
+        self.symalg = SymmetricKeyAlgorithm.AES256
+        self.s2kspec = S2KSpecifier()
+
+    # FIXME: the type signature for this function is awkward because
+    # the symmetric algorithm used by the following SEIPDv2 packet is
+    # not encoded in the SKESKv6:
     @abc.abstractmethod
-    def decrypt_sk(self, passphrase):
+    def decrypt_sk(self, passphrase: Union[str, bytes]) -> Tuple[Optional[SymmetricKeyAlgorithm], bytes]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def encrypt_sk(self, passphrase, sk):
+    def encrypt_sk(self, passphrase: Union[str, bytes], sk: ByteString):
         raise NotImplementedError()
 
 
@@ -546,43 +597,40 @@ class SKESessionKeyV4(SKESessionKey):
     """
     __ver__ = 4
 
-    @property
-    def symalg(self):
-        return self.s2k.encalg
-
-    def __init__(self):
-        super(SKESessionKeyV4, self).__init__()
-        self.s2k = String2Key()
+    def __init__(self) -> None:
+        super().__init__()
         self.ct = bytearray()
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = bytearray()
-        _bytes += super(SKESessionKeyV4, self).__bytearray__()
-        _bytes += self.s2k.__bytearray__()[1:]
+        _bytes += super().__bytearray__()
+        _bytes.append(self.symalg)
+        _bytes += self.s2kspec.__bytearray__()
         _bytes += self.ct
         return _bytes
 
-    def __copy__(self):
+    def __copy__(self) -> SKESessionKeyV4:
         sk = self.__class__()
         sk.header = copy.copy(self.header)
-        sk.s2k = copy.copy(self.s2k)
+        sk.s2kspec = copy.copy(self.s2kspec)
         sk.ct = self.ct[:]
 
         return sk
 
-    def parse(self, packet):
-        super(SKESessionKeyV4, self).parse(packet)
-        # prepend a valid usage identifier so this parses correctly
-        packet.insert(0, 255)
-        self.s2k.parse(packet, iv=False)
+    def parse(self, packet: bytearray) -> None:
+        super().parse(packet)
+        self.symalg = SymmetricKeyAlgorithm(packet[0])
+        del packet[0]
+        self.s2kspec.parse(packet)
 
-        ctend = self.header.length - len(self.s2k)
+        ctend = self.header.length - (2 + len(self.s2kspec))
         self.ct = packet[:ctend]
         del packet[:ctend]
 
-    def decrypt_sk(self, passphrase):
+    def decrypt_sk(self, passphrase: Union[str, bytes]) -> Tuple[Optional[SymmetricKeyAlgorithm], bytes]:
         # derive the first session key from our passphrase
-        sk = self.s2k.derive_key(passphrase)
+
+        sk = self.s2kspec.derive_key(passphrase, self.symalg.key_size)
         del passphrase
 
         # if there is no ciphertext, then the first session key is the session key being used
@@ -590,7 +638,7 @@ class SKESessionKeyV4(SKESessionKey):
             return self.symalg, sk
 
         # otherwise, we now need to decrypt the encrypted session key
-        m = bytearray(_decrypt(bytes(self.ct), sk, self.symalg))
+        m = bytearray(_cfb_decrypt(bytes(self.ct), sk, self.symalg))
         del sk
 
         symalg = SymmetricKeyAlgorithm(m[0])
@@ -598,21 +646,75 @@ class SKESessionKeyV4(SKESessionKey):
 
         return symalg, bytes(m)
 
-    def encrypt_sk(self, passphrase, sk):
-        # generate the salt and derive the key to encrypt sk with from it
-        self.s2k.salt = bytearray(os.urandom(8))
-        esk = self.s2k.derive_key(passphrase)
+    def encrypt_sk(self, passphrase: Union[str, bytes], sk: ByteString) -> None:
+        # derive the key to encrypt sk with from it (salt will be generated automatically if it is not yet set)
+        esk = self.s2kspec.derive_key(passphrase, self.symalg.key_size)
         del passphrase
 
-        self.ct = _encrypt(self.int_to_bytes(self.symalg) + sk, esk, self.symalg)
+        # note that by default, we assume that we're using same
+        # symmetric algorithm for the following SED or SEIPD packet.
+        # This is a reasonable simplification for generation, but it
+        # won't always be the same when parsing
+        self.ct = _cfb_encrypt(self.int_to_bytes(self.symalg) + bytes(sk), esk, self.symalg)
 
         # update header length and return sk
         self.update_hlen()
 
 
 class OnePassSignature(VersionedPacket):
-    __typeid__ = 0x04
+    '''Holds common members of various OPS packet versions'''
+    __typeid__ = PacketType.OnePassSignature
     __ver__ = 0
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._sigtype: Optional[SignatureType] = None
+        self._halg: Optional[HashAlgorithm] = None
+        self._pubalg: Optional[PubKeyAlgorithm] = None
+        self.nested: bool = False
+
+    @sdproperty
+    def sigtype(self) -> Optional[SignatureType]:
+        return self._sigtype
+
+    @sigtype.register
+    def sigtype_int(self, val: int) -> None:
+        if isinstance(val, SignatureType):
+            self._sigtype = val
+        else:
+            self._sigtype = SignatureType(val)
+
+    @sdproperty
+    def pubalg(self) -> Optional[PubKeyAlgorithm]:
+        return self._pubalg
+
+    @pubalg.register
+    def pubalg_int(self, val: int):
+        if isinstance(val, PubKeyAlgorithm):
+            self._pubalg = val
+        else:
+            self._pubalg = PubKeyAlgorithm(val)
+
+    @sdproperty
+    def halg(self) -> Optional[HashAlgorithm]:
+        return self._halg
+
+    @halg.register
+    def halg_int(self, val: int) -> None:
+        if isinstance(val, HashAlgorithm):
+            self._halg = val
+        else:
+            self._halg = HashAlgorithm(val)
+            if self._halg is HashAlgorithm.Unknown:
+                self._opaque_halg: int = val
+
+    @abc.abstractproperty
+    def signer(self) -> Union[KeyID, Fingerprint]:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def signer_set(self, val: Union[bytearray, bytes, str, KeyID, Fingerprint]) -> None:
+        pass
 
 
 class OnePassSignatureV3(OnePassSignature):
@@ -655,74 +757,32 @@ class OnePassSignatureV3(OnePassSignature):
     __ver__ = 3
 
     @sdproperty
-    def sigtype(self):
-        return self._sigtype
-
-    @sigtype.register(int)
-    @sigtype.register(SignatureType)
-    def sigtype_int(self, val):
-        self._sigtype = SignatureType(val)
-
-    @sdproperty
-    def pubalg(self):
-        return self._pubalg
-
-    @pubalg.register(int)
-    @pubalg.register(PubKeyAlgorithm)
-    def pubalg_int(self, val):
-        self._pubalg = PubKeyAlgorithm(val)
-        if self._pubalg in [PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.RSAEncrypt, PubKeyAlgorithm.RSASign]:
-            self.signature = RSASignature()
-
-        elif self._pubalg == PubKeyAlgorithm.DSA:
-            self.signature = DSASignature()
-
-    @sdproperty
-    def halg(self):
-        return self._halg
-
-    @halg.register(int)
-    @halg.register(HashAlgorithm)
-    def halg_int(self, val):
-        try:
-            self._halg = HashAlgorithm(val)
-
-        except ValueError:  # pragma: no cover
-            self._halg = val
-
-    @sdproperty
-    def signer(self):
+    def signer(self) -> KeyID:
         return self._signer
 
-    @signer.register(str)
-    @signer.register(str)
-    def signer_str(self, val):
-        self._signer = val
+    @signer.register
+    def signer_set(self, val: Union[bytearray, bytes, str, KeyID, Fingerprint]) -> None:
+        self._signer = KeyID(val)
 
-    @signer.register(bytearray)
-    def signer_bin(self, val):
-        self._signer = binascii.hexlify(val).upper().decode('latin-1')
+    def __init__(self) -> None:
+        super().__init__()
+        self._signer = KeyID(b'\x00' * 8)
 
-    def __init__(self):
-        super(OnePassSignatureV3, self).__init__()
-        self._sigtype = None
-        self._halg = None
-        self._pubalg = None
-        self._signer = b'\x00' * 8
-        self.nested = False
-
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         _bytes = bytearray()
-        _bytes += super(OnePassSignatureV3, self).__bytearray__()
-        _bytes += bytearray([self.sigtype])
-        _bytes += bytearray([self.halg])
-        _bytes += bytearray([self.pubalg])
-        _bytes += binascii.unhexlify(self.signer.encode("latin-1"))
-        _bytes += bytearray([int(self.nested)])
+        _bytes += super().__bytearray__()
+        _bytes.append(self.sigtype)
+        if self.halg is HashAlgorithm.Unknown:
+            _bytes.append(self._opaque_halg)
+        else:
+            _bytes.append(self.halg)
+        _bytes.append(self.pubalg)
+        _bytes += bytes(self.signer)
+        _bytes.append(int(not self.nested))
         return _bytes
 
-    def parse(self, packet):
-        super(OnePassSignatureV3, self).parse(packet)
+    def parse(self, packet: bytearray) -> None:
+        super().parse(packet)
         self.sigtype = packet[0]
         del packet[0]
 
@@ -735,96 +795,102 @@ class OnePassSignatureV3(OnePassSignature):
         self.signer = packet[:8]
         del packet[:8]
 
-        self.nested = (packet[0] == 1)
+        self.nested = (packet[0] == 0)
         del packet[0]
 
 
-class PrivKey(VersionedPacket, Primary, Private):
-    __typeid__ = 0x05
-    __ver__ = 0
-
-
 class PubKey(VersionedPacket, Primary, Public):
-    __typeid__ = 0x06
+    __typeid__ = PacketType.PublicKey
     __ver__ = 0
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.created = datetime.now(timezone.utc)
+        self.pkalg = 0
+        self.keymaterial: Optional[PubKeyField] = None
 
     @abc.abstractproperty
-    def fingerprint(self):
+    def fingerprint(self) -> Fingerprint:
         """compute and return the fingerprint of the key"""
+
+    @sdproperty
+    def created(self) -> datetime:
+        return self._created
+
+    @created.register
+    def created_datetime(self, val: datetime) -> None:
+        if val.tzinfo is None:
+            warnings.warn("Passing TZ-naive datetime object to PubKeyV4 packet")
+        self._created = val
+
+    @created.register
+    def created_int(self, val: int) -> None:
+        self.created = datetime.fromtimestamp(val, timezone.utc)
+
+    @created.register
+    def created_bin(self, val: Union[bytes, bytearray]) -> None:
+        self.created = self.bytes_to_int(val)
+
+    @sdproperty
+    def pkalg(self) -> PubKeyAlgorithm:
+        return self._pkalg
+
+    @pkalg.register
+    def pkalg_int(self, val: int) -> None:
+        if isinstance(val, PubKeyAlgorithm):
+            self._pkalg: PubKeyAlgorithm = val
+        else:
+            self._pkalg = PubKeyAlgorithm(val)
+            if self._pkalg is PubKeyAlgorithm.Unknown:
+                self._opaque_pkalg: int = val
+
+        if self.pkalg in {PubKeyAlgorithm.RSAEncryptOrSign, PubKeyAlgorithm.RSAEncrypt, PubKeyAlgorithm.RSASign}:
+            self.keymaterial = RSAPub() if self.public else RSAPriv(self.__ver__)
+        elif self.pkalg is PubKeyAlgorithm.DSA:
+            self.keymaterial = DSAPub() if self.public else DSAPriv(self.__ver__)
+        elif self.pkalg in {PubKeyAlgorithm.ElGamal, PubKeyAlgorithm.FormerlyElGamalEncryptOrSign}:
+            self.keymaterial = ElGPub() if self.public else ElGPriv(self.__ver__)
+        elif self.pkalg is PubKeyAlgorithm.ECDSA:
+            self.keymaterial = ECDSAPub() if self.public else ECDSAPriv(self.__ver__)
+        elif self.pkalg is PubKeyAlgorithm.ECDH:
+            self.keymaterial = ECDHPub() if self.public else ECDHPriv(self.__ver__)
+        elif self.pkalg is PubKeyAlgorithm.EdDSA:
+            self.keymaterial = EdDSAPub() if self.public else EdDSAPriv(self.__ver__)
+        else:
+            self.keymaterial = OpaquePubKey() if self.public else OpaquePrivKey(self.__ver__)
+
+    @property
+    def public(self) -> bool:
+        return isinstance(self, PubKey) and not isinstance(self, PrivKey)
+
+    def __copy__(self) -> PubKey:
+        pk = self.__class__()
+        pk.header = copy.copy(self.header)
+        pk.created = self.created
+        if self.pkalg is PubKeyAlgorithm.Unknown:
+            pk.pkalg = self._opaque_pkalg
+        else:
+            pk.pkalg = self.pkalg
+        pk.keymaterial = copy.copy(self.keymaterial)
+
+        return pk
+
+    def verify(self, subj, sigbytes, hash_alg):
+        return self.keymaterial.verify(subj, sigbytes, hash_alg)
 
 
 class PubKeyV4(PubKey):
     __ver__ = 4
 
-    @sdproperty
-    def created(self):
-        return self._created
-
-    @created.register(datetime)
-    def created_datetime(self, val):
-        if val.tzinfo is None:
-            warnings.warn("Passing TZ-naive datetime object to PubKeyV4 packet")
-        self._created = val
-
-    @created.register(int)
-    def created_int(self, val):
-        self.created = datetime.fromtimestamp(val, timezone.utc)
-
-    @created.register(bytes)
-    @created.register(bytearray)
-    def created_bin(self, val):
-        self.created = self.bytes_to_int(val)
-
-    @sdproperty
-    def pkalg(self):
-        return self._pkalg
-
-    @pkalg.register(int)
-    @pkalg.register(PubKeyAlgorithm)
-    def pkalg_int(self, val):
-        self._pkalg = PubKeyAlgorithm(val)
-
-        _c = {
-            # True means public
-            (True, PubKeyAlgorithm.RSAEncryptOrSign): RSAPub,
-            (True, PubKeyAlgorithm.RSAEncrypt): RSAPub,
-            (True, PubKeyAlgorithm.RSASign): RSAPub,
-            (True, PubKeyAlgorithm.DSA): DSAPub,
-            (True, PubKeyAlgorithm.ElGamal): ElGPub,
-            (True, PubKeyAlgorithm.FormerlyElGamalEncryptOrSign): ElGPub,
-            (True, PubKeyAlgorithm.ECDSA): ECDSAPub,
-            (True, PubKeyAlgorithm.ECDH): ECDHPub,
-            (True, PubKeyAlgorithm.EdDSA): EdDSAPub,
-            # False means private
-            (False, PubKeyAlgorithm.RSAEncryptOrSign): RSAPriv,
-            (False, PubKeyAlgorithm.RSAEncrypt): RSAPriv,
-            (False, PubKeyAlgorithm.RSASign): RSAPriv,
-            (False, PubKeyAlgorithm.DSA): DSAPriv,
-            (False, PubKeyAlgorithm.ElGamal): ElGPriv,
-            (False, PubKeyAlgorithm.FormerlyElGamalEncryptOrSign): ElGPriv,
-            (False, PubKeyAlgorithm.ECDSA): ECDSAPriv,
-            (False, PubKeyAlgorithm.ECDH): ECDHPriv,
-            (False, PubKeyAlgorithm.EdDSA): EdDSAPriv,
-        }
-
-        k = (self.public, self.pkalg)
-        km = _c.get(k, None)
-
-        self.keymaterial = (km or (OpaquePubKey if self.public else OpaquePrivKey))()
-
-        # km = _c.get(k, None)
-        # self.keymaterial = km() if km is not None else km
-
     @property
-    def public(self):
-        return isinstance(self, PubKey) and not isinstance(self, PrivKey)
+    def fingerprint(self) -> Fingerprint:
+        if self.keymaterial is None:
+            raise TypeError("Key material is not present, cannot calculate fingerprint")
 
-    @property
-    def fingerprint(self):
         # A V4 fingerprint is the 160-bit SHA-1 hash of the octet 0x99, followed by the two-octet packet length,
         # followed by the entire Public-Key packet starting with the version field.  The Key ID is the
         # low-order 64 bits of the fingerprint.
-        fp = hashlib.new('sha1')
+        fp = HashAlgorithm.SHA1.hasher
 
         plen = self.keymaterial.publen()
         bcde_len = self.int_to_bytes(6 + plen, 2)
@@ -838,41 +904,35 @@ class PubKeyV4(PubKey):
         # c) timestamp of key creation (4 octets);
         fp.update(self.int_to_bytes(calendar.timegm(self.created.timetuple()), 4))
         # d) algorithm (1 octet): 17 = DSA (example);
-        fp.update(self.int_to_bytes(self.pkalg))
+        if self.pkalg is PubKeyAlgorithm.Unknown:
+            fp.update(bytes([self._opaque_pkalg]))
+        else:
+            fp.update(self.int_to_bytes(self.pkalg))
         # e) Algorithm-specific fields.
         fp.update(self.keymaterial.__bytearray__()[:plen])
 
         # and return the digest
-        return Fingerprint(fp.hexdigest().upper())
+        return Fingerprint(fp.finalize())
 
-    def __init__(self):
-        super(PubKeyV4, self).__init__()
+    def __init__(self) -> None:
+        super().__init__()
         self.created = datetime.now(timezone.utc)
-        self.pkalg = 0
-        self.keymaterial = None
 
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
+        if self.keymaterial is None:
+            raise TypeError("Key Material is missing, cannot produce bytearray")
         _bytes = bytearray()
-        _bytes += super(PubKeyV4, self).__bytearray__()
+        _bytes += super().__bytearray__()
         _bytes += self.int_to_bytes(calendar.timegm(self.created.timetuple()), 4)
-        _bytes += self.int_to_bytes(self.pkalg)
+        if self.pkalg is PubKeyAlgorithm.Unknown:
+            _bytes.append(self._opaque_pkalg)
+        else:
+            _bytes.append(self.pkalg)
         _bytes += self.keymaterial.__bytearray__()
         return _bytes
 
-    def __copy__(self):
-        pk = self.__class__()
-        pk.header = copy.copy(self.header)
-        pk.created = self.created
-        pk.pkalg = self.pkalg
-        pk.keymaterial = copy.copy(self.keymaterial)
-
-        return pk
-
-    def verify(self, subj, sigbytes, hash_alg):
-        return self.keymaterial.verify(subj, sigbytes, hash_alg)
-
-    def parse(self, packet):
-        super(PubKeyV4, self).parse(packet)
+    def parse(self, packet: bytearray) -> None:
+        super().parse(packet)
 
         self.created = packet[:4]
         del packet[:4]
@@ -882,71 +942,104 @@ class PubKeyV4(PubKey):
 
         # bound keymaterial to the remaining length of the packet
         pend = self.header.length - 6
-        self.keymaterial.parse(packet[:pend])
+        if self.keymaterial is not None:
+            self.keymaterial.parse(packet[:pend])
         del packet[:pend]
+
+
+class PrivKey(PubKey, Private):
+    __typeid__ = PacketType.SecretKey
+    __ver__ = 0
+
+    @property
+    def protected(self) -> bool:
+        if not isinstance(self.keymaterial, PrivKeyField):
+            return False
+        return bool(self.keymaterial.s2k)
+
+    @property
+    def unlocked(self) -> bool:
+        if self.keymaterial is None:
+            return True
+        if self.protected:
+            return 0 not in list(self.keymaterial)
+        return True  # pragma: no cover
+
+    def protect(self, passphrase: str,
+                enc_alg: Optional[SymmetricKeyAlgorithm] = None,
+                hash_alg: Optional[HashAlgorithm] = None,
+                s2kspec: Optional[S2KSpecifier] = None,
+                iv: Optional[bytes] = None) -> None:
+        if enc_alg is None:
+            enc_alg = SymmetricKeyAlgorithm.AES256
+        if not isinstance(self.keymaterial, PrivKeyField):
+            raise TypeError("Key material is not a private key, cannot protect")
+        self.keymaterial.encrypt_keyblob(passphrase, enc_alg=enc_alg, hash_alg=hash_alg, s2kspec=s2kspec, iv=iv)
+        del passphrase
+        self.update_hlen()
+
+    def unprotect(self, passphrase: Union[str, bytes]) -> None:
+        if not isinstance(self.keymaterial, PrivKeyField):
+            raise TypeError("Key material is not a private key, cannot unprotect")
+        self.keymaterial.decrypt_keyblob(passphrase)
+        del passphrase
+
+    def sign(self, sigdata: bytes, hash_alg: HashAlgorithm) -> bytes:
+        if not isinstance(self.keymaterial, PrivKeyField):
+            raise TypeError("Key material is not a private key, cannot sign")
+        return self.keymaterial.sign(sigdata, hash_alg)
+
+    def _extract_pubkey(self, pk: PubKey) -> None:
+        pk.created = self.created
+        pk.pkalg = self.pkalg
+
+        if self.keymaterial is not None:
+            if pk.keymaterial is None:
+                raise TypeError(f"pubkey material for {type(self.keymaterial)} was missing")
+            # copy over MPIs
+            for pm in self.keymaterial.__pubfields__:
+                setattr(pk.keymaterial, pm, copy.copy(getattr(self.keymaterial, pm)))
+
+            if isinstance(self.keymaterial, (ECDSAPub, EdDSAPub, ECDHPub)):
+                if not isinstance(pk.keymaterial, (ECDSAPub, EdDSAPub, ECDHPub)):
+                    raise TypeError(f"Expected Elliptic Curve, got {type(pk.keymaterial)} instead")
+                pk.keymaterial.oid = self.keymaterial.oid
+
+                if isinstance(self.keymaterial, ECDHPub):
+                    if not isinstance(pk.keymaterial, ECDHPub):
+                        raise TypeError(f"Expected ECDH, got {type(pk.keymaterial)} instead")
+                    pk.keymaterial.kdf = copy.copy(self.keymaterial.kdf)
+
+        pk.update_hlen()
 
 
 class PrivKeyV4(PrivKey, PubKeyV4):
     __ver__ = 4
 
     @classmethod
-    def new(cls, key_algorithm, key_size, created=None):
+    def new(cls, key_algorithm, key_size, created=None) -> PrivKeyV4:
         # build a key packet
         pk = PrivKeyV4()
         pk.pkalg = key_algorithm
         if pk.keymaterial is None:
             raise NotImplementedError(key_algorithm)
+        if not isinstance(pk.keymaterial, PrivKeyField):
+            raise TypeError("Key material is not a private key")
         pk.keymaterial._generate(key_size)
         if created is not None:
             pk.created = created
         pk.update_hlen()
         return pk
 
-    def pubkey(self):
+    def pubkey(self) -> Public:
         # return a copy of ourselves, but just the public half
         pk = PubKeyV4() if not isinstance(self, PrivSubKeyV4) else PubSubKeyV4()
-        pk.created = self.created
-        pk.pkalg = self.pkalg
-
-        # copy over MPIs
-        for pm in self.keymaterial.__pubfields__:
-            setattr(pk.keymaterial, pm, copy.copy(getattr(self.keymaterial, pm)))
-
-        if self.pkalg in {PubKeyAlgorithm.ECDSA, PubKeyAlgorithm.EdDSA}:
-            pk.keymaterial.oid = self.keymaterial.oid
-
-        if self.pkalg == PubKeyAlgorithm.ECDH:
-            pk.keymaterial.oid = self.keymaterial.oid
-            pk.keymaterial.kdf = copy.copy(self.keymaterial.kdf)
-
-        pk.update_hlen()
+        self._extract_pubkey(pk)
         return pk
 
-    @property
-    def protected(self):
-        return bool(self.keymaterial.s2k)
 
-    @property
-    def unlocked(self):
-        if self.protected:
-            return 0 not in list(self.keymaterial)
-        return True  # pragma: no cover
-
-    def protect(self, passphrase, enc_alg, hash_alg):
-        self.keymaterial.encrypt_keyblob(passphrase, enc_alg, hash_alg)
-        del passphrase
-        self.update_hlen()
-
-    def unprotect(self, passphrase):
-        self.keymaterial.decrypt_keyblob(passphrase)
-        del passphrase
-
-    def sign(self, sigdata, hash_alg):
-        return self.keymaterial.sign(sigdata, hash_alg)
-
-
-class PrivSubKey(VersionedPacket, Sub, Private):
-    __typeid__ = 0x07
+class PrivSubKey(PrivKey, Sub):
+    __typeid__ = PacketType.SecretSubKey
     __ver__ = 0
 
 
@@ -984,7 +1077,7 @@ class CompressedData(Packet):
     BZip2-compressed packets are compressed using the BZip2 [BZ2]
     algorithm.
     """
-    __typeid__ = 0x08
+    __typeid__ = PacketType.CompressedData
 
     @sdproperty
     def calg(self):
@@ -996,13 +1089,13 @@ class CompressedData(Packet):
         self._calg = CompressionAlgorithm(val)
 
     def __init__(self):
-        super(CompressedData, self).__init__()
+        super().__init__()
         self._calg = None
         self.packets = []
 
     def __bytearray__(self):
         _bytes = bytearray()
-        _bytes += super(CompressedData, self).__bytearray__()
+        _bytes += super().__bytearray__()
         _bytes += bytearray([self.calg])
 
         _pb = bytearray()
@@ -1013,7 +1106,7 @@ class CompressedData(Packet):
         return _bytes
 
     def parse(self, packet):
-        super(CompressedData, self).parse(packet)
+        super().parse(packet)
         self.calg = packet[0]
         del packet[0]
 
@@ -1068,15 +1161,15 @@ class SKEData(Packet):
     incorrect.  See the "Security Considerations" section for hints on
     the proper use of this "quick check".
     """
-    __typeid__ = 0x09
+    __typeid__ = PacketType.SymmetricallyEncryptedData
 
     def __init__(self):
-        super(SKEData, self).__init__()
+        super().__init__()
         self.ct = bytearray()
 
     def __bytearray__(self):
         _bytes = bytearray()
-        _bytes += super(SKEData, self).__bytearray__()
+        _bytes += super().__bytearray__()
         _bytes += self.ct
         return _bytes
 
@@ -1086,13 +1179,15 @@ class SKEData(Packet):
         return skd
 
     def parse(self, packet):
-        super(SKEData, self).parse(packet)
+        super().parse(packet)
         self.ct = packet[:self.header.length]
         del packet[:self.header.length]
 
-    def decrypt(self, key, alg):  # pragma: no cover
+    def decrypt(self, key: bytes, alg: Optional[SymmetricKeyAlgorithm]) -> bytearray:  # pragma: no cover
+        if alg is None:
+            raise TypeError("SED cannot decrypt without knowing the symmetric algorithm")
         block_size_bytes = alg.block_size // 8
-        pt_prefix = _decrypt(bytes(self.ct[:block_size_bytes + 2]), bytes(key), alg)
+        pt_prefix = _cfb_decrypt(bytes(self.ct[:block_size_bytes + 2]), bytes(key), alg)
 
         # old Symmetrically Encrypted Data Packet required
         # to change iv after decrypting prefix
@@ -1106,26 +1201,26 @@ class SKEData(Packet):
         if not constant_time.bytes_eq(iv[-2:], ivl2):
             raise PGPDecryptionError("Decryption failed")
 
-        pt = _decrypt(bytes(self.ct[block_size_bytes + 2:]), bytes(key), alg, iv=iv_resync)
+        pt = _cfb_decrypt(bytes(self.ct[block_size_bytes + 2:]), bytes(key), alg, iv=iv_resync)
 
         return pt
 
 
 class Marker(Packet):
-    __typeid__ = 0x0a
+    __typeid__ = PacketType.Marker
 
     def __init__(self):
-        super(Marker, self).__init__()
+        super().__init__()
         self.data = b'PGP'
 
     def __bytearray__(self):
         _bytes = bytearray()
-        _bytes += super(Marker, self).__bytearray__()
+        _bytes += super().__bytearray__()
         _bytes += self.data
         return _bytes
 
     def parse(self, packet):
-        super(Marker, self).parse(packet)
+        super().parse(packet)
         self.data = packet[:self.header.length]
         del packet[:self.header.length]
 
@@ -1176,7 +1271,7 @@ class LiteralData(Packet):
        normal line endings).  These should be converted to native line
        endings by the receiving software.
     """
-    __typeid__ = 0x0B
+    __typeid__ = PacketType.LiteralData
 
     @sdproperty
     def mtime(self):
@@ -1208,7 +1303,7 @@ class LiteralData(Packet):
         return self._contents
 
     def __init__(self):
-        super(LiteralData, self).__init__()
+        super().__init__()
         self.format = 'b'
         self.filename = ''
         self.mtime = datetime.now(timezone.utc)
@@ -1216,7 +1311,7 @@ class LiteralData(Packet):
 
     def __bytearray__(self):
         _bytes = bytearray()
-        _bytes += super(LiteralData, self).__bytearray__()
+        _bytes += super().__bytearray__()
         _bytes += self.format.encode('latin-1')
         _bytes += bytearray([len(self.filename)])
         _bytes += self.filename.encode('latin-1')
@@ -1235,7 +1330,7 @@ class LiteralData(Packet):
         return pkt
 
     def parse(self, packet):
-        super(LiteralData, self).parse(packet)
+        super().parse(packet)
         self.format = chr(packet[0])
         del packet[0]
 
@@ -1267,7 +1362,7 @@ class Trust(Packet):
     transferred to other users, and they SHOULD be ignored on any input
     other than local keyring files.
     """
-    __typeid__ = 0x0C
+    __typeid__ = PacketType.Trust
 
     @sdproperty
     def trustlevel(self):
@@ -1284,25 +1379,27 @@ class Trust(Packet):
 
     @trustflags.register(list)
     def trustflags_list(self, val):
+        self._trustflags = TrustFlags(sum(val))
+
+    @trustflags.register
+    def trustflags_int(self, val: Union[int, TrustFlags]):
+        if not isinstance(val, TrustFlags):
+            val = TrustFlags(val)
         self._trustflags = val
 
-    @trustflags.register(int)
-    def trustflags_int(self, val):
-        self._trustflags = TrustFlags & val
-
     def __init__(self):
-        super(Trust, self).__init__()
+        super().__init__()
         self.trustlevel = TrustLevel.Unknown
         self.trustflags = []
 
     def __bytearray__(self):
         _bytes = bytearray()
-        _bytes += super(Trust, self).__bytearray__()
+        _bytes += super().__bytearray__()
         _bytes += self.int_to_bytes(self.trustlevel + sum(self.trustflags), 2)
         return _bytes
 
     def parse(self, packet):
-        super(Trust, self).parse(packet)
+        super().parse(packet)
         # self.trustlevel = packet[0] & 0x1f
         t = self.bytes_to_int(packet[:2])
         del packet[:2]
@@ -1321,16 +1418,16 @@ class UserID(Packet):
     restrictions on its content.  The packet length in the header
     specifies the length of the User ID.
     """
-    __typeid__ = 0x0D
+    __typeid__ = PacketType.UserID
 
     def __init__(self, uid=""):
-        super(UserID, self).__init__()
+        super().__init__()
         self.uid = uid
         self._encoding_fallback = False
 
     def __bytearray__(self):
         _bytes = bytearray()
-        _bytes += super(UserID, self).__bytearray__()
+        _bytes += super().__bytearray__()
         textenc = 'utf-8' if not self._encoding_fallback else 'charmap'
         _bytes += self.uid.encode(textenc)
 
@@ -1343,7 +1440,7 @@ class UserID(Packet):
         return uid
 
     def parse(self, packet):
-        super(UserID, self).parse(packet)
+        super().parse(packet)
 
         uid_bytes = packet[:self.header.length]
         # uid_text = packet[:self.header.length].decode('utf-8')
@@ -1356,7 +1453,7 @@ class UserID(Packet):
 
 
 class PubSubKey(VersionedPacket, Sub, Public):
-    __typeid__ = 0x0E
+    __typeid__ = PacketType.PublicSubKey
     __ver__ = 0
 
 
@@ -1397,7 +1494,7 @@ class UserAttribute(Packet):
     not recognize.  Subpacket types 100 through 110 are reserved for
     private or experimental use.
     """
-    __typeid__ = 0x11
+    __typeid__ = PacketType.UserAttribute
 
     @property
     def image(self):
@@ -1406,17 +1503,17 @@ class UserAttribute(Packet):
         return next(iter(self.subpackets['Image']))
 
     def __init__(self):
-        super(UserAttribute, self).__init__()
+        super().__init__()
         self.subpackets = UserAttributeSubPackets()
 
     def __bytearray__(self):
         _bytes = bytearray()
-        _bytes += super(UserAttribute, self).__bytearray__()
+        _bytes += super().__bytearray__()
         _bytes += self.subpackets.__bytearray__()
         return _bytes
 
     def parse(self, packet):
-        super(UserAttribute, self).parse(packet)
+        super().parse(packet)
 
         plen = len(packet)
         while self.header.length > (plen - len(packet)):
@@ -1424,12 +1521,16 @@ class UserAttribute(Packet):
 
     def update_hlen(self):
         self.subpackets.update_hlen()
-        super(UserAttribute, self).update_hlen()
+        super().update_hlen()
 
 
 class IntegrityProtectedSKEData(VersionedPacket):
-    __typeid__ = 0x12
+    __typeid__ = PacketType.SymmetricallyEncryptedIntegrityProtectedData
     __ver__ = 0
+
+    @abc.abstractmethod
+    def decrypt(self, key: bytes, alg: Optional[SymmetricKeyAlgorithm]) -> bytearray:
+        raise NotImplementedError()
 
 
 class IntegrityProtectedSKEDataV1(IntegrityProtectedSKEData):
@@ -1535,12 +1636,12 @@ class IntegrityProtectedSKEDataV1(IntegrityProtectedSKEData):
     __ver__ = 1
 
     def __init__(self):
-        super(IntegrityProtectedSKEDataV1, self).__init__()
+        super().__init__()
         self.ct = bytearray()
 
     def __bytearray__(self):
         _bytes = bytearray()
-        _bytes += super(IntegrityProtectedSKEDataV1, self).__bytearray__()
+        _bytes += super().__bytearray__()
         _bytes += self.ct
         return _bytes
 
@@ -1550,28 +1651,31 @@ class IntegrityProtectedSKEDataV1(IntegrityProtectedSKEData):
         return skd
 
     def parse(self, packet):
-        super(IntegrityProtectedSKEDataV1, self).parse(packet)
+        super().parse(packet)
         self.ct = packet[:self.header.length - 1]
         del packet[:self.header.length - 1]
 
-    def encrypt(self, key, alg, data):
-        iv = alg.gen_iv()
+    def encrypt(self, key, alg, data, iv: Optional[bytes] = None):
+        if iv is None:
+            iv = alg.gen_iv()
         data = iv + iv[-2:] + data
 
         mdc = MDC()
-        mdc.mdc = binascii.hexlify(hashlib.new('SHA1', data + b'\xd3\x14').digest())
+        mdc.mdc = binascii.hexlify(HashAlgorithm.SHA1.digest(data + b'\xd3\x14'))
         mdc.update_hlen()
 
         data += mdc.__bytes__()
-        self.ct = _encrypt(data, key, alg)
+        self.ct = _cfb_encrypt(data, key, alg)
         self.update_hlen()
 
-    def decrypt(self, key, alg):
+    def decrypt(self, key: bytes, alg: Optional[SymmetricKeyAlgorithm]) -> bytearray:
+        if alg is None:
+            raise TypeError("SEIPDv1 cannot decrypt without knowing the symmetric algorithm")
         # iv, ivl2, pt = super(IntegrityProtectedSKEDataV1, self).decrypt(key, alg)
-        pt = _decrypt(bytes(self.ct), bytes(key), alg)
+        pt = _cfb_decrypt(bytes(self.ct), bytes(key), alg)
 
         # do the MDC checks
-        _expected_mdcbytes = b'\xd3\x14' + hashlib.new('SHA1', pt[:-20]).digest()
+        _expected_mdcbytes = b'\xd3\x14' + HashAlgorithm.SHA1.digest(pt[:-20])
         if not constant_time.bytes_eq(bytes(pt[-22:]), _expected_mdcbytes):
             raise PGPDecryptionError("Decryption failed")  # pragma: no cover
 
@@ -1614,16 +1718,16 @@ class MDC(Packet):
     in the data hash.  While this is a bit restrictive, it reduces
     complexity.
     """
-    __typeid__ = 0x13
+    __typeid__ = PacketType.ModificationDetectionCode
 
     def __init__(self):
-        super(MDC, self).__init__()
+        super().__init__()
         self.mdc = ''
 
     def __bytearray__(self):
-        return super(MDC, self).__bytearray__() + binascii.unhexlify(self.mdc)
+        return super().__bytearray__() + binascii.unhexlify(self.mdc)
 
     def parse(self, packet):
-        super(MDC, self).parse(packet)
+        super().parse(packet)
         self.mdc = binascii.hexlify(packet[:20])
         del packet[:20]
