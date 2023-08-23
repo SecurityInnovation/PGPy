@@ -191,6 +191,8 @@ class SubPackets(collections.abc.MutableMapping[str, SubPacket], Field):
         for p, v in kwargs.items():
             if hasattr(nsp, p):
                 setattr(nsp, p, v)
+            else:
+                warn(f"subpacket {spname} does not have attr {p}")
         nsp.update_hlen()
         if hashed:
             self['h_' + spname] = nsp
