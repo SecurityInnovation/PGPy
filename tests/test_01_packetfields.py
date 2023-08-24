@@ -5,6 +5,7 @@ import pytest
 import itertools
 
 from pgpy.constants import HashAlgorithm
+from pgpy.constants import PacketType
 from pgpy.constants import String2KeyType
 from pgpy.constants import SymmetricKeyAlgorithm
 from pgpy.constants import S2KGNUExtension
@@ -51,14 +52,14 @@ subpkt_headers = [
     ]
 
 
-class TestHeaders(object):
+class TestHeaders:
     @pytest.mark.parametrize('pheader', pkt_headers)
     def test_packet_header(self, pheader):
         b = pheader[:]
         h = Header()
         h.parse(pheader)
 
-        assert h.tag == 0x02
+        assert h.typeid is PacketType.Signature
         assert h.length == len(pheader) - len(_trailer)
         assert pheader[h.length:] == _trailer
         assert len(h) == len(b) - len(pheader)
@@ -197,7 +198,7 @@ _ssps = [
 sig_subpkts = [bytearray(sp) + _trailer for sp in _ssps]
 
 
-class TestSignatureSubPackets(object):
+class TestSignatureSubPackets:
     @pytest.mark.parametrize('sigsubpacket', sig_subpkts)
     def test_load(self, sigsubpacket):
             spb = sigsubpacket[:]
@@ -267,7 +268,7 @@ _uassps = [
 ua_subpkts = [bytearray(sp) + _trailer for sp in _uassps]
 
 
-class TestUserAttributeSubPackets(object):
+class TestUserAttributeSubPackets:
     @pytest.mark.parametrize('uasubpacket', ua_subpkts)
     def test_load(self, uasubpacket):
         spb = uasubpacket[:]
@@ -297,7 +298,7 @@ _s2k_parts = [
     # hash algorithm list
     b'\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B',
     ]
-_iv = b'\xDE\xAD\xBE\xEF\xDE\xAD\xBE\xEF'
+_iv = b'\xB1\x36\x32\x44\x56\x26\x1B\xFD\x54\x7D\xDE\x66\x00\x21\x31\x55'
 _salt = b'\xC0\xDE\xC0\xDE\xC0\xDE\xC0\xDE'
 _count = b'\x10'  # expands from 0x10 to 2048
 _gnu_scserials = [
@@ -308,20 +309,20 @@ _gnu_scserials = [
     ]
 
 # simple S2Ks
-sis2ks = [bytearray(i) + _iv for i in itertools.product(*(_s2k_parts[:2] + [b'\x00'] + _s2k_parts[2:]))]
+sis2ks = [bytearray(i) + _iv[:SymmetricKeyAlgorithm(i[1]).block_size//8] for i in itertools.product(*(_s2k_parts[:2] + [b'\x00'] + _s2k_parts[2:]))]
 # salted S2Ks
-sas2ks = [bytearray(i) + _salt + _iv for i in itertools.product(*(_s2k_parts[:2] + [b'\x01'] + _s2k_parts[2:]))]
+sas2ks = [bytearray(i) + _salt + _iv[:SymmetricKeyAlgorithm(i[1]).block_size//8] for i in itertools.product(*(_s2k_parts[:2] + [b'\x01'] + _s2k_parts[2:]))]
 # iterated S2Ks
-is2ks = [bytearray(i) + _salt + _count + _iv for i in itertools.product(*(_s2k_parts[:2] + [b'\x03'] + _s2k_parts[2:]))]
+is2ks = [bytearray(i) + _salt + _count + _iv[:SymmetricKeyAlgorithm(i[1]).block_size//8] for i in itertools.product(*(_s2k_parts[:2] + [b'\x03'] + _s2k_parts[2:]))]
 # GNU extension S2Ks
 gnus2ks = [bytearray(b'\xff\x00\x65\x00GNU' + i) for i in ([b'\x01'] + [b'\x02' + bytearray([len(s)]) + s for s in _gnu_scserials])]
 
 
-class TestString2Key(object):
+class TestString2Key:
     @pytest.mark.parametrize('sis2k', sis2ks)
     def test_simple_string2key(self, sis2k):
         b = sis2k[:]
-        s = String2Key()
+        s = String2Key(key_version=4)
         s.parse(sis2k)
 
         assert len(sis2k) == 0
@@ -329,15 +330,15 @@ class TestString2Key(object):
         assert s.__bytes__() == b
 
         assert bool(s)
-        assert s.halg in HashAlgorithm
+        assert s._specifier.halg in HashAlgorithm
         assert s.encalg in SymmetricKeyAlgorithm
-        assert s.specifier == String2KeyType.Simple
-        assert s.iv == _iv
+        assert s._specifier._type is String2KeyType.Simple
+        assert s.iv == _iv[:s.encalg.block_size//8]
 
     @pytest.mark.parametrize('sas2k', sas2ks)
     def test_salted_string2key(self, sas2k):
         b = sas2k[:]
-        s = String2Key()
+        s = String2Key(key_version=4)
         s.parse(sas2k)
 
         assert len(sas2k) == 0
@@ -345,16 +346,16 @@ class TestString2Key(object):
         assert s.__bytes__() == b
 
         assert bool(s)
-        assert s.halg in HashAlgorithm
+        assert s._specifier.halg in HashAlgorithm
         assert s.encalg in SymmetricKeyAlgorithm
-        assert s.specifier == String2KeyType.Salted
-        assert s.salt == _salt
-        assert s.iv == _iv
+        assert s._specifier._type is String2KeyType.Salted
+        assert s._specifier.salt == _salt
+        assert s.iv == _iv[:s.encalg.block_size//8]
 
     @pytest.mark.parametrize('is2k', is2ks)
     def test_iterated_string2key(self, is2k):
         b = is2k[:]
-        s = String2Key()
+        s = String2Key(key_version=4)
         s.parse(is2k)
 
         assert len(is2k) == 0
@@ -362,17 +363,17 @@ class TestString2Key(object):
         assert s.__bytes__() == b
 
         assert bool(s)
-        assert s.halg in HashAlgorithm
+        assert s._specifier.halg in HashAlgorithm
         assert s.encalg in SymmetricKeyAlgorithm
-        assert s.specifier == String2KeyType.Iterated
-        assert s.salt == _salt
-        assert s.count == 2048
-        assert s.iv == _iv
+        assert s._specifier._type is String2KeyType.Iterated
+        assert s._specifier.salt == _salt
+        assert s._specifier.iteration_count == 2048
+        assert s.iv == _iv[:s.encalg.block_size//8]
 
     @pytest.mark.parametrize('gnus2k', gnus2ks)
     def test_gnu_extension_string2key(self, gnus2k):
         b = gnus2k[:]
-        s = String2Key()
+        s = String2Key(key_version=4)
         s.parse(gnus2k)
 
         assert len(gnus2k) == 0
@@ -381,7 +382,7 @@ class TestString2Key(object):
 
         assert bool(s)
         assert s.encalg == SymmetricKeyAlgorithm.Plaintext
-        assert s.specifier == String2KeyType.GNUExtension
-        assert s.gnuext in S2KGNUExtension
-        if s.gnuext == S2KGNUExtension.Smartcard:
-            assert s.scserial is not None and len(s.scserial) <= 16
+        assert s._specifier._type is String2KeyType.GNUExtension
+        assert s._specifier.gnuext in S2KGNUExtension
+        if s._specifier.gnuext is S2KGNUExtension.Smartcard:
+            assert s._specifier.smartcard_serial is not None and len(s._specifier.smartcard_serial) <= 16

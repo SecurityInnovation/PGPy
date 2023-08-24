@@ -4,6 +4,105 @@
 Changelog
 *********
 
+v0.7.0
+======
+
+(not yet released)
+
+Dependency changes
+------------------
+
+pyasn1 is no longer needed
+
+Now depends transitively (via the cryptography module) on OpenSSL
+1.1.1 or later for Brainpool, X25519, Ed25519.
+
+API additions
+-------------
+
+PGPSignatures represents a detached signature, which can contain more
+than a single signature.  It is a simple sequence of individual
+PGPSignature objects.
+
+PGPSubject is a simple type that collects all the possible things that
+could be signed in OpenPGP.  It is useful for type annotations.
+
+New SecurityIssues flag: AlgorithmUnknown
+
+API changes
+-----------
+
+Armorable.is_ascii() is deprecated.  You probably want
+Armorable.is_utf8() instead, since OpenPGP assumes that all text is
+UTF-8.
+
+EllipticCurveOID.Invalid was removed -- EllipticCurveOID only
+enumerates supported curves now.
+
+HashAlgorithm.hasher now returns a
+cryptography.hazmat.primitives.hashes.Hash object, not a hashlib.HASH
+object.  The main difference between these interfaces is the use of
+finalize() instead of digest().
+
+The following properties of PGPSignature now return None if the
+corresponding subpacket is not present (they used to return an empty
+list or string in that case):
+
+* cipherprefs
+* compprefs
+* hashprefs
+* keyserver
+* policy_uri
+* signer
+* signer_fingerprint
+
+And the following properties of PGPSignature now return an
+enum.IntFlag object instead of a set of custom FlagEnum objects.  When
+the corresponding subpacket is not present at all, they return None:
+
+* key_flags
+* keyserverprefs
+* features
+
+PGPKey.subkeys now returns an OrderedDict indexed by Fingerprint
+instead of KeyID.  When accessing this property via subscript (i.e.,
+key.subkeys[x]), you can *also* index it by KeyID, but using a full
+Fingerprint is recommended.
+
+S2KSpecifier is usable wherever any String2Key object appears (i.e.,
+bothSKESK and Secret Key protection).  The String2Key object itself is
+only for Secret Key protection, and it now contains an explicit
+S2KSpecifier member, rather than containing all S2K parameters
+directly.
+
+PGPKey.protect() now no longer requires you to specify a choice of
+algorithms.  PGPy will make good decisions by default, and you should
+not indicate specific algorithms unless you have a very clear reason
+to do so.
+
+PGPSignature.new's "signer" argument should be a Fingerprint object
+(it used to accept an Key ID-length string).  This is generally not
+used externally anyway (most users will use e.g. PGPKey.sign to
+produce a PGPSignature object).
+
+PGPUID.signers, PGPKey.signers, and PGPMessage.signers will now return
+Fingerprints, not just Key IDs.
+
+Passing None to PGPObject.text_to_bytes or PGPObject.bytes_to_text is
+now an error.
+
+PGPUID's name, email, and comment members all return None if the field
+in question doesn't exist in the User ID string, rather than returning
+the empty string.  User ID string parsing is also improved, to better
+handle raw e-mail addresses (without angle-brackets) and other subtle
+variations.
+
+pgpy.constants.PacketTag has been renamed to PacketType.  Similarly,
+Header objects (both for Packet and Subpacket) use the "typeid"
+property.  Packet Header objects no longer expose a "tag" alias. The
+term "Tag" was used ambiguously in the OpenPGP specifications, so we
+avoid it.
+
 v0.6.0
 ======
 

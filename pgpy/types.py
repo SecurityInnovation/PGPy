@@ -1,6 +1,6 @@
 """ types.py
 """
-from __future__ import division
+from __future__ import annotations
 
 import abc
 import base64
@@ -14,44 +14,111 @@ import re
 import warnings
 import weakref
 
-from enum import EnumMeta
 from enum import IntEnum
 
+from typing import ByteString, Optional, Dict, List, Literal, NamedTuple, Set, Tuple, Type, Union, OrderedDict, TypeVar, Generic
+
 from .decorators import sdproperty
+from .constants import SecurityIssues
 
 from .errors import PGPError
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .pgp import PGPSubject, PGPSignature, PGPKey
 
 __all__ = ['Armorable',
            'ParentRef',
            'PGPObject',
            'Field',
            'Fingerprint',
-           'FlagEnum',
-           'FlagEnumMeta',
+           'FingerprintDict',
+           'FingerprintValue',
            'Header',
+           'KeyID',
            'MetaDispatchable',
            'Dispatchable',
+           'DispatchGuidance',
            'SignatureVerification',
-           'Fingerprint',
            'SorteDeque']
 
+PGPMagicClass = Literal['SIGNATURE', 'MESSAGE', 'PUBLIC KEY BLOCK', 'PRIVATE KEY BLOCK']
 
-class Armorable(metaclass=abc.ABCMeta):
+
+class PGPObject(metaclass=abc.ABCMeta):
+
+    @staticmethod
+    def int_byte_len(i: int) -> int:
+        return (i.bit_length() + 7) // 8
+
+    @staticmethod
+    def bytes_to_int(b: bytes, order: Literal['little', 'big'] = 'big') -> int:  # pragma: no cover
+        """convert bytes to integer"""
+
+        return int.from_bytes(b, order)
+
+    @staticmethod
+    def int_to_bytes(i: int, minlen: int = 1, order: Literal['little', 'big'] = 'big') -> bytes:  # pragma: no cover
+        """convert integer to bytes"""
+        blen = max(minlen, PGPObject.int_byte_len(i), 1)
+
+        return i.to_bytes(blen, order)
+
+    @staticmethod
+    def text_to_bytes(text: Union[str, bytes, bytearray]) -> Union[bytes, bytearray]:
+        # if we got bytes, just return it
+        if isinstance(text, (bytearray, bytes)):
+            return text
+
+        # if we were given a unicode string, or if we translated the string into utf-8,
+        # we know that Python already has it in utf-8 encoding, so we can now just encode it to bytes
+        return text.encode('utf-8')
+
+    @staticmethod
+    def bytes_to_text(text: Union[str, bytes, bytearray]) -> str:
+        if isinstance(text, str):
+            return text
+
+        return text.decode('utf-8')
+
+    @abc.abstractmethod
+    def parse(self, packet: bytearray) -> None:
+        """this method is too abstract to understand"""
+
+    @abc.abstractmethod
+    def __bytearray__(self) -> bytearray:
+        """
+        Returns the contents of concrete subclasses in a binary format that can be understood by other OpenPGP
+        implementations
+        """
+
+    def __bytes__(self) -> bytes:
+        """
+        Return the contents of concrete subclasses in a binary format that can be understood by other OpenPGP
+        implementations
+        """
+        # this is what all subclasses will do anyway, so doing this here we can reduce code duplication significantly
+        return bytes(self.__bytearray__())
+
+
+class Armorable(PGPObject, metaclass=abc.ABCMeta):
     __crc24_init = 0x0B704CE
     __crc24_poly = 0x1864CFB
 
     __armor_fmt = '-----BEGIN PGP {block_type}-----\n' \
                   '{headers}\n' \
                   '{packet}\n' \
-                  '={crc}\n' \
+                  '{crc}' \
                   '-----END PGP {block_type}-----\n'
 
     # the re.VERBOSE flag allows for:
     #  - whitespace is ignored except when in a character class or escaped
     #  - anything after a '#' that is not escaped or in a character class is ignored, allowing for comments
     __armor_regex = re.compile(r"""# This capture group is optional because it will only be present in signed cleartext messages
-                         (^-{5}BEGIN\ PGP\ SIGNED\ MESSAGE-{5}(?:\r?\n)
-                          (Hash:\ (?P<hashes>[A-Za-z0-9\-,]+)(?:\r?\n){2})?
+                         (^-{5}BEGIN\ PGP\ SIGNED\ MESSAGE-{5}\r?\n
+                          (Hash:\ (?P<hashes>[A-Za-z0-9\-,]+)\r?\n)?
+                          \r?\n
                           (?P<cleartext>(.*\r?\n)*(.*(?=\r?\n-{5})))(?:\r?\n)
                          )?
                          # armor header line; capture the variable part of the magic text
@@ -62,22 +129,38 @@ class Armorable(metaclass=abc.ABCMeta):
                          # capture all lines of the body, up to 76 characters long,
                          # including the newline, and the pad character(s)
                          (?P<body>([A-Za-z0-9+/]{1,76}={,2}(?:\r?\n))+)
-                         # capture the armored CRC24 value
-                         ^=(?P<crc>[A-Za-z0-9+/]{4})(?:\r?\n)
+                         # optionally capture the armored CRC24 value
+                         (?:^=(?P<crc>[A-Za-z0-9+/]{4})(?:\r?\n))?
                          # finally, capture the armor tail line, which must match the armor header line
                          ^-{5}END\ PGP\ (?P=magic)-{5}(?:\r?\n)?
                          """, flags=re.MULTILINE | re.VERBOSE)
 
     @property
-    def charset(self):
+    def charset(self) -> str:
         return self.ascii_headers.get('Charset', 'utf-8')
 
     @charset.setter
-    def charset(self, encoding):
+    def charset(self, encoding: str) -> None:
         self.ascii_headers['Charset'] = codecs.lookup(encoding).name
 
+    @property
+    def emit_crc(self) -> bool:
+        return True
+
     @staticmethod
-    def is_ascii(text):
+    def is_utf8(text: Union[str, bytes, bytearray]) -> bool:
+        if isinstance(text, str):
+            return True
+        else:
+            try:
+                text.decode('utf-8')
+                return True
+            except UnicodeDecodeError:
+                return False
+
+    @staticmethod
+    def is_ascii(text: Union[str, bytes, bytearray]) -> bool:
+        '''This is a deprecated, pointless method'''
         if isinstance(text, str):
             return bool(re.match(r'^[ -~\r\n\t]*$', text, flags=re.ASCII))
 
@@ -87,7 +170,7 @@ class Armorable(metaclass=abc.ABCMeta):
         raise TypeError("Expected: ASCII input of type str, bytes, or bytearray")  # pragma: no cover
 
     @staticmethod
-    def is_armor(text):
+    def is_armor(text: Union[str, bytes, bytearray]) -> bool:
         """
         Whether the ``text`` provided is an ASCII-armored PGP block.
         :param text: A possible ASCII-armored PGP block.
@@ -95,12 +178,15 @@ class Armorable(metaclass=abc.ABCMeta):
         :returns: Whether the text is ASCII-armored.
         """
         if isinstance(text, (bytes, bytearray)):  # pragma: no cover
-            text = text.decode('latin-1')
+            try:
+                text = text.decode('utf-8')
+            except UnicodeDecodeError:
+                return False
 
         return Armorable.__armor_regex.search(text) is not None
 
     @staticmethod
-    def ascii_unarmor(text):
+    def ascii_unarmor(text: Union[str, bytes, bytearray]) -> Dict[str, Optional[Union[str, bytes, bytearray, List[str]]]]:
         """
         Takes an ASCII-armored PGP block and returns the decoded byte value.
 
@@ -110,20 +196,18 @@ class Armorable(metaclass=abc.ABCMeta):
         :returns: A ``dict`` containing information from ``text``, including the de-armored data.
         It can contain the following keys: ``magic``, ``headers``, ``hashes``, ``cleartext``, ``body``, ``crc``.
         """
-        m = {'magic': None, 'headers': None, 'body': bytearray(), 'crc': None}
-        if not Armorable.is_ascii(text):
-            m['body'] = bytearray(text)
-            return m
+        if not isinstance(text, str) and not Armorable.is_utf8(text):
+            return {'magic': None, 'headers': None, 'body': bytearray(text), 'crc': None}
 
         if isinstance(text, (bytes, bytearray)):  # pragma: no cover
             text = text.decode('latin-1')
 
-        m = Armorable.__armor_regex.search(text)
+        matcher = Armorable.__armor_regex.search(text)
 
-        if m is None:  # pragma: no cover
+        if matcher is None:  # pragma: no cover
             raise ValueError("Expected: ASCII-armored PGP data")
 
-        m = m.groupdict()
+        m = matcher.groupdict()
 
         if m['hashes'] is not None:
             m['hashes'] = m['hashes'].split(',')
@@ -140,13 +224,15 @@ class Armorable(metaclass=abc.ABCMeta):
 
         if m['crc'] is not None:
             m['crc'] = Header.bytes_to_int(base64.b64decode(m['crc'].encode()))
-            if Armorable.crc24(m['body']) != m['crc']:
+            if not isinstance(m['body'], ByteString):
+                warnings.warn(f"Armored body was not a ByteString ({type(m['body'])})")
+            elif Armorable.crc24(m['body']) != m['crc']:
                 warnings.warn('Incorrect crc24', stacklevel=3)
 
         return m
 
     @staticmethod
-    def crc24(data):
+    def crc24(data: ByteString) -> int:
         # CRC24 computation, as described in the RFC 4880 section on Radix-64 Conversions
         #
         # The checksum is a 24-bit Cyclic Redundancy Check (CRC) converted to
@@ -156,9 +242,6 @@ class Armorable(metaclass=abc.ABCMeta):
         # The accumulation is done on the data before it is converted to
         # radix-64, rather than on the converted data.
         crc = Armorable.__crc24_init
-
-        if not isinstance(data, bytearray):
-            data = iter(data)
 
         for b in data:
             crc ^= b << 16
@@ -171,7 +254,7 @@ class Armorable(metaclass=abc.ABCMeta):
         return crc & 0xFFFFFF
 
     @abc.abstractproperty
-    def magic(self):
+    def magic(self) -> PGPMagicClass:
         """The magic string identifier for the current PGP type"""
 
     @classmethod
@@ -203,18 +286,22 @@ class Armorable(metaclass=abc.ABCMeta):
         return obj  # pragma: no cover
 
     def __init__(self):
-        super(Armorable, self).__init__()
+        super().__init__()
         self.ascii_headers = collections.OrderedDict()
 
-    def __str__(self):
+    def __str__(self) -> str:
         payload = base64.b64encode(self.__bytes__()).decode('latin-1')
         payload = '\n'.join(payload[i:(i + 64)] for i in range(0, len(payload), 64))
+
+        crc = ''
+        if self.emit_crc:
+            crc = '=' + base64.b64encode(PGPObject.int_to_bytes(self.crc24(self.__bytes__()), 3)).decode('latin-1') + '\n'
 
         return self.__armor_fmt.format(
             block_type=self.magic,
             headers=''.join('{key}: {val}\n'.format(key=key, val=val) for key, val in self.ascii_headers.items()),
             packet=payload,
-            crc=base64.b64encode(PGPObject.int_to_bytes(self.crc24(self.__bytes__()), 3)).decode('latin-1')
+            crc=crc
         )
 
     def __copy__(self):
@@ -224,7 +311,7 @@ class Armorable(metaclass=abc.ABCMeta):
         return obj
 
 
-class ParentRef(object):
+class ParentRef:
     # mixin class to handle weak-referencing a parent object
     @property
     def _parent(self):
@@ -245,79 +332,20 @@ class ParentRef(object):
         return self._parent
 
     def __init__(self):
-        super(ParentRef, self).__init__()
+        super().__init__()
         self._parent = None
-
-
-class PGPObject(metaclass=abc.ABCMeta):
-
-    @staticmethod
-    def int_byte_len(i):
-        return (i.bit_length() + 7) // 8
-
-    @staticmethod
-    def bytes_to_int(b, order='big'):  # pragma: no cover
-        """convert bytes to integer"""
-
-        return int.from_bytes(b, order)
-
-    @staticmethod
-    def int_to_bytes(i, minlen=1, order='big'):  # pragma: no cover
-        """convert integer to bytes"""
-        blen = max(minlen, PGPObject.int_byte_len(i), 1)
-
-        return i.to_bytes(blen, order)
-
-    @staticmethod
-    def text_to_bytes(text):
-        if text is None:
-            return text
-
-        # if we got bytes, just return it
-        if isinstance(text, (bytearray, bytes)):
-            return text
-
-        # if we were given a unicode string, or if we translated the string into utf-8,
-        # we know that Python already has it in utf-8 encoding, so we can now just encode it to bytes
-        return text.encode('utf-8')
-
-    @staticmethod
-    def bytes_to_text(text):
-        if text is None or isinstance(text, str):
-            return text
-
-        return text.decode('utf-8')
-
-    @abc.abstractmethod
-    def parse(self, packet):
-        """this method is too abstract to understand"""
-
-    @abc.abstractmethod
-    def __bytearray__(self):
-        """
-        Returns the contents of concrete subclasses in a binary format that can be understood by other OpenPGP
-        implementations
-        """
-
-    def __bytes__(self):
-        """
-        Return the contents of concrete subclasses in a binary format that can be understood by other OpenPGP
-        implementations
-        """
-        # this is what all subclasses will do anyway, so doing this here we can reduce code duplication significantly
-        return bytes(self.__bytearray__())
 
 
 class Field(PGPObject):
     @abc.abstractmethod
-    def __len__(self):
+    def __len__(self) -> int:
         """Return the length of the output of __bytes__"""
 
 
 class Header(Field):
     @staticmethod
-    def encode_length(length, nhf=True, llen=1):
-        def _new_length(nl):
+    def encode_length(length: int, nhf: bool = True, llen: int = 1) -> bytes:
+        def _new_length(nl: int) -> bytes:
             if 192 > nl:
                 return Header.int_to_bytes(nl)
 
@@ -327,24 +355,23 @@ class Header(Field):
 
             return b'\xFF' + Header.int_to_bytes(nl, 4)
 
-        def _old_length(nl, llen):
+        def _old_length(nl: int, llen: int) -> bytes:
             return Header.int_to_bytes(nl, llen) if llen > 0 else b''
 
         return _new_length(length) if nhf else _old_length(length, llen)
 
     @sdproperty
-    def length(self):
+    def length(self) -> int:
         return self._len
 
-    @length.register(int)
-    def length_int(self, val):
-        self._len = val
+    @length.register
+    def length_int(self, val: int) -> None:
+        self._len: int = val
 
-    @length.register(bytes)
-    @length.register(bytearray)
-    def length_bin(self, val):
-        def _new_len(b):
-            def _parse_len(a, offset=0):
+    @length.register
+    def length_bin(self, val: bytearray) -> None:
+        def _new_len(b: bytearray):
+            def _parse_len(a: Union[bytes, bytearray], offset: int = 0):
                 # returns (the parsed length, size of length field, whether the length was of partial type)
                 fo = a[offset]
 
@@ -378,7 +405,7 @@ class Header(Field):
             else:
                 self._len = part_len
 
-        def _old_len(b):
+        def _old_len(b: bytearray) -> None:
             if self.llen > 0:
                 self._len = self.bytes_to_int(b[:self.llen])
                 del b[:self.llen]
@@ -386,13 +413,11 @@ class Header(Field):
             else:  # pragma: no cover
                 self._len = 0
 
-        _new_len(val) if self._lenfmt == 1 else _old_len(val)
+        _new_len(val) if self._openpgp_format else _old_len(val)
 
     @sdproperty
-    def llen(self):
-        lf = self._lenfmt
-
-        if lf == 1:
+    def llen(self) -> int:
+        if self._openpgp_format:
             # new-format length
             if 192 > self.length:
                 return 1
@@ -408,17 +433,22 @@ class Header(Field):
             ##TODO: what if _llen needs to be (re)computed?
             return self._llen
 
-    @llen.register(int)
-    def llen_int(self, val):
-        if self._lenfmt == 0:
+    @llen.register
+    def llen_int(self, val: int) -> None:
+        if not self._openpgp_format:
             self._llen = {0: 1, 1: 2, 2: 4, 3: 0}[val]
 
-    def __init__(self):
-        super(Header, self).__init__()
+    def __init__(self) -> None:
+        super().__init__()
         self._len = 1
         self._llen = 1
-        self._lenfmt = 1
-        self._partial = False
+        self._openpgp_format: bool = True
+        self._partial: bool = False
+
+
+class DispatchGuidance(IntEnum):
+    "Identify classes that should be left alone by PGPy's internal dispatch mechanism"
+    NoDispatch = -1
 
 
 class MetaDispatchable(abc.ABCMeta):
@@ -426,15 +456,15 @@ class MetaDispatchable(abc.ABCMeta):
     MetaDispatchable is a metaclass for objects that subclass Dispatchable
     """
 
-    _roots = set()
+    _roots: Set[Type] = set()
     """
     _roots is a set of all currently registered RootClass class objects
 
     A RootClass is successfully registered if the following things are true:
      - it inherits (directly or indirectly) from Dispatchable
-     - __typeid__ == -1
+     - __typeid__ is None
     """
-    _registry = {}
+    _registry: Dict[Union[Tuple[Type, Optional[IntEnum]], Tuple[Type, IntEnum, int]], Type] = {}
     """
     _registry is the Dispatchable class registry. It uses the following format:
 
@@ -467,14 +497,14 @@ class MetaDispatchable(abc.ABCMeta):
     """
 
     def __new__(mcs, name, bases, attrs):  # NOQA
-        ncls = super(MetaDispatchable, mcs).__new__(mcs, name, bases, attrs)
+        ncls = super().__new__(mcs, name, bases, attrs)
 
-        if not hasattr(ncls.__typeid__, '__isabstractmethod__'):
-            if ncls.__typeid__ == -1 and not issubclass(ncls, tuple(MetaDispatchable._roots)):
+        if ncls.__typeid__ is not DispatchGuidance.NoDispatch:
+            if ncls.__typeid__ is None and not issubclass(ncls, tuple(MetaDispatchable._roots)):
                 # this is a root class
                 MetaDispatchable._roots.add(ncls)
 
-            elif issubclass(ncls, tuple(MetaDispatchable._roots)) and ncls.__typeid__ != -1:
+            elif issubclass(ncls, tuple(MetaDispatchable._roots)):
                 for rcls in (root for root in MetaDispatchable._roots if issubclass(ncls, root)):
                     if (rcls, ncls.__typeid__) not in MetaDispatchable._registry:
                         MetaDispatchable._registry[(rcls, ncls.__typeid__)] = ncls
@@ -548,21 +578,23 @@ class MetaDispatchable(abc.ABCMeta):
 
 
 class Dispatchable(PGPObject, metaclass=MetaDispatchable):
+    __typeid__: Optional[IntEnum] = DispatchGuidance.NoDispatch
 
     @abc.abstractproperty
     def __headercls__(self):  # pragma: no cover
         return False
 
-    @abc.abstractproperty
-    def __typeid__(self):  # pragma: no cover
-        return False
-
-    __ver__ = None
+    __ver__: Optional[int] = None
 
 
-class SignatureVerification(object):
+class SignatureVerification:
     __slots__ = ("_subjects",)
-    _sigsubj = collections.namedtuple('sigsubj', ['issues', 'by', 'signature', 'subject'])
+
+    class SigSubj(NamedTuple):
+        issues: SecurityIssues
+        by: PGPKey
+        signature: PGPSignature
+        subject: PGPSubject
 
     @property
     def good_signatures(self):
@@ -605,22 +637,22 @@ class SignatureVerification(object):
             if sigsub.issues and sigsub.issues.causes_signature_verify_to_fail
         )
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Returned by :py:meth:`.PGPKey.verify`
 
         Can be compared directly as a boolean to determine whether or not the specified signature verified.
         """
-        super(SignatureVerification, self).__init__()
-        self._subjects = []
+        super().__init__()
+        self._subjects: List[SignatureVerification.SigSubj] = []
 
-    def __contains__(self, item):
+    def __contains__(self, item: PGPSubject) -> bool:
         return item in {ii for i in self._subjects for ii in [i.signature, i.subject]}
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._subjects)
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         from .constants import SecurityIssues
         return all(
             sigsub.issues is SecurityIssues.OK
@@ -628,39 +660,80 @@ class SignatureVerification(object):
             for sigsub in self._subjects
         )
 
-    def __nonzero__(self):
-        return self.__bool__()
-
-    def __and__(self, other):
+    def __and__(self, other) -> SignatureVerification:
         if not isinstance(other, SignatureVerification):
             raise TypeError(type(other))
 
         self._subjects += other._subjects
         return self
 
-    def __repr__(self):
-        return '<{classname}({val})>'.format(
-            classname=self.__class__.__name__,
-            val=bool(self)
-        )
+    def __repr__(self) -> str:
+        return f'<{self.__class__.__name__}({bool(self)})>'
 
-    def add_sigsubj(self, signature, by, subject=None, issues=None):
+    def add_sigsubj(self, signature: PGPSignature, by: PGPKey,
+                    subject: PGPSubject = None,
+                    issues: Optional[SecurityIssues] = None) -> None:
         if issues is None:
             from .constants import SecurityIssues
             issues = SecurityIssues(0xFF)
-        self._subjects.append(self._sigsubj(issues, by, signature, subject))
+        self._subjects.append(self.SigSubj(issues, by, signature, subject))
 
 
-class FlagEnumMeta(EnumMeta):
-    def __and__(self, other):
-        return { f for f in iter(self) if f.value & other }
+class KeyID(str):
+    '''
+    This class represents an 8-octet key ID, which is used on the wire in a v3 PKESK packet.
 
-    def __rand__(self, other):  # pragma: no cover
-        return self & other
+    If a uint64 basic type existed in the stdlib, it would have been beter to use that instead.
+    '''
+    def __new__(cls, content: Union[str, bytes, bytearray]) -> KeyID:
+        if isinstance(content, str):
+            if not re.match(r'^[0-9A-F]{16}$', content):
+                raise ValueError(f'Initializing a KeyID from a string requires it to be 16 uppercase hex digits, not "{content}"')
+            return str.__new__(cls, content)
+        elif isinstance(content, (bytes, bytearray)):
+            if len(content) != 8:
+                raise ValueError(f'Initializing a KeyID from a bytes or bytearray requires exactly 8 bytes, not {content!r}')
+            return str.__new__(cls, binascii.b2a_hex(content).decode('latin1').upper())
+        else:
+            raise TypeError(f'cannot initialize a KeyID from {type(content)}')
 
+    @classmethod
+    def from_bytes(cls, b: bytes) -> KeyID:
+        return cls(binascii.b2a_hex(b).decode('latin-1').upper())
 
-namespace = FlagEnumMeta.__prepare__('FlagEnum', (IntEnum,))
-FlagEnum = FlagEnumMeta('FlagEnum', (IntEnum,), namespace)
+    @classmethod
+    def parse(cls, b: bytearray) -> KeyID:
+        'read a Key ID off the wire and consume the series of bytes that represent the Key ID.  Produces a new KeyID object'
+        ret = cls.from_bytes(b[:8])
+        del b[:8]
+        return ret
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, KeyID):
+            return str(self) == str(other)
+        if isinstance(other, Fingerprint):
+            return str(self) == str(other.keyid)
+        if isinstance(other, str):
+            if re.match(r'^[0-9A-F]{16}$', other):
+                return str(self) == other
+        if isinstance(other, bytes):
+            return bytes(self) == other
+        return False
+
+    def __ne__(self, other: object) -> bool:
+        return not (self == other)
+
+    def __int__(self) -> int:
+        return int.from_bytes(bytes(self), byteorder='big', signed=False)
+
+    def __hash__(self) -> int:
+        return hash(str(self))
+
+    def __bytes__(self) -> bytes:
+        return binascii.a2b_hex(self)
+
+    def __repr__(self) -> str:
+        return f"KeyID({self})"
 
 
 class Fingerprint(str):
@@ -670,26 +743,66 @@ class Fingerprint(str):
     Primarily used as a key for internal dictionaries, so it ignores spaces when comparing and hashing
     """
     @property
-    def keyid(self):
-        return self[-16:]
+    def keyid(self) -> KeyID:
+        if self._version == 4:
+            return KeyID(self[-16:])
+        elif self._version == 6:
+            return KeyID(self[:16])
+        else:
+            raise ValueError(f"Do not know how to calculate a keyID for fingerprint version {self._version}.")
 
     @property
-    def shortid(self):
+    def shortid(self) -> str:
+        if self._version != 4:
+            raise ValueError("shortid can only ever be used on version 4 keys")
         return self[-8:]
 
-    def __new__(cls, content):
+    @sdproperty
+    def version(self) -> int:
+        'The version of the key this fingerprint belongs to'
+        return self._version
+
+    @version.register
+    def version_int(self, version: int) -> None:
+        self._version: int = version
+
+    @staticmethod
+    def confirm_expected_length(version: int, length: int) -> None:
+        'Raises PGPError if fingerprint version `version` should not be length `length` (in octets)'
+        expected_lengths = { 4: 20, 6: 32 }
+        if version in expected_lengths and length != expected_lengths[version]:
+            raise PGPError(f"Version {version} fingerprints should be {expected_lengths[version]} octets, got {length} octets ")
+
+    def __new__(cls, content: Union[str, bytes, bytearray], version=None) -> Fingerprint:
         if isinstance(content, Fingerprint):
+            if version is not None and version != content.version:
+                raise ValueError(f"requested version {version} but existing Fingerprint is version {content.version}")
+
             return content
 
-        # validate input before continuing: this should be a string of 40 hex digits
+        if isinstance(content, (bytes, bytearray)):
+            if len(content) not in {20, 32}:
+                raise ValueError(f'binary Fingerprint must be either 20 or 32 bytes, not {len(content)}')
+            return Fingerprint(binascii.b2a_hex(content).decode('latin-1').upper(), version=version)
         content = content.upper().replace(' ', '')
-        if not re.match(r'^[0-9A-F]+$', content):
-            raise ValueError('Fingerprint must be a string of 40 hex digits')
-        return str.__new__(cls, content)
+        if not re.match(r'^[0-9A-F]{40,64}$', content):
+            raise ValueError('Fingerprint must be a string of 40 or 64 hex digits')
+        ret = str.__new__(cls, content)
+        if version is None:
+            if len(content) == 64:
+                ret._version = 6
+            else:
+                ret._version = 4
+        else:
+            Fingerprint.confirm_expected_length(version, len(content) // 2)
+            ret._version = version
+        return ret
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, Fingerprint):
-            return str(self) == str(other)
+            return str(self) == str(other) and self._version == other._version
+        if isinstance(other, KeyID):
+            return self.keyid == other
 
         if isinstance(other, (str, bytes, bytearray)):
             if isinstance(other, (bytes, bytearray)):  # pragma: no cover
@@ -698,23 +811,30 @@ class Fingerprint(str):
             other = other.replace(' ', '')
             return any([str(self) == other,
                         self.keyid == other,
-                        self.shortid == other])
+                        self._version == 4 and self.shortid == other])
 
         return False  # pragma: no cover
 
-    def __ne__(self, other):
+    def __ne__(self, other: object) -> bool:
         return not (self == other)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(str(self))
 
-    def __bytes__(self):
-        return binascii.unhexlify(self.encode("latin-1"))
+    def __bytes__(self) -> bytes:
+        return binascii.a2b_hex(self.encode("latin-1"))
 
-    def __pretty__(self):
+    def __wireformat__(self) -> bytes:
+        return bytes([self._version]) + bytes(self)
+
+    def __pretty__(self) -> str:
         content = self
         if not bool(re.match(r'^[A-F0-9]{40}$', content)):
-            raise ValueError("Expected: String of 40 hex digits")
+            if bool(re.match(r'^[A-F0-9]{64}$', content)):
+                # Based on size, this is a v6 fingerprint, we don't have a preferred "pretty" format other than the raw hex string:
+                return str(content)
+            else:
+                raise ValueError("Expected: String of 40 or 64 hex digits")
 
         halves = [
             [content[i:i + 4] for i in range(0, 20, 4)],
@@ -722,22 +842,20 @@ class Fingerprint(str):
         ]
         return '  '.join(' '.join(c for c in half) for half in halves)
 
-    def __repr__(self):
-        return '{classname}({fp})'.format(
-            classname=self.__class__.__name__,
-            fp=self.__pretty__()
-        )
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}v{self._version}({self.__pretty__()})'
 
 
 class SorteDeque(collections.deque):
     """A deque subclass that tries to maintain sorted ordering using bisect"""
-    def insort(self, item):
+
+    def insort(self, item) -> None:
         i = bisect.bisect_left(self, item)
         self.rotate(- i)
         self.appendleft(item)
         self.rotate(i)
 
-    def resort(self, item):  # pragma: no cover
+    def resort(self, item) -> None:  # pragma: no cover
         if item in self:
             # if item is already in self, see if it is still in sorted order.
             # if not, re-sort it by removing it and then inserting it into its sorted order
@@ -750,7 +868,63 @@ class SorteDeque(collections.deque):
             # if item is not in self, just insert it in sorted order
             self.insort(item)
 
-    def check(self):  # pragma: no cover
+    def check(self) -> None:  # pragma: no cover
         """re-sort any items in self that are not sorted"""
         for unsorted in iter(self[i] for i in range(len(self) - 2) if not operator.le(self[i], self[i + 1])):
             self.resort(unsorted)
+
+
+FingerprintValue = TypeVar('FingerprintValue')
+
+
+class FingerprintDict(Generic[FingerprintValue], OrderedDict[Union[Fingerprint, KeyID, str], FingerprintValue]):
+    '''An ordered collection of PGPKey objects indexable by either KeyID or fingerprint.
+
+    Internally, they are all indexed by Fingerprint, but they can also
+    be reached by KeyID, or by string representations of either Key
+    ID or Fingerprint.
+
+    '''
+    @staticmethod
+    def _normalize_input(k: Union[Fingerprint, KeyID, str]) -> Union[Fingerprint, KeyID]:
+        if isinstance(k, (KeyID, Fingerprint)):
+            return k
+        if len(k) == 16:
+            return KeyID(k)
+        else:
+            return Fingerprint(k)
+
+    def _get_fpr_for_keyid(self, k: KeyID) -> Optional[Fingerprint]:
+        # FIXME: if more than one fingerprint matches the key ID, what do we do?
+        for fpr in super().keys():
+            if not isinstance(fpr, Fingerprint):
+                raise TypeError(f"keys should only be Fingerprint, somehow FingerprintDict got a key of type {type(fpr)}")
+            if fpr.keyid == k:
+                return fpr
+        return None
+
+    def __setitem__(self, k: Union[Fingerprint, KeyID, str], v: FingerprintValue) -> None:
+        if not isinstance(k, Fingerprint):
+            raise TypeError(f"items can only be added to a FingerprintDict by Fingerprint, not {type(k)}")
+        return super().__setitem__(k, v)
+
+    def __getitem__(self, k: Union[Fingerprint, KeyID, str]) -> FingerprintValue:
+        k = FingerprintDict._normalize_input(k)
+        if isinstance(k, Fingerprint):
+            return super().__getitem__(k)
+        fpr = self._get_fpr_for_keyid(k)
+        if fpr is None:
+            raise KeyError(k)
+        return super().__getitem__(fpr)
+
+    # FIXME: __getitem__ only replaces how the [] operator works.  The
+    # "get" method only works by using Fingerprints.  Trying to
+    # override get causes complaints from the typechecker.
+
+    def __contains__(self, k: object):
+        if not isinstance(k, (str, KeyID, Fingerprint)):
+            raise TypeError(k)
+        k = FingerprintDict._normalize_input(k)
+        if isinstance(k, Fingerprint):
+            return super().__contains__(k)
+        return self._get_fpr_for_keyid(k) is not None

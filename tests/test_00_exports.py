@@ -22,7 +22,7 @@ modules = ['pgpy.constants',
 
 def get_module_objs(module):
     # return a set of strings that represent the names of objects defined in that module
-    return { n for n, o in inspect.getmembers(module, lambda m: inspect.getmodule(m) is module) } | ({'FlagEnum',} if module is importlib.import_module('pgpy.types') else set())  # dirty workaround until six fixes metaclass stuff to support EnumMeta in Python >= 3.6
+    return { n for n, o in inspect.getmembers(module, lambda m: inspect.getmodule(m) is module) }
 
 
 def get_module_all(module):

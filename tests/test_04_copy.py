@@ -1,6 +1,5 @@
 """ test copying PGP objects
 """
-from __future__ import print_function
 import pytest
 
 import copy
@@ -37,11 +36,14 @@ def walk_obj(obj, prefix=""):
         if hasattr(obj.__class__, name):
             continue
 
+        # avoid descending into members of a derived generic class:
+        if name == '__orig_class__':
+            continue
+
         yield '{}{}'.format(prefix, name), val
 
         if not isinstance(val, Enum):
-            for n, v in walk_obj(val, prefix="{}{}.".format(prefix, name)):
-                yield n, v
+            yield from walk_obj(val, prefix="{}{}.".format(prefix, name))
 
 
 def check_id(obj):

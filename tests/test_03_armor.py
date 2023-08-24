@@ -13,6 +13,7 @@ from pgpy.pgp import PGPKey
 from pgpy.pgp import PGPMessage
 from pgpy.pgp import PGPSignature
 from pgpy.types import Armorable
+from pgpy.types import KeyID
 
 
 blocks = sorted(glob.glob('tests/testdata/blocks/*.asc'))
@@ -56,9 +57,9 @@ block_attrs = {
          ('is_compressed', False),
          ('is_encrypted',  False),
          ('is_signed',     True),
-         ('issuers',       {'2A834D8E5918E886'}),
+         ('issuers',       {KeyID('2A834D8E5918E886')}),
          ('message',       b"This is stored, literally\\!\n\n"),
-         ('signers',       {'2A834D8E5918E886'}),
+         ('signers',       {KeyID('2A834D8E5918E886')}),
          ('type',          'literal'),],
 
     'tests/testdata/blocks/message.two_onepass.asc':
@@ -67,9 +68,9 @@ block_attrs = {
          ('is_compressed', False),
          ('is_encrypted',  False),
          ('is_signed',     True),
-         ('issuers',       {'2A834D8E5918E886', 'A5DCDC966453140E'}),
+         ('issuers',       {KeyID('2A834D8E5918E886'), KeyID('A5DCDC966453140E')}),
          ('message',       b"This is stored, literally\\!\n\n"),
-         ('signers',       {'2A834D8E5918E886', 'A5DCDC966453140E'}),
+         ('signers',       {KeyID('2A834D8E5918E886'), KeyID('A5DCDC966453140E')}),
          ('type',          'literal'),],
 
     'tests/testdata/blocks/message.signed.asc':
@@ -78,9 +79,9 @@ block_attrs = {
          ('is_compressed', False),
          ('is_encrypted',  False),
          ('is_signed',     True),
-         ('issuers',       {'2A834D8E5918E886'}),
+         ('issuers',       {KeyID('2A834D8E5918E886')}),
          ('message',      b"This is stored, literally\\!\n\n"),
-         ('signers',       {'2A834D8E5918E886'}),
+         ('signers',       {KeyID('2A834D8E5918E886')}),
          ('type',         'literal'),],
 
     'tests/testdata/blocks/cleartext.asc':
@@ -88,9 +89,9 @@ block_attrs = {
          ('is_compressed', False),
          ('is_encrypted',  False),
          ('is_signed',     True),
-         ('issuers',       {'2A834D8E5918E886'}),
+         ('issuers',       {KeyID('2A834D8E5918E886')}),
          ('message',       "This is stored, literally\\!\n"),
-         ('signers',       {'2A834D8E5918E886'}),
+         ('signers',       {KeyID('2A834D8E5918E886')}),
          ('type',          'cleartext'),],
 
     'tests/testdata/blocks/cleartext.twosigs.asc':
@@ -98,35 +99,35 @@ block_attrs = {
          ('is_compressed', False),
          ('is_encrypted',  False),
          ('is_signed',     True),
-         ('issuers',       {'2A834D8E5918E886', 'A5DCDC966453140E'}),
+         ('issuers',       {KeyID('2A834D8E5918E886'), KeyID('A5DCDC966453140E')}),
          ('message',       "This is stored, literally\\!\n"),
-         ('signers',       {'2A834D8E5918E886', 'A5DCDC966453140E'}),
+         ('signers',       {KeyID('2A834D8E5918E886'), KeyID('A5DCDC966453140E')}),
          ('type',          'cleartext'),],
 
     'tests/testdata/blocks/message.encrypted.asc':
-        [('encrypters',    {'EEE097A017B979CA'}),
+        [('encrypters',    {KeyID('EEE097A017B979CA')}),
          ('is_compressed', False),
          ('is_encrypted',  True),
          ('is_signed',     False),
-         ('issuers',       {'EEE097A017B979CA'}),
+         ('issuers',       {KeyID('EEE097A017B979CA')}),
          ('signers',       set()),
          ('type',          'encrypted')],
 
     'tests/testdata/blocks/message.encrypted.signed.asc':
-        [('encrypters',    {'EEE097A017B979CA'}),
+        [('encrypters',    {KeyID('EEE097A017B979CA')}),
          ('is_compressed', False),
          ('is_encrypted',  True),
          ('is_signed',     False),
-         ('issuers',       {'EEE097A017B979CA'}),
+         ('issuers',       {KeyID('EEE097A017B979CA')}),
          ('signers',       set()),
          ('type',          'encrypted')],
 
     'tests/testdata/blocks/message.ecc.encrypted.asc':
-        [('encrypters',    {'77CEB7A34089AB73'}),
+        [('encrypters',    {KeyID('77CEB7A34089AB73')}),
          ('is_compressed', False),
          ('is_encrypted',  True),
          ('is_signed',     False),
-         ('issuers',       {'77CEB7A34089AB73'}),
+         ('issuers',       {KeyID('77CEB7A34089AB73')}),
          ('signers',       set()),
          ('type',          'encrypted')],
 
@@ -142,7 +143,7 @@ block_attrs = {
          ('key_algorithm', PubKeyAlgorithm.RSAEncryptOrSign),
          ('magic',         "PUBLIC KEY BLOCK"),
          ('parent',        None),
-         ('signers',       {'560CF308EF60CFA3'}),],
+         ('signers',       {KeyID('560CF308EF60CFA3')}),],
 
     'tests/testdata/blocks/expyro.asc':
         [('created',       datetime(1970, 1, 1, tzinfo=timezone.utc)),
@@ -186,26 +187,26 @@ block_attrs = {
                    b'\x81\x87\x36\x1a\xa6\x5c\x79\x98\xfe\xdb\xdd\x23\x54\x69\x92\x2f\x0b\xc4\xee\x2a\x61'
                    b'\x77\x35\x59\x6e\xb2\xe2\x1b\x80\x61\xaf\x2d\x7a\x64\x38\xfe\xe3\x95\xcc\xe8\xa4\x05'
                    b'\x55\x5d'),
-         ('cipherprefs',    []),
-         ('compprefs',      []),
+         ('cipherprefs',    None),
+         ('compprefs',      None),
          ('created',        datetime.fromtimestamp(1402615373, timezone.utc)),
          ('embedded',       False),
          ('exportable',     True),
-         ('features',       set()),
+         ('features',       None),
          ('hash2',          b'\xc4\x24'),
-         ('hashprefs',      []),
+         ('hashprefs',      None),
          ('hash_algorithm', HashAlgorithm.SHA512),
          ('is_expired',     False),
          ('key_algorithm',  PubKeyAlgorithm.RSAEncryptOrSign),
-         ('key_flags',      set()),
-         ('keyserver',      ''),
-         ('keyserverprefs', []),
+         ('key_flags',      None),
+         ('keyserver',      None),
+         ('keyserverprefs', None),
          ('magic',          "SIGNATURE"),
          ('notation',       {}),
-         ('policy_uri',     ''),
+         ('policy_uri',     None),
          ('revocable',      True),
          ('revocation_key', None),
-         ('signer',         'FCAE54F74BA27CF7'),
+         ('signer',         KeyID('FCAE54F74BA27CF7')),
          ('type',           SignatureType.BinaryDocument)],
 
     'tests/testdata/blocks/eccpubkey.asc':
@@ -297,7 +298,7 @@ block_attrs = {
 
 
 # generic block tests
-class TestBlocks(object):
+class TestBlocks:
     @pytest.mark.parametrize('block', blocks, ids=[os.path.basename(f) for f in blocks])
     def test_load_blob(self, block):
         with open(block) as bf:
@@ -338,7 +339,7 @@ binary = glob.glob('tests/testdata/files/*.bin')
 raw = txt + binary
 
 # armor matching test
-class TestMatching(object):
+class TestMatching:
     @pytest.mark.parametrize('armored', armored, ids=[os.path.basename(f) for f in armored])
     def test_is_armor(self, armored):
         with open(armored) as af:

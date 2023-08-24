@@ -1,17 +1,24 @@
 """ types.py
 """
-from __future__ import division
+from __future__ import annotations
 
 import abc
 import copy
 
-from ..constants import PacketTag
+from typing import Iterator, List, Optional, Tuple, Type, Union
+
+from ..constants import PacketType
 
 from ..decorators import sdproperty
 
+from ..types import DispatchGuidance
 from ..types import Dispatchable
 from ..types import Field
 from ..types import Header as _Header
+
+from ..constants import PubKeyAlgorithm
+from ..constants import SymmetricKeyAlgorithm
+from ..constants import AEADMode
 
 __all__ = ['Header',
            'VersionedHeader',
@@ -24,44 +31,48 @@ __all__ = ['Header',
            'Primary',
            'Sub',
            'MPI',
-           'MPIs', ]
+           'MPIs',
+           'AEADCiphersuiteList',
+           ]
 
 
 class Header(_Header):
     @sdproperty
-    def tag(self):
-        return self._tag
+    def typeid(self) -> PacketType:
+        return self._typeid
 
-    @tag.register(int)
-    @tag.register(PacketTag)
-    def tag_int(self, val):
-        _tag = (val & 0x3F) if self._lenfmt else ((val & 0x3C) >> 2)
-        try:
-            self._tag = PacketTag(_tag)
+    @typeid.register
+    def typeid_int(self, val: int) -> None:
+        if isinstance(val, PacketType):
+            self._typeid = val
+            return
 
-        except ValueError:  # pragma: no cover
-            self._tag = _tag
+        if self._openpgp_format:
+            type_id = (val & 0x3F)
+        else:
+            type_id = ((val & 0x3C) >> 2)
 
-    @property
-    def typeid(self):
-        return self.tag
+        self._typeid = PacketType(type_id)
+        if self._typeid is PacketType.Unknown:
+            self._opaque_typeid = type_id
 
-    def __init__(self):
-        super(Header, self).__init__()
-        self.tag = 0x00
+    def __init__(self) -> None:
+        super().__init__()
+        self._typeid = PacketType.Invalid
 
-    def __bytearray__(self):
-        tag = 0x80 | (self._lenfmt << 6)
-        tag |= (self.tag) if self._lenfmt else ((self.tag << 2) | {1: 0, 2: 1, 4: 2, 0: 3}[self.llen])
+    def __bytearray__(self) -> bytearray:
+        tag = 0x80 | (0x40 if self._openpgp_format else 0x00)
+        tval: int = self._opaque_typeid if self._typeid is PacketType.Unknown else self._typeid
+        tag |= (tval) if self._openpgp_format else ((tval << 2) | {1: 0, 2: 1, 4: 2, 0: 3}[self.llen])
 
-        _bytes = bytearray(self.int_to_bytes(tag))
-        _bytes += self.encode_length(self.length, self._lenfmt, self.llen)
+        _bytes = bytearray([tag])
+        _bytes += self.encode_length(self.length, self._openpgp_format, self.llen)
         return _bytes
 
-    def __len__(self):
+    def __len__(self) -> int:
         return 1 + self.llen
 
-    def parse(self, packet):
+    def parse(self, packet: bytearray) -> None:
         """
         There are two formats for headers
 
@@ -99,13 +110,13 @@ class Header(_Header):
 
         :param packet: raw packet bytes
         """
-        self._lenfmt = ((packet[0] & 0x40) >> 6)
-        self.tag = packet[0]
-        if self._lenfmt == 0:
+        self._openpgp_format = bool(packet[0] & 0x40)
+        self.typeid = packet[0]
+        if not self._openpgp_format:
             self.llen = (packet[0] & 0x03)
         del packet[0]
 
-        if (self._lenfmt == 0 and self.llen > 0) or self._lenfmt == 1:
+        if (not self._openpgp_format and self.llen > 0) or self._openpgp_format:
             self.length = packet
 
         else:
@@ -115,25 +126,25 @@ class Header(_Header):
 
 class VersionedHeader(Header):
     @sdproperty
-    def version(self):
+    def version(self) -> int:
         return self._version
 
-    @version.register(int)
-    def version_int(self, val):
+    @version.register
+    def version_int(self, val: int) -> None:
         self._version = val
 
-    def __init__(self):
-        super(VersionedHeader, self).__init__()
+    def __init__(self) -> None:
+        super().__init__()
         self.version = 0
 
-    def __bytearray__(self):
-        _bytes = bytearray(super(VersionedHeader, self).__bytearray__())
+    def __bytearray__(self) -> bytearray:
+        _bytes = bytearray(super().__bytearray__())
         _bytes += bytearray([self.version])
         return _bytes
 
-    def parse(self, packet):  # pragma: no cover
-        if self.tag == 0:
-            super(VersionedHeader, self).parse(packet)
+    def parse(self, packet: bytearray) -> None:  # pragma: no cover
+        if self.typeid is PacketType.Invalid:
+            super().parse(packet)
 
         if self.version == 0:
             self.version = packet[0]
@@ -141,70 +152,71 @@ class VersionedHeader(Header):
 
 
 class Packet(Dispatchable):
-    __typeid__ = -1
-    __headercls__ = Header
+    __typeid__: Optional[Union[PacketType, DispatchGuidance]] = None
+    __headercls__: Type[Header] = Header
 
-    def __init__(self, _=None):
-        super(Packet, self).__init__()
+    def __init__(self, _=None) -> None:
+        super().__init__()
         self.header = self.__headercls__()
         if isinstance(self.__typeid__, int):
-            self.header.tag = self.__typeid__
+            self.header.typeid = self.__typeid__
 
     @abc.abstractmethod
-    def __bytearray__(self):
+    def __bytearray__(self) -> bytearray:
         return self.header.__bytearray__()
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.header) + self.header.length
 
-    def __repr__(self):
-        return "<{cls:s} [tag {tag:02d}] at 0x{id:x}>".format(cls=self.__class__.__name__, tag=self.header.tag, id=id(self))
+    def __repr__(self) -> str:
+        return f'<{self.__class__.__name__} [type {self.header.typeid:02}] at 0x{id(self):x}>'
 
-    def update_hlen(self):
+    def update_hlen(self) -> None:
         self.header.length = len(self.__bytearray__()) - len(self.header)
 
     @abc.abstractmethod
-    def parse(self, packet):
-        if self.header.tag == 0:
+    def parse(self, packet: bytearray) -> None:
+        if self.header.typeid is PacketType.Invalid:
             self.header.parse(packet)
 
 
 class VersionedPacket(Packet):
+    __typeid__: Union[PacketType, DispatchGuidance] = DispatchGuidance.NoDispatch
     __headercls__ = VersionedHeader
 
-    def __init__(self):
-        super(VersionedPacket, self).__init__()
-        if isinstance(self.__ver__, int):
+    def __init__(self) -> None:
+        super().__init__()
+        if isinstance(self.__ver__, int) and isinstance(self.header, VersionedHeader):
             self.header.version = self.__ver__
 
-    def __repr__(self):
-        return "<{cls:s} [tag {tag:02d}][v{ver:d}] at 0x{id:x}>".format(cls=self.__class__.__name__, tag=self.header.tag,
-                                                                        ver=self.header.version, id=id(self))
+    def __repr__(self) -> str:
+        if not isinstance(self.header, VersionedHeader):
+            raise TypeError(f"VersionedPacket should have VersionedHeader, instead it has {type(self.header)}")
+        return f"<{self.__class__.__name__} [type {self.header.typeid:02}][v{self.header.version}] at 0x{id(self):x}>"
 
 
 class Opaque(Packet):
     __typeid__ = None
 
     @sdproperty
-    def payload(self):
+    def payload(self) -> Union[bytes, bytearray]:
         return self._payload
 
-    @payload.register(bytearray)
-    @payload.register(bytes)
-    def payload_bin(self, val):
+    @payload.register
+    def payload_bin(self, val: Union[bytes, bytearray]) -> None:
         self._payload = val
 
-    def __init__(self):
-        super(Opaque, self).__init__()
+    def __init__(self) -> None:
+        super().__init__()
         self.payload = b''
 
-    def __bytearray__(self):
-        _bytes = super(Opaque, self).__bytearray__()
+    def __bytearray__(self) -> bytearray:
+        _bytes = super().__bytearray__()
         _bytes += self.payload
         return _bytes
 
-    def parse(self, packet):  # pragma: no cover
-        super(Opaque, self).parse(packet)
+    def parse(self, packet: bytearray) -> None:  # pragma: no cover
+        super().parse(packet)
         pend = self.header.length
         if hasattr(self.header, 'version'):
             pend -= 1
@@ -214,8 +226,10 @@ class Opaque(Packet):
 
 
 # key marker classes for convenience
-class Key(object):
-    pass
+class Key:
+    @abc.abstractproperty
+    def pkalg(self) -> PubKeyAlgorithm:
+        """The public key algorithm of the key"""
 
 
 class Public(Key):
@@ -223,7 +237,17 @@ class Public(Key):
 
 
 class Private(Key):
-    pass
+    @abc.abstractmethod
+    def pubkey(self) -> Public:
+        """compute and return the fingerprint of the key"""
+
+    @abc.abstractproperty
+    def protected(self) -> bool:
+        """Whether the secret key material is protected by a password"""
+
+    @abc.abstractproperty
+    def unlocked(self) -> bool:
+        """Is the secret key material is protected and also unlocked for use?"""
 
 
 class Primary(Key):
@@ -234,12 +258,8 @@ class Sub(Key):
     pass
 
 
-# This is required for class MPI to work in both Python 2 and 3
-long = int
-
-
-class MPI(long):
-    def __new__(cls, num):
+class MPI(int):
+    def __new__(cls, num: Union[bytes, bytearray, int]) -> MPI:
         mpi = num
 
         if isinstance(num, (bytes, bytearray)):
@@ -252,34 +272,48 @@ class MPI(long):
             mpi = MPIs.bytes_to_int(num[:fl])
             del num[:fl]
 
-        return super(MPI, cls).__new__(cls, mpi)
+        return super().__new__(cls, mpi)
 
-    def byte_length(self):
+    def byte_length(self) -> int:
         return ((self.bit_length() + 7) // 8)
 
-    def to_mpibytes(self):
+    def to_mpibytes(self) -> bytes:
         return MPIs.int_to_bytes(self.bit_length(), 2) + MPIs.int_to_bytes(self, self.byte_length())
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.byte_length() + 2
 
 
 class MPIs(Field):
     # this differs from MPI in that it's subclasses hold/parse several MPI fields
     # and, in the case of v4 private keys, also a String2Key specifier/information.
-    __mpis__ = ()
+    __mpis__: Tuple[str, ...] = ()
 
-    def __len__(self):
+    def __len__(self) -> int:
         return sum(len(i) for i in self)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[MPI]:
         """yield all components of an MPI so it can be iterated over"""
         for i in self.__mpis__:
             yield getattr(self, i)
 
-    def __copy__(self):
+    def __copy__(self) -> MPIs:
         pk = self.__class__()
         for m in self.__mpis__:
             setattr(pk, m, copy.copy(getattr(self, m)))
 
         return pk
+
+
+class AEADCiphersuiteList(List[Tuple[SymmetricKeyAlgorithm, AEADMode]]):
+    '''a list of AEAD Ciphersuites'''
+
+    def __init__(self, val: List[Tuple[SymmetricKeyAlgorithm, AEADMode]] = []) -> None:
+        for pair in val:
+            self.append(pair)
+
+    def __bytearray__(self) -> bytes:
+        _bytes = bytearray()
+        for pair in self:
+            _bytes += bytes([pair[0], pair[1]])
+        return _bytes

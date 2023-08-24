@@ -35,6 +35,11 @@ To install PGPy, simply:
 
     $ pip install PGPy
 
+Command-Line Interface
+----------------------
+
+This module will install `sopgpy`, an implementation of the `Stateless OpenPGP Command-line Interface <https://datatracker.ietf.org/doc/draft-dkg-openpgp-stateless-cli/>`_.
+
 Documentation
 -------------
 
@@ -52,14 +57,20 @@ Requirements
 
 - Python >= 3.6
 
-  Tested with: 3.10, 3.9, 3.8, 3.7, 3.6
+  Tested with: 3.11, 3.10, 3.9, 3.8, 3.7, 3.6
 
 - `Cryptography <https://pypi.python.org/pypi/cryptography>`_
 
-- `pyasn1 <https://pypi.python.org/pypi/pyasn1/>`_
+- `argon2_cffi <https://pypi.org/project/argon2-cffi/>`_
 
-- `six <https://pypi.python.org/pypi/six>`_
+To use `sopgpy` you'll also need:
 
+- `sop <https://pypi.org/project/sop/>`_ >= 0.5.1
+
+To use EAX as an AEAD mode, you'll also need:
+
+- `Cryptodome <https://pypi.org/project/pycryptodomex/>`_
+  
 License
 -------
 
