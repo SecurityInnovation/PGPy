@@ -52,13 +52,13 @@ class Armorable(metaclass=abc.ABCMeta):
     __armor_regex = re.compile(r"""# This capture group is optional because it will only be present in signed cleartext messages
                          (^-{5}BEGIN\ PGP\ SIGNED\ MESSAGE-{5}(?:\r?\n)
                           (Hash:\ (?P<hashes>[A-Za-z0-9\-,]+)(?:\r?\n){2})?
-                          (?P<cleartext>(.*\r?\n)*(.*(?=\r?\n-{5})))(?:\r?\n)
+                          (?P<cleartext>(^(|([^-]|- )[^\r\n]*)\r?\n)*(^(|([^-]|- )[^\r\n]*))?)(?:\r?\n)
                          )?
                          # armor header line; capture the variable part of the magic text
                          ^-{5}BEGIN\ PGP\ (?P<magic>[A-Z0-9 ,]+)-{5}(?:\r?\n)
                          # try to capture all the headers into one capture group
                          # if this doesn't match, m['headers'] will be None
-                         (?P<headers>(^.+:\ .+(?:\r?\n))+)?(?:\r?\n)?
+                         (?P<headers>(^[a-zA-Z0-9]+:\ [^\r\n]+(?:\r?\n))+)?(?:\r?\n)?
                          # capture all lines of the body, up to 76 characters long,
                          # including the newline, and the pad character(s)
                          (?P<body>([A-Za-z0-9+/]{1,76}={,2}(?:\r?\n))+)
