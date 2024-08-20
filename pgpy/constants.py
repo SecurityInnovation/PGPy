@@ -564,6 +564,9 @@ class KeyFlags(FlagEnum):
 
 class Features(FlagEnum):
     ModificationDetection = 0x01
+    _reserved_1 = 0x02
+    _reserved_2 = 0x04
+    ModificationDetectionV2 = 0x08
 
     @classproperty
     def pgpy_features(cls):
