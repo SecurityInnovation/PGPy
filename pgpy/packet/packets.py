@@ -47,6 +47,8 @@ from ..errors import PGPDecryptionError
 
 from ..symenc import _decrypt
 from ..symenc import _encrypt
+from ..symenc import _decrypt_stream
+from ..symenc import _encrypt_stream
 
 from ..types import Fingerprint
 
@@ -1585,6 +1587,106 @@ class IntegrityProtectedSKEDataV1(IntegrityProtectedSKEData):
             raise PGPDecryptionError("Decryption failed")  # pragma: no cover
 
         return pt
+
+    def encrypt_stream(self, key, alg, data_iterator, chunk_size=65536):
+        """
+        Encrypt data from an iterator in streaming mode.
+        
+        :param key: Encryption key
+        :param alg: Symmetric algorithm
+        :param data_iterator: Iterator yielding data chunks
+        :param chunk_size: Size of chunks to process (default 64KB)
+        :yields: Encrypted data chunks
+        """
+        iv = alg.gen_iv()
+        prefix = iv + iv[-2:]
+        
+        # Create a hash object for MDC computation
+        hasher = hashlib.new('SHA1')
+        hasher.update(prefix)
+        
+        # Generator that yields prefix + data chunks + MDC
+        def data_with_mdc():
+            yield prefix
+            for chunk in data_iterator:
+                if chunk:
+                    hasher.update(bytes(chunk))
+                    yield chunk
+            
+            # Finalize MDC
+            hasher.update(b'\xd3\x14')
+            mdc = MDC()
+            mdc.mdc = binascii.hexlify(hasher.digest())
+            mdc.update_hlen()
+            yield mdc.__bytes__()
+        
+        # Encrypt the stream
+        for encrypted_chunk in _encrypt_stream(data_with_mdc(), key, alg):
+            if encrypted_chunk:
+                yield encrypted_chunk
+
+    def decrypt_stream(self, key, alg, chunk_size=65536):
+        """
+        Decrypt data in streaming mode.
+        
+        :param key: Decryption key
+        :param alg: Symmetric algorithm
+        :param chunk_size: Size of chunks to process (default 64KB)
+        :yields: Decrypted data chunks
+        :raises: PGPDecryptionError if MDC verification fails
+        """
+        # Create iterator from ciphertext
+        def ct_iterator():
+            for i in range(0, len(self.ct), chunk_size):
+                yield bytes(self.ct[i:i+chunk_size])
+        
+        # Decrypt stream and collect for MDC verification
+        # The MDC is computed over: IV + IV[-2:] + plaintext + b'\xd3\x14'
+        # The last 22 bytes of decrypted data are: b'\xd3\x14' + 20-byte SHA1 hash
+        hasher = hashlib.new('SHA1')
+        buffer = bytearray()
+        block_size_bytes = alg.block_size // 8
+        iv_verified = False
+        
+        for decrypted_chunk in _decrypt_stream(ct_iterator(), key, alg):
+            buffer.extend(decrypted_chunk)
+            
+            # Verify IV on first chunk and include it in hash
+            if not iv_verified and len(buffer) >= block_size_bytes + 2:
+                iv = bytes(buffer[:block_size_bytes])
+                ivl2 = bytes(buffer[block_size_bytes:block_size_bytes + 2])
+                if not constant_time.bytes_eq(iv[-2:], ivl2):
+                    raise PGPDecryptionError("Decryption failed - IV check failed")
+                
+                # Hash the IV prefix (IV + IV[-2:])
+                hasher.update(bytes(buffer[:block_size_bytes + 2]))
+                
+                # Remove IV prefix from buffer
+                buffer = buffer[block_size_bytes + 2:]
+                iv_verified = True
+            
+            # Keep last 22 bytes in buffer for MDC, yield the rest
+            # We yield when we have more than 22 bytes + some data
+            if iv_verified:
+                while len(buffer) > 22 + chunk_size:
+                    to_yield = bytes(buffer[:chunk_size])
+                    hasher.update(to_yield)
+                    yield bytearray(to_yield)
+                    buffer = buffer[chunk_size:]
+        
+        # Process remaining buffer (except last 22 bytes which is MDC)
+        if len(buffer) > 22:
+            to_yield = bytes(buffer[:-22])
+            hasher.update(to_yield)
+            yield bytearray(to_yield)
+        
+        # Verify MDC: hash should include b'\xd3\x14'
+        hasher.update(b'\xd3\x14')
+        expected_mdc = hasher.digest()
+        actual_mdc = bytes(buffer[-20:])
+        
+        if not constant_time.bytes_eq(expected_mdc, actual_mdc):
+            raise PGPDecryptionError("Decryption failed - MDC verification failed")
 
 
 class MDC(Packet):
