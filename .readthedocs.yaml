@@ -1,0 +1,29 @@
+# Read the Docs configuration file for PGPy
+# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
+
+version: 2
+
+# Build documentation in the "docs/" directory with Sphinx
+sphinx:
+  configuration: docs/source/conf.py
+
+# Build documentation with MkDocs
+#mkdocs:
+#  configuration: mkdocs.yml
+
+# Optionally build your docs in additional formats such as PDF and ePub
+formats:
+  - pdf
+  - epub
+
+# Python version and dependencies
+build:
+  os: ubuntu-22.04
+  tools:
+    python: "3.11"
+
+python:
+  install:
+    - requirements: requirements-rtd.txt
+    - method: pip
+      path: .
