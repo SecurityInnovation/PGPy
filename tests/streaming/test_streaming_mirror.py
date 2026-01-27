@@ -69,10 +69,10 @@ def test_symmetric_encryption_mirror():
             print(f"  ✗ FAIL - Hash mismatch or data corruption!")
             print(f"    Original: {original_hash[:16]}... ({len(original_data)} bytes)")
             print(f"    Final:    {final_hash[:16]}... ({len(final_data)} bytes)")
-            return False
+            assert False
     
     print("\n✓ All symmetric encryption mirror tests PASSED!")
-    return True
+    pass
 
 
 def test_key_encryption_mirror():
@@ -123,10 +123,10 @@ def test_key_encryption_mirror():
             print(f"  ✗ FAIL - Hash mismatch or data corruption!")
             print(f"    Original: {original_hash[:16]}... ({len(original_data)} bytes)")
             print(f"    Final:    {final_hash[:16]}... ({len(final_data)} bytes)")
-            return False
+            assert False
     
     print("\n✓ All key-based encryption mirror tests PASSED!")
-    return True
+    pass
 
 
 def test_traditional_vs_streaming():
@@ -172,13 +172,13 @@ def test_traditional_vs_streaming():
             print(f"  Original:    {len(test_data)} bytes")
             print(f"  Traditional: {len(traditional_data)} bytes")
             print(f"  Streaming:   {len(streaming_data)} bytes")
-            return True
+            pass
     
     print("\n✗ FAIL - Mismatch detected!")
     print(f"  Original hash:    {original_hash[:16]}...")
     print(f"  Traditional hash: {traditional_hash[:16]}...")
     print(f"  Streaming hash:   {streaming_hash[:16]}...")
-    return False
+    assert False
 
 
 def test_chunk_size_independence():
@@ -222,12 +222,12 @@ def test_chunk_size_independence():
     if len(set(all_hashes)) == 1 and len(set(all_sizes)) == 1:
         if all_hashes[0] == original_hash and all_sizes[0] == len(test_data):
             print("\n✓ PASS - All chunk sizes produce identical results!")
-            return True
+            pass
     
     print("\n✗ FAIL - Different chunk sizes produced different results!")
     for chunk_size, hash_val, size in results:
         print(f"  {chunk_size:6d} bytes: {hash_val[:16]}... ({size} bytes)")
-    return False
+    assert False
 
 
 def test_empty_and_edge_cases():
@@ -275,14 +275,14 @@ def test_empty_and_edge_cases():
                 print(f"  ✗ FAIL - Data mismatch!")
                 print(f"    Expected: {expected!r}")
                 print(f"    Got:      {final_data!r}")
-                return False
+                assert False
                 
         except Exception as e:
             print(f"  ✗ FAIL - Exception: {e}")
-            return False
+            assert False
     
     print("\n✓ All edge case tests PASSED!")
-    return True
+    pass
 
 
 def main():

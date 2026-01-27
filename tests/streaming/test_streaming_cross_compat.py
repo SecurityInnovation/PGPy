@@ -68,10 +68,10 @@ def test_traditional_encrypt_stream_decrypt():
             print(f"  ✓ PASS - {name}")
         else:
             print(f"  ✗ FAIL - {name}")
-            return False
+            assert False
     
     print("\n✓ Traditional encrypt → Streaming decrypt works!")
-    return True
+    pass
 
 
 def test_traditional_encrypt_high_level_stream_decrypt():
@@ -110,10 +110,10 @@ def test_traditional_encrypt_high_level_stream_decrypt():
             print(f"  ✓ PASS - {name}")
         else:
             print(f"  ✗ FAIL - {name}")
-            return False
+            assert False
     
     print("\n✓ Traditional encrypt → High-level stream decrypt works!")
-    return True
+    pass
 
 
 def test_stream_decrypt_traditional_decrypt():
@@ -168,17 +168,17 @@ def test_stream_decrypt_traditional_decrypt():
                 print(f"  ✓ PASS - {name} (all 3 methods match)")
             else:
                 print(f"  ✗ FAIL - {name} (hashes match but data differs)")
-                return False
+                assert False
         else:
             print(f"  ✗ FAIL - {name} (hash mismatch)")
             print(f"    Original:    {original_hash[:16]}...")
             print(f"    Traditional: {traditional_hash[:16]}...")
             print(f"    Streaming:   {streaming_hash[:16]}...")
             print(f"    Low-level:   {lowlevel_hash[:16]}...")
-            return False
+            assert False
     
     print("\n✓ All decrypt methods produce identical results!")
-    return True
+    pass
 
 
 def test_key_based_cross_compat():
@@ -238,13 +238,13 @@ def test_key_based_cross_compat():
                 print(f"  ✓ PASS - {name} (all 3 methods match)")
             else:
                 print(f"  ✗ FAIL - {name} (data mismatch)")
-                return False
+                assert False
         else:
             print(f"  ✗ FAIL - {name} (hash mismatch)")
-            return False
+            assert False
     
     print("\n✓ Key-based cross-compatibility works!")
-    return True
+    pass
 
 
 def test_compression_cross_compat():
@@ -323,10 +323,10 @@ def test_compression_cross_compat():
             print(f"    Trad→Stream:   {hash2[:16]}...")
             print(f"    Stream→Trad:   {hash3[:16]}...")
             print(f"    Stream→Stream: {hash4[:16]}...")
-            return False
+            assert False
     
     print("\n✓ Compression cross-compatibility works!")
-    return True
+    pass
 
 
 def test_multiple_round_trips():
@@ -380,10 +380,10 @@ def test_multiple_round_trips():
     
     if original_hash == hash1 == hash2 == hash3:
         print("\n✓ PASS - Multiple round trips preserve data perfectly!")
-        return True
+        pass
     else:
         print("\n✗ FAIL - Data corruption in round trips!")
-        return False
+        assert False
 
 
 def main():

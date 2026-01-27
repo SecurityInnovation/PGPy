@@ -17,6 +17,14 @@ from cryptography.hazmat.backends import openssl
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.ciphers import algorithms
 
+# Handle TripleDES deprecation - moved to decrepit module
+try:
+    from cryptography.hazmat.decrepit.ciphers import algorithms as decrepit_algorithms
+    _TripleDES = decrepit_algorithms.TripleDES
+except (ImportError, AttributeError):
+    # Fallback for older cryptography versions
+    _TripleDES = algorithms.TripleDES
+
 from .types import FlagEnum
 from .decorators import classproperty
 from ._curves import BrainpoolP256R1, BrainpoolP384R1, BrainpoolP512R1, X25519, Ed25519
@@ -189,7 +197,7 @@ class SymmetricKeyAlgorithm(IntEnum):
     @property
     def cipher(self):
         bs = {SymmetricKeyAlgorithm.IDEA: algorithms.IDEA,
-              SymmetricKeyAlgorithm.TripleDES: algorithms.TripleDES,
+              SymmetricKeyAlgorithm.TripleDES: _TripleDES,
               SymmetricKeyAlgorithm.CAST5: algorithms.CAST5,
               SymmetricKeyAlgorithm.Blowfish: algorithms.Blowfish,
               SymmetricKeyAlgorithm.AES128: algorithms.AES,

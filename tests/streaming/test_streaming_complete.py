@@ -60,10 +60,10 @@ def test_compression_streaming():
             print(f"  ✓ PASS - Perfect round-trip")
         else:
             print(f"  ✗ FAIL - Data corruption!")
-            return False
+            assert False
     
     print("\n✓ All compression streaming tests PASSED!")
-    return True
+    pass
 
 
 def test_high_level_api_uncompressed():
@@ -95,12 +95,12 @@ def test_high_level_api_uncompressed():
     
     if final_hash == original_hash and final_data == test_data:
         print("✓ PASS - High-level API works perfectly!")
-        return True
+        pass
     else:
         print("✗ FAIL - Data mismatch!")
         print(f"  Expected: {len(test_data)} bytes")
         print(f"  Got: {len(final_data)} bytes")
-        return False
+        assert False
 
 
 def test_high_level_api_compressed():
@@ -141,10 +141,10 @@ def test_high_level_api_compressed():
             print(f"  ✗ FAIL - {name} decompression failed!")
             print(f"    Expected: {len(test_data)} bytes, hash {original_hash[:16]}...")
             print(f"    Got: {len(final_data)} bytes, hash {final_hash[:16]}...")
-            return False
+            assert False
     
     print("\n✓ All compressed high-level API tests PASSED!")
-    return True
+    pass
 
 
 def test_key_based_high_level():
@@ -185,10 +185,10 @@ def test_key_based_high_level():
             print(f"  ✓ PASS - {name} works!")
         else:
             print(f"  ✗ FAIL - {name} failed!")
-            return False
+            assert False
     
     print("\n✓ Key-based high-level API tests PASSED!")
-    return True
+    pass
 
 
 def test_large_data_streaming():
@@ -227,10 +227,10 @@ def test_large_data_streaming():
     
     if final_hash == original_hash and total_bytes == len(test_data):
         print(f"✓ PASS - {data_size_mb}MB processed successfully in streaming mode!")
-        return True
+        pass
     else:
         print("✗ FAIL - Hash or size mismatch!")
-        return False
+        assert False
 
 
 def main():

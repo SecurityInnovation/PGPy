@@ -47,10 +47,10 @@ def test_crc24_accuracy():
             print(f"  ✓ PASS")
         else:
             print(f"  ✗ FAIL - CRC24 mismatch!")
-            return False
+            assert False
     
     print("\n✓ CRC24 accuracy test PASSED!")
-    return True
+    pass
 
 
 def test_armor_encoding_format():
@@ -139,7 +139,7 @@ def test_armor_round_trip():
         dearmored_msg = pgpy.PGPMessage.from_armored_stream(line_iterator())
     except ValueError as e:
         print(f"  ✗ FAIL - Dearmoring failed: {e}")
-        return False
+        assert False
     
     # Decrypt
     print("Decrypting...")
@@ -162,10 +162,10 @@ def test_armor_round_trip():
     
     if final_hash == original_hash and final_data == test_data:
         print("\n✓ Armor round trip test PASSED!")
-        return True
+        pass
     else:
         print("\n✗ Armor round trip test FAILED!")
-        return False
+        assert False
 
 
 def test_traditional_vs_streaming_armor():
@@ -238,10 +238,10 @@ def test_traditional_vs_streaming_armor():
     
     if original_hash == trad_hash == stream_hash:
         print("\n✓ Traditional vs streaming armor test PASSED!")
-        return True
+        pass
     else:
         print("\n✗ Traditional vs streaming armor test FAILED!")
-        return False
+        assert False
 
 
 def test_key_armor_streaming():
@@ -275,7 +275,7 @@ def test_key_armor_streaming():
         dearmored_key = dearmored_result[0] if isinstance(dearmored_result, tuple) else dearmored_result
     except ValueError as e:
         print(f"  ✗ FAIL - Dearmoring failed: {e}")
-        return False
+        assert False
     
     # Compare fingerprints
     original_fp = key.fingerprint
@@ -286,10 +286,10 @@ def test_key_armor_streaming():
     
     if original_fp == dearmored_fp:
         print("\n✓ Key armor streaming test PASSED!")
-        return True
+        pass
     else:
         print("\n✗ Key armor streaming test FAILED!")
-        return False
+        assert False
 
 
 def test_large_data_armor():
@@ -349,10 +349,10 @@ def test_large_data_armor():
     
     if final_hash == original_hash and len(final_data) == len(test_data):
         print(f"\n✓ {data_size_mb}MB armor streaming test PASSED!")
-        return True
+        pass
     else:
         print(f"\n✗ {data_size_mb}MB armor streaming test FAILED!")
-        return False
+        assert False
 
 
 def test_crc24_verification():
@@ -386,15 +386,15 @@ def test_crc24_verification():
     try:
         pgpy.PGPMessage.from_armored_stream(line_iterator())
         print("  ✗ FAIL - Corruption not detected!")
-        return False
+        assert False
     except ValueError as e:
         # Corruption can be detected either by CRC24 mismatch or base64 decode error
         if "CRC24" in str(e) or "base64" in str(e) or "Invalid" in str(e):
             print(f"  ✓ PASS - Corruption detected: {e}")
-            return True
+            pass
         else:
             print(f"  ✗ FAIL - Wrong error: {e}")
-            return False
+            assert False
 
 
 def main():
