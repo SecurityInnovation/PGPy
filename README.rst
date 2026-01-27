@@ -22,7 +22,7 @@ PGPy: Pretty Good Privacy for Python
 Disclaimer
 ----------
 
-`PGPy13` is a (hopefully) temporary fork of the `main PGPy project <https://github.com/SecurityInnovation/PGPy>`_ with
+`PGPy` is a (hopefully) temporary fork of the `main PGPy project <https://github.com/SecurityInnovation/PGPy>`_ with
 two patches installed:
 
 1. the removal of a reference to the `imghdr` library, which was removed from the Python3 standard library in 3.13.
@@ -44,11 +44,11 @@ It can create and verify RSA, DSA, and ECDSA signatures, at the moment. It can a
 Installation
 ------------
 
-To install PGPy13, simply:
+To install PGPy, simply:
 
 .. code-block:: bash
 
-    $ pip install PGPy13
+    $ pip install PGPy
 
 Documentation
 -------------
