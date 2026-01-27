@@ -1266,6 +1266,148 @@ class PGPMessage(Armorable, PGPObject):
 
         return decmsg
 
+    def decrypt_stream(self, passphrase, chunk_size=65536):
+        """
+        Decrypt this message using a passphrase in streaming mode.
+        
+        :param passphrase: The passphrase to use to decrypt this message.
+        :type passphrase: ``str``, ``unicode``, ``bytes``
+        :param chunk_size: Size of chunks to yield (default 64KB)
+        :yields: Decrypted data chunks as bytearrays
+        :raises: :py:exc:`~errors.PGPDecryptionError` if decryption failed for any reason.
+        """
+        if not self.is_encrypted:
+            raise PGPError("This message is not encrypted!")
+
+        for skesk in iter(sk for sk in self._sessionkeys if isinstance(sk, SKESessionKey)):
+            try:
+                symalg, key = skesk.decrypt_sk(passphrase)
+                del passphrase
+                
+                # Stream decrypt the message
+                for chunk in self.message.decrypt_stream(key, symalg, chunk_size):
+                    yield chunk
+                return
+                
+            except (TypeError, ValueError, NotImplementedError, PGPDecryptionError):
+                continue
+
+        raise PGPDecryptionError("Decryption failed")
+
+    def encrypt_stream(self, passphrase, data_iterator, sessionkey=None, chunk_size=65536, **prefs):
+        """
+        Encrypt data from an iterator using a passphrase in streaming mode.
+        
+        :param passphrase: The passphrase to use for encrypting.
+        :type passphrase: ``str``, ``unicode``, ``bytes``
+        :param data_iterator: Iterator yielding data chunks to encrypt
+        :param sessionkey: Optional session key (will be generated if None)
+        :param chunk_size: Size of chunks to process (default 64KB)
+        :yields: Encrypted data chunks
+        :raises: :py:exc:`~errors.PGPEncryptionError`
+        """
+        cipher_algo = prefs.pop('cipher', SymmetricKeyAlgorithm.AES256)
+        hash_algo = prefs.pop('hash', HashAlgorithm.SHA256)
+
+        # set up a new SKESessionKeyV4
+        skesk = SKESessionKeyV4()
+        skesk.s2k.usage = 255
+        skesk.s2k.specifier = 3
+        skesk.s2k.halg = hash_algo
+        skesk.s2k.encalg = cipher_algo
+        skesk.s2k.count = skesk.s2k.halg.tuned_count
+
+        if sessionkey is None:
+            sessionkey = cipher_algo.gen_key()
+        skesk.encrypt_sk(passphrase, sessionkey)
+        del passphrase
+
+        # Create the encrypted data packet
+        skedata = IntegrityProtectedSKEDataV1()
+        
+        # Stream encrypt the data
+        for chunk in skedata.encrypt_stream(sessionkey, cipher_algo, data_iterator, chunk_size):
+            yield chunk
+
+    def decrypt_to_plaintext_stream(self, passphrase, chunk_size=65536):
+        """
+        High-level streaming decrypt that yields final plaintext chunks.
+        Handles decompression and parsing automatically.
+        
+        :param passphrase: The passphrase to use to decrypt this message.
+        :type passphrase: ``str``, ``unicode``, ``bytes``
+        :param chunk_size: Size of chunks to yield (default 64KB)
+        :yields: Final plaintext data chunks as bytearrays
+        :raises: :py:exc:`~errors.PGPDecryptionError` if decryption failed for any reason.
+        """
+        if not self.is_encrypted:
+            raise PGPError("This message is not encrypted!")
+
+        # First, decrypt to get packet data
+        decrypted_packet_chunks = []
+        for chunk in self.decrypt_stream(passphrase, chunk_size):
+            decrypted_packet_chunks.append(bytes(chunk))
+        
+        # Parse the decrypted packet data
+        # Note: parse() automatically handles decompression if needed
+        decrypted_packet_data = b''.join(decrypted_packet_chunks)
+        decrypted_msg = PGPMessage()
+        decrypted_msg.parse(decrypted_packet_data)
+        
+        # Extract the final plaintext content and yield in chunks
+        if hasattr(decrypted_msg.message, '_contents'):
+            content = bytes(decrypted_msg.message._contents)
+        elif isinstance(decrypted_msg.message, bytes):
+            content = decrypted_msg.message
+        elif isinstance(decrypted_msg.message, str):
+            content = decrypted_msg.message.encode('utf-8')
+        else:
+            # Fallback
+            content = bytes(decrypted_msg.message)
+        
+        # Yield content in chunks
+        for i in range(0, len(content), chunk_size):
+            yield bytearray(content[i:i+chunk_size])
+    
+    def to_armored_stream(self, chunk_size=65536):
+        """
+        Export message as ASCII-armored stream.
+        
+        :param chunk_size: Size of chunks to process (default 64KB)
+        :yields: ASCII-armored text lines
+        """
+        # Capture bytes once to ensure consistency
+        data = self.__bytes__()
+        
+        def data_generator():
+            for i in range(0, len(data), chunk_size):
+                yield data[i:i+chunk_size]
+        
+        return self.armor_stream(data_generator(), chunk_size)
+    
+    @classmethod
+    def from_armored_stream(cls, line_iterator):
+        """
+        Load message from ASCII-armored stream.
+        
+        :param line_iterator: Iterator yielding text lines
+        :returns: Tuple of (PGPMessage, remaining_data or None)
+        :raises: :py:exc:`ValueError` if CRC24 verification fails
+        """
+        # Collect binary chunks from dearmored stream
+        binary_chunks = []
+        for chunk in cls.dearmor_stream(line_iterator):
+            binary_chunks.append(chunk)
+        
+        # Parse the binary data
+        binary_data = b''.join(binary_chunks)
+        msg = cls()
+        remaining = msg.parse(binary_data)
+        
+        if remaining:
+            return (msg, remaining)
+        return msg
+
     def parse(self, packet):
         unarmored = self.ascii_unarmor(packet)
         data = unarmored['body']
@@ -2594,6 +2736,166 @@ class PGPKey(Armorable, ParentRef, PGPObject):
         decmsg.parse(message.message.decrypt(key, alg))
 
         return decmsg
+
+    @KeyAction(is_unlocked=True, is_public=False)
+    def decrypt_stream(self, message, chunk_size=65536):
+        """
+        Decrypt a PGPMessage using this key in streaming mode.
+
+        :param message: An encrypted :py:obj:`PGPMessage`
+        :param chunk_size: Size of chunks to yield (default 64KB)
+        :yields: Decrypted data chunks as bytearrays
+        :raises: :py:exc:`~errors.PGPError` if the key is not private, or protected but not unlocked.
+        :raises: :py:exc:`~errors.PGPDecryptionError` if decryption fails for any other reason.
+        """
+        if not message.is_encrypted:
+            warnings.warn("This message is not encrypted", stacklevel=3)
+            return
+
+        if self.fingerprint.keyid not in message.encrypters:
+            sks = set(self.subkeys)
+            mis = set(message.encrypters)
+            if sks & mis:
+                skid = list(sks & mis)[0]
+                for chunk in self.subkeys[skid].decrypt_stream(message, chunk_size):
+                    yield chunk
+                return
+
+            raise PGPError("Cannot decrypt the provided message with this key")
+
+        pkesk = next(pk for pk in message._sessionkeys if pk.pkalg == self.key_algorithm and pk.encrypter == self.fingerprint.keyid)
+        alg, key = pkesk.decrypt_sk(self._key)
+
+        # Stream decrypt the actual message
+        for chunk in message.message.decrypt_stream(key, alg, chunk_size):
+            yield chunk
+
+    @KeyAction(KeyFlags.EncryptCommunications, KeyFlags.EncryptStorage, is_public=True)
+    def encrypt_stream(self, data_iterator, sessionkey=None, chunk_size=65536, **prefs):
+        """
+        Encrypt data from an iterator using this key in streaming mode.
+
+        :param data_iterator: Iterator yielding data chunks to encrypt
+        :param sessionkey: Provide a session key (optional, will be generated if None)
+        :param chunk_size: Size of chunks to process (default 64KB)
+        :yields: Encrypted data chunks
+        :raises: :py:exc:`~errors.PGPEncryptionError` if encryption failed for any reason.
+
+        The following optional keyword arguments can be used:
+
+        :keyword cipher: Specifies the symmetric block cipher to use.
+        :type cipher: :py:obj:`~constants.SymmetricKeyAlgorithm`
+        :keyword user: Specifies the User ID to use as the recipient.
+        :type user: ``str``, ``unicode``
+        """
+        user = prefs.pop('user', None)
+        uid = None
+        if user is not None:
+            uid = self.get_uid(user)
+        else:
+            uid = next(iter(self.userids), None)
+            if uid is None and self.parent is not None:
+                uid = next(iter(self.parent.userids), None)
+        pref_cipher = next((c for c in uid.selfsig.cipherprefs if c.is_supported), SymmetricKeyAlgorithm.TripleDES)
+        cipher_algo = prefs.pop('cipher', pref_cipher)
+
+        if cipher_algo not in uid.selfsig.cipherprefs:
+            warnings.warn("Selected symmetric algorithm not in key preferences", stacklevel=3)
+
+        if sessionkey is None:
+            sessionkey = cipher_algo.gen_key()
+
+        # set up a new PKESessionKeyV3
+        pkesk = PKESessionKeyV3()
+        pkesk.encrypter = bytearray(binascii.unhexlify(self.fingerprint.keyid.encode('latin-1')))
+        pkesk.pkalg = self.key_algorithm
+        pkesk.encrypt_sk(self._key, cipher_algo, sessionkey)
+
+        # Create the encrypted data packet and stream encrypt
+        skedata = IntegrityProtectedSKEDataV1()
+        for chunk in skedata.encrypt_stream(sessionkey, cipher_algo, data_iterator, chunk_size):
+            yield chunk
+
+    @KeyAction(is_unlocked=True, is_public=False)
+    def decrypt_to_plaintext_stream(self, message, chunk_size=65536):
+        """
+        High-level streaming decrypt that yields final plaintext chunks.
+        Handles decompression and parsing automatically.
+        
+        :param message: An encrypted :py:obj:`PGPMessage`
+        :param chunk_size: Size of chunks to yield (default 64KB)
+        :yields: Final plaintext data chunks as bytearrays
+        :raises: :py:exc:`~errors.PGPError` if the key is not private, or protected but not unlocked.
+        :raises: :py:exc:`~errors.PGPDecryptionError` if decryption fails for any other reason.
+        """
+        if not message.is_encrypted:
+            warnings.warn("This message is not encrypted", stacklevel=3)
+            return
+
+        # First, decrypt to get packet data
+        decrypted_packet_chunks = []
+        for chunk in self.decrypt_stream(message, chunk_size):
+            decrypted_packet_chunks.append(bytes(chunk))
+        
+        # Parse the decrypted packet data
+        # Note: parse() automatically handles decompression if needed
+        decrypted_packet_data = b''.join(decrypted_packet_chunks)
+        decrypted_msg = PGPMessage()
+        decrypted_msg.parse(decrypted_packet_data)
+        
+        # Extract the final plaintext content and yield in chunks
+        if hasattr(decrypted_msg.message, '_contents'):
+            content = bytes(decrypted_msg.message._contents)
+        elif isinstance(decrypted_msg.message, bytes):
+            content = decrypted_msg.message
+        elif isinstance(decrypted_msg.message, str):
+            content = decrypted_msg.message.encode('utf-8')
+        else:
+            # Fallback
+            content = bytes(decrypted_msg.message)
+        
+        # Yield content in chunks
+        for i in range(0, len(content), chunk_size):
+            yield bytearray(content[i:i+chunk_size])
+    
+    def to_armored_stream(self, chunk_size=65536):
+        """
+        Export key as ASCII-armored stream.
+        
+        :param chunk_size: Size of chunks to process (default 64KB)
+        :yields: ASCII-armored text lines
+        """
+        # Capture bytes once to ensure consistency
+        data = self.__bytes__()
+        
+        def data_generator():
+            for i in range(0, len(data), chunk_size):
+                yield data[i:i+chunk_size]
+        
+        return self.armor_stream(data_generator(), chunk_size)
+    
+    @classmethod
+    def from_armored_stream(cls, line_iterator):
+        """
+        Load key from ASCII-armored stream.
+        
+        :param line_iterator: Iterator yielding text lines
+        :returns: Tuple of (PGPKey, remaining_data or None)
+        :raises: :py:exc:`ValueError` if CRC24 verification fails
+        """
+        # Collect binary chunks from dearmored stream
+        binary_chunks = []
+        for chunk in cls.dearmor_stream(line_iterator):
+            binary_chunks.append(chunk)
+        
+        # Parse the binary data
+        binary_data = b''.join(binary_chunks)
+        key = cls()
+        remaining = key.parse(binary_data)
+        
+        if remaining:
+            return (key, remaining)
+        return key
 
     def parse(self, data):
         unarmored = self.ascii_unarmor(data)

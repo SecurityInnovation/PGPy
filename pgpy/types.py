@@ -22,6 +22,7 @@ from .decorators import sdproperty
 from .errors import PGPError
 
 __all__ = ['Armorable',
+           'StreamingArmor',
            'ParentRef',
            'PGPObject',
            'Field',
@@ -222,6 +223,217 @@ class Armorable(metaclass=abc.ABCMeta):
         obj.ascii_headers = self.ascii_headers.copy()
 
         return obj
+    
+    def armor_stream(self, data_iterator, chunk_size=65536):
+        """
+        Encode data as ASCII armor in streaming mode.
+        
+        :param data_iterator: Iterator yielding binary data chunks
+        :param chunk_size: Size of chunks to process (default 64KB)
+        :yields: ASCII-armored text lines
+        """
+        armor = StreamingArmor(self.magic, self.ascii_headers)
+        return armor.encode_stream(data_iterator, chunk_size)
+    
+    @classmethod
+    def dearmor_stream(cls, line_iterator):
+        """
+        Decode ASCII-armored data in streaming mode.
+        
+        :param line_iterator: Iterator yielding text lines
+        :yields: Binary data chunks
+        :raises: :py:exc:`ValueError` if CRC24 verification fails
+        """
+        armor = StreamingArmor()
+        return armor.decode_stream(line_iterator)
+
+
+class StreamingArmor:
+    """
+    Streaming ASCII armor encoder/decoder with incremental CRC24 computation.
+    Enables constant-memory armor encoding/decoding of large data.
+    """
+    
+    CRC24_INIT = 0x0B704CE
+    CRC24_POLY = 0x1864CFB
+    LINE_LENGTH = 64
+    
+    def __init__(self, magic='MESSAGE', headers=None):
+        """
+        Initialize streaming armor encoder/decoder.
+        
+        :param magic: PGP block type (MESSAGE, SIGNATURE, PUBLIC KEY BLOCK, etc.)
+        :param headers: Optional OrderedDict of ASCII armor headers
+        """
+        self.magic = magic
+        self.headers = headers or collections.OrderedDict()
+        self.crc = self.CRC24_INIT
+        self.line_buffer = bytearray()
+    
+    def _update_crc24(self, data):
+        """
+        Update CRC24 checksum with new data.
+        
+        :param data: Bytes to add to CRC24 computation
+        """
+        for byte in data:
+            self.crc ^= byte << 16
+            for _ in range(8):
+                self.crc <<= 1
+                if self.crc & 0x1000000:
+                    self.crc ^= self.CRC24_POLY
+            self.crc &= 0xFFFFFF
+    
+    def encode_stream(self, data_iterator, chunk_size=65536):
+        """
+        Encode binary data as ASCII armor in streaming mode.
+        
+        :param data_iterator: Iterator yielding binary data chunks
+        :param chunk_size: Size of chunks to process
+        :yields: ASCII-armored text lines
+        
+        Uses proper streaming base64 encoding by processing in multiples of 3 bytes.
+        """
+        # Yield header
+        yield f"-----BEGIN PGP {self.magic}-----\n"
+        
+        # Yield headers if any
+        if self.headers:
+            for key, val in self.headers.items():
+                yield f"{key}: {val}\n"
+        
+        yield "\n"  # Empty line after headers
+        
+        # Buffer for incomplete 3-byte groups
+        binary_buffer = bytearray()
+        b64_line_buffer = ''
+        
+        for chunk in data_iterator:
+            if not chunk:
+                continue
+            
+            # Update CRC24 incrementally
+            self._update_crc24(chunk)
+            
+            # Add to buffer
+            binary_buffer.extend(chunk)
+            
+            # Process complete 3-byte groups (base64 encodes 3 bytes -> 4 chars)
+            while len(binary_buffer) >= 3:
+                # Take 3 bytes at a time
+                three_bytes = bytes(binary_buffer[:3])
+                binary_buffer = binary_buffer[3:]
+                
+                # Encode to base64 (will produce exactly 4 characters, no padding)
+                b64_chars = base64.b64encode(three_bytes).decode('latin-1')
+                b64_line_buffer += b64_chars
+                
+                # Yield complete 64-character lines
+                while len(b64_line_buffer) >= self.LINE_LENGTH:
+                    yield b64_line_buffer[:self.LINE_LENGTH] + '\n'
+                    b64_line_buffer = b64_line_buffer[self.LINE_LENGTH:]
+        
+        # Handle remaining bytes (will have padding)
+        if binary_buffer:
+            b64_chars = base64.b64encode(bytes(binary_buffer)).decode('latin-1')
+            b64_line_buffer += b64_chars
+        
+        # Yield remaining line buffer
+        if b64_line_buffer:
+            yield b64_line_buffer + '\n'
+        
+        # Yield CRC24 checksum
+        crc_bytes = self.crc.to_bytes(3, 'big')
+        crc_b64 = base64.b64encode(crc_bytes).decode('latin-1')
+        yield f"={crc_b64}\n"
+        
+        # Yield footer
+        yield f"-----END PGP {self.magic}-----\n"
+    
+    def decode_stream(self, line_iterator):
+        """
+        Decode ASCII-armored data in streaming mode.
+        
+        :param line_iterator: Iterator yielding text lines
+        :yields: Binary data chunks
+        :raises: :py:exc:`ValueError` if CRC24 verification fails
+        """
+        in_body = False
+        in_headers = False
+        crc_expected = None
+        crc_computed = self.CRC24_INIT
+        headers = collections.OrderedDict()
+        
+        for line in line_iterator:
+            # Handle different line endings
+            line = line.rstrip('\r\n')
+            
+            # Check for header
+            if line.startswith('-----BEGIN PGP'):
+                # Extract magic
+                match = re.match(r'-----BEGIN PGP (.+)-----', line)
+                if match:
+                    self.magic = match.group(1)
+                in_headers = True
+                continue
+            
+            # Parse headers
+            if in_headers:
+                if not line:
+                    # Empty line marks end of headers
+                    in_body = True
+                    in_headers = False
+                    continue
+                
+                # Parse header line
+                if ':' in line:
+                    key, val = line.split(':', 1)
+                    headers[key.strip()] = val.strip()
+                    continue
+            
+            # Check for CRC24 line
+            if line.startswith('='):
+                crc_b64 = line[1:]
+                try:
+                    crc_expected = int.from_bytes(
+                        base64.b64decode(crc_b64), 'big'
+                    )
+                except (binascii.Error, ValueError) as e:
+                    raise ValueError(f"Invalid CRC24 encoding: {e}")
+                continue
+            
+            # Check for footer
+            if line.startswith('-----END PGP'):
+                break
+            
+            # Decode base64 body data
+            if in_body and line:
+                try:
+                    decoded = base64.b64decode(line)
+                except (binascii.Error, ValueError) as e:
+                    raise ValueError(f"Invalid base64 encoding: {e}")
+                
+                # Update CRC24 incrementally
+                for byte in decoded:
+                    crc_computed ^= byte << 16
+                    for _ in range(8):
+                        crc_computed <<= 1
+                        if crc_computed & 0x1000000:
+                            crc_computed ^= self.CRC24_POLY
+                    crc_computed &= 0xFFFFFF
+                
+                yield decoded
+        
+        # Verify CRC24
+        if crc_expected is not None:
+            if crc_computed != crc_expected:
+                raise ValueError(
+                    f"CRC24 checksum mismatch: expected 0x{crc_expected:06X}, "
+                    f"got 0x{crc_computed:06X}"
+                )
+        
+        # Store parsed headers
+        self.headers = headers
 
 
 class ParentRef(object):

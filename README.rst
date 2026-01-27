@@ -19,6 +19,21 @@ PGPy: Pretty Good Privacy for Python
 
 `PGPy` is a Python library for implementing Pretty Good Privacy into Python programs, conforming to the OpenPGP specification per RFC 4880.
 
+Disclaimer
+----------
+
+`PGPy` is a (hopefully) temporary fork of the `main PGPy project <https://github.com/SecurityInnovation/PGPy>`_ with
+two patches installed:
+
+1. the removal of a reference to the `imghdr` library, which was removed from the Python3 standard library in 3.13.
+2. the requirements for the cryptography library now specify v38 or higher; see `PR #403 <https://github.com/SecurityInnovation/PGPy/pull/403>`_
+
+Support for EOLed versions of python (<3.9) is also removed, but this is purely a package metadata change.
+
+When and if `issue #462 <https://github.com/SecurityInnovation/PGPy/issues/462>`_ is
+resolved and a new release of the upstream project happens, this fork will be taken down. I am not proposing to become
+PGPy's new maintainer, and will not be accepting pull requests or bug reports at this time.
+
 Features
 --------
 
@@ -50,9 +65,9 @@ You can also join ``#pgpy`` on Freenode to ask questions or get involved
 Requirements
 ------------
 
-- Python >= 3.6
+- Python >= 3.9
 
-  Tested with: 3.10, 3.9, 3.8, 3.7, 3.6
+  Tested with: 3.13, 3.12, 3.11, 3.10, 3.9
 
 - `Cryptography <https://pypi.python.org/pypi/cryptography>`_
 

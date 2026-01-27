@@ -8,4 +8,6 @@ Examples
 
 .. include:: examples/actions.rst
 
+.. include:: examples/streaming.rst
+
 .. include:: examples/exporting.rst

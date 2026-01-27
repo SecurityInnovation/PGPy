@@ -2,7 +2,6 @@
 """
 import bz2
 import hashlib
-import imghdr
 import os
 import zlib
 import warnings
@@ -17,6 +16,14 @@ from pyasn1.type.univ import ObjectIdentifier
 from cryptography.hazmat.backends import openssl
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.ciphers import algorithms
+
+# Handle TripleDES deprecation - moved to decrepit module
+try:
+    from cryptography.hazmat.decrepit.ciphers import algorithms as decrepit_algorithms
+    _TripleDES = decrepit_algorithms.TripleDES
+except (ImportError, AttributeError):
+    # Fallback for older cryptography versions
+    _TripleDES = algorithms.TripleDES
 
 from .types import FlagEnum
 from .decorators import classproperty
@@ -190,7 +197,7 @@ class SymmetricKeyAlgorithm(IntEnum):
     @property
     def cipher(self):
         bs = {SymmetricKeyAlgorithm.IDEA: algorithms.IDEA,
-              SymmetricKeyAlgorithm.TripleDES: algorithms.TripleDES,
+              SymmetricKeyAlgorithm.TripleDES: _TripleDES,
               SymmetricKeyAlgorithm.CAST5: algorithms.CAST5,
               SymmetricKeyAlgorithm.Blowfish: algorithms.Blowfish,
               SymmetricKeyAlgorithm.AES128: algorithms.AES,
@@ -348,6 +355,73 @@ class CompressionAlgorithm(IntEnum):
 
         raise NotImplementedError(self)
 
+    def compress_stream(self, data_iterator):
+        """
+        Compress data from an iterator in streaming mode.
+        
+        :param data_iterator: Iterator yielding data chunks
+        :yields: Compressed data chunks
+        """
+        if self is CompressionAlgorithm.Uncompressed:
+            for chunk in data_iterator:
+                if chunk:
+                    yield chunk
+            return
+
+        if self is CompressionAlgorithm.ZIP:
+            compressor = zlib.compressobj(zlib.Z_DEFAULT_COMPRESSION, zlib.DEFLATED, -15)
+        elif self is CompressionAlgorithm.ZLIB:
+            compressor = zlib.compressobj()
+        elif self is CompressionAlgorithm.BZ2:
+            compressor = bz2.BZ2Compressor()
+        else:
+            raise NotImplementedError(self)
+
+        for chunk in data_iterator:
+            if chunk:
+                compressed = compressor.compress(bytes(chunk))
+                if compressed:
+                    yield compressed
+        
+        # Flush remaining data
+        final = compressor.flush()
+        if final:
+            yield final
+
+    def decompress_stream(self, data_iterator):
+        """
+        Decompress data from an iterator in streaming mode.
+        
+        :param data_iterator: Iterator yielding compressed data chunks
+        :yields: Decompressed data chunks
+        """
+        if self is CompressionAlgorithm.Uncompressed:
+            for chunk in data_iterator:
+                if chunk:
+                    yield chunk
+            return
+
+        if self is CompressionAlgorithm.ZIP:
+            decompressor = zlib.decompressobj(-15)
+        elif self is CompressionAlgorithm.ZLIB:
+            decompressor = zlib.decompressobj()
+        elif self is CompressionAlgorithm.BZ2:
+            decompressor = bz2.BZ2Decompressor()
+        else:
+            raise NotImplementedError(self)
+
+        for chunk in data_iterator:
+            if chunk:
+                decompressed = decompressor.decompress(bytes(chunk))
+                if decompressed:
+                    yield decompressed
+        
+        # Flush any remaining data (for zlib/bz2)
+        if hasattr(decompressor, 'flush'):
+            final = decompressor.flush()
+            if final:
+                yield final
+
 
 class HashAlgorithm(IntEnum):
     """Supported hash algorithms."""
@@ -429,8 +503,7 @@ class ImageEncoding(IntEnum):
 
     @classmethod
     def encodingof(cls, imagebytes):
-        type = imghdr.what(None, h=imagebytes)
-        if type == 'jpeg':
+        if imagebytes[6:10] in (b'JFIF', b'Exif') or imagebytes[:4] == b'\xff\xd8\xff\xdb':
             return ImageEncoding.JPEG
         return ImageEncoding.Unknown  # pragma: no cover
 
