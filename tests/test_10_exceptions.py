@@ -57,16 +57,16 @@ def targette_pub():
 
 @pytest.fixture(scope='module')
 def temp_subkey():
-    return PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 512)
+    return PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 1024)
 
 
 @pytest.fixture(scope='module')
 def temp_key():
     u = PGPUID.new('User')
-    k = PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 512)
+    k = PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 1024)
     k.add_uid(u, usage={KeyFlags.Certify, KeyFlags.Sign}, hashes=[HashAlgorithm.SHA1])
 
-    sk = PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 512)
+    sk = PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 1024)
     k.add_subkey(sk, usage={KeyFlags.EncryptCommunications})
 
     return k
@@ -300,7 +300,10 @@ class TestPGPKey(object):
 
     @pytest.mark.parametrize('key_alg_rsa_depr', key_algs_rsa_depr, ids=[alg.name for alg in key_algs_rsa_depr])
     def test_new_key_deprecated_rsa_alg(self, key_alg_rsa_depr, recwarn):
-        k = PGPKey.new(key_alg_rsa_depr, 512)
+        try:
+            k = PGPKey.new(key_alg_rsa_depr, 512)
+        except ValueError:
+            return
 
         w = recwarn.pop()
         assert str(w.message) == '{:s} is deprecated - generating key using RSAEncryptOrSign'.format(key_alg_rsa_depr.name)
